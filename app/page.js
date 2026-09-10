@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 export default function HomePage() {
     return (
           <iframe
-        src="/shopeeos.html"
+        src="/shopeeos.html?v=gestor-26c43da"
         title="ShopeeOS"
         style={{
                   position: "fixed",
