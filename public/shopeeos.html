@@ -777,9 +777,9 @@
   </div>
 
   <div class="statusbar">
-    <span><span class="dot"></span>Shopee API conectada</span>
+    <span id="connectionStatus"><span class="dot"></span>Verificando conexão Shopee…</span>
     <span>Cron diário às 08:00</span>
-    <span>Pré-visualização com dados de exemplo</span>
+    <span id="dataStatus">Carregando dados da loja…</span>
   </div>
 </div>
 
@@ -2332,6 +2332,99 @@
     {key:"concluido", label:"Concluído"},
     {key:"cancelado", label:"Retornos e Cancelados"},
   ];
+
+  /* Produtos e pedidos reais chegam por rotas internas. A chave do parceiro e
+     os tokens continuam apenas no servidor. */
+  var shopeeDataState = {connected:false, products:false, orders:false};
+
+  function safeText(value){
+    return String(value == null ? "" : value).replace(/[&<>]/g, function(ch){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;"}[ch];
+    });
+  }
+  function moneyText(value){
+    var n = Number(value);
+    return isFinite(n) ? "R$ "+n.toFixed(2).replace(".",",") : "—";
+  }
+  function productIcon(item){
+    var name = String(item.item_name || "").toLowerCase();
+    if(name.indexOf("cabo") >= 0) return "🔌";
+    if(name.indexOf("carreg") >= 0) return "🔋";
+    if(name.indexOf("controle") >= 0) return "📺";
+    if(name.indexOf("suporte") >= 0) return "🖥️";
+    if(name.indexOf("fone") >= 0 || name.indexOf("audio") >= 0) return "🎧";
+    return "📦";
+  }
+  function productStatus(item){
+    var status = String(item.item_status || "").toUpperCase();
+    if(status === "NORMAL") return "ativo";
+    if(status === "BANNED" || status === "UNLIST") return "violacao";
+    if(status === "DELETE") return "naopublicado";
+    return "analise";
+  }
+  function mapShopeeProducts(items){
+    return items.map(function(item){
+      var priceInfo = item.price_info && item.price_info[0];
+      var current = priceInfo && priceInfo.current_price;
+      var original = priceInfo && priceInfo.original_price;
+      var stockInfo = item.stock_info_v2 && item.stock_info_v2.summary_info;
+      return {
+        name:safeText(item.item_name || "Produto sem nome"), icon:productIcon(item), off:null,
+        price:current == null ? "—" : moneyText(current)+(original && Number(original)>Number(current) ? " · de "+moneyText(original) : ""),
+        stock:Number(stockInfo && stockInfo.total_available_stock || 0), views:0, likes:0, carts:0,
+        status:productStatus(item), categoria:"Catálogo Shopee", itemId:item.item_id
+      };
+    });
+  }
+  function mapShopeeOrderStatus(status){
+    return {UNPAID:"nao_pago",READY_TO_SHIP:"a_enviar",PROCESSED:"a_enviar",SHIPPED:"enviado",COMPLETED:"concluido",IN_CANCEL:"cancelado",CANCELLED:"cancelado",INVOICE_PENDING:"a_enviar"}[status] || "a_enviar";
+  }
+  function mapShopeeOrders(orders){
+    return orders.map(function(order){
+      var line = order.item_list && order.item_list[0] || {};
+      return {
+        id:String(order.order_sn || "—"), buyer:safeText(order.buyer_username || "Comprador Shopee"),
+        status:mapShopeeOrderStatus(order.order_status), produto:safeText(line.item_name || "Itens do pedido"),
+        qtd:Number(line.model_quantity_purchased || 1), precoUnit:Number(order.total_amount || line.model_discounted_price || 0),
+        prazo:order.ship_by_date ? "Enviar até "+new Date(Number(order.ship_by_date)*1000).toLocaleDateString("pt-BR")+"." : null,
+        canal:safeText(order.shipping_carrier || "Shopee"), cpf:"—", endereco:"—", mensagem:null
+      };
+    });
+  }
+  function updateConnectionUi(connection){
+    var status = document.getElementById("connectionStatus");
+    var dataStatus = document.getElementById("dataStatus");
+    if(status) status.innerHTML = connection && connection.connected
+      ? '<span class="dot"></span>Shopee API conectada · '+(connection.environment === "live" ? "produção" : "sandbox")
+      : "⚠️ Shopee ainda não conectada";
+    if(dataStatus) dataStatus.textContent = shopeeDataState.products || shopeeDataState.orders
+      ? "Produtos e pedidos reais sincronizados"
+      : "Painéis analíticos em pré-visualização";
+  }
+  function refreshOpenDataPages(){
+    var active = sidebar && sidebar.querySelector(".navbtn.active");
+    if(active && (active.dataset.id === "produtos" || active.dataset.id === "pedidos")) go(active.dataset.id);
+  }
+  function loadRealShopeeData(){
+    return Promise.all([
+      fetch("/api/shopee/connection", {cache:"no-store"}).then(function(res){return res.ok ? res.json() : null;}).catch(function(){return null;}),
+      fetch("/api/shopee/products", {cache:"no-store"}).then(function(res){return res.ok ? res.json() : null;}).catch(function(){return null;}),
+      fetch("/api/shopee/orders", {cache:"no-store"}).then(function(res){return res.ok ? res.json() : null;}).catch(function(){return null;})
+    ]).then(function(results){
+      var connection = results[0], products = results[1], orders = results[2];
+      if(products && Array.isArray(products.items)){
+        PRODUTOS_GRID.splice.apply(PRODUTOS_GRID, [0, PRODUTOS_GRID.length].concat(mapShopeeProducts(products.items)));
+        shopeeDataState.products = true;
+      }
+      if(orders && Array.isArray(orders.orders)){
+        PEDIDOS.splice.apply(PEDIDOS, [0, PEDIDOS.length].concat(mapShopeeOrders(orders.orders)));
+        shopeeDataState.orders = true;
+      }
+      shopeeDataState.connected = Boolean(connection && connection.connected);
+      updateConnectionUi(connection);
+      refreshOpenDataPages();
+    });
+  }
 
   function pedidoStatusInfo(order){
     if(order.status==="nao_pago") return {label:"Não pago", tone:"warn"};
@@ -5269,6 +5362,7 @@
   app.setAttribute("data-os", savedTheme);
   go(savedPage);
   refreshNotifBadge();
+  loadRealShopeeData();
 })();
 </script>
 
