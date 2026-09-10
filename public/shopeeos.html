@@ -136,6 +136,25 @@
     --track-bg:#F1EEE7; --track-border:#D6CFC0; --thumb-bg:#FFFFFF;
   }
 
+  /* ---- Gestor Senior (couro azul-marinho e ouro) ---- */
+  [data-os="gestor"]{
+    --font:"Inter","Segoe UI",Arial,sans-serif;
+    --bg:#04101E;
+    --surface:#071728; --surface-alt:#0B2035; --surface-raised:#102A43;
+    --border:rgba(221,181,92,.26); --border-strong:rgba(232,198,119,.46);
+    --text:#F7F1E5; --text-muted:#C8C3B9;
+    --accent:#D7AE58; --accent-text:#07111D;
+    --titlebar-bg:linear-gradient(90deg,rgba(3,13,26,.97),rgba(10,34,57,.96),rgba(3,13,26,.97));
+    --titlebar-text:#F3D387; --titlebar-shadow:0 1px 0 rgba(231,192,104,.28),0 8px 25px rgba(0,0,0,.28);
+    --sidebar-bg:rgba(3,15,28,.94); --sidebar-text:#F6F0E3; --sidebar-muted:#B8AE9D;
+    --sidebar-active-bg:linear-gradient(90deg,#B68732,#E3C16F); --sidebar-active-text:#07111D;
+    --btn-bg:#102A43; --btn-text:#F7F1E5; --btn-border:rgba(221,181,92,.32);
+    --btn-primary-bg:#D7AE58; --btn-primary-text:#07111D; --btn-primary-border:#F0D38B;
+    --radius-window:14px; --radius-card:12px; --radius-btn:9px; --radius-chip:99px;
+    --shadow-card:0 10px 28px rgba(0,0,0,.22); --shadow-window:0 20px 60px rgba(0,0,0,.46);
+    --track-bg:#102A43; --track-border:rgba(221,181,92,.26); --thumb-bg:#D7AE58;
+  }
+
   /* ============ BASE ============ */
   *{box-sizing:border-box;}
   html,body{height:100%;}
@@ -150,14 +169,22 @@
     overflow:hidden;
     display:flex; flex-direction:column;
   }
+  [data-os="gestor"]{
+    background-image:linear-gradient(rgba(3,12,23,.79),rgba(3,12,23,.87)),url("/leather-navy.png");
+    background-size:cover,680px 680px;
+    background-position:center;
+  }
+  [data-os="gestor"] .main{background:rgba(5,18,32,.72);backdrop-filter:blur(4px)}
 
   /* ---- Titlebar ---- */
   .titlebar{
     height:var(--titlebar-h); flex:0 0 auto; background:var(--titlebar-bg); color:var(--titlebar-text);
-    display:flex; align-items:center; gap:10px; padding:0 8px 0 14px; box-shadow:var(--titlebar-shadow);
+    display:flex; align-items:center; gap:10px; padding:0 8px 0 14px; box-shadow:var(--titlebar-shadow); position:relative;
     font-size:13px;
   }
   .titlebar .brand{display:flex;align-items:center;gap:8px;font-weight:700;letter-spacing:.2px;}
+  .titlebar .brand-logo{width:30px;height:30px;border-radius:50%;object-fit:cover;object-position:center 18%;border:1px solid rgba(232,198,119,.75);box-shadow:0 2px 8px rgba(0,0,0,.35)}
+  [data-os="gestor"] .titlebar .brand{position:absolute;left:50%;transform:translateX(-50%);font-weight:800;letter-spacing:.4px;white-space:nowrap;}
   .titlebar .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--accent-text);opacity:.9}
   [data-os="ubuntu"] .titlebar .brand .dot{background:#E95420}
   [data-os="win10"] .titlebar .brand .dot,[data-os="xp"] .titlebar .brand .dot{background:#fff}
@@ -732,7 +759,7 @@
 <div class="app" data-os="win11" id="app">
   <div class="titlebar">
     <div class="winctl"><span class="wclose" title="ilustrativo"></span><span class="wmin" title="ilustrativo"></span><span class="wmax" title="ilustrativo"></span></div>
-    <div class="brand"><span class="dot"></span> ShopeeOS</div>
+    <div class="brand"><img class="brand-logo" src="/gestor-senior-logo.jpg" alt="Gestor Senior"> Gestor Senior</div>
     <div class="spacer"></div>
     <div class="store-chip">
       <span class="avatar">MS</span>
@@ -778,7 +805,8 @@
     {id:"win10",name:"Windows 10",    era:"2015 · Fluent flat", c1:"#0078D4", c2:"#1F1F1F"},
     {id:"win11",name:"Windows 11",    era:"2021 · Mica rounded",c1:"#0067C0", c2:"#F3F3F3"},
     {id:"ubuntu",name:"Ubuntu",       era:"Yaru · Aubergine",   c1:"#E95420", c2:"#2C0027"},
-    {id:"aurora",name:"Aurora",       era:"2026 · Autoral · Recomendado", c1:"#C4623F", c2:"#2A2622"}
+    {id:"aurora",name:"Aurora",       era:"2026 · Autoral · Recomendado", c1:"#C4623F", c2:"#2A2622"},
+    {id:"gestor",name:"Gestor Senior",era:"Couro azul-marinho · Dourado", c1:"#071728", c2:"#D7AE58"}
   ];
 
   function el(tag, cls, html){
@@ -5235,7 +5263,7 @@
   }
 
   buildSidebar();
-  var savedTheme = "win11", savedPage = "dashboard";
+  var savedTheme = "gestor", savedPage = "dashboard";
   try{ savedTheme = localStorage.getItem("shopeeos_theme") || savedTheme; }catch(e){}
   try{ savedPage = localStorage.getItem("shopeeos_page") || savedPage; }catch(e){}
   app.setAttribute("data-os", savedTheme);
