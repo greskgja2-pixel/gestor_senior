@@ -1,4 +1,5 @@
 import "./globals.css";
+import Image from "next/image";
 
 export const metadata = {
   title: "Gestor Senior",
@@ -12,8 +13,16 @@ export default function RootLayout({ children }) {
         <div className="shell">
           <div className="topbar">
             <div className="brand">
-              <img src="/logo-mark.png" alt="Gestor Senior" className="logo-img" />
-              Gestor Senior
+              <div className="logo-frame">
+                <Image
+                  src="/gestor-senior-logo.jpg"
+                  alt="Logo Gestor Senior"
+                  fill
+                  priority
+                  sizes="74px"
+                />
+              </div>
+              <span>Gestor Senior</span>
             </div>
             <nav className="tabs">
               <a href="/">Início</a>
