@@ -13,7 +13,7 @@ Gestão da loja Shopee com dados reais — Next.js 14 + Supabase + Shopee Open P
 Para o aplicativo de teste atual, use `SHOPEE_ENV=test` e
 `SHOPEE_PARTNER_ID=1243923`, junto da **Test API Partner Key do mesmo app**.
 Nunca use uma chave de outro Partner ID ou do ambiente live.
-O host de teste é `https://partner.test-stable.shopeemobile.com`.
+O host do sandbox de teste é `https://openplatform.sandbox.test-stable.shopee.sg`.
 Opcionalmente fixe `SHOPEE_REDIRECT_URL` em
 `https://shopeeos-real-greskgja.vercel.app/api/shopee/callback`, conforme o portal Shopee.
 Após alterar variáveis de Production, faça um novo deployment e inicie uma nova
