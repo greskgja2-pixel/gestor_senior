@@ -2,10 +2,11 @@
 // depois que o lojista autoriza. Trocamos o code por access_token/refresh_token e
 // salvamos no Supabase (upsert por shop_id — reautorizar substitui o token antigo).
 import { NextResponse } from "next/server";
-import { exchangeCodeForToken, currentShopeeEnv } from "../../../../lib/shopee";
+import { exchangeCodeForToken } from "../../../../lib/shopee";
 import { supabaseAdmin } from "../../../../lib/supabase";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 export async function GET(request) {
   const url = new URL(request.url);
@@ -16,7 +17,6 @@ export async function GET(request) {
   console.log(
     "[shopee:callback] recebido",
     JSON.stringify({
-      env: currentShopeeEnv(),
       codePresent: Boolean(code),
       shopIdPresent: Boolean(shopId),
       shopeeErrorParam: shopeeError || null,
@@ -31,7 +31,7 @@ export async function GET(request) {
     );
   }
 
-  if (!code || !shopId) {
+  if (!code || !shopId || !/^[1-9]\d*$/.test(shopId) || !Number.isSafeInteger(Number(shopId))) {
     console.error("[shopee:callback] callback sem code/shop_id", JSON.stringify({ code: Boolean(code), shopId: Boolean(shopId) }));
     return NextResponse.json(
       { error: "Callback sem code/shop_id — a autorização não foi concluída." },
@@ -40,6 +40,7 @@ export async function GET(request) {
   }
 
   try {
+    const db = supabaseAdmin();
     const token = await exchangeCodeForToken(code, shopId);
 
     console.log(
@@ -47,7 +48,6 @@ export async function GET(request) {
       JSON.stringify({ shopId, expireIn: token.expire_in })
     );
 
-    const db = supabaseAdmin();
     const { error } = await db.from("shop_credentials").upsert(
       {
         shop_id: Number(shopId),

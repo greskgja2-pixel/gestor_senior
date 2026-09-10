@@ -4,10 +4,11 @@ import { NextResponse } from "next/server";
 import { buildShopAuthUrl, currentShopeeEnv } from "../../../../lib/shopee";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 export async function GET(request) {
   const origin = new URL(request.url).origin;
-  const redirectUrl = `${origin}/api/shopee/callback`;
+  const redirectUrl = process.env.SHOPEE_REDIRECT_URL?.trim() || `${origin}/api/shopee/callback`;
   try {
     const authUrl = buildShopAuthUrl(redirectUrl);
     console.log(
