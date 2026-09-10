@@ -1,6 +1,5 @@
 import "./globals.css";
 import Image from "next/image";
-import LogoutButton from "./components/LogoutButton";
 
 export const metadata = {
   title: "Gestor Senior",
@@ -29,7 +28,6 @@ export default function RootLayout({ children }) {
               <a href="/">Início</a>
               <a href="/produtos">Produtos</a>
               <a href="/pedidos">Pedidos</a>
-              <LogoutButton />
             </nav>
           </div>
           {children}
