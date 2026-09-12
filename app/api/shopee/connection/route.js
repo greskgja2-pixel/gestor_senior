@@ -15,6 +15,7 @@ export async function GET() {
                   paused: state.paused,
                   environment: currentShopeeEnv(),
                   shopId: state.shopId,
+                  shopName: state.shopName || null,
           });
     } catch (error) {
           return NextResponse.json(
