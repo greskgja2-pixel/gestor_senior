@@ -31,7 +31,7 @@ export default function ShopeeLiveFrame() {
     addStyle("shell-enhancements-css", "/shell-enhancements.css?v=20260912-02");
     addStyle("live-modules-css", "/live-modules.css?v=20260912-01");
     addStyle("advanced-modules-css", "/advanced-modules.css?v=20260912-01");
-    addStyle("legacy-themes-css", "/legacy-themes.css?v=20260912-01");
+    addStyle("legacy-themes-css", "/legacy-themes.css?v=20260912-02");
     addStyle("runtime-restoration-css", "/runtime-restoration.css?v=20260912-01");
 
     addScript("editor-ai-js", "/editor-ai.js?v=20260912-03");
@@ -41,13 +41,14 @@ export default function ShopeeLiveFrame() {
     addScript("editor-other-js", "/editor-other.js?v=20260912-01");
     addScript("live-modules-js", "/live-modules.js?v=20260912-01");
     addScript("advanced-modules-js", "/advanced-modules.js?v=20260912-01");
-    addScript("runtime-restoration-js", "/runtime-restoration.js?v=20260912-01");
+    addScript("remaining-modules-js", "/remaining-modules.js?v=20260912-01");
+    addScript("runtime-restoration-js", "/runtime-restoration.js?v=20260912-02");
     addScript("shell-enhancements-js", "/shell-enhancements.js?v=20260912-03");
   }
 
   return (
     <iframe
-      src="/shopeeos-live.html?v=restored-runtime-20260912-02"
+      src="/shopeeos-live.html?v=restored-runtime-20260912-03"
       title="Gestor Senior Shopee LIVE"
       onLoad={enhanceFrame}
       style={{
