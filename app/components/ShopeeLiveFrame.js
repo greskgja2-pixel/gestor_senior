@@ -3,7 +3,7 @@
 export default function ShopeeLiveFrame() {
   return (
     <iframe
-      src="/shopeeos-bundle.html?v=20260912-04"
+      src="/shopeeos-bundle.html?v=20260912-05"
       title="Gestor Senior Shopee LIVE"
       style={{
         position: "fixed",
