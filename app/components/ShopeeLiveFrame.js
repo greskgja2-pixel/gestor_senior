@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useRef } from "react";
 
-const VERSION = "20260912-08";
+const VERSION = "20260912-09";
 
 const STYLES = [
   ["shell-enhancements-css", "/shell-enhancements.css"],
@@ -17,12 +17,9 @@ const STYLES = [
   ["editor-other-css", "/editor-other.css"],
 ];
 
-const CORE_SCRIPTS = [
+const SCRIPTS = [
   ["shell-enhancements-js", "/shell-enhancements.js"],
   ["runtime-restoration-js", "/runtime-restoration.js"],
-];
-
-const MODULE_SCRIPTS = [
   ["live-modules-js", "/live-modules.js"],
   ["advanced-modules-js", "/advanced-modules.js"],
   ["remaining-modules-js", "/remaining-modules.js"],
@@ -54,37 +51,26 @@ function addScript(doc, key, src) {
 function installEnhancements(frame) {
   const doc = frame?.contentDocument;
   if (!doc?.head || !doc?.body) return false;
+  if (doc.documentElement.dataset.gestorEnhancements === VERSION) return true;
 
-  STYLES.forEach(([key, href]) => addStyle(doc, key, href));
-
-  // Critical navigation/theme restoration goes first and never waits for optional modules.
-  CORE_SCRIPTS.forEach(([key, src]) => addScript(doc, key, src));
-  MODULE_SCRIPTS.forEach(([key, src]) => addScript(doc, key, src));
-
+  // Mark before appending resources so concurrent load callbacks cannot reinstall the bundle.
   doc.documentElement.dataset.gestorEnhancements = VERSION;
+  STYLES.forEach(([key, href]) => addStyle(doc, key, href));
+  SCRIPTS.forEach(([key, src]) => addScript(doc, key, src));
   return true;
 }
 
 export default function ShopeeLiveFrame() {
   const frameRef = useRef(null);
+  const installedRef = useRef(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    let attempts = 0;
-
-    const ensureInstalled = () => {
-      if (cancelled) return;
-      attempts += 1;
-      try {
-        installEnhancements(frameRef.current);
-      } catch (error) {
-        console.error("Gestor Senior enhancement install failed", error);
-      }
-      if (attempts < 60) window.setTimeout(ensureInstalled, 250);
-    };
-
-    ensureInstalled();
-    return () => { cancelled = true; };
+  const handleLoad = useCallback(() => {
+    if (installedRef.current) return;
+    try {
+      installedRef.current = installEnhancements(frameRef.current);
+    } catch (error) {
+      console.error("Gestor Senior enhancement install failed", error);
+    }
   }, []);
 
   return (
@@ -92,7 +78,7 @@ export default function ShopeeLiveFrame() {
       ref={frameRef}
       src={`/shopeeos-live.html?v=full-live-${VERSION}`}
       title="Gestor Senior Shopee LIVE"
-      onLoad={() => installEnhancements(frameRef.current)}
+      onLoad={handleLoad}
       style={{ position: "fixed", inset: 0, width: "100vw", height: "100vh", border: "none", zIndex: 9999 }}
     />
   );
