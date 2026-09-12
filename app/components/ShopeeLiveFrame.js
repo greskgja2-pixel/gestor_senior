@@ -29,6 +29,22 @@ export default function ShopeeLiveFrame() {
       doc.head.appendChild(link);
     }
 
+    if (!doc.querySelector('link[data-editor-shipping-css]')) {
+      const link = doc.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = '/editor-shipping.css?v=20260912-01';
+      link.dataset.editorShippingCss = '1';
+      doc.head.appendChild(link);
+    }
+
+    if (!doc.querySelector('link[data-editor-other-css]')) {
+      const link = doc.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = '/editor-other.css?v=20260912-01';
+      link.dataset.editorOtherCss = '1';
+      doc.head.appendChild(link);
+    }
+
     if (!doc.querySelector('script[data-editor-ai-js]')) {
       const script = doc.createElement('script');
       script.src = '/editor-ai.js?v=20260912-03';
@@ -52,11 +68,27 @@ export default function ShopeeLiveFrame() {
       script.dataset.editorImagesJs = '1';
       doc.body.appendChild(script);
     }
+
+    if (!doc.querySelector('script[data-editor-shipping-js]')) {
+      const script = doc.createElement('script');
+      script.src = '/editor-shipping.js?v=20260912-01';
+      script.defer = true;
+      script.dataset.editorShippingJs = '1';
+      doc.body.appendChild(script);
+    }
+
+    if (!doc.querySelector('script[data-editor-other-js]')) {
+      const script = doc.createElement('script');
+      script.src = '/editor-other.js?v=20260912-01';
+      script.defer = true;
+      script.dataset.editorOtherJs = '1';
+      doc.body.appendChild(script);
+    }
   }
 
   return (
     <iframe
-      src="/shopeeos-live.html?v=live-editor-images-20260912-01"
+      src="/shopeeos-live.html?v=live-editor-shipping-other-20260912-01"
       title="Gestor Senior Shopee LIVE"
       onLoad={enhanceFrame}
       style={{
