@@ -45,7 +45,25 @@ export async function GET() {
     out.rawRead = { error: String(err.message || err) };
   }
 
-  // 2) Chama a MESMA função real que o resto do app usa, pra ver exatamente
+  // 2) Mesma leitura, mas com select("*") igual ao getActiveShop de verdade —
+  //    pra testar se o "*" muda qual linha volta.
+  try {
+    const db = supabaseAdmin();
+    const { data, error } = await db
+      .from("shop_credentials")
+      .select("*")
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    out.starRead = data
+      ? { shopId: String(data.shop_id), obtainedAtRaw: data.obtained_at, updatedAtRaw: data.updated_at, expireIn: data.expire_in, keys: Object.keys(data) }
+      : { hasRow: false };
+  } catch (err) {
+    out.starRead = { error: String(err.message || err) };
+  }
+
+  // 3) Chama a MESMA função real que o resto do app usa, pra ver exatamente
   //    o que ela devolve/estoura neste exato momento.
   try {
     const shop = await getActiveShop();
