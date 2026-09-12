@@ -43,7 +43,7 @@ const content=document.getElementById('content'),modal=document.getElementById('
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function money(v){const n=Number(v);return Number.isFinite(n)?n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}):'—';}
 function dateTime(v){if(!v)return'—';const d=typeof v==='number'?new Date(v*1000):new Date(v);return Number.isNaN(d.getTime())?'—':d.toLocaleString('pt-BR');}
-async function api(url){const r=await fetch(url,{cache:'no-store'});let j={};try{j=await r.json()}catch(e){}if(!r.ok||j.error)throw new Error(j.error||('HTTP '+r.status));return j;}
+async function api(url){let r;try{r=await fetch(url,{cache:'no-store',signal:AbortSignal.timeout(20000)});}catch(e){throw new Error(e && e.name==='TimeoutError'?'Tempo esgotado falando com o servidor (20s).':('Falha de rede: '+(e.message||e)));}let j={};try{j=await r.json()}catch(e){}if(!r.ok||j.error)throw new Error(j.error||('HTTP '+r.status));return j;}
 function statusPill(s){const x=String(s||'').toUpperCase();if(x==='NORMAL')return'<span class="pill ok">Ativo</span>';if(x==='BANNED'||x==='SHOPEE_DELETE')return'<span class="pill bad">'+esc(x)+'</span>';return'<span class="pill warn">'+esc(x||'Sem status')+'</span>';}
 function stock(item){const s=item.stock_info_v2&&item.stock_info_v2.summary_info;return s&&Number.isFinite(Number(s.total_available_stock))?Number(s.total_available_stock):null;}
 function price(item){const p=Array.isArray(item.price_info)&&item.price_info[0];if(p&&Number.isFinite(Number(p.current_price)))return Number(p.current_price);if(p&&Number.isFinite(Number(p.original_price)))return Number(p.original_price);return null;}
@@ -88,7 +88,7 @@ async function renderOther(item){const panel=document.getElementById('editorPane
 function renderEditorTab(item){if(state.editorTab==='basic')renderBasic(item);else if(state.editorTab==='images')renderImages(item);else if(state.editorTab==='spec')renderSpec(item);else if(state.editorTab==='sales')renderSales(item);else if(state.editorTab==='shipping')renderShipping(item);else renderOther(item);}
 async function openEditor(id){const item=state.products.find(x=>String(x.item_id)===String(id));if(!item)return;state.editorItem=item;state.editorTab='basic';state.attrs=null;state.brands=null;state.models=null;modal.classList.add('open');editorShell(item);renderEditorTab(item);}
 function closeEditor(){modal.classList.remove('open');state.editorItem=null;}modal.addEventListener('click',e=>{if(e.target===modal)closeEditor();});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&modal.classList.contains('open'))closeEditor();});
-async function start(){await loadConnection();try{await Promise.all([loadProducts(false),loadOrders(false)]);}catch(e){console.error(e);}render();}
+async function start(){await loadConnection();const results=await Promise.allSettled([loadProducts(false),loadOrders(false)]);results.forEach((r,i)=>{if(r.status==='rejected')console.error(i===0?'produtos':'pedidos',r.reason);});render();}
 start();
 })();
 </script>
