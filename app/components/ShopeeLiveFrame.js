@@ -5,90 +5,42 @@ export default function ShopeeLiveFrame() {
     const doc = event.currentTarget?.contentDocument;
     if (!doc) return;
 
-    if (!doc.querySelector('link[data-editor-ai-css]')) {
-      const link = doc.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = '/editor-ai.css?v=20260912-03';
-      link.dataset.editorAiCss = '1';
+    const addStyle = (key, href) => {
+      if (doc.querySelector(`link[data-${key}]`)) return;
+      const link = doc.createElement("link");
+      link.rel = "stylesheet";
+      link.href = href;
+      link.setAttribute(`data-${key}`, "1");
       doc.head.appendChild(link);
-    }
+    };
 
-    if (!doc.querySelector('link[data-editor-variations-css]')) {
-      const link = doc.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = '/editor-variations.css?v=20260912-01';
-      link.dataset.editorVariationsCss = '1';
-      doc.head.appendChild(link);
-    }
-
-    if (!doc.querySelector('link[data-editor-images-css]')) {
-      const link = doc.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = '/editor-images.css?v=20260912-01';
-      link.dataset.editorImagesCss = '1';
-      doc.head.appendChild(link);
-    }
-
-    if (!doc.querySelector('link[data-editor-shipping-css]')) {
-      const link = doc.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = '/editor-shipping.css?v=20260912-01';
-      link.dataset.editorShippingCss = '1';
-      doc.head.appendChild(link);
-    }
-
-    if (!doc.querySelector('link[data-editor-other-css]')) {
-      const link = doc.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = '/editor-other.css?v=20260912-01';
-      link.dataset.editorOtherCss = '1';
-      doc.head.appendChild(link);
-    }
-
-    if (!doc.querySelector('script[data-editor-ai-js]')) {
-      const script = doc.createElement('script');
-      script.src = '/editor-ai.js?v=20260912-03';
+    const addScript = (key, src) => {
+      if (doc.querySelector(`script[data-${key}]`)) return;
+      const script = doc.createElement("script");
+      script.src = src;
       script.defer = true;
-      script.dataset.editorAiJs = '1';
+      script.setAttribute(`data-${key}`, "1");
       doc.body.appendChild(script);
-    }
+    };
 
-    if (!doc.querySelector('script[data-editor-variations-js]')) {
-      const script = doc.createElement('script');
-      script.src = '/editor-variations.js?v=20260912-01';
-      script.defer = true;
-      script.dataset.editorVariationsJs = '1';
-      doc.body.appendChild(script);
-    }
+    addStyle("editor-ai-css", "/editor-ai.css?v=20260912-03");
+    addStyle("editor-variations-css", "/editor-variations.css?v=20260912-01");
+    addStyle("editor-images-css", "/editor-images.css?v=20260912-01");
+    addStyle("editor-shipping-css", "/editor-shipping.css?v=20260912-01");
+    addStyle("editor-other-css", "/editor-other.css?v=20260912-01");
+    addStyle("shell-enhancements-css", "/shell-enhancements.css?v=20260912-01");
 
-    if (!doc.querySelector('script[data-editor-images-js]')) {
-      const script = doc.createElement('script');
-      script.src = '/editor-images.js?v=20260912-01';
-      script.defer = true;
-      script.dataset.editorImagesJs = '1';
-      doc.body.appendChild(script);
-    }
-
-    if (!doc.querySelector('script[data-editor-shipping-js]')) {
-      const script = doc.createElement('script');
-      script.src = '/editor-shipping.js?v=20260912-01';
-      script.defer = true;
-      script.dataset.editorShippingJs = '1';
-      doc.body.appendChild(script);
-    }
-
-    if (!doc.querySelector('script[data-editor-other-js]')) {
-      const script = doc.createElement('script');
-      script.src = '/editor-other.js?v=20260912-01';
-      script.defer = true;
-      script.dataset.editorOtherJs = '1';
-      doc.body.appendChild(script);
-    }
+    addScript("editor-ai-js", "/editor-ai.js?v=20260912-03");
+    addScript("editor-variations-js", "/editor-variations.js?v=20260912-01");
+    addScript("editor-images-js", "/editor-images.js?v=20260912-01");
+    addScript("editor-shipping-js", "/editor-shipping.js?v=20260912-01");
+    addScript("editor-other-js", "/editor-other.js?v=20260912-01");
+    addScript("shell-enhancements-js", "/shell-enhancements.js?v=20260912-01");
   }
 
   return (
     <iframe
-      src="/shopeeos-live.html?v=live-editor-shipping-other-20260912-01"
+      src="/shopeeos-live.html?v=full-shell-20260912-01"
       title="Gestor Senior Shopee LIVE"
       onLoad={enhanceFrame}
       style={{
