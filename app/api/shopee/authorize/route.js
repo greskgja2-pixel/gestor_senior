@@ -6,9 +6,17 @@ import { buildShopAuthUrl, currentShopeeEnv } from "../../../../lib/shopee";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-export async function GET(request) {
-  const origin = new URL(request.url).origin;
-  const redirectUrl = process.env.SHOPEE_REDIRECT_URL?.trim() || `${origin}/api/shopee/callback`;
+// Domínio cadastrado como "Redirect URL Domain" no console da Shopee Open Platform
+// (App List > Gestor Senior > Authorization Information). A Shopee rejeita a autorização
+// se o "redirect" enviado não bater EXATAMENTE com esse domínio, mesmo que o site também
+// responda em outro domínio/alias (ex.: apelido mais curto na Vercel). Por isso não usamos
+// o origin da requisição aqui — sempre mandamos o domínio cadastrado, que a Vercel mantém
+// funcionando mesmo quando o domínio "bonito" do projeto muda.
+const SHOPEE_CONSOLE_REDIRECT_DOMAIN = "https://shopeeos-real-greskgja.vercel.app";
+
+export async function GET() {
+  const redirectUrl =
+    process.env.SHOPEE_REDIRECT_URL?.trim() || `${SHOPEE_CONSOLE_REDIRECT_DOMAIN}/api/shopee/callback`;
   try {
     const authUrl = buildShopAuthUrl(redirectUrl);
     console.log(
@@ -21,4 +29,3 @@ export async function GET(request) {
     return NextResponse.json({ error: String(err.message || err) }, { status: 500 });
   }
 }
-
