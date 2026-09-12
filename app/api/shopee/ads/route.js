@@ -1,6 +1,23 @@
 import { NextResponse } from "next/server";
 import { getActiveShop } from "../../../../lib/shop";
-import { getAdsDaily,getAdsHourly,getAdsCampaignList,getAdsCampaignSettings,getAdsCampaignDaily,getAdsCampaignHourly,safeCapability } from "../../../../lib/shopee-extra";
+import { getAdsDaily,getAdsHourly,getAdsCampaignList,getAdsCampaignSettings,getAdsCampaignHourly,safeCapability } from "../../../../lib/shopee-extra";
 export const dynamic="force-dynamic";
 function idsFrom(result){const d=result?.data?.response||result?.data||{};return (d.campaign_list||[]).map(x=>Number(x.campaign_id)).filter(Boolean);}
-export async function GET(request){const shop=await getActiveShop();if(!shop)return NextResponse.json({error:"Nenhuma loja autorizada."},{status:400});const u=new URL(request.url),days=Math.max(1,Math.min(90,Number(u.searchParams.get("days")||7)));const [daily,hourly,campaigns]=await Promise.all([safeCapability("daily",()=>getAdsDaily(shop,days)),safeCapability("hourly",()=>getAdsHourly(shop)),safeCapability("campaigns",()=>getAdsCampaignList(shop))]);const ids=idsFrom(campaigns);const [settings,productDaily,productHourly]=await Promise.all([safeCapability("settings",()=>getAdsCampaignSettings(shop,ids)),safeCapability("product_daily",()=>getAdsCampaignDaily(shop,ids,days)),safeCapability("product_hourly",()=>getAdsCampaignHourly(shop,ids))]);return NextResponse.json({days,shopId:String(shop.shop_id),campaignIds:ids,daily,hourly,campaigns,settings,productDaily,productHourly});}
+export async function GET(request){
+  const shop=await getActiveShop();
+  if(!shop)return NextResponse.json({error:"Nenhuma loja autorizada."},{status:400});
+  const u=new URL(request.url),days=Math.max(1,Math.min(90,Number(u.searchParams.get("days")||7)));
+  // A Shopee limita Ads a 5 requests em 5 segundos. Mantemos esta rota em exatamente 5 chamadas:
+  // visão diária, visão horária, lista de campanhas, configurações e desempenho horário por campanha.
+  const [daily,hourly,campaigns]=await Promise.all([
+    safeCapability("daily",()=>getAdsDaily(shop,days)),
+    safeCapability("hourly",()=>getAdsHourly(shop)),
+    safeCapability("campaigns",()=>getAdsCampaignList(shop))
+  ]);
+  const ids=idsFrom(campaigns);
+  const [settings,productHourly]=await Promise.all([
+    safeCapability("settings",()=>getAdsCampaignSettings(shop,ids)),
+    safeCapability("product_hourly",()=>getAdsCampaignHourly(shop,ids))
+  ]);
+  return NextResponse.json({days,shopId:String(shop.shop_id),campaignIds:ids,daily,hourly,campaigns,settings,productHourly});
+}
