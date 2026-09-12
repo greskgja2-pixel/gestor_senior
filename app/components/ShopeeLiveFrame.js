@@ -62,12 +62,15 @@ function installEnhancements(frame) {
 
 export default function ShopeeLiveFrame() {
   const frameRef = useRef(null);
-  const installedRef = useRef(false);
 
+  // Sem guarda de "já instalei uma vez": o iframe pode recarregar sozinho (ex.: o botão
+  // "Sair da Shopee" faz um location.reload do próprio documento embutido) e cada
+  // recarga cria um novo documento, sem os scripts/estilos injetados. installEnhancements
+  // já é idempotente por documento (marca doc.documentElement.dataset.gestorEnhancements),
+  // então é seguro — e necessário — chamá-la em todo onLoad do iframe.
   const handleLoad = useCallback(() => {
-    if (installedRef.current) return;
     try {
-      installedRef.current = installEnhancements(frameRef.current);
+      installEnhancements(frameRef.current);
     } catch (error) {
       console.error("Gestor Senior enhancement install failed", error);
     }
