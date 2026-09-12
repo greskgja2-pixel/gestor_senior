@@ -5,45 +5,32 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <title>Gestor Senior — Shopee LIVE</title>
 <style>
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#07111d}#liveFrame{position:fixed;inset:0;width:100%;height:100%;border:0;background:#fff}#boot{position:fixed;inset:0;z-index:10;display:grid;place-items:center;background:#07111d;color:#f6f1e5;font:600 14px system-ui,-apple-system,"Segoe UI",sans-serif;transition:opacity .18s ease}.bootCard{padding:18px 22px;border:1px solid rgba(215,174,88,.3);border-radius:14px;background:#0b2035;text-align:center;box-shadow:0 18px 50px rgba(0,0,0,.32)}.bootCard b{display:block;color:#f3d387;font-size:16px;margin-bottom:5px}.bootCard small{color:#b8c2cf}.bootError{color:#ffb4a8!important}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#07111d}#liveFrame{position:fixed;inset:0;width:100%;height:100%;border:0;background:#fff}#boot{position:fixed;inset:0;z-index:10;display:grid;place-items:center;background:#07111d;color:#f6f1e5;font:600 14px system-ui,-apple-system,"Segoe UI",sans-serif;transition:opacity .18s ease}.bootCard{padding:18px 22px;border:1px solid rgba(215,174,88,.3);border-radius:14px;background:#0b2035;text-align:center;box-shadow:0 18px 50px rgba(0,0,0,.32)}.bootCard b{display:block;color:#f3d387;font-size:16px;margin-bottom:5px}.bootCard small{color:#b8c2cf}
 </style>
 </head>
 <body>
-<div id="boot"><div class="bootCard"><b>Gestor Senior</b><small id="bootMsg">Carregando painel completo…</small></div></div>
-<iframe id="liveFrame" src="/shopeeos-live.html?v=base-20260912-04" title="Gestor Senior Shopee LIVE"></iframe>
+<div id="boot"><div class="bootCard"><b>Gestor Senior</b><small id="bootMsg">Abrindo painel…</small></div></div>
+<iframe id="liveFrame" src="/shopeeos-live.html?v=base-20260912-05" title="Gestor Senior Shopee LIVE"></iframe>
 <script>
 (function(){
 'use strict';
 const frame=document.getElementById('liveFrame'),boot=document.getElementById('boot'),msg=document.getElementById('bootMsg');
+const VERSION='20260912-05';
 const STYLES=[
- ['/editor-ai.css','editor-ai-css'],
- ['/editor-variations.css','editor-variations-css'],
- ['/editor-images.css','editor-images-css'],
- ['/editor-shipping.css','editor-shipping-css'],
- ['/editor-other.css','editor-other-css'],
- ['/shell-enhancements.css','shell-enhancements-css'],
- ['/live-modules.css','live-modules-css'],
- ['/advanced-modules.css','advanced-modules-css'],
- ['/restored-themes.css','restored-themes-css'],
- ['/runtime-restoration.css','runtime-restoration-css']
+ '/editor-ai.css','/editor-variations.css','/editor-images.css','/editor-shipping.css','/editor-other.css',
+ '/shell-enhancements.css','/live-modules.css','/advanced-modules.css','/restored-themes.css','/runtime-restoration.css'
 ];
 const SCRIPTS=[
- ['/editor-ai.js','editor-ai-js'],
- ['/editor-variations.js','editor-variations-js'],
- ['/editor-images.js','editor-images-js'],
- ['/editor-shipping.js','editor-shipping-js'],
- ['/editor-other.js','editor-other-js'],
- ['/live-modules.js','live-modules-js'],
- ['/advanced-modules.js','advanced-modules-js'],
- ['/remaining-modules.js','remaining-modules-js'],
- ['/runtime-restoration.js','runtime-restoration-js'],
- ['/shell-enhancements.js','shell-enhancements-js']
+ '/editor-ai.js','/editor-variations.js','/editor-images.js','/editor-shipping.js','/editor-other.js',
+ '/live-modules.js','/advanced-modules.js','/remaining-modules.js','/runtime-restoration.js','/shell-enhancements.js'
 ];
-function addStyle(doc,href,key){return new Promise((resolve,reject)=>{if(doc.querySelector('link[data-bundle="'+key+'"]'))return resolve();const el=doc.createElement('link');el.rel='stylesheet';el.href=href+'?v=20260912-04';el.dataset.bundle=key;el.onload=resolve;el.onerror=()=>reject(new Error('Falha ao carregar '+href));doc.head.appendChild(el);});}
-function addScript(doc,src,key){return new Promise((resolve,reject)=>{if(doc.querySelector('script[data-bundle="'+key+'"]'))return resolve();const el=doc.createElement('script');el.src=src+'?v=20260912-04';el.dataset.bundle=key;el.async=false;el.onload=resolve;el.onerror=()=>reject(new Error('Falha ao carregar '+src));doc.body.appendChild(el);});}
-async function loadAll(){const doc=frame.contentDocument;if(!doc||!doc.head||!doc.body)throw new Error('Documento do painel indisponível');msg.textContent='Aplicando editor, páginas LIVE e temas…';await Promise.all(STYLES.map(x=>addStyle(doc,x[0],x[1])));for(const x of SCRIPTS)await addScript(doc,x[0],x[1]);doc.documentElement.dataset.gestorBundle='ready';msg.textContent='Painel pronto';setTimeout(()=>{boot.style.opacity='0';setTimeout(()=>boot.remove(),220)},80);}
-async function start(){let last;for(let i=0;i<4;i++){try{await loadAll();return}catch(e){last=e;await new Promise(r=>setTimeout(r,250))}}console.error(last);msg.textContent='Falha ao carregar o painel completo. Recarregue a página.';msg.classList.add('bootError');}
-frame.addEventListener('load',start,{once:false});
+let revealed=false;
+function reveal(){if(revealed)return;revealed=true;boot.style.opacity='0';setTimeout(()=>boot.remove(),220);}
+function injectStyle(doc,href){if(doc.querySelector('link[href^="'+href+'"]'))return;const el=doc.createElement('link');el.rel='stylesheet';el.href=href+'?v='+VERSION;el.dataset.bundle='1';doc.head.appendChild(el);}
+function injectScript(doc,src){return new Promise(resolve=>{if(doc.querySelector('script[src^="'+src+'"]'))return resolve();const el=doc.createElement('script');el.src=src+'?v='+VERSION;el.async=false;el.dataset.bundle='1';let done=false;const finish=()=>{if(done)return;done=true;resolve()};el.onload=finish;el.onerror=()=>{console.warn('Falha ao carregar',src);finish()};doc.body.appendChild(el);setTimeout(()=>{console.warn('Timeout ao carregar',src);finish()},2500);});}
+async function enhance(){const doc=frame.contentDocument;if(!doc||!doc.head||!doc.body){reveal();return}msg.textContent='Aplicando recursos…';STYLES.forEach(href=>injectStyle(doc,href));reveal();for(const src of SCRIPTS){try{await injectScript(doc,src)}catch(e){console.warn(e)}}doc.documentElement.dataset.gestorBundle='ready';}
+frame.addEventListener('load',()=>{setTimeout(reveal,700);enhance().catch(e=>{console.error(e);reveal()})});
+setTimeout(reveal,1800);
 })();
 </script>
 </body>
