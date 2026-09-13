@@ -2,7 +2,7 @@
 
 import { useCallback, useRef } from "react";
 
-const VERSION = "20260913-01";
+const VERSION = "20260913-02";
 
 const STYLES = [
   ["shell-enhancements-css", "/shell-enhancements.css"],
@@ -16,6 +16,7 @@ const STYLES = [
   ["editor-shipping-css", "/editor-shipping.css"],
   ["editor-other-css", "/editor-other.css"],
   ["products-profit-enhancements-css", "/products-profit-enhancements.css"],
+  ["product-trends-css", "/product-trends.css"],
 ];
 
 const SCRIPTS = [
@@ -30,6 +31,7 @@ const SCRIPTS = [
   ["editor-shipping-js", "/editor-shipping.js"],
   ["editor-other-js", "/editor-other.js"],
   ["products-profit-enhancements-js", "/products-profit-enhancements.js"],
+  ["product-trends-js", "/product-trends.js"],
 ];
 
 function addStyle(doc, key, href) {
