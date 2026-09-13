@@ -2,7 +2,7 @@
 
 import { useCallback, useRef } from "react";
 
-const VERSION = "20260912-09";
+const VERSION = "20260913-01";
 
 const STYLES = [
   ["shell-enhancements-css", "/shell-enhancements.css"],
@@ -15,6 +15,7 @@ const STYLES = [
   ["editor-images-css", "/editor-images.css"],
   ["editor-shipping-css", "/editor-shipping.css"],
   ["editor-other-css", "/editor-other.css"],
+  ["products-profit-enhancements-css", "/products-profit-enhancements.css"],
 ];
 
 const SCRIPTS = [
@@ -28,6 +29,7 @@ const SCRIPTS = [
   ["editor-images-js", "/editor-images.js"],
   ["editor-shipping-js", "/editor-shipping.js"],
   ["editor-other-js", "/editor-other.js"],
+  ["products-profit-enhancements-js", "/products-profit-enhancements.js"],
 ];
 
 function addStyle(doc, key, href) {
@@ -53,7 +55,6 @@ function installEnhancements(frame) {
   if (!doc?.head || !doc?.body) return false;
   if (doc.documentElement.dataset.gestorEnhancements === VERSION) return true;
 
-  // Mark before appending resources so concurrent load callbacks cannot reinstall the bundle.
   doc.documentElement.dataset.gestorEnhancements = VERSION;
   STYLES.forEach(([key, href]) => addStyle(doc, key, href));
   SCRIPTS.forEach(([key, src]) => addScript(doc, key, src));
@@ -63,11 +64,6 @@ function installEnhancements(frame) {
 export default function ShopeeLiveFrame() {
   const frameRef = useRef(null);
 
-  // Sem guarda de "já instalei uma vez": o iframe pode recarregar sozinho (ex.: o botão
-  // "Sair da Shopee" faz um location.reload do próprio documento embutido) e cada
-  // recarga cria um novo documento, sem os scripts/estilos injetados. installEnhancements
-  // já é idempotente por documento (marca doc.documentElement.dataset.gestorEnhancements),
-  // então é seguro — e necessário — chamá-la em todo onLoad do iframe.
   const handleLoad = useCallback(() => {
     try {
       installEnhancements(frameRef.current);
