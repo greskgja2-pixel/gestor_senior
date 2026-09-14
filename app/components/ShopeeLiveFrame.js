@@ -2,7 +2,7 @@
 
 import { useCallback, useRef } from "react";
 
-const VERSION = "20260914-08";
+const VERSION = "20260914-09";
 
 const STYLES = [
   ["shell-enhancements-css", "/shell-enhancements.css"],
