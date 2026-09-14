@@ -1,10 +1,11 @@
 import {financialGuard, DEFAULT_FINANCE} from './profit-engine.js';
 
 const n=v=>Number.isFinite(Number(v))?Number(v):null;
+const optionalNumber=v=>v===null||v===undefined||v===''?null:n(v);
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 
 export function buildPriceProposal({currentPrice,competitorMedian,productCost,policy={}}){
-  const current=n(currentPrice),median=n(competitorMedian),cost=n(productCost);
+  const current=n(currentPrice),median=n(competitorMedian),cost=optionalNumber(productCost);
   const cfg={maxPriceChangePct:5,finance:{...DEFAULT_FINANCE},...policy,finance:{...DEFAULT_FINANCE,...policy.finance}};
   if(!(current>0)||!(median>0))return null;
   const gap=(current-median)/median;
