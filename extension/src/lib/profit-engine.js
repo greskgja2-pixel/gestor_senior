@@ -13,7 +13,7 @@ export const DEFAULT_FINANCE = Object.freeze({
 
 const n = v => Number.isFinite(Number(v)) ? Number(v) : 0;
 
-export function computeProfit({price, productCost, commissionRate, fixedFee, packagingCost, taxRate, otherCost, adsCostPerSale = 0}) {
+export function computeProfit({price, productCost, commissionRate = DEFAULT_FINANCE.commissionRate, fixedFee = DEFAULT_FINANCE.fixedFee, packagingCost = DEFAULT_FINANCE.packagingCost, taxRate = DEFAULT_FINANCE.taxRate, otherCost = DEFAULT_FINANCE.otherCost, adsCostPerSale = 0}) {
   const sale = n(price);
   const cfg = {...DEFAULT_FINANCE, commissionRate, fixedFee, packagingCost, taxRate, otherCost};
   const cost = n(productCost);
