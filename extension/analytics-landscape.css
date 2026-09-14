@@ -1,0 +1,94 @@
+/* v0.6.1 — layout wide-first para dashboards/tabelas.
+   Em telas horizontais >= 1024px a tabela se adapta ao viewport em vez de ficar presa em 1530px.
+   Em telas menores, preserva todas as colunas com rolagem horizontal sem cortar conteúdo. */
+
+html,body{width:100%;max-width:100%;overflow-x:hidden}
+main{width:100%;max-width:none}
+.table-card,.table-scroll{width:100%;max-width:100%}
+.table-scroll{overscroll-behavior-x:contain;scrollbar-gutter:stable both-edges}
+
+@media (orientation:landscape) and (min-width:1024px){
+  body{font-size:clamp(11px,.82vw,13px)}
+  .topbar{padding:9px 14px;gap:10px}
+  .logo{width:36px;height:36px;font-size:16px}
+  .brand strong{font-size:14px}
+  .brand small{font-size:11px}
+  .top-actions{gap:6px;flex-wrap:nowrap}
+  button,select,input{padding:7px 9px}
+  main{padding:10px 12px 18px}
+  .summary{grid-template-columns:repeat(5,minmax(0,1fr));gap:7px}
+  .metric{padding:8px 10px;min-width:0}
+  .metric b{font-size:clamp(15px,1.4vw,19px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .toolbar{grid-template-columns:minmax(220px,1.25fr) minmax(160px,.7fr) minmax(220px,auto);gap:7px;margin:9px 0}
+  .bulk-card{padding:8px 10px;margin-bottom:9px}
+  .bulk-actions{margin-top:6px}
+  .bulk-note{margin-top:6px}
+  .table-scroll{max-height:calc(100dvh - 315px)}
+  table{width:100%;min-width:100%;table-layout:fixed}
+  thead th{white-space:normal;line-height:1.15}
+  thead th>button{padding:8px 6px;white-space:normal;align-items:flex-start}
+  tbody td{padding:7px 6px;line-height:1.22}
+  th:nth-child(1),td:nth-child(1){width:3%}
+  th:nth-child(2),td:nth-child(2){width:5%}
+  th:nth-child(3),td:nth-child(3){width:24%}
+  th:nth-child(4),td:nth-child(4){width:8%}
+  th:nth-child(5),td:nth-child(5){width:8%}
+  th:nth-child(6),td:nth-child(6){width:9%}
+  th:nth-child(7),td:nth-child(7){width:10%}
+  th:nth-child(8),td:nth-child(8){width:8%}
+  th:nth-child(9),td:nth-child(9){width:7%}
+  th:nth-child(10),td:nth-child(10){width:7%}
+  th:nth-child(11),td:nth-child(11){width:11%}
+  .select-col{width:auto!important;min-width:0!important;padding:0 4px!important}
+  .thumb{width:clamp(32px,3.2vw,44px);height:clamp(32px,3.2vw,44px)}
+  .product-name{max-width:none;min-width:0}
+  .product-name b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.2}
+  .product-name small{font-size:10px}
+  .value,.subvalue{overflow-wrap:anywhere}
+  .value{font-size:clamp(10px,.78vw,12px)}
+  .subvalue{font-size:10px}
+  .badge{display:flex;width:max-content;max-width:100%;margin:3px 0 0;padding:1px 4px;font-size:9px}
+  .score-btn{padding:6px 7px;font-size:11px;max-width:100%}
+  .pager{padding:7px 9px}
+  .pager-controls{gap:5px}
+  .pager-controls select,.pager-controls button{padding:5px 7px}
+}
+
+@media (orientation:landscape) and (min-width:1440px){
+  main{padding-left:16px;padding-right:16px}
+  .table-scroll{max-height:calc(100dvh - 325px)}
+  tbody td{padding:9px 8px}
+  thead th>button{padding:10px 8px}
+  .product-name b{-webkit-line-clamp:3}
+}
+
+@media (max-width:1023px){
+  html,body{overflow-x:hidden}
+  .table-scroll{overflow-x:auto;overflow-y:auto;max-width:100vw;-webkit-overflow-scrolling:touch}
+  table{width:max-content;min-width:1180px;table-layout:auto}
+  thead th{white-space:normal}
+  thead th>button{white-space:normal;padding:8px 7px}
+  tbody td{padding:8px 7px}
+  .product-name{max-width:270px}
+  .badge{display:block;width:max-content;margin:3px 0 0}
+}
+
+@media (max-width:900px) and (orientation:landscape){
+  .topbar{position:sticky;top:0;flex-direction:row;align-items:center;padding:7px 10px}
+  .brand small{display:none}
+  .top-actions{width:auto;flex:1;justify-content:flex-end;flex-wrap:wrap}
+  .range-popover{top:58px}
+  main{padding:8px 10px 14px}
+  .summary{grid-template-columns:repeat(5,minmax(110px,1fr));overflow-x:auto;padding-bottom:3px}
+  .toolbar{grid-template-columns:minmax(220px,1fr) 180px;gap:6px}
+  .compare-note{grid-column:1/-1;text-align:left;font-size:10px}
+  .bulk-head{flex-direction:row;align-items:flex-start}
+  .bulk-actions{gap:5px}
+  .table-scroll{max-height:calc(100dvh - 300px)}
+  .pager{flex-direction:row;align-items:center;flex-wrap:wrap}
+}
+
+@media (orientation:portrait) and (max-width:900px){
+  .table-card{position:relative}
+  .table-card:before{content:'↔ Deslize a tabela para ver todas as colunas';display:block;padding:7px 10px;color:var(--muted);font-size:10px;border-bottom:1px solid var(--line);background:#0b1724}
+}
