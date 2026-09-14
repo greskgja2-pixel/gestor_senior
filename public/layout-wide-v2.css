@@ -1,0 +1,150 @@
+/* Gestor Senior — layout wide responsivo para todas as páginas.
+   Objetivo: aproveitar telas horizontais sem esmagar textos ou métricas. */
+
+html,body{max-width:100%;overflow-x:hidden}
+.main{min-width:0!important;width:100%!important}
+.content{min-width:0!important;width:100%!important;max-width:none!important;margin:0!important}
+.content>*{min-width:0}
+
+/* Texto: preservar leitura; quebrar linhas naturalmente, nunca comprimir palavras. */
+.content p,.content li,.content td,.content th,.content label,.content span,.content strong,.content b,.content h1,.content h2,.content h3,.content h4,
+.lm-wrap p,.lm-wrap td,.lm-wrap th,.sr-ads p,.sr-ads td,.sr-ads th,.gs-v6-products p,.gs-ency-home p,.gs-ency-ads-v5 p{
+  word-break:normal!important;overflow-wrap:break-word;hyphens:auto;line-height:1.35
+}
+
+/* Containers principais sem largura artificial. */
+.lm-wrap,.sr-ads,.gs-v6-products,.gs-ency-home,.gs-ency-ads-v5,.shell-module-card,.image-manager,.variation-editor,
+.ship-editor,.other-editor,.ai-editor,.product-trends,.prodTableWrap,.tableWrap{
+  width:100%!important;max-width:none!important;margin-left:0!important;margin-right:0!important;min-width:0
+}
+.sr-ads{padding-left:0!important;padding-right:0!important}
+.shell-module-card{margin-top:18px!important;margin-bottom:18px!important}
+
+/* KPIs: mais horizontais, mas com largura mínima confortável. */
+.lm-grid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))!important;gap:14px!important}
+.lm-kpi{min-width:0!important;min-height:86px!important;padding:12px 14px!important}
+.lm-kpi .k{font-size:11px!important;white-space:normal!important}
+.lm-kpi .v{font-size:clamp(18px,1.45vw,24px)!important;line-height:1.15!important;white-space:normal!important}
+.lm-kpi .s{white-space:normal!important}
+
+/* Pares de cards grandes: só ficam lado a lado quando existe espaço real. */
+.lm-cols{grid-template-columns:minmax(460px,1.45fr) minmax(360px,1fr)!important;gap:16px!important;align-items:stretch}
+.lm-card{min-width:0!important}
+.lm-card-head{align-items:flex-start!important;flex-wrap:wrap!important}
+.lm-card-head h3{min-width:0;line-height:1.3}
+.lm-card-head span{white-space:normal!important;text-align:right}
+.lm-card-body{min-width:0!important;padding:14px 16px!important}
+.lm-chart{width:100%!important;height:clamp(190px,17vw,250px)!important;min-width:0!important}
+
+/* Formulários e blocos operacionais. */
+.lm-form{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))!important}
+.lm-health{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))!important}
+.lm-strategies{grid-template-columns:repeat(auto-fit,minmax(250px,1fr))!important}
+.lm-theme-grid{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))!important}
+.lm-hour-grid{grid-template-columns:repeat(auto-fit,minmax(72px,1fr))!important}
+.lm-field,.lm-health-item,.lm-strategy,.lm-theme{min-width:0!important}
+.lm-input,.lm-select,.input,.select,textarea,input,select{max-width:100%}
+
+/* Concorrência / SEO / melhoria: cards largos, títulos legíveis. */
+.adv-competitors{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))!important;gap:14px!important}
+.adv-comp{min-width:0!important}
+.adv-comp-title{min-height:0!important;font-size:12px!important;line-height:1.45!important;white-space:normal!important}
+.adv-comp-meta{flex-wrap:wrap!important}
+.adv-own{grid-template-columns:96px minmax(260px,1fr) auto!important}
+.adv-own h3,.adv-own p{white-space:normal!important}
+.adv-checks{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))!important}
+.adv-vs{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))!important}
+
+/* Produtos: usar mais colunas só quando os cards continuam legíveis. */
+.products{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))!important;gap:14px!important}
+.product{min-width:0!important}
+.product .name,.product h3,.product p{white-space:normal!important;overflow:visible!important;text-overflow:clip!important}
+
+/* Tabelas: nunca comprimir colunas; rolagem fica no próprio bloco. */
+.lm-table-wrap,.sr-table-wrap,.prodTableWrap,.tableWrap,.ve-table-wrap,.gs-v6-table-card{
+  width:100%!important;max-width:100%!important;overflow-x:auto!important;overflow-y:visible;-webkit-overflow-scrolling:touch
+}
+.lm-table,.prodTable,.ve-table,.gs-v6-table-card table{width:max-content!important;min-width:100%!important;table-layout:auto!important}
+.lm-table th,.lm-table td,.prodTable th,.prodTable td,.ve-table th,.ve-table td,.gs-v6-table-card th,.gs-v6-table-card td{
+  min-width:110px;max-width:420px;white-space:normal!important;vertical-align:middle!important
+}
+.lm-table th,.prodTable th,.ve-table th,.gs-v6-table-card th{white-space:nowrap!important}
+.prodTable th:first-child,.prodTable td:first-child{min-width:280px}
+
+/* Shopee Ads: tela cheia, métricas confortáveis e tabela preservada. */
+.sr-ads{max-width:none!important;width:100%!important;margin:0!important}
+.sr-kpis{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))!important}
+.sr-more-panel.open{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))!important}
+.sr-filters{grid-template-columns:minmax(260px,1.6fr) repeat(2,minmax(180px,.8fr)) auto!important}
+.sr-top,.sr-hero,.sr-list-head,.sr-performance-head{min-width:0;flex-wrap:wrap!important}
+.sr-top>*,.sr-hero>*,.sr-list-head>*,.sr-performance-head>*{min-width:0}
+.sr-table{width:max-content!important;min-width:100%!important}
+.sr-table th,.sr-table td{min-width:110px;white-space:normal!important}
+.sr-table th{white-space:nowrap!important}
+.sr-table .info-col{min-width:360px!important;max-width:520px!important}
+.sr-info-main b{max-width:none!important;white-space:normal!important;line-height:1.4!important}
+.sr-diagnosis{max-width:280px!important;min-width:180px!important}
+.sr-actions{min-width:240px!important}
+
+/* Enciclopédia / Home: usar a largura sem transformar cada card em uma faixa estreita. */
+.gs-ency-grid,.gs-v5-metrics,.gs-v6-kpis{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))!important}
+.gs-v5-insights,.gs-v6-insights{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))!important}
+.gs-v5-insights>div,.gs-v6-insights>div{min-width:0!important}
+.gs-v5-insights b,.gs-v6-insights b{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;line-height:1.35!important}
+.gs-v6-detail-kpis{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))!important}
+.gs-v6-modal{width:min(1400px,96vw)!important}
+
+/* Editores: aproveitar tela horizontal sem apertar inputs. */
+.editor{width:min(1600px,calc(100vw - 36px))!important;max-width:calc(100vw - 36px)!important}
+.editorBody{min-width:0!important}
+.editor .panel{min-width:0!important}
+.ve-summary{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))!important}
+.ve-wholesale{grid-template-columns:repeat(3,minmax(180px,1fr)) auto!important}
+.ve-tier-top{grid-template-columns:130px minmax(260px,1fr) auto!important}
+.im-grid{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))!important}
+.im-grid.compact{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))!important}
+.img-editor-shell{width:min(1600px,calc(100vw - 20px))!important}
+.img-editor-shell>main{grid-template-columns:minmax(0,1fr) minmax(320px,390px)!important}
+
+/* Navegação: não sacrificar área de conteúdo, mas manter rótulos legíveis. */
+.sidebar{flex:0 0 auto}
+.nav .shell-page .shell-label{white-space:normal!important;overflow:visible!important;text-overflow:clip!important}
+
+@media(min-width:1500px){
+  .content{padding:20px 28px 36px!important}
+  .lm-cols{grid-template-columns:minmax(560px,1.55fr) minmax(430px,1fr)!important;gap:18px!important}
+  .lm-grid{gap:16px!important}
+  .sr-kpis{grid-template-columns:repeat(auto-fit,minmax(225px,1fr))!important}
+  .adv-competitors{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))!important}
+}
+
+@media(min-width:1900px){
+  .content{padding-left:32px!important;padding-right:32px!important}
+  .lm-cols{grid-template-columns:minmax(680px,1.6fr) minmax(520px,1fr)!important}
+  .lm-kpi{min-height:82px!important}
+  .lm-chart{height:220px!important}
+}
+
+/* Se não houver largura suficiente, empilha em vez de esmagar. */
+@media(max-width:1199px){
+  .lm-cols{grid-template-columns:1fr!important}
+  .sr-filters{grid-template-columns:1fr 1fr!important}
+  .adv-own{grid-template-columns:88px minmax(0,1fr)!important}
+  .adv-own .price{grid-column:1/-1}
+  .ve-wholesale{grid-template-columns:1fr 1fr!important}
+}
+@media(max-width:900px){
+  .content{padding:16px!important}
+  .lm-grid{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))!important}
+  .products{grid-template-columns:repeat(auto-fit,minmax(230px,1fr))!important}
+  .adv-own{grid-template-columns:76px minmax(0,1fr)!important}
+  .ve-tier-top,.ve-wholesale{grid-template-columns:1fr!important}
+  .img-editor-shell>main{grid-template-columns:1fr!important}
+}
+@media(max-width:620px){
+  .lm-grid,.lm-form,.lm-health,.lm-strategies,.lm-theme-grid,.adv-competitors,.adv-checks,.adv-vs,
+  .gs-ency-grid,.gs-v5-metrics,.gs-v5-insights,.gs-v6-kpis,.gs-v6-insights,.gs-v6-detail-kpis{grid-template-columns:1fr!important}
+  .products{grid-template-columns:1fr!important}
+  .sr-kpis,.sr-more-panel.open,.sr-filters{grid-template-columns:1fr!important}
+  .sr-table .info-col{min-width:270px!important}
+}
