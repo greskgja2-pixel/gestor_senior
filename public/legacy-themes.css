@@ -17,7 +17,7 @@ body[data-gs-theme="light"]{--gs-bg:#f5f6f8;--gs-surface:#fff;--gs-surface2:#faf
 
 /* whole application */
 body[data-gs-theme] .app{background:var(--gs-bg);color:var(--gs-text)}
-body[data-gs-theme="gestor"] .app,body[data-gs-theme="dark"] .app{background-image:linear-gradient(rgba(3,12,23,.82),rgba(3,12,23,.9)),url('/leather-navy.png');background-size:cover,680px 680px;background-attachment:fixed}
+body[data-gs-theme="gestor"] .app,body[data-gs-theme="dark"] .app{background-image:linear-gradient(145deg,#04101e 0%,#071728 52%,#0b2035 100%);background-attachment:fixed}
 body[data-gs-theme] .main,body[data-gs-theme] .content{background:var(--gs-bg)!important;color:var(--gs-text)!important}
 body[data-gs-theme] .sidebar{background:var(--gs-nav)!important;color:var(--gs-text)!important}
 body[data-gs-theme] .topbar{background:var(--gs-top)!important;color:var(--gs-text)!important;border-color:var(--gs-border)!important}
