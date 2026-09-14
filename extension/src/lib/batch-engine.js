@@ -5,7 +5,7 @@ import {createPeriodicJob} from './job-engine.js';
 import {gestorApi} from './gestor-api.js';
 
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-const n=v=>Number.isFinite(Number(v))?Number(v):null;
+const n=v=>v===null||v===undefined||v===''?null:(Number.isFinite(Number(v))?Number(v):null);
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 
 export function adContextsForItem(settings,itemId){
