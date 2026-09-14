@@ -2,7 +2,7 @@
 
 import { useCallback, useRef } from "react";
 
-const VERSION = "20260914-02";
+const VERSION = "20260914-03";
 
 const STYLES = [
   ["shell-enhancements-css", "/shell-enhancements.css"],
@@ -34,6 +34,7 @@ const SCRIPTS = [
   ["products-profit-enhancements-js", "/products-profit-enhancements.js"],
   ["product-trends-js", "/product-trends.js"],
   ["home-encyclopedia-js", "/home-encyclopedia.js"],
+  ["ads-product-scope-fix-js", "/ads-product-scope-fix.js"],
 ];
 
 function addStyle(doc, key, href) { if (!doc?.head || doc.querySelector(`link[data-${key}]`)) return; const link=doc.createElement("link"); link.rel="stylesheet"; link.href=`${href}?v=${VERSION}`; link.setAttribute(`data-${key}`,"1"); doc.head.appendChild(link); }
