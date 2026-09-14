@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-const VERSION='20260914-persist-v8-01';
+const VERSION='20260914-persist-v8-02';
 if(window.__gsPersistenceFixV8===VERSION)return;
 window.__gsPersistenceFixV8=VERSION;
 
@@ -77,30 +77,22 @@ async function ensureHome(){
   const c=content();
   if(!c||c.querySelector('.gs-ency-home')||!c.querySelector('.lm-wrap')||homeBusy)return;
   homeBusy=true;
-  try{const d=await homeData();if(isHome()&&content()?.querySelector('.lm-wrap')&&!content()?.querySelector('.gs-ency-home'))appendHomeCards(d);}catch(e){}finally{homeBusy=false;}
-}
-
-let adsRecoverAfter=0;
-function ensureAds(){
-  if(activeId()!=='ads')return;
-  const c=content();
-  if(!c||c.querySelector('.gs-ads-v7')||c.querySelector('.gs-ads-loading'))return;
-  if(Date.now()<adsRecoverAfter)return;
-  const lm=window.GestorLiveModules;
-  if(!lm||typeof lm.render!=='function')return;
-  adsRecoverAfter=Date.now()+2500;
   try{
-    const result=lm.render('ads');
-    Promise.resolve(result).catch(()=>{}).finally(()=>setTimeout(()=>{adsRecoverAfter=0;ensureAds();},300));
-  }catch(e){adsRecoverAfter=0;}
+    const d=await homeData();
+    if(isHome()&&content()?.querySelector('.lm-wrap')&&!content()?.querySelector('.gs-ency-home'))appendHomeCards(d);
+  }catch(e){}finally{homeBusy=false;}
 }
 
+// IMPORTANTE: este módulo cuida SOMENTE da página Início.
+// Shopee Ads é responsabilidade exclusiva do ads-control-v7.js.
+// Não chamamos GestorLiveModules.render('ads') aqui para evitar dois renderizadores
+// disputando #content e alternando a tela em loop.
 let scheduled=false;
-function run(){scheduled=false;ensureHome();ensureAds();}
+function run(){scheduled=false;ensureHome();}
 function schedule(){if(scheduled)return;scheduled=true;setTimeout(run,220);}
 const observer=new MutationObserver(schedule);
 observer.observe(document.documentElement,{childList:true,subtree:true});
-setInterval(run,1200);
+setInterval(run,1800);
 setTimeout(run,250);
 setTimeout(run,900);
 })();
