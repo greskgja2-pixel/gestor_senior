@@ -2,7 +2,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node tests/engine-regression.mjs && node tests/collector-index-regression.mjs && node tests/automation-safety-regression.mjs",
-    "check": "node --check src/background.js && node --check src/content.js && node --check src/page-hook.js && node --check src/collector-content.js && node --check src/collector-interceptor.js && node --check src/lib/collector-index.js && node --check sidepanel-v3.js"
+    "test": "node tests/engine-regression.mjs && node tests/collector-index-regression.mjs && node tests/automation-safety-regression.mjs && node tests/continuous-engine-regression.mjs",
+    "check": "node --check src/background.js && node --check src/content.js && node --check src/page-hook.js && node --check src/collector-content.js && node --check src/collector-interceptor.js && node --check src/lib/collector-index.js && node --check src/lib/continuous-engine.js && node --check src/lib/rules-engine.js && node --check src/lib/super-anuncio-engine.js && node --check sidepanel-v3.js"
   }
 }
