@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-const VERSION = "20260914-12";
+const VERSION = "20260914-13";
 const FRAME_SRC = `/shopeeos-live.html?v=full-live-${VERSION}`;
 
 const STYLES = [
@@ -21,11 +21,9 @@ const STYLES = [
   ["home-encyclopedia-css", "/home-encyclopedia.css"],
   ["product-encyclopedia-v6-css", "/product-encyclopedia-v6.css"],
   ["ads-shopee-replica-v11-css", "/ads-shopee-replica-v11.css"],
+  ["layout-wide-v2-css", "/layout-wide-v2.css"],
 ];
 
-// Core is intentionally ordered. The old loader injected shell-enhancements before
-// live-modules, so on a cold load the shell could give up before GestorLiveModules
-// existed. Reloading worked only because the browser cache made the scripts faster.
 const CORE_SCRIPTS = [
   ["runtime-restoration-js", "/runtime-restoration.js"],
   ["live-modules-js", "/live-modules.js"],
@@ -147,16 +145,15 @@ async function installEnhancements(frame) {
       stylePromises.get("shell-enhancements-css"),
       stylePromises.get("runtime-restoration-css"),
       stylePromises.get("live-modules-css"),
+      stylePromises.get("layout-wide-v2-css"),
     ]);
 
-    // Load the dependency chain one-by-one. This removes the first-load race.
     for (const [key, src] of CORE_SCRIPTS) await loadRequiredScript(doc, key, src);
     await waitForModernHome(doc);
 
     doc.documentElement.dataset.gestorReady = VERSION;
     delete doc.documentElement.dataset.gestorInstalling;
 
-    // Non-critical modules continue loading after the correct shell is already ready.
     (async () => {
       for (const [key, src] of OPTIONAL_SCRIPTS) {
         try {
