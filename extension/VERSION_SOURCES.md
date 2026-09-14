@@ -5,18 +5,22 @@
 - Auto Mapper: **shopee-seller-auto-mapper-v2.4.zip / 2.4.0**.
 - Enciclopédia Gestor Sênior: **v7 / 82 entradas técnicas** como referência de endpoints/campos já curados.
 - Coletor Painel Revenda: **extensao-coletor-shopee-v3.1.0.zip / 3.1.0**, recebido em 2026-09-14.
-- Extensão unificada: **Gestor Sênior Shopee Intelligence v0.5.0**.
+- Extensão unificada: **Gestor Sênior Shopee Intelligence v0.6.0**.
 
-## O que a v0.5 acrescenta
+## O que a v0.4 acrescentou
 
-A extensão ganhou uma página completa de **Dashboard Analítica de Anúncios**, aberta em uma aba própria para comportar uma tabela larga. Ela cruza a lista de produtos da loja com Shopee Ads, custos locais, histórico da Super Análise e limites financeiros.
+A manutenção periódica pode reabrir o anúncio em uma aba inativa, reexecutar a auditoria Super Anúncio, reaproveitar a base local do Coletor 3.1 e complementar concorrentes com uma busca ao vivo quando necessário. O ciclo registra antes/depois, gera propostas de título, descrição e preço, cruza Ads e pode sugerir ou executar ajuste de ROAS dentro dos guardrails financeiros.
 
-A dashboard possui intervalo customizado de 1 a 90 dias, atalhos de Hoje, Ontem, Últimos 3 dias, Últimos 7 dias, semana atual e mês atual, além de comparar automaticamente com o período anterior equivalente. A API `/api/shopee/ads-analytics` busca campanhas em lotes, suporta mais de 100 campanhas e evita duplicar métricas de campanhas multi-item quando a Shopee não fornece atribuição por produto.
+Preço, título e descrição permanecem **aprovação-only** enquanto não houver um endpoint de escrita validado no Gestor. A extensão não inventa uma operação de edição da Shopee. ROAS automático continua exigindo custo do produto, limites de margem/lucro, dados mínimos, cooldown e limite percentual por ciclo. O motor também pode sugerir reversão quando uma alteração de ROAS for seguida de piora relevante sem ganho de pedidos.
 
-A tabela traz imagem, nome, nota Super Análise, custo unitário, preço De/Por, custo por conversão Ads, GMV, ROAS, CTR e margem de contribuição em R$ e %. As métricas exibem badges de variação e todas as colunas numéricas são ordenáveis. Há busca, filtro, paginação 10/25/50/100, exportação CSV e XLSX sem dependência externa e detalhamento da Super Análise ao clicar na nota.
+## O que a v0.5 acrescentou
 
-A margem é tratada como métrica derivada: GMV atribuído ao Ads menos custo unitário × itens vendidos, taxas configuradas e gasto Ads. Sem custo cadastrado, a margem fica como N/A para impedir uma falsa impressão de rentabilidade.
+A Dashboard Analítica de Anúncios ganhou intervalo customizado, atalhos de período, comparação com período anterior equivalente, paginação 10/25/50/100, ordenação, exportação CSV/XLSX, Nota Super Análise clicável, GMV, ROAS, CTR, custo por conversão e margem de contribuição com badges de evolução.
 
-A manutenção periódica continua podendo reabrir o anúncio em uma aba inativa, reexecutar a auditoria Super Anúncio, reaproveitar a base local do Coletor 3.1 e complementar concorrentes com busca ao vivo. Preço, título e descrição permanecem **aprovação-only** enquanto não houver um endpoint de escrita validado. ROAS automático continua exigindo custo, limites de margem/lucro, dados mínimos, cooldown e limite percentual por ciclo.
+## O que a v0.6 acrescenta
+
+A Dashboard agora permite selecionar produtos individualmente ou por página e executar ações em massa. Há seleções rápidas para produtos com ROAS abaixo da meta, ainda não analisados e com margem negativa. O lote pode rodar a Super Análise em segundo plano, criar manutenção semanal para vários anúncios e aplicar somente ajustes de ROAS que passem por validação de custo, margem, limite de variação e campanha individual. Campanhas compartilhadas e produtos sem custo informado são bloqueados no ajuste automático em massa.
+
+A auditoria em lote reutiliza primeiro a base do Coletor 3.1 e só abre pesquisa de concorrentes ao vivo quando necessário. Para estabilidade do navegador, uma rodada profunda analisa no máximo 25 anúncios por vez.
 
 A política do projeto é nunca substituir silenciosamente uma fonte por versão anterior. Uma nova versão só vira referência depois de ser identificada e incorporada explicitamente.
