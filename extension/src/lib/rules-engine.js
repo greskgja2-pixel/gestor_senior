@@ -1,5 +1,6 @@
 import {financialGuard, DEFAULT_FINANCE} from './profit-engine.js';
 import {buildRoasStrategy} from './super-anuncio-engine.js';
+import {buildPriceProposal} from './continuous-engine.js';
 
 export const DEFAULT_AUTOMATION = Object.freeze({
   enabled:false,
@@ -16,9 +17,9 @@ export const DEFAULT_AUTOMATION = Object.freeze({
   allowRoas:true,
   allowBudget:true,
   allowProtectionReset:false,
-  allowPrice:false,
-  allowTitle:false,
-  allowDescription:false,
+  allowPrice:true,
+  allowTitle:true,
+  allowDescription:true,
   rollbackOnWorsePerformance:true,
   finance:{...DEFAULT_FINANCE}
 });
@@ -43,17 +44,21 @@ export function evaluateCampaign({campaign, product, policy={}, lastChangeAt=nul
     if(Number.isFinite(Number(advice.suggestedTarget))){
       const current=Number(campaign.targetRoas),maxDelta=Math.abs(current)*cfg.maxRoasChangePct/100;
       const target=clamp(Number(advice.suggestedTarget),current-maxDelta,current+maxDelta);
-      if(Math.abs(target-current)>=0.01)proposals.push({type:'change_roas_target',current,target:Number(target.toFixed(2)),reason:advice.title,details:advice});
+      if(Math.abs(target-current)>=0.01)proposals.push({type:'change_roas_target',current,target:Number(target.toFixed(2)),reason:advice.title,details:advice,autoEligible:true});
     }
   }
-  if(cfg.allowProtectionReset&&campaign.protection==='valid')proposals.push({type:'protection_reset',reason:'Proteção de ROAS ativa e política permite rotina experimental'});
+  if(cfg.allowProtectionReset&&campaign.protection==='valid')proposals.push({type:'protection_reset',reason:'Proteção de ROAS ativa e política permite rotina experimental',autoEligible:true});
   return {eligible:true,reasons,proposals:proposals.slice(0,cfg.maxChangesPerCycle),guard};
 }
 
 export function evaluateListing({analysis, product, policy={}}){
-  const cfg={...DEFAULT_AUTOMATION,...policy,finance:{...DEFAULT_FINANCE,...policy.finance}}, proposals=[];
+  const cfg={...DEFAULT_AUTOMATION,...policy,finance:{...DEFAULT_FINANCE,...policy.finance}}, proposals=[],reasons=[];
   const byName=new Map((analysis.dimensions||[]).map(d=>[d.name,d]));
-  if(cfg.allowTitle&&(byName.get('Título')?.score||99)<10&&analysis.optimizedTitle&&analysis.optimizedTitle!==product.title)proposals.push({type:'change_title',current:product.title,target:analysis.optimizedTitle,requiresApproval:true,reason:'Título abaixo do nível desejado'});
-  if(cfg.allowDescription&&(byName.get('Descrição')?.score||99)<10&&analysis.optimizedDescription)proposals.push({type:'change_description',target:analysis.optimizedDescription,requiresApproval:true,reason:'Descrição abaixo do nível desejado'});
-  return {proposals};
+  if(cfg.allowTitle&&(byName.get('Título')?.score||99)<10&&analysis.optimizedTitle&&analysis.optimizedTitle!==product.title)proposals.push({type:'change_title',current:product.title,target:analysis.optimizedTitle,requiresApproval:true,autoEligible:false,reason:'Título abaixo do nível desejado'});
+  if(cfg.allowDescription&&(byName.get('Descrição')?.score||99)<10&&analysis.optimizedDescription)proposals.push({type:'change_description',current:product.description||'',target:analysis.optimizedDescription,requiresApproval:true,autoEligible:false,reason:'Descrição abaixo do nível desejado'});
+  if(cfg.allowPrice){
+    const priceProposal=buildPriceProposal({currentPrice:product.price??product.price_min,competitorMedian:analysis.competitorMedian,productCost:product.productCost,policy:cfg});
+    if(priceProposal){proposals.push(priceProposal);if(!priceProposal.safe)reasons.push(...(priceProposal.guard?.reasons||[]));}
+  }
+  return {proposals:proposals.slice(0,cfg.maxChangesPerCycle),reasons};
 }
