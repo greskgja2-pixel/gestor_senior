@@ -1,26 +1,31 @@
 <!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gestor Sênior</title><link rel="stylesheet" href="sidepanel-v3.css"></head><body>
-<header><div class="brand"><span class="logo">GS</span><div><strong>Gestor Sênior</strong><small>Shopee Intelligence</small></div></div><span class="version">v0.3</span></header>
+<header><div class="brand"><span class="logo">GS</span><div><strong>Gestor Sênior</strong><small>Shopee Intelligence</small></div></div><span class="version">v0.4</span></header>
 <nav><button class="active" data-tab="home">Visão</button><button data-tab="analyze">Analisar</button><button data-tab="auto">Automação</button><button data-tab="resale">Revenda</button><button data-tab="lab">Coletor</button></nav>
 <main>
 <section id="tab-home" class="tab active">
-  <div class="hero"><b>Central inteligente</b><span>Super Anúncio + Gestor + Auto Mapper + Coletor 3.1</span></div>
+  <div class="hero"><b>Central inteligente</b><span>Coleta → análise → decisão → ação → acompanhamento → possível reversão</span></div>
   <div class="cards"><div class="metric"><small>Base coletada</small><b id="homeIndexed">—</b></div><div class="metric"><small>Lojas</small><b id="homeShops">—</b></div><div class="metric"><small>Preço mediano</small><b id="homeMedian">—</b></div><div class="metric"><small>Tarefas ativas</small><b id="homeJobs">—</b></div></div>
   <button id="homeAnalyze" class="primary big">✨ Analisar anúncio aberto</button>
-  <div class="card"><b>Como a extensão trabalha</b><p>Primeiro tenta aproveitar a base já coletada como concorrência. Se faltar amostra, abre uma busca da Shopee em segundo plano. Depois cruza anúncio, concorrentes, Ads, custo e histórico.</p></div>
+  <div class="card"><b>Melhoria contínua</b><p>O Gestor usa primeiro a base do Coletor 3.1 para localizar concorrentes. Se a amostra for pequena, pode pesquisar a Shopee em segundo plano. Depois cruza anúncio, preço, concorrência, Ads, custo e histórico antes de sugerir ou executar uma mudança.</p></div>
   <div id="homeLast" class="card muted">Nenhuma análise nesta sessão.</div>
 </section>
 <section id="tab-analyze" class="tab">
-  <div class="row"><div><h2>Super Análise</h2><p class="muted">Motor 1.5.4+14 adaptado para Chrome.</p></div><button id="smartAnalyze" class="primary">Analisar</button></div>
+  <div class="row"><div><h2>Super Análise</h2><p class="muted">Motor 1.5.4+14 + histórico + concorrência + Ads.</p></div><button id="smartAnalyze" class="primary">Analisar</button></div>
   <label>Custo do produto (R$)<div class="inline"><input id="analysisCost" type="number" min="0" step="0.01" placeholder="Ex.: 12,50"><button id="saveAnalysisCost">Salvar</button></div></label>
   <div id="analysisEmpty" class="empty">Abra um anúncio da Shopee Brasil e clique em <b>Analisar</b>.</div><div id="analysisResult" hidden></div>
 </section>
 <section id="tab-auto" class="tab">
-  <h2>Melhoria contínua</h2><p class="muted">A extensão revisa o anúncio no intervalo escolhido. Ads pode ser automático; conteúdo e preço ficam em aprovação enquanto os endpoints de escrita não estiverem validados.</p>
-  <div class="card"><label>ID do item<input id="autoItem" inputmode="numeric"></label><label>Nome<input id="autoTitle"></label>
+  <h2>Melhoria contínua</h2><p class="muted">A cada ciclo a extensão pode reabrir o anúncio em segundo plano, reavaliar concorrentes, conteúdo, preço e Ads. Escrita automática continua limitada às ações de Ads já validadas.</p>
+  <div class="card"><label>ID do item<input id="autoItem" inputmode="numeric"></label><label>Nome<input id="autoTitle"></label><label>URL do anúncio<input id="autoUrl" placeholder="https://shopee.com.br/..."></label>
     <div class="grid2"><label>Custo R$<input id="autoCost" type="number" min="0" step="0.01"></label><label>Frequência<select id="autoFreq"><option value="7">Semanal</option><option value="3">3 dias</option><option value="14">14 dias</option></select></label></div>
     <div class="grid2"><label>Modo<select id="autoMode"><option value="approve">Recomendar e aprovar</option><option value="automatic">Automático Ads</option></select></label><label>ROAS máx. por ciclo %<input id="autoRoasDelta" type="number" value="10" min="1" max="15"></label></div>
     <div class="grid2"><label>Margem mínima %<input id="autoMargin" type="number" value="20"></label><label>Lucro mínimo R$<input id="autoProfit" type="number" value="8"></label></div>
-    <label>Gasto Ads semanal máximo R$<input id="autoSpend" type="number" value="300"></label><label class="check"><input id="autoProtection" type="checkbox"> Permitir rotina de Proteção ROAS</label><button id="createAuto" class="primary big">Criar manutenção</button>
+    <label>Gasto Ads semanal máximo R$<input id="autoSpend" type="number" value="300"></label>
+    <label class="check"><input id="autoDeepAudit" type="checkbox" checked> Reabrir o anúncio e reavaliar conteúdo/preço em cada ciclo</label>
+    <label class="check"><input id="autoLiveCompetitors" type="checkbox" checked> Buscar concorrentes ao vivo se a base local não for suficiente</label>
+    <label class="check"><input id="autoProtection" type="checkbox"> Permitir rotina de Proteção ROAS</label>
+    <div class="guard-note">Título, descrição e preço são preparados para aprovação. ROAS pode ser automático somente dentro dos limites financeiros definidos acima.</div>
+    <button id="createAuto" class="primary big">Criar manutenção</button>
   </div><div id="jobList"></div>
 </section>
 <section id="tab-resale" class="tab">
@@ -34,5 +39,5 @@
     <div class="actions"><button id="startCollection" class="primary">Iniciar</button><button id="pauseCollection">Pausar</button><button id="cancelCollection" class="danger">Cancelar</button></div><div class="progress"><i id="collectBar"></i></div><div class="row mini"><span id="collectCount">0 arquivo(s)</span><span id="collectErrors">0 erro(s)</span></div><p id="collectStatus" class="muted">Pronto.</p>
   </div>
 </section>
-<section id="tab-lab" class="tab"><h2>Laboratório técnico</h2><div class="card"><b>Auto Mapper v2.4</b><p class="muted">Captura técnica completa fica desligada normalmente. Ative somente quando estivermos mapeando novas telas/endpoints.</p><label class="check"><input id="researchCapture" type="checkbox"> Ativar captura técnica completa</label><button id="clearTechnical">Limpar capturas técnicas locais</button></div><div class="card"><b>Índice inteligente do Coletor 3.1</b><p class="muted">Os JSONs baixados também alimentam uma base local para encontrar concorrentes sem repetir pesquisas.</p><button id="clearIndex" class="danger">Limpar índice de concorrentes</button></div><div class="card"><b>Segurança</b><p>Senha, cookie, token, e-mail e telefone não fazem parte do índice. Alterações financeiras passam por limites de margem, lucro e variação.</p></div></section>
+<section id="tab-lab" class="tab"><h2>Laboratório técnico</h2><div class="card"><b>Auto Mapper v2.4</b><p class="muted">Captura técnica completa fica desligada normalmente. Ative somente quando estivermos mapeando novas telas/endpoints.</p><label class="check"><input id="researchCapture" type="checkbox"> Ativar captura técnica completa</label><button id="clearTechnical">Limpar capturas técnicas locais</button></div><div class="card"><b>Índice inteligente do Coletor 3.1</b><p class="muted">Os JSONs baixados também alimentam uma base local para encontrar concorrentes sem repetir pesquisas.</p><button id="clearIndex" class="danger">Limpar índice de concorrentes</button></div><div class="card"><b>Segurança</b><p>Senha, cookie, token, e-mail e telefone não fazem parte do índice. Alterações financeiras passam por custo, margem, lucro, cooldown e limite percentual por ciclo.</p></div></section>
 </main><div id="toast"></div><script type="module" src="sidepanel-v3.js"></script></body></html>
