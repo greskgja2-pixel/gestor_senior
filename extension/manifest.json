@@ -1,10 +1,10 @@
 {
   "manifest_version": 3,
   "name": "Gestor Sênior — Shopee Intelligence",
-  "version": "0.4.0",
-  "version_name": "0.4.0 - Melhoria contínua e auditoria periódica",
+  "version": "0.5.0",
+  "version_name": "0.5.0 - Dashboard analítica e comparação temporal",
   "minimum_chrome_version": "114",
-  "description": "Extensão companheira do Gestor Sênior: Super Anúncio, Shopee Ads, melhoria contínua, automações com proteção financeira, Auto Mapper e Coletor Shopee 3.1.",
+  "description": "Extensão companheira do Gestor Sênior: Super Anúncio, Shopee Ads, dashboard analítica, melhoria contínua, automações com proteção financeira, Auto Mapper e Coletor Shopee 3.1.",
   "permissions": ["storage", "unlimitedStorage", "tabs", "alarms", "notifications", "sidePanel", "scripting", "downloads", "clipboardWrite"],
   "host_permissions": ["https://shopee.com.br/*", "https://*.shopee.com.br/*", "https://seller.shopee.com.br/*", "https://*.shopeemobile.com/*", "https://shopeeos-real.vercel.app/*"],
   "icons": {"16": "icons/icon16.png", "32": "icons/icon32.png", "48": "icons/icon48.png", "128": "icons/icon128.png"},
