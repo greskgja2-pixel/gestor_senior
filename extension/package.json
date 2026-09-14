@@ -1,0 +1,8 @@
+{
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node tests/engine-regression.mjs",
+    "check": "node --check src/background.js && node --check src/content.js && node --check src/page-hook.js && node --check src/collector-content.js && node --check src/collector-interceptor.js && node --check sidepanel.js"
+  }
+}
