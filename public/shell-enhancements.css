@@ -2,5 +2,34 @@
 .mode-switcher-restored{display:flex;gap:4px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.07);border-radius:999px;padding:3px;margin:2px 4px 14px}.mode-switcher-restored button{flex:1;border:0;background:transparent;color:#cdd4df;padding:7px 8px;border-radius:999px;font-size:11px;font-weight:700}.mode-switcher-restored button.active{background:linear-gradient(90deg,#c9973f,#e5c36d);color:#07111d}.shell-nav-title{font-size:10px;color:#8993a4;text-transform:uppercase;letter-spacing:.08em;margin:15px 10px 6px}.nav .shell-page{display:flex;align-items:center;gap:8px;position:relative}.nav .shell-page .shell-icon{width:16px;text-align:center;flex:0 0 16px}.nav .shell-page .shell-label{min-width:0;white-space:normal;line-height:1.15}.nav .shell-page .shell-state{margin-left:auto;font-size:8px;text-transform:uppercase;letter-spacing:.04em;padding:2px 5px;border-radius:999px;background:rgba(255,255,255,.08);color:#93a0b3}.nav .shell-page .shell-state.live{background:#143b2a;color:#8ce1b3}.nav .shell-page.shell-only.active{background:var(--nav2);color:#fff}.shell-module-card{max-width:900px;margin:34px auto;background:#fff;border:1px solid var(--line);border-radius:16px;padding:26px;box-shadow:var(--shadow)}.shell-module-card .shell-module-icon{width:50px;height:50px;border-radius:14px;background:#fff2ed;display:grid;place-items:center;font-size:25px;margin-bottom:14px}.shell-module-card h1{margin:0 0 7px;font-size:24px}.shell-module-card p{color:#667085;line-height:1.55}.shell-module-status{display:inline-flex;align-items:center;gap:7px;margin:8px 0 16px;padding:6px 10px;border-radius:999px;background:#fffaeb;color:#8a5b00;font-size:11px;font-weight:750}.shell-module-status:before{content:'';width:7px;height:7px;border-radius:50%;background:#f79009}.shell-module-box{margin-top:16px;padding:14px 16px;border-radius:11px;background:#f8fafc;border:1px solid #e4e7ec;color:#475467}.shell-module-box strong{display:block;margin-bottom:4px;color:#344054}.shell-menu-btn{display:none;border:1px solid var(--line);background:#fff;border-radius:8px;width:36px;height:36px;place-items:center;font-size:18px}.shell-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:39}
 /* Product photos must never be cropped. Shopee product media is usually square, so use a square viewport. */
 .products .thumb{aspect-ratio:1/1!important;background:#fff!important;padding:8px!important;display:grid!important;place-items:center!important;overflow:hidden!important}.products .thumb img{width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important;object-position:center center!important;background:#fff!important}
+
+/* Wide-first workspace: use the horizontal space of notebooks and desktop monitors. */
+@media(min-width:901px){
+  .main{min-width:0!important;width:100%!important}
+  .content{width:100%!important;max-width:none!important;margin:0!important;padding:20px clamp(18px,1.5vw,34px) 34px!important}
+  .content>.lm-wrap,.lm-wrap{width:100%!important;max-width:none!important;margin-left:0!important;margin-right:0!important}
+  .lm-head{margin-bottom:14px!important}
+  .lm-grid{gap:14px!important}
+  .lm-cols{gap:16px!important}
+  .lm-card-body{padding:13px 15px!important}
+  .lm-kpi{min-height:86px!important;padding:12px 14px!important}
+  .lm-kpi .v{font-size:22px!important}
+  .lm-chart{height:205px!important}
+  .lm-table-wrap,.prodTableWrap,.tableWrap{width:100%!important;max-width:100%!important}
+  .gs-ency-home,.gs-ency-ads-v5{width:100%!important;max-width:none!important}
+}
+@media(min-width:1280px){
+  .lm-cols{grid-template-columns:minmax(0,1.45fr) minmax(360px,1fr)!important}
+  .lm-strategies{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+  .lm-form{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+  .lm-table{min-width:100%!important}
+}
+@media(min-width:1700px){
+  .content{padding-left:30px!important;padding-right:30px!important}
+  .lm-cols{grid-template-columns:minmax(0,1.55fr) minmax(480px,1fr)!important;gap:18px!important}
+  .lm-grid{gap:16px!important}
+  .lm-card-head{padding:12px 15px!important}
+  .lm-chart{height:195px!important}
+}
 @media(max-width:900px){.shell-menu-btn{display:grid}.sidebar{display:block!important;position:fixed!important;left:-264px!important;top:0!important;bottom:0!important;width:250px!important;z-index:45!important;transition:left .2s ease!important}.sidebar.shell-open{left:0!important}.shell-backdrop.open{display:block}.content{padding:16px}.products{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:620px){.products{grid-template-columns:1fr}.shell-module-card{margin:18px 0;padding:20px}}
