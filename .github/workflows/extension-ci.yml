@@ -21,7 +21,8 @@ jobs:
         with:
           node-version: '20'
       - name: Validate manifest JSON
-        run: node -e "JSON.parse(require('fs').readFileSync('extension/manifest.json','utf8')); console.log('manifest: OK')"
+        run: |
+          node -e "JSON.parse(require('fs').readFileSync('extension/manifest.json','utf8')); console.log('manifest OK')"
       - name: Syntax check extension scripts
         working-directory: extension
         run: npm run check
@@ -35,5 +36,5 @@ jobs:
           const m=JSON.parse(fs.readFileSync('extension/manifest.json','utf8'));
           const refs=[m.background?.service_worker,m.side_panel?.default_path,...(m.content_scripts||[]).flatMap(x=>x.js||[])].filter(Boolean);
           for(const f of refs){if(!fs.existsSync('extension/'+f))throw new Error('Missing '+f)}
-          console.log('manifest refs: OK');
+          console.log('manifest refs OK');
           NODE
