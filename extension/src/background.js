@@ -1,9 +1,10 @@
 import {gestorApi} from './lib/gestor-api.js';
 import {analyze} from './lib/super-anuncio-engine.js';
-import {DEFAULT_AUTOMATION,evaluateCampaign} from './lib/rules-engine.js';
+import {DEFAULT_AUTOMATION,evaluateCampaign,evaluateListing} from './lib/rules-engine.js';
 import {createPeriodicJob,loadJobs,markRun,cancelJob} from './lib/job-engine.js';
 import {financialGuard,DEFAULT_FINANCE} from './lib/profit-engine.js';
 import {indexSearchBody,findCollectedCompetitors,getCollectorStats,clearCollectorIndex} from './lib/collector-index.js';
+import {summarizeCycle,shouldOpenDeepAudit,evaluateRollback} from './lib/continuous-engine.js';
 
 const SNAPSHOT_KEY='gsSnapshotsV1';
 const SMART_HISTORY='gsSmartHistoryV1';
@@ -79,9 +80,9 @@ async function liveSearchCompetitors(title,ownItemId){
   }finally{if(tab.id)chrome.tabs.remove(tab.id).catch(()=>{});}
 }
 
-async function smartCompetitors(title,ownItemId){
+async function smartCompetitors(title,ownItemId,{allowLive=true}={}){
   let list=await findCollectedCompetitors(title,ownItemId,{max:20,minScore:.22});const indexed=list.length;
-  if(list.length<5){const live=await liveSearchCompetitors(title,ownItemId),seen=new Set(list.map(x=>String(x.itemId)));for(const x of live){if(!seen.has(String(x.itemId))){seen.add(String(x.itemId));list.push(x);}}}
+  if(allowLive&&list.length<5){const live=await liveSearchCompetitors(title,ownItemId),seen=new Set(list.map(x=>String(x.itemId)));for(const x of live){if(!seen.has(String(x.itemId))){seen.add(String(x.itemId));list.push(x);}}}
   return {items:list.slice(0,20),indexed,live:Math.max(0,list.length-indexed)};
 }
 
@@ -89,22 +90,27 @@ async function currentProduct(tabId){const r=await chrome.tabs.sendMessage(tabId
 function campaignForItem(ads,itemId){const v=ads?.v7||ads?.v5||ads||{};return (v.campaigns||[]).find(c=>String(c.itemId??c.item_id)===String(itemId));}
 async function mergeProtection(campaign){if(!campaign)return null;try{const p=await gestorApi.protection(),row=(p.states||[]).find(x=>String(x.campaign_id)===String(campaign.campaignId));return row?{...campaign,protection:row.status,protectionDue:row.due}:campaign;}catch{return campaign;}}
 
-function metricSnapshot(product,campaign,analysis){return{at:new Date().toISOString(),itemId:String(product.itemId||product.item_id||''),score:analysis.score,price:n(product.price??productPrice(product)),sold:n(product.sold),rating:n(product.rating),roas:n(campaign?.roas),targetRoas:n(campaign?.targetRoas),spend:n(campaign?.spend),orders:n(campaign?.orders),gmv:n(campaign?.gmv),clicks:n(campaign?.clicks),impressions:n(campaign?.impressions),ctr:n(campaign?.ctr)}}
-function compareSnapshots(prev,cur){if(!prev)return null;const diff=k=>Number.isFinite(prev[k])&&Number.isFinite(cur[k])?cur[k]-prev[k]:null,pct=k=>Number.isFinite(prev[k])&&prev[k]!==0&&Number.isFinite(cur[k])?(cur[k]-prev[k])/Math.abs(prev[k])*100:null;return{days:(new Date(cur.at)-new Date(prev.at))/86400000,score:diff('score'),roas:diff('roas'),spendPct:pct('spend'),orders:diff('orders'),gmvPct:pct('gmv'),clicks:diff('clicks'),impressions:diff('impressions')}}
+function metricSnapshot(product,campaign,analysis){return{at:new Date().toISOString(),itemId:String(product.itemId||product.item_id||''),score:analysis.score,price:n(product.price??productPrice(product)),sold:n(product.sold),views:n(product.views??product.viewCount??product.view_count),rating:n(product.rating),roas:n(campaign?.roas),targetRoas:n(campaign?.targetRoas),spend:n(campaign?.spend),orders:n(campaign?.orders),gmv:n(campaign?.gmv),clicks:n(campaign?.clicks),impressions:n(campaign?.impressions),ctr:n(campaign?.ctr)}}
+function compareSnapshots(prev,cur){if(!prev)return null;const diff=k=>Number.isFinite(prev[k])&&Number.isFinite(cur[k])?cur[k]-prev[k]:null,pct=k=>Number.isFinite(prev[k])&&prev[k]!==0&&Number.isFinite(cur[k])?(cur[k]-prev[k])/Math.abs(prev[k])*100:null;return{days:(new Date(cur.at)-new Date(prev.at))/86400000,score:diff('score'),roas:diff('roas'),spendPct:pct('spend'),orders:diff('orders'),gmvPct:pct('gmv'),clicks:diff('clicks'),impressions:diff('impressions'),sold:diff('sold'),views:diff('views')}}
 async function pushSmartHistory(itemId,snapshot,action=null){const h=await getMap(SMART_HISTORY),k=String(itemId),list=Array.isArray(h[k])?h[k]:[],previous=list.at(-1)||null,entry={...snapshot,compare:compareSnapshots(previous,snapshot),action};h[k]=[...list,entry].slice(-40);await setMap(SMART_HISTORY,h);return{previous,entry,history:h[k]};}
+async function attachActionToLatest(itemId,action){const h=await getMap(SMART_HISTORY),k=String(itemId),list=Array.isArray(h[k])?h[k]:[];if(list.length){list[list.length-1]={...list[list.length-1],action};h[k]=list;await setMap(SMART_HISTORY,h);}}
 async function logAction(itemId,action,result){const m=await getMap(ACTION_LOG),k=String(itemId),l=Array.isArray(m[k])?m[k]:[];m[k]=[...l,{at:new Date().toISOString(),action,result}].slice(-80);await setMap(ACTION_LOG,m);}
 
-function improvementPlan({analysis,product,campaign,cost,history}){
+function improvementPlan({analysis,product,campaign,cost,history,policy={}}){
   const dims=Object.fromEntries((analysis.dimensions||[]).map(d=>[d.name,d])),tasks=[];
   const add=(priority,type,title,reason,actionable=true,details={})=>tasks.push({priority,type,title,reason,actionable,...details});
-  if((dims['Título']?.score||99)<10)add(2,'title','Melhorar título',dims['Título'].reason,false,{suggested:analysis.optimizedTitle});
-  if((dims['Descrição']?.score||99)<10)add(3,'description','Melhorar descrição',dims['Descrição'].reason,false,{suggested:analysis.optimizedDescription});
+  const listing=evaluateListing({analysis,product:{...product,productCost:cost},policy:{...DEFAULT_AUTOMATION,...policy,enabled:true,allowTitle:true,allowDescription:true,allowPrice:true,finance:{...DEFAULT_FINANCE,...policy.finance}}});
+  for(const p of listing.proposals||[]){
+    if(p.type==='change_title')add(2,'title','Melhorar título',p.reason,false,{suggested:p.target,proposal:p});
+    if(p.type==='change_description')add(3,'description','Melhorar descrição',p.reason,false,{suggested:p.target,proposal:p});
+    if(p.type==='change_price')add(6,'price','Revisar preço',p.reason,false,{current:p.current,target:p.target,safe:p.safe,guard:p.guard,competitorMedian:analysis.competitorMedian,proposal:p});
+  }
   if((dims['Imagens']?.score||99)<12)add(4,'images','Melhorar imagens',dims['Imagens'].reason,false);
   if((dims['Vídeo']?.score||99)<8)add(5,'video','Adicionar/melhorar vídeo',dims['Vídeo'].reason,false);
-  if((dims['Preço e concorrência']?.score||99)<12)add(6,'price','Revisar preço',analysis.priceInsight,false,{competitorMedian:analysis.competitorMedian});
+  if((dims['Preço e concorrência']?.score||99)<12&&!tasks.some(x=>x.type==='price'))add(6,'price','Revisar preço',analysis.priceInsight,false,{competitorMedian:analysis.competitorMedian});
   const roas=analysis.roasStrategy;
   if(campaign&&Number.isFinite(Number(roas?.suggestedTarget))){
-    const guard=Number.isFinite(cost)?financialGuard({price:Number(product.price??productPrice(product)),productCost:cost,weeklyAdsSpend:Number(campaign.spend)||0,dailyAdsSpend:(Number(campaign.spend)||0)/7,finance:DEFAULT_FINANCE}):{ok:false,reasons:['Custo do produto não informado']};
+    const guard=Number.isFinite(cost)?financialGuard({price:Number(product.price??productPrice(product)),productCost:cost,weeklyAdsSpend:Number(campaign.spend)||0,dailyAdsSpend:(Number(campaign.spend)||0)/7,finance:{...DEFAULT_FINANCE,...policy.finance}}):{ok:false,reasons:['Custo do produto não informado']};
     add(1,'roas','Ajustar Meta de ROAS',roas.title,guard.ok,{current:Number(campaign.targetRoas),target:Number(roas.suggestedTarget),campaignId:campaign.campaignId,guard});
   }
   if(campaign?.protection==='valid')add(7,'protection','Revisar Proteção de ROAS','A campanha aparece com Proteção de ROAS ativa.',true,{campaignId:campaign.campaignId});
@@ -126,18 +132,37 @@ async function smartAnalyze(){
 
 async function analyzeCurrent(tabId){const product=await currentProduct(tabId),comp=await smartCompetitors(product.title,product.itemId);let campaign=null;try{campaign=await mergeProtection(campaignForItem(await gestorApi.ads(7),product.itemId));}catch{}const cost=await getCost(product.itemId),result=analyze({url:product.url,title:product.title,description:product.description,category:product.category,price:product.price,adsActive:!!campaign,roas7d:campaign?.roas,roasTarget:campaign?.targetRoas,adsSpend7d:campaign?.spend,productCost:cost,product,competitors:comp.items});const snapshots=await getMap(SNAPSHOT_KEY);snapshots[String(product.itemId||product.url)]={at:new Date().toISOString(),product,ads:campaign,result};await setMap(SNAPSHOT_KEY,snapshots);return{product,competitors:comp.items,ads:campaign,result,source:{indexed:comp.indexed,live:comp.live}};}
 
+async function waitTabComplete(tabId,timeout=18000){const started=Date.now();while(Date.now()-started<timeout){const tab=await chrome.tabs.get(tabId).catch(()=>null);if(!tab)throw new Error('A aba de auditoria foi fechada.');if(tab.status==='complete')return tab;await sleep(350);}throw new Error('Tempo excedido carregando o anúncio para auditoria.');}
+async function readProductWithRetry(tabId,expectedItemId){let lastErr=null;for(let i=0;i<18;i++){try{const p=await currentProduct(tabId);if(p?.title&&(!expectedItemId||!p.itemId||String(p.itemId)===String(expectedItemId)))return p;if(expectedItemId&&p?.itemId&&String(p.itemId)!==String(expectedItemId))throw new Error('O anúncio aberto não corresponde ao item agendado.');}catch(e){lastErr=e;}await sleep(450);}throw lastErr||new Error('Não consegui ler o anúncio durante a manutenção.');}
+
+async function deepAuditJob(job,campaign,cost,policy){
+  if(!shouldOpenDeepAudit(job))return null;
+  const tab=await chrome.tabs.create({url:job.url,active:false});
+  try{
+    await waitTabComplete(tab.id);await sleep(650);
+    const product=await readProductWithRetry(tab.id,job.itemId),comp=await smartCompetitors(product.title,job.itemId,{allowLive:policy.scheduledLiveCompetitors!==false});
+    const analysis=analyze({url:product.url,title:product.title,description:product.description,category:product.category,price:product.price,adsActive:!!campaign,roas7d:campaign?.roas,roasTarget:campaign?.targetRoas,adsSpend7d:campaign?.spend,productCost:cost,product,competitors:comp.items});
+    const listingDecision=evaluateListing({analysis,product:{...product,productCost:cost},policy:{...policy,enabled:true,allowTitle:true,allowDescription:true,allowPrice:true}});
+    const histMap=await getMap(SMART_HISTORY),history=histMap[String(job.itemId)]||[],plan=improvementPlan({analysis,product,campaign,cost,history,policy});
+    const saved=await pushSmartHistory(job.itemId,metricSnapshot(product,campaign,analysis),null);
+    return{product:{itemId:product.itemId,title:product.title,url:product.url,price:product.price,sold:product.sold,views:product.views??product.viewCount??product.view_count??null},analysis,listingDecision,plan,source:{indexed:comp.indexed,live:comp.live},trend:saved.entry.compare};
+  }finally{if(tab.id)chrome.tabs.remove(tab.id).catch(()=>{});}
+}
+
 function lastExecutedRoasChange(job){for(const h of [...(job.history||[])].reverse()){const audit=h?.result?.audit,ex=(audit?.executed||[]).find(x=>x?.proposal?.type==='change_roas_target');if(ex)return{at:h.at,proposal:ex.proposal,before:audit.campaign};}return null;}
 async function runJob(job){
   const [products,ads]=await Promise.all([gestorApi.products(),gestorApi.ads(7)]),productRaw=(products.items||[]).find(p=>String(p.item_id)===String(job.itemId)),campaignRaw=campaignForItem(ads,job.itemId);
   if(!productRaw)return{ok:false,status:'skipped',reason:'Produto não encontrado na loja conectada'};
   const campaign=await mergeProtection(campaignRaw),cost=await getCost(job.itemId),price=productPrice(productRaw),policy={...DEFAULT_AUTOMATION,...job.policy,finance:{...DEFAULT_AUTOMATION.finance,...job.policy?.finance}},product={...productRaw,price,productCost:cost};
   const lastChange=lastExecutedRoasChange(job),daysSinceChange=lastChange?(Date.now()-new Date(lastChange.at).getTime())/86400000:null;
-  const rollback=lastChange&&policy.rollbackOnWorsePerformance&&daysSinceChange>=Math.max(5,policy.cooldownDays||7)&&campaign&&Number(lastChange.before?.roas)>0&&Number(campaign.roas)<Number(lastChange.before.roas)*.8&&Number(campaign.orders)<=Number(lastChange.before.orders||0)&&Number.isFinite(Number(lastChange.proposal.current))?{type:'rollback_roas',target:Number(lastChange.proposal.current),reason:'Piora relevante após último ajuste de ROAS'}:null;
+  const rollback=lastChange&&policy.rollbackOnWorsePerformance?evaluateRollback({before:{...lastChange.before,targetRoas:lastChange.proposal.current},current:campaign,minDays:Math.max(5,policy.cooldownDays||7),daysSinceChange}):null;
   const decision=campaign?evaluateCampaign({campaign,product,policy,lastChangeAt:lastChange?.at||null}):{eligible:false,reasons:['Sem campanha Ads vinculada'],proposals:[]};
-  const audit={at:new Date().toISOString(),itemId:job.itemId,campaign:campaign?{campaignId:campaign.campaignId,roas:campaign.roas,targetRoas:campaign.targetRoas,spend:campaign.spend,gmv:campaign.gmv,orders:campaign.orders,clicks:campaign.clicks,impressions:campaign.impressions,protection:campaign.protection}:null,decision,rollback,executed:[]};
+  let listingAudit=null;try{listingAudit=await deepAuditJob(job,campaign,cost,policy);}catch(e){listingAudit={error:String(e?.message||e),plan:[],listingDecision:{proposals:[],reasons:[String(e?.message||e)]}};}
+  const summary=summarizeCycle({analysis:listingAudit?.analysis,campaign,listingProposals:listingAudit?.listingDecision?.proposals||[],adsDecision:decision,rollback});
+  const audit={at:new Date().toISOString(),itemId:job.itemId,campaign:campaign?{campaignId:campaign.campaignId,roas:campaign.roas,targetRoas:campaign.targetRoas,spend:campaign.spend,gmv:campaign.gmv,orders:campaign.orders,clicks:campaign.clicks,impressions:campaign.impressions,protection:campaign.protection,controlMode:campaign.controlMode}:null,decision,rollback,listingAudit,summary,executed:[]};
   if(policy.mode==='automatic'&&campaign){
-    if(rollback){const r=await gestorApi.adsAction({campaignId:campaign.campaignId,action:'change_roas_target',mode:campaign.controlMode||'manual',roasTarget:rollback.target});audit.executed.push({proposal:{type:'change_roas_target',current:campaign.targetRoas,target:rollback.target,reason:rollback.reason,rollback:true},result:r});}
-    else if(decision.eligible){for(const p of decision.proposals){if(p.type==='change_roas_target'){const r=await gestorApi.adsAction({campaignId:campaign.campaignId,action:'change_roas_target',mode:campaign.controlMode||'manual',roasTarget:p.target});audit.executed.push({proposal:p,result:r});break;}if(p.type==='protection_reset'){const r=await gestorApi.adsAction({campaignId:campaign.campaignId,action:'protection_reset',mode:campaign.controlMode||'manual',confirmed:true});audit.executed.push({proposal:p,result:r});break;}}}
+    if(rollback){const r=await gestorApi.adsAction({campaignId:campaign.campaignId,action:'change_roas_target',mode:campaign.controlMode||'manual',roasTarget:rollback.target});const proposal={type:'change_roas_target',current:campaign.targetRoas,target:rollback.target,reason:rollback.reason,rollback:true};audit.executed.push({proposal,result:r});await logAction(job.itemId,{type:'roas',previousTarget:campaign.targetRoas,target:rollback.target,campaignId:campaign.campaignId,rollback:true},r);await attachActionToLatest(job.itemId,{type:'roas',previousTarget:campaign.targetRoas,target:rollback.target,campaignId:campaign.campaignId,rollback:true});}
+    else if(decision.eligible){for(const p of decision.proposals){if(p.type==='change_roas_target'){const r=await gestorApi.adsAction({campaignId:campaign.campaignId,action:'change_roas_target',mode:campaign.controlMode||'manual',roasTarget:p.target});audit.executed.push({proposal:p,result:r});await logAction(job.itemId,{type:'roas',previousTarget:p.current,target:p.target,campaignId:campaign.campaignId},r);await attachActionToLatest(job.itemId,{type:'roas',previousTarget:p.current,target:p.target,campaignId:campaign.campaignId});break;}if(p.type==='protection_reset'){const r=await gestorApi.adsAction({campaignId:campaign.campaignId,action:'protection_reset',mode:campaign.controlMode||'manual',confirmed:true});audit.executed.push({proposal:p,result:r});await logAction(job.itemId,{type:'protection_reset',campaignId:campaign.campaignId},r);break;}}}
   }
   return{ok:true,status:audit.executed.length?'executed':'review',audit};
 }
@@ -147,14 +172,22 @@ async function applyRoas({itemId,campaignId,currentTarget,target,mode='manual'})
   const cost=await getCost(itemId);if(!Number.isFinite(cost))throw new Error('Informe o custo do produto antes de alterar ROAS pelo modo inteligente.');
   const products=await gestorApi.products(),p=(products.items||[]).find(x=>String(x.item_id)===String(itemId)),price=p?productPrice(p):null;if(!Number.isFinite(price))throw new Error('Não consegui confirmar o preço do produto para validar a margem.');
   const guard=financialGuard({price,productCost:cost,finance:DEFAULT_FINANCE});if(!guard.ok)throw new Error(`Proteção financeira bloqueou a alteração: ${guard.reasons.join('; ')}`);
-  const result=await gestorApi.adsAction({campaignId,action:'change_roas_target',mode,roasTarget:targetN}),action={type:'roas',previousTarget:Number.isFinite(currentN)?currentN:null,target:targetN,campaignId};await logAction(itemId,action,result);
-  const h=await getMap(SMART_HISTORY),list=h[String(itemId)]||[];if(list.length){list[list.length-1].action=action;h[String(itemId)]=list;await setMap(SMART_HISTORY,h);}return result;
+  const result=await gestorApi.adsAction({campaignId,action:'change_roas_target',mode,roasTarget:targetN}),action={type:'roas',previousTarget:Number.isFinite(currentN)?currentN:null,target:targetN,campaignId};await logAction(itemId,action,result);await attachActionToLatest(itemId,action);return result;
+}
+
+async function applySafePlan(payload={}){
+  const plan=Array.isArray(payload.plan)?payload.plan:[],itemId=payload.itemId,campaign=payload.campaign||{};
+  const executed=[],pending=[];
+  const candidate=plan.find(x=>x.type==='rollback_roas'&&x.actionable!==false)||plan.find(x=>x.type==='roas'&&x.actionable!==false);
+  if(candidate){const result=await applyRoas({itemId,campaignId:candidate.campaignId||campaign.campaignId,currentTarget:candidate.current??campaign.targetRoas,target:candidate.target,mode:campaign.controlMode||'manual'});executed.push({type:candidate.type,target:candidate.target,result});}
+  for(const x of plan){if(x===candidate)continue;pending.push({type:x.type,title:x.title,reason:x.reason,actionable:x.actionable!==false});}
+  return{executed,pending,message:executed.length?'Melhoria financeira segura aplicada; demais itens ficaram para aprovação.':'Nenhuma alteração financeira segura estava pronta para execução.'};
 }
 
 chrome.alarms.onAlarm.addListener(async alarm=>{
   if(alarm.name==='gs:dataset-health'){const stats=await getCollectorStats();await chrome.storage.local.set({gsDatasetHealth:{...stats,checkedAt:new Date().toISOString()}});return;}
   if(!alarm.name.startsWith('gs:listing:'))return;const id=alarm.name.slice(3),jobs=await loadJobs(),job=jobs.find(j=>j.id===id);if(!job||job.status==='cancelled')return;
-  try{const result=await runJob(job);await markRun(job.id,result);await chrome.notifications.create({type:'basic',iconUrl:chrome.runtime.getURL('icon.svg'),title:'Gestor Sênior',message:result.status==='executed'?'Manutenção automática concluída.':'Revisão periódica concluída; confira as sugestões.'}).catch(()=>{});}catch(e){await markRun(job.id,{ok:false,error:String(e)});}
+  try{const result=await runJob(job);await markRun(job.id,result);const recommendations=result.audit?.summary?.recommendations?.length||0;await chrome.notifications.create({type:'basic',iconUrl:chrome.runtime.getURL('icons/icon128.png'),title:'Gestor Sênior',message:result.status==='executed'?`Manutenção concluída. ${result.audit.executed.length} ação(ões) executada(s).`:`Revisão concluída. ${recommendations} recomendação(ões) para conferir.`}).catch(()=>{});}catch(e){await markRun(job.id,{ok:false,error:String(e)});}
 });
 
 chrome.runtime.onMessage.addListener((msg,sender,reply)=>{(async()=>{switch(msg?.type){
@@ -171,6 +204,7 @@ chrome.runtime.onMessage.addListener((msg,sender,reply)=>{(async()=>{switch(msg?
   case'GS_LIST_JOBS':return{ok:true,jobs:await loadJobs()};
   case'GS_RUN_JOB_NOW':{const jobs=await loadJobs(),job=jobs.find(j=>j.id===msg.id);if(!job)throw new Error('Tarefa não encontrada.');const result=await runJob(job);await markRun(job.id,result);return{ok:true,result};}
   case'GS_APPLY_ROAS':return{ok:true,data:await applyRoas(msg.payload||{})};
+  case'GS_APPLY_SAFE_PLAN':return{ok:true,data:await applySafePlan(msg.payload||{})};
   case'GS_COLLECTOR_STATS':return{ok:true,stats:await getCollectorStats()};
   case'GS_CLEAR_COLLECTOR_INDEX':await clearCollectorIndex();return{ok:true};
   case'GS_GET_SMART_HISTORY':{const h=await getMap(SMART_HISTORY);return{ok:true,history:h[String(msg.itemId)]||[]};}
