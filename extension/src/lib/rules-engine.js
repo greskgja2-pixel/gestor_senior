@@ -25,6 +25,7 @@ export const DEFAULT_AUTOMATION = Object.freeze({
 
 const n=v=>Number.isFinite(Number(v))?Number(v):0;
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const missingCost=v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v))||Number(v)<0;
 
 export function evaluateCampaign({campaign, product, policy={}, lastChangeAt=null}){
   const cfg={...DEFAULT_AUTOMATION,...policy,finance:{...DEFAULT_FINANCE,...policy.finance}};
@@ -33,7 +34,7 @@ export function evaluateCampaign({campaign, product, policy={}, lastChangeAt=nul
   if(n(campaign.clicks)<cfg.minClicks)reasons.push(`Cliques insuficientes (${n(campaign.clicks)}/${cfg.minClicks})`);
   if(n(campaign.impressions)<cfg.minImpressions)reasons.push(`Impressões insuficientes (${n(campaign.impressions)}/${cfg.minImpressions})`);
   if(lastChangeAt){const age=(Date.now()-new Date(lastChangeAt).getTime())/86400000;if(age<cfg.cooldownDays)reasons.push(`Cooldown ativo (${age.toFixed(1)}/${cfg.cooldownDays} dias)`);}
-  if(!Number.isFinite(Number(product?.productCost))||Number(product.productCost)<0)reasons.push('Custo do produto não informado; automação financeira bloqueada');
+  if(missingCost(product?.productCost))reasons.push('Custo do produto não informado; automação financeira bloqueada');
   const guard=financialGuard({price:product?.price||product?.price_min||0,productCost:product?.productCost,weeklyAdsSpend:n(campaign.spend),dailyAdsSpend:n(campaign.spend)/Math.max(1,cfg.minDataDays),finance:cfg.finance});
   if(!guard.ok)reasons.push(...guard.reasons);
   if(reasons.length)return {eligible:false,reasons,proposals,guard};
