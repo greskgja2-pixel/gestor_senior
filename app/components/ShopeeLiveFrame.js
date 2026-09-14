@@ -2,7 +2,7 @@
 
 import { useCallback, useRef } from "react";
 
-const VERSION = "20260914-04";
+const VERSION = "20260914-05";
 
 const STYLES = [
   ["shell-enhancements-css", "/shell-enhancements.css"],
@@ -36,6 +36,7 @@ const SCRIPTS = [
   ["product-trends-js", "/product-trends.js"],
   ["home-encyclopedia-js", "/home-encyclopedia.js"],
   ["product-encyclopedia-v6-js", "/product-encyclopedia-v6.js"],
+  ["product-encyclopedia-v6-grid-js", "/product-encyclopedia-v6-grid.js"],
   ["ads-product-scope-fix-js", "/ads-product-scope-fix.js"],
 ];
 
