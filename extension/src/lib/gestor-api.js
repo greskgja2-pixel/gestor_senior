@@ -4,6 +4,7 @@ async function request(path,opt={}){const s=await getSettings();const base=Strin
 export const gestorApi={
   products:()=>request('/api/shopee/products'),
   ads:(days=7)=>request(`/api/shopee/ads?days=${encodeURIComponent(days)}`),
+  analytics:(from,to)=>request(`/api/shopee/ads-analytics?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
   protection:()=>request('/api/shopee/ads-protection'),
   syncProtection:payload=>request('/api/shopee/ads-protection',{method:'POST',body:JSON.stringify(payload)}),
   adsAction:payload=>request('/api/shopee/ads-action',{method:'POST',body:JSON.stringify(payload)}),
