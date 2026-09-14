@@ -2,14 +2,13 @@
 
 import { useCallback, useRef } from "react";
 
-const VERSION = "20260914-10";
+const VERSION = "20260914-11";
 
 const STYLES = [
   ["shell-enhancements-css", "/shell-enhancements.css"],
   ["legacy-themes-css", "/legacy-themes.css"],
   ["runtime-restoration-css", "/runtime-restoration.css"],
   ["live-modules-css", "/live-modules.css"],
-  ["ads-control-v7-css", "/ads-control-v7.css"],
   ["advanced-modules-css", "/advanced-modules.css"],
   ["editor-ai-css", "/editor-ai.css"],
   ["editor-variations-css", "/editor-variations.css"],
@@ -20,6 +19,7 @@ const STYLES = [
   ["product-trends-css", "/product-trends.css"],
   ["home-encyclopedia-css", "/home-encyclopedia.css"],
   ["product-encyclopedia-v6-css", "/product-encyclopedia-v6.css"],
+  ["ads-shopee-replica-v11-css", "/ads-shopee-replica-v11.css"],
 ];
 
 const SCRIPTS = [
@@ -38,10 +38,8 @@ const SCRIPTS = [
   ["home-encyclopedia-js", "/home-encyclopedia.js"],
   ["product-encyclopedia-v6-js", "/product-encyclopedia-v6.js"],
   ["product-encyclopedia-v6-grid-js", "/product-encyclopedia-v6-grid.js"],
-  ["ads-product-scope-fix-js", "/ads-product-scope-fix.js"],
-  ["ads-control-v7-js", "/ads-control-v7.js"],
   ["persistence-fix-v8-js", "/persistence-fix-v8.js"],
-  ["ads-cleanup-v9-js", "/ads-cleanup-v9.js"],
+  ["ads-shopee-replica-v11-js", "/ads-shopee-replica-v11.js"],
 ];
 
 function addStyle(doc, key, href) { if (!doc?.head || doc.querySelector(`link[data-${key}]`)) return; const link=doc.createElement("link"); link.rel="stylesheet"; link.href=`${href}?v=${VERSION}`; link.setAttribute(`data-${key}`,"1"); doc.head.appendChild(link); }
