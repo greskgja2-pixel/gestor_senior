@@ -48,7 +48,10 @@ export function summarizeCycle({analysis,campaign,listingProposals=[],adsDecisio
 
 export function shouldOpenDeepAudit(job){
   if(!job?.url)return false;
-  try{const u=new URL(job.url);return u.protocol==='https:'&&(/(^|\.)shopee\.com\.br$/i.test(u.hostname));}catch{return false;}
+  try{
+    const u=new URL(job.url),host=u.hostname.toLowerCase();
+    return u.protocol==='https:'&&(host==='shopee.com.br'||host==='www.shopee.com.br');
+  }catch{return false;}
 }
 
 export function evaluateRollback({before,current,minDays=5,daysSinceChange}){
