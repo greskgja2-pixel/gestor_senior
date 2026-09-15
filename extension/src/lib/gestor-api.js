@@ -6,6 +6,7 @@ export const gestorApi={
   connection:()=>request('/api/shopee/connection'),
   ads:(days=7)=>request(`/api/shopee/ads?days=${encodeURIComponent(days)}`),
   analytics:(from,to)=>request(`/api/shopee/ads-analytics?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
+  competitors:itemId=>request(`/api/shopee/competitors?item_id=${encodeURIComponent(itemId)}`),
   protection:()=>request('/api/shopee/ads-protection'),
   syncProtection:payload=>request('/api/shopee/ads-protection',{method:'POST',body:JSON.stringify(payload)}),
   adsAction:payload=>request('/api/shopee/ads-action',{method:'POST',body:JSON.stringify(payload)}),
