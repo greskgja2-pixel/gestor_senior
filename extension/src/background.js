@@ -14,7 +14,7 @@ const CAPTURE_KEY='gsAutoMapperCapturesV1';
 const MAX_CAPTURE_RECORDS=120;
 const activeDownloads=new Map();
 
-const n=v=>Number.isFinite(Number(v))?Number(v):null;
+const n=v=>v===null||v===undefined||v===''?null:Number.isFinite(Number(v))?Number(v):null;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const productPrice=p=>n(p?.price_min??p?.price??p?.price_info?.[0]?.current_price??p?.price_info?.[0]?.original_price);
 
@@ -68,16 +68,43 @@ async function indexCollectorJson(message){
   }catch{}
 }
 
+function competitorQueries(title){
+  const cleaned=String(title||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
+  if(!cleaned)return[];
+  const firstBlock=(cleaned.split(/[|,;–—]/)[0]||cleaned).trim();
+  const noise=new Set(['tema','folha','folhas','a4','melhor','shopee','oficial','original','promocao','promoção','frete','gratis','grátis']);
+  const compact=(text,limit=6)=>text.replace(/[^A-Za-z0-9À-ÖØ-öø-ÿ ]/g,' ').split(/\s+/).filter(Boolean).filter((w,i)=>{const low=w.toLowerCase();if(noise.has(low))return false;if(/^\d$/.test(w)&&i>2)return false;return w.length>=2||/^\d+$/.test(w);}).slice(0,limit).join(' ');
+  const primary=compact(firstBlock,6)||compact(cleaned,6);
+  const connectors=new Set(['para','com','sem','por','uma','uns','das','dos','de','em','do','da','e','o','a']);
+  const secondary=primary.split(/\s+/).filter(w=>!connectors.has(w.toLowerCase())).slice(0,5).join(' ');
+  return [...new Set([primary,secondary].filter(q=>q&&q.length>=3))];
+}
+
+async function waitSearchTab(tabId,timeout=8000){
+  const started=Date.now();
+  while(Date.now()-started<timeout){const tab=await chrome.tabs.get(tabId).catch(()=>null);if(!tab)return false;if(tab.status==='complete')return true;await sleep(250);}
+  return false;
+}
+
 async function liveSearchCompetitors(title,ownItemId){
-  const query=String(title||'').replace(/[^A-Za-z0-9À-ÖØ-öø-ÿ ]/g,' ').split(/\s+/).filter(w=>w.length>=3).slice(0,10).join(' ');if(!query)return[];
-  const tab=await chrome.tabs.create({url:'https://shopee.com.br/search?keyword='+encodeURIComponent(query),active:false});
-  try{
-    for(let i=0;i<35;i++){
-      await sleep(450);
-      try{const res=await chrome.tabs.sendMessage(tab.id,{type:'GS_COLLECT_SEARCH',options:{max:20,scrollSteps:8,delayMs:550}});if(res?.ok&&res.items?.length)return res.items.filter(x=>String(x.itemId)!==String(ownItemId)).slice(0,20).map(x=>({...x,source:'live-search'}));}catch{}
-    }
-    return[];
-  }finally{if(tab.id)chrome.tabs.remove(tab.id).catch(()=>{});}
+  const queries=competitorQueries(title);if(!queries.length)return[];
+  const found=[],seen=new Set();
+  for(const query of queries.slice(0,2)){
+    const tab=await chrome.tabs.create({url:'https://shopee.com.br/search?keyword='+encodeURIComponent(query),active:false});
+    try{
+      await waitSearchTab(tab.id);await sleep(350);
+      for(let attempt=0;attempt<2;attempt++){
+        try{
+          const res=await chrome.tabs.sendMessage(tab.id,{type:'GS_COLLECT_SEARCH',options:{max:30,scrollSteps:5,delayMs:350}});
+          if(res?.ok&&Array.isArray(res.items))for(const x of res.items){const id=String(x.itemId||'');if(!id||id===String(ownItemId)||seen.has(id))continue;seen.add(id);found.push({...x,source:'live-search',query});}
+          if(found.length>=8)break;
+        }catch{}
+        await sleep(500);
+      }
+    }finally{if(tab.id)chrome.tabs.remove(tab.id).catch(()=>{});}
+    if(found.length>=8)break;
+  }
+  return found.slice(0,20);
 }
 
 async function smartCompetitors(title,ownItemId,{allowLive=true}={}){
