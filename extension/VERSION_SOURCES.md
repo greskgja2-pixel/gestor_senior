@@ -5,22 +5,28 @@
 - Auto Mapper: **shopee-seller-auto-mapper-v2.4.zip / 2.4.0**.
 - Enciclopédia Gestor Sênior: **v7 / 82 entradas técnicas** como referência de endpoints/campos já curados.
 - Coletor Painel Revenda: **extensao-coletor-shopee-v3.1.0.zip / 3.1.0**, recebido em 2026-09-14.
-- Extensão unificada: **Gestor Sênior Shopee Intelligence v0.6.0**.
+- Extensão unificada: **Gestor Sênior Shopee Intelligence v0.7.0**.
 
-## O que a v0.4 acrescentou
+## O que a v0.7 consolida
 
-A manutenção periódica pode reabrir o anúncio em uma aba inativa, reexecutar a auditoria Super Anúncio, reaproveitar a base local do Coletor 3.1 e complementar concorrentes com uma busca ao vivo quando necessário. O ciclo registra antes/depois, gera propostas de título, descrição e preço, cruza Ads e pode sugerir ou executar ajuste de ROAS dentro dos guardrails financeiros.
+A v0.7 é o primeiro pacote tratado como extensão unificada pronta para instalação e testes de uso real. Ela junta Super Anúncio, Coletor Shopee 3.1, Auto Mapper 2.4, dashboard analítica, manutenção periódica, ações em massa e integração com o Gestor Sênior Web.
 
-Preço, título e descrição permanecem **aprovação-only** enquanto não houver um endpoint de escrita validado no Gestor. A extensão não inventa uma operação de edição da Shopee. ROAS automático continua exigindo custo do produto, limites de margem/lucro, dados mínimos, cooldown e limite percentual por ciclo. O motor também pode sugerir reversão quando uma alteração de ROAS for seguida de piora relevante sem ganho de pedidos.
+O painel da extensão mantém as áreas Visão, Analisar, Automação, Revenda e Coletor. A Dashboard Analítica continua em página própria horizontal para tabelas, filtros temporais, comparação entre períodos e exportação CSV/XLSX.
 
-## O que a v0.5 acrescentou
+O Gestor Web também passou a usar uma camada global de layout wide responsivo: em telas horizontais, cards, gráficos, tabelas, módulos de concorrência, Ads, enciclopédia e editores usam a largura disponível sem comprimir textos. Quando a largura não é suficiente, os grids empilham e as tabelas usam rolagem dentro do próprio bloco.
 
-A Dashboard Analítica de Anúncios ganhou intervalo customizado, atalhos de período, comparação com período anterior equivalente, paginação 10/25/50/100, ordenação, exportação CSV/XLSX, Nota Super Análise clicável, GMV, ROAS, CTR, custo por conversão e margem de contribuição com badges de evolução.
+## Segurança operacional
 
-## O que a v0.6 acrescenta
+Preço, título e descrição permanecem **aprovação-only** enquanto não houver um endpoint de escrita validado no Gestor. A extensão não inventa uma operação de edição da Shopee. ROAS automático continua exigindo custo do produto, limites de margem/lucro, dados mínimos, cooldown e limite percentual por ciclo. Campanhas compartilhadas e produtos sem custo informado são bloqueados em alterações automáticas em massa.
 
-A Dashboard agora permite selecionar produtos individualmente ou por página e executar ações em massa. Há seleções rápidas para produtos com ROAS abaixo da meta, ainda não analisados e com margem negativa. O lote pode rodar a Super Análise em segundo plano, criar manutenção semanal para vários anúncios e aplicar somente ajustes de ROAS que passem por validação de custo, margem, limite de variação e campanha individual. Campanhas compartilhadas e produtos sem custo informado são bloqueados no ajuste automático em massa.
+Senha, cookie, token, e-mail, telefone e outros dados de sessão não fazem parte do índice do Coletor nem devem ser enviados ao Gestor. O Auto Mapper completo fica desligado por padrão; a captura técnica é acionada apenas quando necessário.
 
-A auditoria em lote reutiliza primeiro a base do Coletor 3.1 e só abre pesquisa de concorrentes ao vivo quando necessário. Para estabilidade do navegador, uma rodada profunda analisa no máximo 25 anúncios por vez.
+## Histórico das etapas anteriores
+
+A v0.4 adicionou manutenção periódica profunda, reabertura do anúncio em segundo plano, reaproveitamento da base do Coletor 3.1, busca de concorrentes ao vivo quando necessária, registro antes/depois e estratégia de reversão de ROAS.
+
+A v0.5 adicionou a Dashboard Analítica de Anúncios com intervalo customizado, comparação temporal, paginação, ordenação, CSV/XLSX, Nota Super Análise clicável, GMV, ROAS, CTR, custo por conversão e margem de contribuição.
+
+A v0.6 adicionou seleção e ações em massa, atalhos para produtos com ROAS abaixo da meta, não analisados e margem negativa, auditoria profunda de até 25 anúncios por rodada e correção segura de ROAS em lote.
 
 A política do projeto é nunca substituir silenciosamente uma fonte por versão anterior. Uma nova versão só vira referência depois de ser identificada e incorporada explicitamente.
