@@ -47,8 +47,8 @@ jobs:
           const m=JSON.parse(fs.readFileSync('extension/manifest.json','utf8'));
           const refs=[m.background?.service_worker,m.side_panel?.default_path,...(m.content_scripts||[]).flatMap(x=>x.js||[])].filter(Boolean);
           for(const f of refs){if(!fs.existsSync('extension/'+f))throw new Error('Missing '+f)}
-          for(const f of ['sidepanel-v4.html','guided-audit.css','guided-audit.js','analytics.html','analytics.css','analytics-landscape.css','analytics.js','tutorials.css','tutorials.js','src/lib/xlsx-export.js']){if(!fs.existsSync('extension/'+f))throw new Error('Missing '+f)}
-          console.log('manifest/dashboard/guided/tutorial refs OK');
+          for(const f of ['sidepanel-v4.html','guided-audit.css','guided-audit.js','pending-audit-bridge.js','analytics.html','analytics.css','analytics-landscape.css','analytics.js','tutorials.css','tutorials.js','src/lib/xlsx-export.js','src/gestor-bridge.js']){if(!fs.existsSync('extension/'+f))throw new Error('Missing '+f)}
+          console.log('manifest/dashboard/guided/tutorial/bridge refs OK');
           NODE
       - name: Build installable extension ZIP
         run: |
@@ -57,7 +57,7 @@ jobs:
           cd extension
           zip -r "../dist/Gestor-Senior-Shopee-Intelligence-v${VERSION}.zip" \
             manifest.json icons icon.svg \
-            sidepanel-v3.css sidepanel-v3.js sidepanel-v4.html guided-audit.css guided-audit.js \
+            sidepanel-v3.css sidepanel-v3.js sidepanel-v4.html guided-audit.css guided-audit.js pending-audit-bridge.js \
             analytics.html analytics.css analytics-landscape.css analytics.js \
             tutorials.css tutorials.js \
             src INSTALL.md VERSION_SOURCES.md \
@@ -65,7 +65,7 @@ jobs:
       - name: Upload installable extension
         uses: actions/upload-artifact@v4
         with:
-          name: Gestor-Senior-Shopee-Intelligence-v0.9.1
-          path: dist/Gestor-Senior-Shopee-Intelligence-v0.9.1.zip
+          name: Gestor-Senior-Shopee-Intelligence-v0.9.2
+          path: dist/Gestor-Senior-Shopee-Intelligence-v0.9.2.zip
           if-no-files-found: error
           retention-days: 30
