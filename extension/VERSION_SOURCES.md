@@ -5,15 +5,21 @@
 - Auto Mapper: **shopee-seller-auto-mapper-v2.4.zip / 2.4.0**.
 - Enciclopédia Gestor Sênior: **v7 / 82 entradas técnicas** como referência de endpoints/campos já curados.
 - Coletor Painel Revenda: **extensao-coletor-shopee-v3.1.0.zip / 3.1.0**, recebido em 2026-09-14.
-- Extensão unificada: **Gestor Sênior Shopee Intelligence v0.7.0**.
+- Extensão unificada: **Gestor Sênior Shopee Intelligence v0.8.0**.
 
-## O que a v0.7 consolida
+## O que a v0.8 acrescenta
 
-A v0.7 é o primeiro pacote tratado como extensão unificada pronta para instalação e testes de uso real. Ela junta Super Anúncio, Coletor Shopee 3.1, Auto Mapper 2.4, dashboard analítica, manutenção periódica, ações em massa e integração com o Gestor Sênior Web.
+A extensão ganhou **mini tutoriais interativos e contextuais** acessíveis pelo botão `?`. O painel lateral possui guias para Primeiros passos, Super Análise, Automação de melhoria, Revenda/concorrentes, Coletor técnico e Dashboard Analítica. A Dashboard Analítica possui tutoriais próprios para leitura de desempenho, ações em massa e exportação/paginação.
+
+Os tutoriais destacam visualmente o controle explicado, mudam automaticamente para a aba correta quando necessário e usam passos curtos com Voltar, Próximo, Sair e Concluir. Na primeira execução da v0.8 aparece apenas um aviso discreto indicando os novos tutoriais; eles não são forçados a cada abertura.
+
+## O que a v0.7 consolidou
+
+A v0.7 foi o primeiro pacote tratado como extensão unificada pronta para instalação e testes de uso real. Ela juntou Super Anúncio, Coletor Shopee 3.1, Auto Mapper 2.4, dashboard analítica, manutenção periódica, ações em massa e integração com o Gestor Sênior Web.
 
 O painel da extensão mantém as áreas Visão, Analisar, Automação, Revenda e Coletor. A Dashboard Analítica continua em página própria horizontal para tabelas, filtros temporais, comparação entre períodos e exportação CSV/XLSX.
 
-O Gestor Web também passou a usar uma camada global de layout wide responsivo: em telas horizontais, cards, gráficos, tabelas, módulos de concorrência, Ads, enciclopédia e editores usam a largura disponível sem comprimir textos. Quando a largura não é suficiente, os grids empilham e as tabelas usam rolagem dentro do próprio bloco.
+O Gestor Web também usa uma camada global de layout wide responsivo: em telas horizontais, cards, gráficos, tabelas, módulos de concorrência, Ads, enciclopédia e editores usam a largura disponível sem comprimir textos. Quando a largura não é suficiente, os grids empilham e as tabelas usam rolagem dentro do próprio bloco.
 
 ## Segurança operacional
 
