@@ -1,5 +1,5 @@
 <!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gestor Sênior</title><link rel="stylesheet" href="sidepanel-v3.css"><link rel="stylesheet" href="guided-audit.css"><link rel="stylesheet" href="tutorials.css"></head><body>
-<header><div class="brand"><span class="logo">GS</span><div><strong>Gestor Sênior</strong><small>Shopee Intelligence</small></div></div><div class="head-tools"><span class="version">v0.9.2</span><button id="settingsBtn" class="icon-btn" title="Configurações">⚙</button></div></header>
+<header><div class="brand"><span class="logo">GS</span><div><strong>Gestor Sênior</strong><small>Shopee Intelligence</small></div></div><div class="head-tools"><span class="version">v0.9.3</span><button id="settingsBtn" class="icon-btn" title="Configurações">⚙</button></div></header>
 <nav><button class="active" data-tab="home">Visão</button><button data-tab="analyze">Super Análise</button><button data-tab="auto">Gestor</button><button data-tab="resale">Revenda</button><button data-tab="lab">Coletor</button></nav>
 <main>
 <section id="tab-home" class="tab active">
@@ -8,7 +8,7 @@
   <button id="homeAnalyze" class="primary big">✨ Iniciar Super Análise</button>
   <a href="analytics.html" target="_blank" class="primary big dashboard-link">📊 Dashboard Analítica de Anúncios</a>
   <a href="https://shopeeos-real-greskgja.vercel.app/extensao-shopee-intelligence" target="_blank" class="big dashboard-link">🧩 Histórico no Gestor Sênior</a>
-  <div class="card"><b>Super Análise guiada</b><p>Agora você pode colar o link do anúncio, confirmar os dados, informar objetivo/custo, escolher até 3 concorrentes e receber o Raio-X completo. Ao finalizar, o relatório fica salvo no Gestor Sênior e a reanálise é agendada.</p></div>
+  <div class="card"><b>Super Análise guiada</b><p>Agora você pode colar o link do anúncio, confirmar os dados, informar objetivo/custo, escolher 3 concorrentes diretamente na busca da Shopee e receber o Raio-X completo. Ao finalizar, o relatório fica salvo no Gestor Sênior e a reanálise é agendada.</p></div>
   <div id="homeLast" class="card muted">Nenhuma análise nesta sessão.</div>
 </section>
 
@@ -36,8 +36,8 @@
   </div>
 
   <div class="wizard-step" data-step="3">
-    <div class="step-title"><b>3. Escolher concorrentes</b><small>O sistema pesquisa automaticamente; você confirma os mais equivalentes.</small></div>
-    <div class="guide"><b>Escolha até 3 anúncios realmente comparáveis.</b><span>Priorize mesmo tipo de produto, finalidade, tamanho/quantidade e faixa de preço. Evite kits ou produtos diferentes só porque usam palavras parecidas.</span></div>
+    <div class="step-title"><b>3. Escolher concorrentes</b><small>A extensão abre a busca da Shopee com o título completo; você escolhe exatamente 3 anúncios comparáveis.</small></div>
+    <div class="guide"><b>Selecione 3 concorrentes diretamente na Shopee.</b><span>Na aba de pesquisa, marque os 3 anúncios mais parecidos e clique em “Voltar para Análise”. Os dados serão enviados para a extensão e o Raio-X continuará automaticamente.</span></div>
     <div id="competitorStatus" class="muted">Preparando busca…</div><div id="competitorList" class="competitor-list"></div>
     <div class="wizard-actions"><button data-back="2">‹ Voltar</button><button id="step3Next" class="primary" disabled>Gerar Raio-X ›</button></div>
   </div>
@@ -57,7 +57,6 @@
     <div class="wizard-actions"><button data-back="4">‹ Voltar</button><span></span></div>
   </div>
 
-  <!-- Compatibilidade com o motor anterior; fica oculto, mas evita quebrar rotinas antigas. -->
   <div class="legacy-hidden"><button id="smartAnalyze"></button><input id="analysisCost"><button id="saveAnalysisCost"></button><div id="analysisEmpty"></div><div id="analysisResult"></div></div>
 </section>
 
@@ -94,4 +93,4 @@
 
 <div id="settingsPanel" class="settings-backdrop" hidden><div class="settings-card"><div class="row"><b>Configurações</b><button id="closeSettings">×</button></div><p class="muted">Aparência da extensão</p><div class="theme-options"><button data-ext-theme="dark">🌙 Escuro</button><button data-ext-theme="light">☀️ Claro</button></div><div class="guard-note">O tema altera apenas a interface da extensão. Dados, análises e automações não mudam.</div></div></div>
 <div id="toast"></div>
-<script type="module" src="sidepanel-v3.js"></script><script type="module" src="guided-audit.js"></script><script type="module" src="pending-audit-bridge.js"></script><script src="tutorials.js"></script></body></html>
+<script type="module" src="sidepanel-v3.js"></script><script src="competitor-picker-panel.js"></script><script type="module" src="guided-audit.js"></script><script type="module" src="pending-audit-bridge.js"></script><script src="tutorials.js"></script></body></html>
