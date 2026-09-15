@@ -1,16 +1,10 @@
-// GET /api/shopee/product-public?item_ids=1,2,3 - dados públicos da vitrine Shopee (histórico
-// de vendas "desde sempre", preço e preço antes de desconto) pra um lote de itens da própria loja.
-// Primeiro tenta UMA chamada listando os itens da loja inteira (mais rápido e confiável); pra
-// qualquer item que não apareça nessa listagem, cai pra uma consulta individual como reserva.
-// Só é chamado sob demanda (ex.: usuário liga "vendas totais" ou expande variações), nunca no
-// carregamento automático da página inteira de produtos — pra não sobrecarregar a vitrine pública.
+// GET /api/shopee/product-public?item_ids=1,2,3 - dados públicos da vitrine Shopee.
 import { NextResponse } from "next/server";
 import { getActiveShop } from "../../../../lib/shop";
 import { getPublicItemInfo, getShopItemsPublic } from "../../../../lib/shopee-public";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 45;
-
 const MAX_ITEMS = 40;
 
 export async function GET(request) {
@@ -24,17 +18,21 @@ export async function GET(request) {
 
   let shopMap = null;
   let shopMapError = null;
-  try {
-    shopMap = await getShopItemsPublic(shop.shop_id);
-  } catch (err) {
-    shopMapError = String(err.message || err);
-  }
+  try { shopMap = await getShopItemsPublic(shop.shop_id); }
+  catch (err) { shopMapError = String(err.message || err); }
 
   const results = [];
   for (const itemId of itemIds) {
     const fromShop = shopMap && shopMap.get(String(itemId));
     if (fromShop) {
-      results.push({ item_id: itemId, ok: true, ...fromShop });
+      let merged = { ...fromShop };
+      // A listagem pública da loja nem sempre traz avaliação, nº de avaliações e estoque.
+      // Quando faltar qualquer um desses campos, completa com item/get para a Super Análise.
+      if (merged.rating == null || merged.reviewCount == null || merged.stock == null) {
+        try { merged = { ...merged, ...(await getPublicItemInfo(shop.shop_id, itemId)) }; }
+        catch { /* mantém os dados válidos já obtidos da listagem */ }
+      }
+      results.push({ item_id: itemId, ok: true, ...merged });
       continue;
     }
     try {
@@ -42,11 +40,7 @@ export async function GET(request) {
       results.push({ item_id: itemId, ok: true, ...info });
     } catch (err) {
       const detail = String(err.message || err);
-      results.push({
-        item_id: itemId,
-        ok: false,
-        error: shopMapError ? `Listagem da loja falhou (${shopMapError}). Consulta individual: ${detail}` : detail,
-      });
+      results.push({ item_id: itemId, ok: false, error: shopMapError ? `Listagem da loja falhou (${shopMapError}). Consulta individual: ${detail}` : detail });
     }
   }
   return NextResponse.json({ results });
