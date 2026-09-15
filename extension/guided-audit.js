@@ -4,7 +4,7 @@ import {computeProfit,DEFAULT_FINANCE} from './src/lib/profit-engine.js';
 
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const send=m=>chrome.runtime.sendMessage(m);
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const num=v=>v===null||v===undefined||v===''?null:(Number.isFinite(Number(v))?Number(v):null);
 const money=v=>num(v)==null?'N/A':num(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
@@ -23,7 +23,7 @@ async function loadTheme(){const x=await chrome.storage.local.get('gsExtTheme');
 function applyTheme(theme){document.body.dataset.extTheme=theme;$$('[data-ext-theme]').forEach(b=>b.classList.toggle('active',b.dataset.extTheme===theme));}
 $('#settingsBtn').onclick=()=>{$('#settingsPanel').hidden=false;};
 $('#closeSettings').onclick=()=>{$('#settingsPanel').hidden=true;};
-$('#settingsPanel').addEventListener('click',e=>{if(e.target===$('#settingsPanel'))$('#settingsPanel'].hidden=true;});
+$('#settingsPanel').addEventListener('click',e=>{if(e.target===$('#settingsPanel'))$('#settingsPanel').hidden=true;});
 $$('[data-ext-theme]').forEach(b=>b.onclick=async()=>{await chrome.storage.local.set({gsExtTheme:b.dataset.extTheme});applyTheme(b.dataset.extTheme);});
 loadTheme();
 
