@@ -19,15 +19,20 @@
   function installButton(){if(document.getElementById('gs-senior-fab')||!document.body)return;const b=document.createElement('button');b.id='gs-senior-fab';b.type='button';b.title='Abrir Gestor Sênior';b.textContent='GS';Object.assign(b.style,{position:'fixed',right:'18px',bottom:'82px',zIndex:'2147483000',width:'48px',height:'48px',borderRadius:'50%',border:'1px solid #c9a227',background:'#0d1b2a',color:'#d4af37',fontWeight:'900',boxShadow:'0 8px 24px #0005',cursor:'pointer'});b.addEventListener('click',()=>send('GS_OPEN_SIDE_PANEL'));document.body.appendChild(b);}
   async function consumeGestorSuperAnalysisLink(){
     try{
-      const u=new URL(location.href);if(u.searchParams.get('gs_super_analise')!=='1')return;
-      const onceKey=`gs-super-analysis:${u.pathname}`;if(sessionStorage.getItem(onceKey)==='1')return;sessionStorage.setItem(onceKey,'1');
+      const u=new URL(location.href),token=u.searchParams.get('gs_super_analise');if(!token)return;
+      const onceKey=`gs-super-analysis:${u.pathname}:${token}`;if(sessionStorage.getItem(onceKey)==='1')return;sessionStorage.setItem(onceKey,'1');
       u.searchParams.delete('gs_super_analise');u.searchParams.delete('gs_source');const clean=u.toString();
       await chrome.storage.local.set({gsPendingGuidedAuditV1:{url:clean,createdAt:Date.now(),source:'gestor-web'}});
-      history.replaceState(history.state,'',clean);
+      try{history.replaceState(history.state,'',clean);}catch{}
       await send('GS_OPEN_SIDE_PANEL');
     }catch(e){console.warn('GS auto Super Analysis',e)}
   }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{installButton();consumeGestorSuperAnalysisLink();},{once:true});else{installButton();consumeGestorSuperAnalysisLink();}
+
+  // Captura o marcador imediatamente no document_start, antes que a Shopee possa redirecionar
+  // o /product/... e remover os parâmetros usados para disparar a Super Análise.
+  consumeGestorSuperAnalysisLink();
+
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installButton,{once:true});else installButton();
   new MutationObserver(()=>{if(!document.getElementById('gs-senior-fab'))installButton();}).observe(document.documentElement,{childList:true,subtree:true});
   chrome.storage.local.get('gsResearchCapture').then(x=>hookState(x.gsResearchCapture===true)).catch(()=>{});
 })();
