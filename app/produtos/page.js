@@ -1,6 +1,7 @@
 import { getActiveShop } from "../../lib/shop";
 import { getProducts } from "../../lib/products";
 import RefreshButton from "../components/RefreshButton";
+import CopyProductLinkButton from "../components/CopyProductLinkButton";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +56,7 @@ export default async function ProdutosPage() {
               <th>Status</th>
               <th>Preço</th>
               <th>Estoque</th>
+              <th>Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -67,6 +69,7 @@ export default async function ProdutosPage() {
                   <td><span className={"chip " + (it.item_status === "NORMAL" ? "ok" : "bad")}>{it.item_status}</span></td>
                   <td>{price != null ? fmtMoney(price) : "—"}</td>
                   <td>{stock != null ? stock : "—"}</td>
+                  <td><CopyProductLinkButton shopId={shop.shop_id} itemId={it.item_id} /></td>
                 </tr>
               );
             })}
@@ -76,4 +79,3 @@ export default async function ProdutosPage() {
     </div>
   );
 }
-
