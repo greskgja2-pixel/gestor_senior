@@ -4,25 +4,26 @@ import {computeProfit,DEFAULT_FINANCE} from './src/lib/profit-engine.js';
 
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const send=m=>chrome.runtime.sendMessage(m);
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const num=v=>Number.isFinite(Number(v))?Number(v):null;
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
+const num=v=>v===null||v===undefined||v===''?null:(Number.isFinite(Number(v))?Number(v):null);
 const money=v=>num(v)==null?'N/A':num(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
-const VERSION='0.9.0';
+const VERSION='0.9.1';
+const PENDING_KEY='gsPendingGuidedAuditV1';
 
 const state={step:1,product:null,cached:null,models:[],categories:[],ads:null,costs:[],competitors:[],selected:new Set(),analysis:null,finance:null,suggestions:null,sourceUrl:null};
 
 function toast(text){const t=$('#toast');if(!t)return;t.textContent=text;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3200);}
 function openTab(name){document.querySelector(`nav button[data-tab="${name}"]`)?.click();}
 function setStep(n){state.step=n;$$('.wizard-step').forEach(x=>x.classList.toggle('active',Number(x.dataset.step)===n));const dots=$$('#auditSteps span');dots.forEach((x,i)=>{const k=i+1;x.classList.toggle('active',k===n);x.classList.toggle('done',k<n);});}
-function resetWizard(){state.step=1;state.product=null;state.cached=null;state.models=[];state.ads=null;state.costs=[];state.competitors=[];state.selected.clear();state.analysis=null;state.finance=null;state.suggestions=null;$('#auditUrl').value='';$('#productValidation').hidden=true;$('#step1Next').disabled=true;$('#competitorList').innerHTML='';$('#competitorStatus').textContent='Preparando busca…';$('#finishResult').hidden=true;setStep(1);}
+function resetWizard(){state.step=1;state.product=null;state.cached=null;state.models=[];state.ads=null;state.costs=[];state.competitors=[];state.selected.clear();state.analysis=null;state.finance=null;state.suggestions=null;state.sourceUrl=null;$('#auditUrl').value='';$('#auditLoading').hidden=true;$('#productValidation').hidden=true;$('#step1Next').disabled=true;$('#competitorList').innerHTML='';$('#competitorStatus').classList.remove('searching-status');$('#competitorStatus').textContent='Preparando busca…';$('#finishResult').hidden=true;setStep(1);}
 
 // ----- Theme/settings -----
 async function loadTheme(){const x=await chrome.storage.local.get('gsExtTheme');applyTheme(x.gsExtTheme||'dark');}
 function applyTheme(theme){document.body.dataset.extTheme=theme;$$('[data-ext-theme]').forEach(b=>b.classList.toggle('active',b.dataset.extTheme===theme));}
 $('#settingsBtn').onclick=()=>{$('#settingsPanel').hidden=false;};
 $('#closeSettings').onclick=()=>{$('#settingsPanel').hidden=true;};
-$('#settingsPanel').addEventListener('click',e=>{if(e.target===$('#settingsPanel'))$('#settingsPanel').hidden=true;});
+$('#settingsPanel').addEventListener('click',e=>{if(e.target===$('#settingsPanel'))$('#settingsPanel'].hidden=true;});
 $$('[data-ext-theme]').forEach(b=>b.onclick=async()=>{await chrome.storage.local.set({gsExtTheme:b.dataset.extTheme});applyTheme(b.dataset.extTheme);});
 loadTheme();
 
@@ -42,19 +43,21 @@ function normalizeCategoryList(raw){
   return out.sort((a,b)=>a.label.localeCompare(b.label,'pt-BR'));
 }
 function normalizeModels(raw){const list=raw?.response?.model||raw?.response?.model_list||raw?.model||raw?.models||[];return(Array.isArray(list)?list:[]).map((m,i)=>({modelId:num(m.model_id??m.id),name:m.model_name||m.name||m.model_sku||`Variação ${i+1}`,sku:m.model_sku||'',price:num(m.price_info?.current_price??m.price),stock:num(m.stock_info_v2?.summary_info?.total_available_stock??m.stock_info?.normal_stock??m.stock)})).filter(x=>x.modelId!=null);}
+function sumModelStock(models){const values=(models||[]).map(m=>num(m.stock)).filter(v=>v!=null);return values.length?values.reduce((a,b)=>a+b,0):null;}
 function categoryName(id){return state.categories.find(x=>String(x.id)===String(id))?.label||`Categoria ${id||'não identificada'}`;}
 function campaignForItem(ads,itemId){const v=ads?.v7||ads?.v5||ads||{};return(v.campaigns||[]).find(c=>String(c.itemId??c.item_id)===String(itemId))||null;}
 
 async function collectFromLink(url){
   const tab=await chrome.tabs.create({url,active:false});
   try{
-    await waitTab(tab.id);await wait(500);const dom=await readTabProduct(tab.id);const finalTab=await chrome.tabs.get(tab.id),ids={...parseIds(finalTab.url),...parseIds(dom.url)};const itemId=dom.itemId||ids.itemId;if(!itemId)throw new Error('Não consegui identificar o ID do produto.');
+    await waitTab(tab.id);await wait(450);const dom=await readTabProduct(tab.id);const finalTab=await chrome.tabs.get(tab.id),ids={...parseIds(finalTab.url),...parseIds(dom.url)};const itemId=dom.itemId||ids.itemId;if(!itemId)throw new Error('Não consegui identificar o ID do produto.');
     const [products,cats,pub]=await Promise.all([gestorApi.products(),gestorApi.categories().catch(()=>null),gestorApi.publicProduct(itemId).catch(()=>null)]);
     const cached=(products.items||[]).find(x=>String(x.item_id)===String(itemId));if(!cached)throw new Error('O produto não foi encontrado na loja conectada ao Gestor Sênior.');
     state.categories=normalizeCategoryList(cats);state.cached=cached;
     let models=[];if(cached.has_model)models=normalizeModels(await gestorApi.models(itemId).catch(()=>null));state.models=models;
     const publicRow=pub?.results?.find(x=>String(x.item_id)===String(itemId)&&x.ok)||null;
-    const imgs=imagesOf(cached);const categoryId=cached.category_id;const product={...dom,url:finalTab.url||url,itemId:String(itemId),shopId:ids.shopId,title:cached.item_name||dom.title,description:cached.description||dom.description||'',categoryId,category:categoryName(categoryId),imageUrls:imgs.length?imgs:dom.imageUrls||[],imageUrl:imgs[0]||dom.imageUrl||null,imageCount:imgs.length||dom.imageCount||0,hasVideo:Boolean(dom.hasVideo||cached.video_info),rating:dom.rating,reviewCount:dom.reviewCount,sold:dom.sold??publicRow?.historicalSold??null,stock:stockOf(cached),attributesCount:Array.isArray(cached.attribute_list)?cached.attribute_list.length:0,variationCount:models.length,price:productPrice(cached)??dom.price,priceBeforeDiscount:publicRow?.priceBeforeDiscount??cached.price_info?.[0]?.original_price??null};
+    const imgs=imagesOf(cached),categoryId=cached.category_id,modelStock=sumModelStock(models);
+    const product={...dom,url:finalTab.url||url,itemId:String(itemId),shopId:ids.shopId,title:cached.item_name||dom.title,description:cached.description||dom.description||'',categoryId,category:categoryName(categoryId),imageUrls:imgs.length?imgs:dom.imageUrls||[],imageUrl:imgs[0]||dom.imageUrl||null,imageCount:imgs.length||dom.imageCount||0,hasVideo:Boolean(dom.hasVideo||cached.video_info),rating:num(publicRow?.rating)??num(dom.rating),reviewCount:num(publicRow?.reviewCount)??num(dom.reviewCount),sold:num(dom.sold)??num(publicRow?.historicalSold),stock:modelStock??num(publicRow?.stock)??stockOf(cached)??num(dom.stock),attributesCount:Array.isArray(cached.attribute_list)?cached.attribute_list.length:0,variationCount:models.length,price:productPrice(cached)??num(publicRow?.price)??num(dom.price),priceBeforeDiscount:num(publicRow?.priceBeforeDiscount)??num(cached.price_info?.[0]?.original_price)};
     return product;
   }finally{chrome.tabs.remove(tab.id).catch(()=>{});}
 }
@@ -63,6 +66,14 @@ function renderProductValidation(p){
   const val=(v,suffix='')=>v===null||v===undefined||v===''?'N/A':`${v}${suffix}`;
   $('#productValidation').innerHTML=`<div class="product-check"><div class="product-check-head">${p.imageUrl?`<img src="${esc(p.imageUrl)}" alt="">`:''}<div><strong>${esc(p.title)}</strong><small>ID ${esc(p.itemId)} · ${esc(p.category)}</small></div></div><div class="validation-grid"><div><span>Categoria oficial</span><b>${esc(p.category)}</b></div><div><span>Imagens</span><b>${val(p.imageCount)}</b></div><div><span>Vídeo</span><b>${p.hasVideo?'Sim':'Não'}</b></div><div><span>Avaliação</span><b>${val(p.rating,' ★')}</b></div><div><span>Qtd. avaliações</span><b>${val(p.reviewCount)}</b></div><div><span>Itens vendidos</span><b>${val(p.sold)}</b></div><div><span>Estoque</span><b>${val(p.stock)}</b></div><div><span>Variações</span><b>${val(p.variationCount)}</b></div><div><span>Preço</span><b>${money(p.price)}</b></div><div><span>Preço anterior</span><b>${money(p.priceBeforeDiscount)}</b></div></div><div class="description-preview"><b>Descrição:</b><br>${esc((p.description||'Sem descrição identificada.').slice(0,700))}${(p.description||'').length>700?'…':''}</div></div>`;
   $('#productValidation').hidden=false;$('#step1Next').disabled=false;
+}
+
+async function startAudit(url){
+  if(!validShopeeUrl(url))return toast('Cole um link válido da Shopee Brasil.');
+  const b=$('#startAudit');b.disabled=true;$('#productValidation').hidden=true;$('#step1Next').disabled=true;$('#auditLoading').hidden=false;
+  try{state.sourceUrl=url;state.product=await collectFromLink(url);renderProductValidation(state.product);}
+  catch(e){toast(String(e?.message||e));}
+  finally{$('#auditLoading').hidden=true;b.disabled=false;}
 }
 
 async function loadAdsAndCosts(){
@@ -84,12 +95,15 @@ async function saveCosts(){
 }
 
 async function loadCompetitors(){
-  $('#competitorStatus').textContent='Pesquisando pelo título e cruzando com a base do Coletor 3.1…';$('#competitorList').innerHTML='';state.selected.clear();$('#step3Next').disabled=true;
-  const r=await send({type:'GS_SEARCH_COMPETITORS',title:state.product.title,ownItemId:state.product.itemId});if(!r?.ok)throw new Error(r?.error||'Falha na busca de concorrentes.');state.competitors=(r.items||[]).slice(0,12);
-  $('#competitorStatus').textContent=`${state.competitors.length} candidato(s) encontrado(s) · base local ${r.source?.indexed||0} · busca ao vivo ${r.source?.live||0}`;
-  if(!state.competitors.length){$('#competitorList').innerHTML='<div class="empty">Nenhum concorrente confiável encontrado. Volte e tente novamente mais tarde.</div>';return;}
+  const status=$('#competitorStatus');status.classList.add('searching-status');status.textContent='Pesquisando pelo título do anúncio e cruzando com a Shopee…';$('#competitorList').innerHTML='';state.selected.clear();$('#step3Next').disabled=true;
+  let server=null,fallback=null,items=[];
+  try{server=await gestorApi.competitors(state.product.itemId);items=(server?.competitors||[]).map(c=>({...c,imageUrl:c.imageUrl||c.image,link:c.link||c.url,reviewCount:c.reviewCount??c.reviews,source:'gestor-search'}));}catch{}
+  if(items.length<3){try{fallback=await send({type:'GS_SEARCH_COMPETITORS',title:state.product.title,ownItemId:state.product.itemId});if(fallback?.ok){const seen=new Set(items.map(x=>String(x.itemId)));for(const c of fallback.items||[]){if(!seen.has(String(c.itemId))){seen.add(String(c.itemId));items.push(c);}}}}catch{}}
+  state.competitors=items.slice(0,16);status.classList.remove('searching-status');
+  const liveCount=server?.competitors?.length||0,localCount=fallback?.source?.indexed||0;status.textContent=`${state.competitors.length} candidato(s) encontrado(s) · busca Shopee ${liveCount} · base local ${localCount}`;
+  if(!state.competitors.length){const detail=server?.attempts?.map(a=>`${a.query}: ${a.ok?a.count+' resultado(s)':a.error}`).join(' · ');$('#competitorList').innerHTML=`<div class="empty">Nenhum concorrente foi retornado automaticamente.${detail?`<br><small>${esc(detail)}</small>`:''}</div>`;return;}
   $('#competitorList').innerHTML=state.competitors.map((c,i)=>`<label class="competitor" data-comp="${i}"><input type="checkbox" value="${i}">${c.imageUrl?`<img src="${esc(c.imageUrl)}" alt="">`:'<span></span>'}<div><strong>${esc(c.title||'Produto')}</strong><small>${money(c.price)}${num(c.rating)!=null?` · ${num(c.rating).toFixed(1)}★`:''}${num(c.sold)!=null?` · ${c.sold} vendidos`:''}</small></div></label>`).join('');
-  $$('#competitorList input').forEach(input=>input.onchange=()=>{const i=Number(input.value);if(input.checked&&state.selected.size>=3){input.checked=false;toast('Selecione no máximo 3 concorrentes.');return;}input.checked?state.selected.add(i):state.selected.delete(i);input.closest('.competitor').classList.toggle('selected',input.checked);$('#step3Next').disabled=state.selected.size===0;$('#competitorStatus').textContent=`${state.selected.size}/3 selecionado(s)`;});
+  $$('#competitorList input').forEach(input=>input.onchange=()=>{const i=Number(input.value);if(input.checked&&state.selected.size>=3){input.checked=false;toast('Selecione no máximo 3 concorrentes.');return;}input.checked?state.selected.add(i):state.selected.delete(i);input.closest('.competitor').classList.toggle('selected',input.checked);$('#step3Next').disabled=state.selected.size===0;status.textContent=`${state.selected.size}/3 selecionado(s)`;});
 }
 
 function selectedCompetitors(){return[...state.selected].map(i=>state.competitors[i]).filter(Boolean);}
@@ -143,15 +157,18 @@ async function refreshManager(){
 // ----- Event wiring -----
 $('#homeAnalyze').onclick=()=>{openTab('analyze');resetWizard();};
 $('#resetWizard').onclick=resetWizard;
-$('#startAudit').onclick=async()=>{const url=$('#auditUrl').value.trim();if(!validShopeeUrl(url))return toast('Cole um link válido da Shopee Brasil.');const b=$('#startAudit');b.disabled=true;$('#auditLoading').hidden=false;$('#productValidation').hidden=true;$('#step1Next').disabled=true;try{state.sourceUrl=url;state.product=await collectFromLink(url);renderProductValidation(state.product);}catch(e){toast(String(e?.message||e));}finally{$('#auditLoading').hidden=true;b.disabled=false;}};
+$('#startAudit').onclick=()=>startAudit($('#auditUrl').value.trim());
 $('#step1Next').onclick=async()=>{setStep(2);try{await loadAdsAndCosts();}catch(e){toast(String(e?.message||e));}};
 $$('[data-back]').forEach(b=>b.onclick=()=>setStep(Number(b.dataset.back)));
-$('#step2Next').onclick=async()=>{try{await saveCosts();setStep(3);await loadCompetitors();}catch(e){toast(String(e?.message||e));}};
+$('#step2Next').onclick=async()=>{try{await saveCosts();setStep(3);await loadCompetitors();}catch(e){$('#competitorStatus').classList.remove('searching-status');toast(String(e?.message||e));}};
 $('#step3Next').onclick=()=>{try{generateRayX();setStep(4);}catch(e){toast(String(e?.message||e));}};
 $('#step4Next').onclick=()=>{finishPreview();setStep(5);};
 $('#finishAudit').onclick=finalizeAudit;
 $('#refreshAnalysisManager').onclick=()=>refreshManager();
 document.querySelector('nav button[data-tab="auto"]')?.addEventListener('click',()=>setTimeout(()=>refreshManager(),50));
 
-// If a link was copied from Gestor and placed on clipboard, user still chooses when to paste.
+async function consumePendingAudit(){
+  try{const x=await chrome.storage.local.get(PENDING_KEY),p=x[PENDING_KEY];if(!p?.url)return;if(Date.now()-Number(p.createdAt||0)>120000){await chrome.storage.local.remove(PENDING_KEY);return;}await chrome.storage.local.remove(PENDING_KEY);openTab('analyze');resetWizard();$('#auditUrl').value=p.url;await wait(80);startAudit(p.url);}catch(e){console.warn('GS pending audit',e)}
+}
 resetWizard();
+consumePendingAudit();
