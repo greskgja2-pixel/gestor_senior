@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-const VERSION = "20260914-13";
+const VERSION = "20260915-14";
 const FRAME_SRC = `/shopeeos-live.html?v=full-live-${VERSION}`;
 
 const STYLES = [
@@ -45,6 +45,7 @@ const OPTIONAL_SCRIPTS = [
   ["product-encyclopedia-v6-grid-js", "/product-encyclopedia-v6-grid.js"],
   ["persistence-fix-v8-js", "/persistence-fix-v8.js"],
   ["ads-shopee-replica-v11-js", "/ads-shopee-replica-v11.js"],
+  ["extension-intelligence-integration-js", "/extension-intelligence-integration.js"],
 ];
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -209,9 +210,7 @@ export default function ShopeeLiveFrame() {
     }
   }, []);
 
-  const handleLoad = useCallback(() => {
-    boot();
-  }, [boot]);
+  const handleLoad = useCallback(() => { boot(); }, [boot]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -223,81 +222,8 @@ export default function ShopeeLiveFrame() {
 
   return (
     <>
-      <iframe
-        ref={frameRef}
-        src={FRAME_SRC}
-        title="Gestor Senior Shopee LIVE"
-        onLoad={handleLoad}
-        style={{
-          position: "fixed",
-          inset: 0,
-          width: "100vw",
-          height: "100vh",
-          border: "none",
-          zIndex: 9999,
-          opacity: ready ? 1 : 0,
-          visibility: ready ? "visible" : "hidden",
-          transition: "opacity .16s ease",
-        }}
-      />
-      {!ready && (
-        <div
-          role="status"
-          aria-live="polite"
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 10000,
-            display: "grid",
-            placeItems: "center",
-            background: "#07111d",
-            color: "#edf5fd",
-            fontFamily: "system-ui, -apple-system, Segoe UI, sans-serif",
-          }}
-        >
-          <div style={{ textAlign: "center", maxWidth: 360, padding: 24 }}>
-            <div
-              style={{
-                width: 54,
-                height: 54,
-                margin: "0 auto 14px",
-                display: "grid",
-                placeItems: "center",
-                border: "1px solid #d7b33d",
-                borderRadius: 15,
-                color: "#f2d36d",
-                fontWeight: 900,
-                fontSize: 21,
-              }}
-            >
-              GS
-            </div>
-            <strong style={{ display: "block", fontSize: 18 }}>Gestor Sênior</strong>
-            <span style={{ display: "block", marginTop: 6, color: "#91a5b9", fontSize: 13 }}>{message}</span>
-            <div
-              style={{
-                width: 180,
-                height: 3,
-                margin: "16px auto 0",
-                borderRadius: 99,
-                overflow: "hidden",
-                background: "#16263a",
-              }}
-            >
-              <div
-                style={{
-                  width: "58%",
-                  height: "100%",
-                  borderRadius: 99,
-                  background: "#d7b33d",
-                  animation: "gsLoaderPulse 1s ease-in-out infinite alternate",
-                }}
-              />
-            </div>
-            <style>{`@keyframes gsLoaderPulse{from{transform:translateX(-55%)}to{transform:translateX(115%)}}`}</style>
-          </div>
-        </div>
-      )}
+      <iframe ref={frameRef} src={FRAME_SRC} title="Gestor Senior Shopee LIVE" onLoad={handleLoad} style={{position:"fixed",inset:0,width:"100vw",height:"100vh",border:"none",zIndex:9999,opacity:ready?1:0,visibility:ready?"visible":"hidden",transition:"opacity .16s ease"}} />
+      {!ready && <div role="status" aria-live="polite" style={{position:"fixed",inset:0,zIndex:10000,display:"grid",placeItems:"center",background:"#07111d",color:"#edf5fd",fontFamily:"system-ui, -apple-system, Segoe UI, sans-serif"}}><div style={{textAlign:"center",maxWidth:360,padding:24}}><div style={{width:54,height:54,margin:"0 auto 14px",display:"grid",placeItems:"center",border:"1px solid #d7b33d",borderRadius:15,color:"#f2d36d",fontWeight:900,fontSize:21}}>GS</div><strong style={{display:"block",fontSize:18}}>Gestor Sênior</strong><span style={{display:"block",marginTop:6,color:"#91a5b9",fontSize:13}}>{message}</span><div style={{width:180,height:3,margin:"16px auto 0",borderRadius:99,overflow:"hidden",background:"#16263a"}}><div style={{width:"58%",height:"100%",borderRadius:99,background:"#d7b33d",animation:"gsLoaderPulse 1s ease-in-out infinite alternate"}} /></div><style>{`@keyframes gsLoaderPulse{from{transform:translateX(-55%)}to{transform:translateX(115%)}}`}</style></div></div>}
     </>
   );
 }
