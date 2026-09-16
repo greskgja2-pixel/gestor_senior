@@ -43,3 +43,43 @@ export async function POST(request) {
     return NextResponse.json({ ok: true, report: inserted });
   } catch (error) { return NextResponse.json({ error: String(error.message || error) }, { status: 500 }); }
 }
+
+export async function PATCH(request) {
+  let body; try { body = await request.json(); } catch { return NextResponse.json({ error: "Corpo JSON inválido." }, { status: 400 }); }
+  const shop = await getActiveShop(); if (!shop) return NextResponse.json({ error: "Nenhuma loja autorizada." }, { status: 400 });
+  if (body?.action !== "update_competitor_sales") return NextResponse.json({ error: "Ação de atualização desconhecida." }, { status: 400 });
+  const reportId = safeText(body?.report_id, 100), competitorItemId = safeText(body?.competitor_item_id, 100), sold = Number(body?.sold);
+  if (!reportId || !competitorItemId || !Number.isFinite(sold) || sold < 0) return NextResponse.json({ error: "Dados inválidos para atualizar as vendas do concorrente." }, { status: 400 });
+  const db = supabaseAdmin();
+  try {
+    const { data: report, error: readError } = await db.from("extension_analysis_reports").select("id,competitors").eq("shop_id", shop.shop_id).eq("id", reportId).maybeSingle();
+    if (readError) throw new Error(readError.message);
+    if (!report) return NextResponse.json({ error: "Relatório não encontrado." }, { status: 404 });
+    const competitors = safeArray(report.competitors);
+    let found = false;
+    const updated = competitors.map((row) => {
+      const id = String(row?.itemId ?? row?.item_id ?? row?.id ?? "");
+      if (id !== String(competitorItemId)) return row;
+      found = true;
+      return { ...row, sold: Math.round(sold), manualSold: true, manualSoldUpdatedAt: new Date().toISOString() };
+    });
+    if (!found) return NextResponse.json({ error: "Concorrente não encontrado neste relatório." }, { status: 404 });
+    const { error: updateError } = await db.from("extension_analysis_reports").update({ competitors: updated }).eq("shop_id", shop.shop_id).eq("id", reportId);
+    if (updateError) throw new Error(updateError.message);
+    return NextResponse.json({ ok: true, report_id: reportId, competitor_item_id: competitorItemId, sold: Math.round(sold) });
+  } catch (error) { return NextResponse.json({ error: String(error.message || error) }, { status: 500 }); }
+}
+
+export async function DELETE(request) {
+  let body; try { body = await request.json(); } catch { return NextResponse.json({ error: "Corpo JSON inválido." }, { status: 400 }); }
+  const itemId = positiveInt(body?.item_id ?? body?.itemId); if (!itemId) return NextResponse.json({ error: "item_id inválido." }, { status: 400 });
+  const shop = await getActiveShop(); if (!shop) return NextResponse.json({ error: "Nenhuma loja autorizada." }, { status: 400 });
+  const db = supabaseAdmin();
+  try {
+    const { error: scheduleError } = await db.from("extension_analysis_schedules").delete().eq("shop_id", shop.shop_id).eq("item_id", itemId);
+    if (scheduleError) throw new Error(scheduleError.message);
+    const { error: reportError } = await db.from("extension_analysis_reports").delete().eq("shop_id", shop.shop_id).eq("item_id", itemId);
+    if (reportError) throw new Error(reportError.message);
+    return NextResponse.json({ ok: true, item_id: itemId });
+  } catch (error) { return NextResponse.json({ error: String(error.message || error) }, { status: 500 }); }
+}
