@@ -29,8 +29,8 @@
     return{shopId:null,itemId:null};
   }
   function brNumber(raw){const s=String(raw||'').replace(/[^\d.,]/g,'');if(!s)return null;const n=Number(s.includes(',')?s.replace(/\./g,'').replace(',','.'):s);return Number.isFinite(n)?n:null;}
-  function soldNumber(text){const m=String(text||'').match(/([\d.,]+)\s*(mil|k)?\s*vendid[oa]s?/i);if(!m)return null;let n=brNumber(m[1]);if(n==null)return null;if(m[2])n*=1000;return Math.round(n);}
-  function cleanTitle(text){return String(text||'').replace(/R\$\s*[\d.,]+/gi,' ').replace(/[\d.,]+\s*(?:mil|k)?\s*vendid[oa]s?/gi,' ').replace(/\s+/g,' ').trim().slice(0,220);}
+  function soldNumber(text){const m=String(text||'').match(/([\d.,]+)\s*(mil|k)?\s*\+?\s*vendid[oa]s?/i);if(!m)return null;let n=brNumber(m[1]);if(n==null)return null;if(m[2])n*=1000;return Math.round(n);}
+  function cleanTitle(text){return String(text||'').replace(/R\$\s*[\d.,]+/gi,' ').replace(/[\d.,]+\s*(?:mil|k)?\s*\+?\s*vendid[oa]s?/gi,' ').replace(/\s+/g,' ').trim().slice(0,220);}
   function candidateData(anchor){
     const ids=parseIds(anchor.href);if(!ids.itemId||String(ids.itemId)===ownItemId)return null;
     const root=anchor.closest('[data-sqe="item"]')||anchor.closest('.shopee-search-item-result__item')||anchor.parentElement||anchor;
