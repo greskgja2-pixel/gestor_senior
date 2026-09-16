@@ -1,0 +1,96 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gestor Sênior</title><link rel="stylesheet" href="sidepanel-v3.css"><link rel="stylesheet" href="guided-audit.css"><link rel="stylesheet" href="tutorials.css"></head><body>
+<header><div class="brand"><span class="logo">GS</span><div><strong>Gestor Sênior</strong><small>Shopee Intelligence</small></div></div><div class="head-tools"><span class="version">v0.12.5</span><button id="settingsBtn" class="icon-btn" title="Configurações">⚙</button></div></header>
+<nav><button class="active" data-tab="home">Visão</button><button data-tab="analyze">Super Análise</button><button data-tab="auto">Gestor</button><button data-tab="resale">Revenda</button><button data-tab="lab">Coletor</button></nav>
+<main>
+<section id="tab-home" class="tab active">
+  <div class="hero"><b>Central inteligente</b><span>Coleta → análise → decisão → ação → acompanhamento → possível reversão</span></div>
+  <div class="cards"><div class="metric"><small>Base coletada</small><b id="homeIndexed">—</b></div><div class="metric"><small>Lojas</small><b id="homeShops">—</b></div><div class="metric"><small>Preço mediano</small><b id="homeMedian">—</b></div><div class="metric"><small>Tarefas ativas</small><b id="homeJobs">—</b></div></div>
+  <button id="homeAnalyze" class="primary big">✨ Iniciar Super Análise</button>
+  <a href="analytics.html" target="_blank" class="primary big dashboard-link">📊 Dashboard Analítica de Anúncios</a>
+  <a href="https://shopeeos-real-greskgja.vercel.app/extensao-shopee-intelligence" target="_blank" class="big dashboard-link">🧩 Histórico no Gestor Sênior</a>
+  <div class="card"><b>Super Análise guiada</b><p>Agora você pode colar o link do anúncio, confirmar os dados, informar objetivo/custo, escolher 3 concorrentes diretamente na busca da Shopee e receber o Raio-X completo. Ao finalizar, o relatório fica salvo no Gestor Sênior e a reanálise é agendada.</p></div>
+  <div id="homeLast" class="card muted">Nenhuma análise nesta sessão.</div>
+</section>
+
+<section id="tab-analyze" class="tab">
+  <div class="wizard-head"><div><h2>Super Análise</h2><p class="muted">Fluxo guiado v0.12.5 com variações, concorrentes e histórico na nuvem.</p></div><button id="resetWizard">Recomeçar</button></div>
+  <div class="steps" id="auditSteps"><span class="active">1</span><i></i><span>2</span><i></i><span>3</span><i></i><span>4</span><i></i><span>5</span></div>
+
+  <div class="wizard-step active" data-step="1">
+    <div class="step-title"><b>1. Validar anúncio</b><small>Cole o link do seu produto na Shopee.</small></div>
+    <label>Link do anúncio<input id="auditUrl" placeholder="https://shopee.com.br/product/..." autocomplete="off"></label>
+    <button id="startAudit" class="primary big">Iniciar Auditoria</button>
+    <div id="auditLoading" class="audit-loading" hidden><div class="spinner"></div><span>Lendo anúncio e cruzando com os dados oficiais da loja…</span></div>
+    <div id="productValidation" hidden></div>
+    <div class="wizard-actions"><span></span><button id="step1Next" class="primary" disabled>Continuar ›</button></div>
+  </div>
+
+  <div class="wizard-step" data-step="2">
+    <div class="step-title"><b>2. Objetivo, Ads e custos</b><small>Esses dados ajudam o motor a não recomendar algo que prejudique sua margem.</small></div>
+    <label>Objetivo principal<select id="auditObjective"><option value="mais_vendas">Aumentar vendas</option><option value="mais_margem">Aumentar margem</option><option value="reduzir_ads">Reduzir gasto com Ads</option><option value="ganhar_posicao">Ganhar posição/visibilidade</option><option value="validar_produto">Validar produto</option></select></label>
+    <label>Situação atual<select id="auditSituation"><option value="vende_bem">Vende bem</option><option value="vende_pouco">Vende pouco</option><option value="nao_vende">Não vende</option><option value="novo">Produto novo</option></select></label>
+    <label>Principal gargalo percebido<select id="auditBottleneck"><option value="nao_sei">Não sei</option><option value="visitas">Poucas visitas</option><option value="cliques">Poucos cliques</option><option value="conversao">Visitas sem vendas</option><option value="preco">Preço/concorrência</option><option value="ads">Shopee Ads</option><option value="conteudo">Título/fotos/descrição</option></select></label>
+    <div class="card compact-card"><div class="row"><b>Shopee Ads — últimos 7 dias</b><span id="adsAutoStatus" class="pill">Buscando…</span></div><div class="grid3"><label>ROAS<input id="auditRoas" type="number" min="0" step="0.01" placeholder="N/A"></label><label>ROAS alvo<input id="auditTargetRoas" type="number" min="0" step="0.01" placeholder="N/A"></label><label>Gasto Ads R$<input id="auditSpend" type="number" min="0" step="0.01" placeholder="N/A"></label></div><small class="muted">Se a Shopee não retornar algum dado, o campo fica liberado para preenchimento manual.</small></div>
+    <div class="card compact-card"><b>Custos</b><label>Custo unitário padrão R$<input id="auditBaseCost" type="number" min="0" step="0.01" placeholder="Ex.: 12,50"></label><div id="variationCosts"></div></div>
+    <div class="wizard-actions"><button data-back="1">‹ Voltar</button><button id="step2Next" class="primary">Continuar ›</button></div>
+  </div>
+
+  <div class="wizard-step" data-step="3">
+    <div class="step-title"><b>3. Escolher concorrentes</b><small>A extensão abre a busca da Shopee com o título completo; você escolhe exatamente 3 anúncios comparáveis.</small></div>
+    <div class="guide"><b>Selecione 3 concorrentes diretamente na Shopee.</b><span>Na aba de pesquisa, marque os 3 anúncios mais parecidos e clique em “Voltar para Análise”. Os dados serão enviados para a extensão e o Raio-X continuará automaticamente.</span></div>
+    <div id="competitorStatus" class="muted">Preparando busca…</div><div id="competitorList" class="competitor-list"></div>
+    <div class="wizard-actions"><button data-back="2">‹ Voltar</button><button id="step3Next" class="primary" disabled>Gerar Raio-X ›</button></div>
+  </div>
+
+  <div class="wizard-step" data-step="4">
+    <div class="step-title"><b>4. Raio-X Completo</b><small>Diagnóstico e sugestões usando somente os concorrentes que você selecionou.</small></div>
+    <div id="raySummary"></div><div id="rayDimensions"></div><div id="beforeAfter"></div>
+    <div class="wizard-actions"><button data-back="3">‹ Voltar</button><button id="step4Next" class="primary">Finalizar ›</button></div>
+  </div>
+
+  <div class="wizard-step" data-step="5">
+    <div class="step-title"><b>5. Finalização</b><small>Salve o relatório e acompanhe a evolução no Gestor Sênior.</small></div>
+    <div id="finishPreview"></div>
+    <label class="check"><input id="scheduleTenDays" type="checkbox" checked> Agendar reanálise automática daqui a 10 dias</label>
+    <button id="finishAudit" class="primary big">✓ Concluir e sincronizar com o Gestor</button>
+    <div id="finishResult" hidden></div>
+    <div class="wizard-actions"><button data-back="4">‹ Voltar</button><span></span></div>
+  </div>
+
+  <div class="legacy-hidden"><button id="smartAnalyze"></button><input id="analysisCost"><button id="saveAnalysisCost"></button><div id="analysisEmpty"></div><div id="analysisResult"></div></div>
+</section>
+
+<section id="tab-auto" class="tab">
+  <div class="row"><div><h2>Gestor de Análises</h2><p class="muted">Anúncios concluídos na Super Análise, histórico e reanálises periódicas.</p></div><button id="refreshAnalysisManager">↻</button></div>
+  <div class="manager-summary cards"><div class="metric"><small>Anúncios monitorados</small><b id="mgrProducts">—</b></div><div class="metric"><small>Reanálises ativas</small><b id="mgrSchedules">—</b></div><div class="metric"><small>Próximas 3 dias</small><b id="mgrDue">—</b></div><div class="metric"><small>Nota média</small><b id="mgrScore">—</b></div></div>
+  <div id="analysisManagerList"><div class="empty">Carregando histórico do Gestor…</div></div>
+  <details class="advanced-scheduler"><summary>Configuração avançada / manutenção local</summary>
+    <div class="card"><label>ID do item<input id="autoItem" inputmode="numeric"></label><label>Nome<input id="autoTitle"></label><label>URL do anúncio<input id="autoUrl"></label>
+      <div class="grid2"><label>Custo R$<input id="autoCost" type="number" min="0" step="0.01"></label><label>Frequência<select id="autoFreq"><option value="10">10 dias</option><option value="7">Semanal</option><option value="3">3 dias</option><option value="14">14 dias</option></select></label></div>
+      <div class="grid2"><label>Modo<select id="autoMode"><option value="approve">Recomendar e aprovar</option><option value="automatic">Automático Ads</option></select></label><label>ROAS máx. por ciclo %<input id="autoRoasDelta" type="number" value="10" min="1" max="15"></label></div>
+      <div class="grid2"><label>Margem mínima %<input id="autoMargin" type="number" value="20"></label><label>Lucro mínimo R$<input id="autoProfit" type="number" value="8"></label></div>
+      <label>Gasto Ads semanal máximo R$<input id="autoSpend" type="number" value="300"></label>
+      <label class="check"><input id="autoDeepAudit" type="checkbox" checked> Reabrir anúncio e reavaliar</label><label class="check"><input id="autoLiveCompetitors" type="checkbox" checked> Buscar concorrentes ao vivo</label><label class="check"><input id="autoProtection" type="checkbox"> Permitir rotina de Proteção ROAS</label>
+      <button id="createAuto" class="primary big">Salvar manutenção</button>
+    </div>
+  </details>
+  <div id="jobList"></div>
+</section>
+
+<section id="tab-resale" class="tab">
+  <div class="row"><div><h2>Painel Revenda</h2><p class="muted">Coletor Shopee v3.1.0 integrado.</p></div><button id="refreshResale">Atualizar</button></div>
+  <div class="cards"><div class="metric"><small>Produtos únicos</small><b id="resaleTotal">0</b></div><div class="metric"><small>Lojas</small><b id="resaleShops">0</b></div><div class="metric"><small>Preço mediano</small><b id="resaleMedian">—</b></div><div class="metric"><small>Vendidos*</small><b id="resaleSold">0</b></div></div><small class="muted">* Histórico vendido retornado pela coleta pública; não representa vendas do período.</small>
+  <div class="card"><b>Top produtos da base</b><div id="resaleTop" class="toplist"></div></div>
+  <div class="card"><b>Coletar mais dados</b><div class="mode"><label class="check"><input type="radio" name="collectMode" value="search" checked> Termo</label><label class="check"><input type="radio" name="collectMode" value="category"> Categoria</label></div>
+    <div id="searchBox"><label>Termo<input id="resaleTerm" placeholder="Ex.: caderno de colorir infantil"></label></div>
+    <div id="categoryBox" hidden><label>Filtrar categorias<input id="categoryFilter" placeholder="Digite nome ou ID"></label><div class="row mini"><span id="categorySelected" class="muted">0 selecionadas</span><span><button id="selectVisible">Selecionar visíveis</button> <button id="clearCategories">Limpar</button></span></div><div id="categoryList" class="category-list"><span class="muted">Carregando categorias...</span></div></div>
+    <div class="grid2"><label>Páginas<select id="collectPages"><option value="1">Página 1</option><option value="2">Página 2</option><option value="3">Página 3</option><option value="all">Todas</option></select></label><label>Intervalo<select id="collectDelay"><option value="3000">3 s</option><option value="5000" selected>5 s</option><option value="8000">8 s</option><option value="12000">12 s</option></select></label></div>
+    <div class="actions"><button id="startCollection" class="primary">Iniciar</button><button id="pauseCollection">Pausar</button><button id="cancelCollection" class="danger">Cancelar</button></div><div class="progress"><i id="collectBar"></i></div><div class="row mini"><span id="collectCount">0 arquivo(s)</span><span id="collectErrors">0 erro(s)</span></div><p id="collectStatus" class="muted">Pronto.</p>
+  </div>
+</section>
+<section id="tab-lab" class="tab"><h2>Laboratório técnico</h2><div class="card"><b>Auto Mapper v2.4</b><p class="muted">Captura técnica completa fica desligada normalmente. Ative somente quando estivermos mapeando novas telas/endpoints.</p><label class="check"><input id="researchCapture" type="checkbox"> Ativar captura técnica completa</label><button id="clearTechnical">Limpar capturas técnicas locais</button></div><div class="card"><b>Índice inteligente do Coletor 3.1</b><p class="muted">Os JSONs baixados alimentam a base local de concorrentes.</p><button id="clearIndex" class="danger">Limpar índice de concorrentes</button></div></section>
+</main>
+
+<div id="settingsPanel" class="settings-backdrop" hidden><div class="settings-card"><div class="row"><b>Configurações</b><button id="closeSettings">×</button></div><p class="muted">Aparência da extensão</p><div class="theme-options"><button data-ext-theme="dark">🌙 Escuro</button><button data-ext-theme="light">☀️ Claro</button></div><div class="guard-note">O tema altera apenas a interface da extensão. Dados, análises e automações não mudam.</div></div></div>
+<div id="toast"></div>
+<script type="module" src="sidepanel-v3.js"></script><script src="competitor-picker-panel.js"></script><script type="module" src="guided-audit.js"></script><script type="module" src="pending-audit-bridge.js"></script><script src="tutorials.js"></script></body></html>
