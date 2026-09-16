@@ -1,37 +1,21 @@
-import Link from "next/link";
-import { getActiveShop } from "../../lib/shop";
-import { supabaseAdmin } from "../../lib/supabase";
-import styles from "./page.module.css";
+import {getActiveShop} from '../../lib/shop';
+import {supabaseAdmin} from '../../lib/supabase';
+import SuperAnuncioDashboard from './SuperAnuncioDashboard';
 
-export const dynamic = "force-dynamic";
-const n=v=>Number.isFinite(Number(v))?Number(v):null;
-const money=v=>n(v)==null?'—':n(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-const pct=v=>n(v)==null?'—':`${n(v).toLocaleString('pt-BR',{maximumFractionDigits:1})}%`;
-const date=v=>{if(!v)return'—';const d=new Date(v);return Number.isNaN(d.getTime())?'—':d.toLocaleString('pt-BR');};
-const firstImage=p=>p?.imageUrl||p?.image_url||p?.imageUrls?.[0]||p?.image?.image_url_list?.[0]||null;
-const titleOf=r=>r?.product_snapshot?.title||r?.product_snapshot?.item_name||`Produto ${r?.item_id||''}`;
-const metric=(r,k)=>r?.metrics?.[k]??r?.ads_snapshot?.[k]??null;
-function delta(cur,prev,key){const a=n(metric(cur,key)),b=n(metric(prev,key));return a==null||b==null||b===0?null:(a-b)/Math.abs(b)*100;}
-function tone(v){return v==null||Math.abs(v)<.01?styles.small:v>0?styles.good:styles.bad;}
+export const dynamic='force-dynamic';
 
 export default async function ExtensionIntelligencePage(){
-  const shop=await getActiveShop();if(!shop)return <main className={styles.page}><div className={styles.empty}>Nenhuma loja Shopee conectada.</div></main>;
+  const shop=await getActiveShop();
+  if(!shop)return <main style={{padding:40,fontFamily:'system-ui'}}>Nenhuma loja Shopee conectada.</main>;
   const db=supabaseAdmin();
-  const [{data:reports,error},{data:schedules}]=await Promise.all([
-    db.from('extension_analysis_reports').select('id,item_id,analyzed_at,next_reanalysis_at,extension_version,objective,situation,bottleneck,score,product_snapshot,ads_snapshot,finance_snapshot,competitors,report,suggestions,metrics').eq('shop_id',shop.shop_id).order('analyzed_at',{ascending:false}).limit(500),
-    db.from('extension_analysis_schedules').select('item_id,enabled,frequency_days,mode,next_run_at,last_run_at').eq('shop_id',shop.shop_id)
+  const [{data:reports,error},{data:schedules,error:scheduleError}]=await Promise.all([
+    db.from('extension_analysis_reports').select('id,item_id,analyzed_at,next_reanalysis_at,extension_version,source,objective,situation,bottleneck,score,product_snapshot,ads_snapshot,finance_snapshot,competitors,report,suggestions,metrics,created_at').eq('shop_id',shop.shop_id).order('analyzed_at',{ascending:false}).limit(500),
+    db.from('extension_analysis_schedules').select('id,item_id,title,product_url,enabled,frequency_days,mode,next_run_at,last_run_at,last_report_id,settings,created_at,updated_at').eq('shop_id',shop.shop_id).order('updated_at',{ascending:false})
   ]);
-  if(error)return <main className={styles.page}><div className={styles.empty}>Erro carregando o histórico: {error.message}</div></main>;
-  const grouped=new Map();for(const r of reports||[]){const k=String(r.item_id);if(!grouped.has(k))grouped.set(k,[]);grouped.get(k).push(r);}const scheduleMap=new Map((schedules||[]).map(s=>[String(s.item_id),s]));
-  const items=[...grouped.entries()].map(([itemId,history])=>({itemId,history,latest:history[0],previous:history[1],schedule:scheduleMap.get(itemId)||null}));items.sort((a,b)=>new Date(b.latest?.analyzed_at||0)-new Date(a.latest?.analyzed_at||0));
-  const scheduled=(schedules||[]).filter(s=>s.enabled).length,avgScore=items.length?items.reduce((s,x)=>s+(n(x.latest?.score)||0),0)/items.length:0,dueSoon=(schedules||[]).filter(s=>s.enabled&&s.next_run_at&&new Date(s.next_run_at).getTime()<=Date.now()+3*86400000).length;
-  return <main className={styles.page}>
-    <header className={styles.top}><div className={styles.brand}><div className={styles.logo}>GS</div><div><h1>Extensão Shopee Intelligence</h1><p>Histórico centralizado de Super Análises, reanálises e evolução por anúncio.</p></div></div><Link className={styles.back} href="/">← Voltar ao Gestor</Link></header>
-    <section className={styles.summary}><div className={styles.kpi}><span>Anúncios analisados</span><b>{items.length}</b></div><div className={styles.kpi}><span>Relatórios salvos</span><b>{(reports||[]).length}</b></div><div className={styles.kpi}><span>Nota média atual</span><b>{items.length?avgScore.toFixed(1):'—'}</b></div><div className={styles.kpi}><span>Reanálises ativas / próximas 3d</span><b>{scheduled} / {dueSoon}</b></div></section>
-    <section className={styles.content}>{!items.length&&<div className={styles.empty}>Ainda não há análises sincronizadas pela extensão. Conclua uma Super Análise para ela aparecer aqui automaticamente.</div>}
-      {items.map(({itemId,history,latest,previous,schedule})=>{const product=latest.product_snapshot||{},scoreDelta=previous&&n(latest.score)!=null&&n(previous.score)!=null?n(latest.score)-n(previous.score):null,roasDelta=delta(latest,previous,'roas'),gmvDelta=delta(latest,previous,'gmv'),marginPct=n(latest.finance_snapshot?.marginPct??latest.metrics?.marginPct),img=firstImage(product);return <article className={styles.item} key={itemId}>
-        <div className={styles.itemHead}><div className={styles.product}>{img?<img className={styles.thumb} src={img} alt=""/>:<div className={styles.thumb}/>}<div className={styles.productText}><strong>{titleOf(latest)}</strong><small>ID {itemId} · última análise {date(latest.analyzed_at)}</small></div></div><div className={styles.metric}><span>Super Análise</span><b className={styles.score}>{latest.score??'—'}/100</b>{scoreDelta!=null&&<span className={tone(scoreDelta)}>{scoreDelta>=0?'+':''}{scoreDelta} pts</span>}</div><div className={styles.metric}><span>ROAS</span><b>{n(metric(latest,'roas'))?.toFixed(2)??'—'}</b>{roasDelta!=null&&<span className={tone(roasDelta)}>{roasDelta>=0?'+':''}{roasDelta.toFixed(1)}%</span>}</div><div className={styles.metric}><span>GMV</span><b>{money(metric(latest,'gmv'))}</b>{gmvDelta!=null&&<span className={tone(gmvDelta)}>{gmvDelta>=0?'+':''}{gmvDelta.toFixed(1)}%</span>}</div><div className={styles.metric}><span>Gasto Ads</span><b>{money(metric(latest,'spend'))}</b></div><div className={styles.metric}><span>Margem</span><b className={marginPct!=null&&marginPct<0?styles.bad:styles.good}>{pct(marginPct)}</b></div></div>
-        <div className={styles.history}><div className={styles.historyTitle}><h2>Evolução e relatórios</h2>{schedule?.enabled?<span className={styles.schedule}>Reanálise a cada {schedule.frequency_days} dias · próxima {date(schedule.next_run_at)} · {schedule.mode==='automatic'?'automático':'aprovação'}</span>:<span className={styles.small}>Sem reanálise ativa</span>}</div><div className={styles.timeline}>{history.map((r,index)=>{const dims=Array.isArray(r?.report?.dimensions)?r.report.dimensions:[],sug=r.suggestions||{};return <details className={styles.report} key={r.id} open={index===0}><summary><span>{date(r.analyzed_at)}</span><span>Nota {r.score??'—'}/100</span></summary><div className={styles.reportBody}><div className={styles.chips}>{r.objective&&<span className={styles.chip}>Objetivo: {r.objective}</span>}{r.situation&&<span className={styles.chip}>Situação: {r.situation}</span>}{r.bottleneck&&<span className={styles.chip}>Gargalo: {r.bottleneck}</span>}{r.extension_version&&<span className={styles.chip}>Extensão {r.extension_version}</span>}</div>{!!dims.length&&<div className={styles.dimensions}>{dims.map((d,i)=><div className={styles.dim} key={`${d.name}-${i}`}><div><span>{d.name}</span><span>{d.score}/{d.maxScore}</span></div><p>{d.reason}</p></div>)}</div>}<div className={styles.suggestions}>{sug.title&&<div className={styles.suggestion}><b>Título sugerido</b><p>{sug.title}</p></div>}{sug.description&&<div className={styles.suggestion}><b>Descrição sugerida</b><p>{sug.description}</p></div>}{sug.category&&<div className={styles.suggestion}><b>Categoria sugerida</b><p>{String(sug.category)}</p></div>}<div className={styles.suggestion}><b>Ads / Financeiro</b><p>ROAS: {n(metric(r,'roas'))?.toFixed(2)??'—'} · Meta: {n(metric(r,'targetRoas'))?.toFixed(2)??'—'} · Gasto: {money(metric(r,'spend'))}</p></div></div>{!!r.competitors?.length&&<div className={styles.competitors}><b>Concorrentes selecionados</b><ul>{r.competitors.slice(0,3).map((c,i)=><li key={c.itemId||c.item_id||i}>{c.title||c.name||`Concorrente ${i+1}`} {n(c.price)!=null?`· ${money(c.price)}`:''}</li>)}</ul></div>}</div></details>})}</div></div>
-      </article>})}</section>
-  </main>;
+  if(error||scheduleError)return <main style={{padding:40,fontFamily:'system-ui'}}>Erro carregando o histórico: {(error||scheduleError)?.message}</main>;
+  const grouped=new Map();
+  for(const r of reports||[]){const k=String(r.item_id);if(!grouped.has(k))grouped.set(k,[]);grouped.get(k).push(r);}
+  const scheduleMap=new Map((schedules||[]).map(s=>[String(s.item_id),s]));
+  const items=[...grouped.entries()].map(([itemId,history])=>({itemId,history,latest:history[0],previous:history[1]||null,schedule:scheduleMap.get(itemId)||null})).sort((a,b)=>new Date(b.latest?.analyzed_at||0)-new Date(a.latest?.analyzed_at||0));
+  return <SuperAnuncioDashboard items={items} shopName={shop.shop_name||''}/>;
 }
