@@ -27,10 +27,48 @@ export function optimizeTitle(title, competitors=[]){
   for(const w of missing){if(!seen.has(w)){tokens.push(w);seen.add(w)}}
   return tokens.join(' ').slice(0,120).trim();
 }
+const STOP=new Set(['para','com','sem','uma','uns','umas','que','por','dos','das','de','da','do','em','no','na','nos','nas','e','ou','kit','produto','novo','original']);
+const normalizeLine=s=>String(s||'').replace(/^[\s•●▪◦✅✔️👉📌🎨]+/u,'').replace(/\s+/g,' ').trim();
+const uniqueLines=lines=>{const out=[],seen=new Set();for(const raw of lines){const line=normalizeLine(raw);const key=words(line).join(' ');if(line.length<3||seen.has(key))continue;seen.add(key);out.push(line);}return out;};
+function factualLines(description){
+  const original=String(description||'').trim();if(!original)return[];
+  let lines=uniqueLines(original.split(/\r?\n+/));
+  if(lines.length<4){lines=uniqueLines(original.split(/(?<=[.!?])\s+/));}
+  const score=line=>{let s=0;if(/\d/.test(line))s+=3;if(/(cm|mm|kg|g\b|página|folha|unidade|tamanho|material|idade|conteúdo|formato|quantidade|medida|cor|espiral|capa|a4|a5)/i.test(line))s+=3;if(line.includes(':'))s+=2;if(line.length>=20&&line.length<=140)s+=2;return s;};
+  return lines.map((line,i)=>({line,i,score:score(line)})).sort((a,b)=>b.score-a.score||a.i-b.i).slice(0,12).sort((a,b)=>a.i-b.i).map(x=>x.line);
+}
+function recurringCompetitorTerms(competitors=[],min=2){
+  const freq=new Map();for(const c of competitors){const seen=new Set(words(c?.title).filter(w=>w.length>=4&&!STOP.has(w)));for(const w of seen)freq.set(w,(freq.get(w)||0)+1);}
+  return [...freq.entries()].filter(([,count])=>count>=min).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).map(([term,count])=>({term,count}));
+}
 export function optimizeDescription(title, description, competitors=[]){
-  const original=String(description||'').trim();
-  const terms=[...new Set(competitors.flatMap(c=>words(c.title)).filter(w=>w.length>=4))].slice(0,8);
-  return [String(title||'').trim(),'','Principais benefícios:','• [benefício real 1]','• [benefício real 2]','• [benefício real 3]','','Informações importantes:','• Material/modelo: [preencher]','• Medidas/compatibilidade: [preencher]','• Conteúdo da embalagem: [preencher]', terms.length?`\nTermos para validar no anúncio: ${terms.join(', ')}`:'', original?`\nDescrição original para aproveitar somente informações verdadeiras:\n${original}`:''].filter(Boolean).join('\n');
+  const original=String(description||'').trim(), facts=factualLines(original), titleText=String(title||'').trim();
+  const recurring=recurringCompetitorTerms(competitors,Math.min(2,Math.max(1,competitors.length))).slice(0,8).map(x=>x.term);
+  const out=[];if(titleText)out.push(titleText);
+  if(facts.length){out.push('','Informações do produto:');for(const f of facts)out.push(`• ${f}`);}else if(original){out.push('',original);}
+  if(recurring.length){out.push('','Termos frequentes observados nos concorrentes para avaliar:');out.push(recurring.join(', '));out.push('Use apenas os termos que realmente correspondem às características deste produto.');}
+  return out.join('\n').trim();
+}
+export function buildCompetitorInsights(input, competitors=[]){
+  const ownTitle=words(input?.title), ownSet=new Set(ownTitle), ownPrice=Number(input?.price), median=medianPrice(competitors);
+  const strengths=[],similarities=[],opportunities=[];
+  const priced=competitors.map(c=>({c,price:Number(c?.bestSellingVariationPrice??c?.price)})).filter(x=>Number.isFinite(x.price));
+  if(priced.length){const low=priced.reduce((a,b)=>a.price<=b.price?a:b);strengths.push(`Menor preço entre os selecionados: ${money(low.price)}${low.c?.title?` — ${String(low.c.title).slice(0,65)}`:''}.`);}
+  const sold=competitors.map(c=>({c,sold:Number(c?.sold??c?.historicalSold)})).filter(x=>Number.isFinite(x.sold));
+  if(sold.length){const top=sold.reduce((a,b)=>a.sold>=b.sold?a:b);strengths.push(`Maior volume vendido observado: ${top.sold.toLocaleString('pt-BR')}${top.c?.title?` — ${String(top.c.title).slice(0,65)}`:''}.`);}
+  const ratings=competitors.map(c=>({c,rating:Number(c?.rating),reviews:Number(c?.reviewCount)})).filter(x=>Number.isFinite(x.rating));
+  if(ratings.length){const top=ratings.reduce((a,b)=>a.rating>=b.rating?a:b);strengths.push(`Melhor avaliação observada: ${top.rating.toFixed(1)}${Number.isFinite(top.reviews)?` (${top.reviews.toLocaleString('pt-BR')} avaliações)`:''}.`);}
+  const recurring=recurringCompetitorTerms(competitors,Math.min(2,Math.max(1,competitors.length))).slice(0,8);
+  if(recurring.length)strengths.push(`Termos recorrentes nos títulos: ${recurring.map(x=>x.term).join(', ')}.`);
+  const shared=[...new Set(competitors.flatMap(c=>words(c?.title).filter(w=>w.length>=4&&!STOP.has(w)&&ownSet.has(w))))].slice(0,8);
+  if(shared.length)similarities.push(`Termos em comum com seu anúncio: ${shared.join(', ')}.`);
+  if(Number.isFinite(ownPrice)&&Number.isFinite(median)){const diff=Math.abs((ownPrice-median)/median);if(diff<=.12)similarities.push(`Seu preço está próximo da mediana dos concorrentes (${money(median)}).`);else opportunities.push(ownPrice>median?`Seu preço está ${(((ownPrice-median)/median)*100).toFixed(1)}% acima da mediana; confira se os diferenciais justificam a diferença.`:`Seu preço está abaixo da mediana; preserve margem antes de baixar mais.`);}
+  const missing=recurring.filter(x=>!ownSet.has(x.term)).slice(0,5).map(x=>x.term);if(missing.length)opportunities.push(`Valide se estes termos recorrentes também descrevem seu produto: ${missing.join(', ')}.`);
+  const ownRating=Number(input?.product?.rating),bestRating=ratings.length?Math.max(...ratings.map(x=>x.rating)):null;if(Number.isFinite(ownRating)&&Number.isFinite(bestRating)&&ownRating<bestRating)opportunities.push(`A melhor avaliação concorrente (${bestRating.toFixed(1)}) está acima da sua (${ownRating.toFixed(1)}); priorize prova social e experiência do comprador.`);
+  if(!strengths.length)strengths.push('Ainda não há dados comparáveis suficientes para apontar um ponto forte com segurança.');
+  if(!similarities.length)similarities.push('Compare tema, formato, público e faixa de preço quando esses dados estiverem disponíveis.');
+  if(!opportunities.length)opportunities.push('Mantenha monitoramento de preço, vendas, avaliação e palavras recorrentes antes de alterar o anúncio.');
+  return {strengths:strengths.slice(0,4),similarities:similarities.slice(0,4),opportunities:opportunities.slice(0,4)};
 }
 export function suggestCategory(category){return String(category||'').trim();}
 export function buildRoasStrategy(input, finance={}){
@@ -51,7 +89,7 @@ export function buildRoasStrategy(input, finance={}){
 }
 export function analyze(input){
   const competitors=input.competitors||[], median=medianPrice(competitors), priceInsight=buildPriceInsight(Number(input.price),median,competitors.length);
-  const optimizedTitle=optimizeTitle(input.title,competitors), optimizedDescription=optimizeDescription(input.title,input.description,competitors), suggestedCategory=suggestCategory(input.category);
+  const optimizedTitle=optimizeTitle(input.title,competitors), optimizedDescription=optimizeDescription(input.title,input.description,competitors), suggestedCategory=suggestCategory(input.category), competitorInsights=buildCompetitorInsights(input,competitors);
   const p=input.product||{}, dims=[];
   let titleScore=String(input.title||'').length>=40&&String(input.title||'').length<=120?12:String(input.title||'').length>=25?9:5;const dup=duplicateWordCount(input.title);titleScore=Math.max(3,Math.min(12,titleScore-(dup>3?3:dup)));dims.push({name:'Título',score:titleScore,maxScore:12,reason:titleScore>=10?'O título tem boa densidade e tamanho para leitura.':'O título pode ganhar clareza, prioridade de palavras e menos repetição.',action:optimizedTitle===input.title?'Mantenha o título e valide termos usados pelos concorrentes.':'Teste o título otimizado.'});
   const dl=String(input.description||'').length, ds=dl>=500?12:dl>=250?10:dl>=100?7:dl>0?4:2;dims.push({name:'Descrição',score:ds,maxScore:12,reason:ds>=10?'A descrição tem volume suficiente para organizar benefícios e dúvidas.':'A descrição está curta ou pouco estruturada.',action:'Use a versão estruturada e complete apenas informações verdadeiras.'});
@@ -64,5 +102,5 @@ export function analyze(input){
   let ads=8,adsReason='Ads não informado como ativo; a nota não penaliza por isso.',adsAction='Se ativar Ads, acompanhe por pelo menos 7 dias.';if(input.adsActive){const r=Number(input.roas7d);if(!Number.isFinite(r)){ads=6;adsReason='Ads ativo, mas ROAS de 7 dias não informado.'}else{ads=r>=5?12:r>=3?10:r>=2?7:4;adsReason=`ROAS informado: ${r.toFixed(2)}${Number.isFinite(Number(input.roasTarget))?` • Meta de ROAS ${Number(input.roasTarget).toFixed(2)}`:''}${Number.isFinite(Number(input.adsSpend7d))?` • gasto ${money(input.adsSpend7d)} em 7 dias`:''}.`;adsAction=r<2?'Antes de aumentar orçamento, revise oferta, preço, criativo e conversão.':'O Ads está gerando retorno; preserve o que funciona e teste melhorias sem mudanças bruscas.'}}dims.push({name:'Ads e eficiência',score:Math.min(12,ads),maxScore:12,reason:adsReason,action:adsAction});
   const score=Math.max(0,Math.min(100,dims.reduce((s,d)=>s+d.score,0))),summary=score>=85?'Anúncio forte. O foco agora é refinamento e vantagem competitiva.':score>=70?'Boa base, com oportunidades claras para ganhar conversão e competitividade.':score>=55?'O anúncio tem base utilizável, mas há pontos importantes limitando o desempenho.':'O anúncio precisa de ajustes relevantes.';
   const lessons=dims.filter(d=>d.score<d.maxScore*.85).map(d=>({title:d.name,current:d.name==='Título'?input.title:d.name==='Descrição'?input.description:d.name==='Categoria'?input.category:d.name==='Preço e concorrência'?money(input.price):'',optimized:d.name==='Título'?optimizedTitle:d.name==='Descrição'?optimizedDescription:d.name==='Categoria'?suggestedCategory:d.name==='Preço e concorrência'?priceInsight:'',why:d.reason,how:d.action}));
-  return {score,summary,optimizedTitle,optimizedDescription,suggestedCategory,dimensions:dims,lessons,competitorMedian:median,priceInsight,competitors,roasStrategy:buildRoasStrategy(input,input.finance)};
+  return {score,summary,optimizedTitle,optimizedDescription,suggestedCategory,dimensions:dims,lessons,competitorMedian:median,priceInsight,competitors,competitorInsights,roasStrategy:buildRoasStrategy(input,input.finance)};
 }
