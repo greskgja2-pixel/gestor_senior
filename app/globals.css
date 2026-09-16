@@ -139,10 +139,25 @@ tbody tr:hover { background: rgba(212, 175, 55, 0.04); }
 
 a { color: var(--gold-bright); }
 
+body.super-anuncio-page {
+  background: #f4f7fb;
+  color: #17243a;
+}
+body.super-anuncio-page > .shell {
+  max-width: none;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+body.super-anuncio-page > .shell > .topbar {
+  display: none;
+}
+
 @media (max-width: 640px) {
   .shell { padding: 18px 14px 40px; }
   .topbar { grid-template-columns: 1fr; justify-items: center; gap: 12px; }
   .brand { grid-column: 1; font-size: 17px; }
   nav.tabs { grid-column: 1; justify-self: center; }
   nav.tabs a { padding: 7px 10px; }
+  body.super-anuncio-page > .shell { padding: 0; }
 }
