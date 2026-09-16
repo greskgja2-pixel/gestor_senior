@@ -42,6 +42,7 @@ export default function SuperAnuncioEnhancements({items=[]}){
     style.textContent=`
       .gs-sales-edit{margin-left:6px;width:24px;height:24px;border:1px solid #c9dbef;border-radius:7px;background:#fff;color:#1764c8;cursor:pointer;font-weight:900;line-height:1;padding:0;vertical-align:middle}
       .gs-sales-edit:hover{background:#eef6ff;border-color:#76aef1}
+      .gs-sales-approx{font-weight:800;color:#294d72}
       .gs-delete-analysis{border-color:#f2b9be!important;color:#c92f3d!important;background:#fff7f8!important}
       .gs-delete-analysis:hover{background:#ffecef!important;border-color:#e87982!important}
     `;
@@ -89,6 +90,7 @@ export default function SuperAnuncioEnhancements({items=[]}){
           const cells=row.querySelectorAll(':scope > td');if(cells.length<=salesIndex)return;
           const comp=competitors[dataIndex++];if(!comp)return;
           const cell=cells[salesIndex];if(cell.querySelector('[data-gs-sales-edit]'))return;
+          if(comp.soldLabel){cell.textContent='';const label=document.createElement('span');label.className='gs-sales-approx';label.textContent=String(comp.soldLabel);label.title='Quantidade aproximada exibida publicamente pela Shopee';cell.appendChild(label);}
           const edit=document.createElement('button');edit.type='button';edit.dataset.gsSalesEdit='1';edit.className='gs-sales-edit';edit.textContent='✎';edit.title='Informar ou corrigir a quantidade vendida manualmente';
           edit.addEventListener('click',async e=>{
             e.preventDefault();e.stopPropagation();
