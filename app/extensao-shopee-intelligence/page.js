@@ -2,6 +2,7 @@ import {getActiveShop} from '../../lib/shop';
 import {supabaseAdmin} from '../../lib/supabase';
 import SuperAnuncioDashboard from './SuperAnuncioDashboard';
 import SuperAnuncioEnhancements from './SuperAnuncioEnhancements';
+import SuperAnuncioPriceGuard from './SuperAnuncioPriceGuard';
 
 export const dynamic='force-dynamic';
 
@@ -24,5 +25,5 @@ export default async function ExtensionIntelligencePage(){
     title:item.latest?.product_snapshot?.title||item.latest?.product_snapshot?.item_name||`Produto ${item.itemId}`,
     competitors:Array.isArray(item.latest?.competitors)?item.latest.competitors.slice(0,3):[]
   }));
-  return <><SuperAnuncioDashboard items={items} shopName={shop.shop_name||''}/><SuperAnuncioEnhancements items={enhancementItems}/></>;
+  return <><SuperAnuncioDashboard items={items} shopName={shop.shop_name||''}/><SuperAnuncioEnhancements items={enhancementItems}/><SuperAnuncioPriceGuard/></>;
 }
