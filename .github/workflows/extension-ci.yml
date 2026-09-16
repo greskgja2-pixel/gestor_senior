@@ -65,7 +65,7 @@ jobs:
       - name: Upload installable extension
         uses: actions/upload-artifact@v4
         with:
-          name: Gestor-Senior-Shopee-Intelligence-v0.9.3
-          path: dist/Gestor-Senior-Shopee-Intelligence-v0.9.3.zip
+          name: Gestor-Senior-Shopee-Intelligence
+          path: dist/Gestor-Senior-Shopee-Intelligence-v*.zip
           if-no-files-found: error
           retention-days: 30
