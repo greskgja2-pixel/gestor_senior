@@ -6,8 +6,9 @@ import Link from 'next/link';
 import shell from '../extensao-shopee-intelligence/page.module.css';
 import styles from './products.module.css';
 
-const money=v=>Number.isFinite(Number(v))?Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}):'—';
-const pct=v=>Number.isFinite(Number(v))?`${Number(v).toLocaleString('pt-BR',{maximumFractionDigits:1})}%`:'—';
+const valid=v=>v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v));
+const money=v=>valid(v)?Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}):'—';
+const pct=v=>valid(v)?`${Number(v).toLocaleString('pt-BR',{maximumFractionDigits:1})}%`:'—';
 
 function Sidebar(){return <aside className={shell.sidebar}><div className={shell.sideBrand}><span>GS</span><div><b>Gestor Sênior</b><small>Shopee Intelligence</small></div></div><nav><Link href="/">⌂ <span>Dashboard</span></Link><Link href="/extensao-shopee-intelligence">▣ <span>Super Anúncio</span></Link><Link href="/extensao-shopee-intelligence">▤ <span>Relatórios</span></Link><Link href="/extensao-shopee-intelligence#concorrentes">⌘ <span>Concorrentes</span></Link><Link className={shell.sideActive} href="/produtos">▱ <span>Produtos</span></Link><Link href="/extensao-shopee-intelligence#reanálises">↻ <span>Reanálises</span></Link><Link href="/">⚙ <span>Configurações</span></Link></nav></aside>;}
 
