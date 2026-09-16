@@ -1,6 +1,7 @@
 import {getActiveShop} from '../../lib/shop';
 import {supabaseAdmin} from '../../lib/supabase';
 import SuperAnuncioDashboard from './SuperAnuncioDashboard';
+import SuperAnuncioEnhancements from './SuperAnuncioEnhancements';
 
 export const dynamic='force-dynamic';
 
@@ -17,5 +18,11 @@ export default async function ExtensionIntelligencePage(){
   for(const r of reports||[]){const k=String(r.item_id);if(!grouped.has(k))grouped.set(k,[]);grouped.get(k).push(r);}
   const scheduleMap=new Map((schedules||[]).map(s=>[String(s.item_id),s]));
   const items=[...grouped.entries()].map(([itemId,history])=>({itemId,history,latest:history[0],previous:history[1]||null,schedule:scheduleMap.get(itemId)||null})).sort((a,b)=>new Date(b.latest?.analyzed_at||0)-new Date(a.latest?.analyzed_at||0));
-  return <SuperAnuncioDashboard items={items} shopName={shop.shop_name||''}/>;
+  const enhancementItems=items.map(item=>({
+    itemId:item.itemId,
+    reportId:item.latest?.id||null,
+    title:item.latest?.product_snapshot?.title||item.latest?.product_snapshot?.item_name||`Produto ${item.itemId}`,
+    competitors:Array.isArray(item.latest?.competitors)?item.latest.competitors.slice(0,3):[]
+  }));
+  return <><SuperAnuncioDashboard items={items} shopName={shop.shop_name||''}/><SuperAnuncioEnhancements items={enhancementItems}/></>;
 }
