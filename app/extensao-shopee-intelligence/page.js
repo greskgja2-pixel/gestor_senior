@@ -2,7 +2,7 @@ import {getActiveShop} from '../../lib/shop';
 import {supabaseAdmin} from '../../lib/supabase';
 import SuperAnuncioDashboard from './SuperAnuncioDashboard';
 import SuperAnuncioEnhancements from './SuperAnuncioEnhancements';
-import SuperAnuncioPriceGuard from './SuperAnuncioPriceGuard';
+import MarginPriceEnhancements from './MarginPriceEnhancements';
 
 export const dynamic='force-dynamic';
 
@@ -23,7 +23,11 @@ export default async function ExtensionIntelligencePage(){
     itemId:item.itemId,
     reportId:item.latest?.id||null,
     title:item.latest?.product_snapshot?.title||item.latest?.product_snapshot?.item_name||`Produto ${item.itemId}`,
+    productSnapshot:item.latest?.product_snapshot||{},
+    financeSnapshot:item.latest?.finance_snapshot||{},
+    metrics:item.latest?.metrics||{},
+    adsSnapshot:item.latest?.ads_snapshot||{},
     competitors:Array.isArray(item.latest?.competitors)?item.latest.competitors.slice(0,3):[]
   }));
-  return <><SuperAnuncioDashboard items={items} shopName={shop.shop_name||''}/><SuperAnuncioEnhancements items={enhancementItems}/><SuperAnuncioPriceGuard/></>;
+  return <><SuperAnuncioDashboard items={items} shopName={shop.shop_name||''}/><SuperAnuncioEnhancements items={enhancementItems}/><MarginPriceEnhancements items={enhancementItems}/></>;
 }
