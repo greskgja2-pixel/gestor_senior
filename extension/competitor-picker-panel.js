@@ -72,3 +72,46 @@
   }
   new MutationObserver(()=>continueWhenRendered().catch(()=>{})).observe(document.documentElement,{subtree:true,childList:true});
 })();
+
+(() => {
+  'use strict';
+  let manualReviewCount=null,currentItemId=null;
+  const originalFetch=window.fetch.bind(window);
+
+  function parseCount(raw){
+    const text=String(raw??'').trim().toLowerCase();if(!text)return null;
+    const mult=/\b(mil|k)\b/.test(text)?1000:1;
+    const cleaned=text.replace(/\b(mil|k)\b/g,'').replace(/\+/g,'').replace(/[^\d.,]/g,'');if(!cleaned)return null;
+    const value=mult===1000?Number(cleaned.includes(',')?cleaned.replace(/\./g,'').replace(',','.'):cleaned):Number(cleaned.replace(/\./g,'').replace(',','.'));
+    return Number.isFinite(value)&&value>=0?Math.round(value*mult):null;
+  }
+  function itemIdFromBox(box){return String(box?.innerText||'').match(/\bID\s+(\d{6,})\b/i)?.[1]||null;}
+  function enhanceReviewCount(){
+    const version=document.querySelector('.version');if(version)version.textContent='v0.12.2';
+    const wizardInfo=document.querySelector('#tab-analyze .wizard-head .muted');if(wizardInfo)wizardInfo.textContent=wizardInfo.textContent.replace(/v\d+\.\d+\.\d+/,'v0.12.2');
+    const box=document.getElementById('productValidation');if(!box||box.hidden)return;
+    const itemId=itemIdFromBox(box);if(itemId&&itemId!==currentItemId){currentItemId=itemId;manualReviewCount=null;}
+    const cell=[...box.querySelectorAll('.validation-grid > div')].find(x=>String(x.querySelector('span')?.textContent||'').trim().toLowerCase()==='qtd. avaliações');
+    if(!cell)return;const value=cell.querySelector('b');if(!value)return;
+    const rawText=String(value.textContent||'').trim();if(manualReviewCount==null&&!rawText.startsWith('N/A'))return;
+    let pencil=value.querySelector('[data-review-pencil]');
+    if(manualReviewCount!=null){const textNode=[...value.childNodes].find(n=>n.nodeType===Node.TEXT_NODE);if(textNode)textNode.nodeValue=String(manualReviewCount);else value.prepend(document.createTextNode(String(manualReviewCount)));}
+    if(pencil)return;
+    pencil=document.createElement('button');pencil.type='button';pencil.dataset.reviewPencil='1';pencil.textContent='✎';pencil.title='Informar quantidade de avaliações manualmente';
+    Object.assign(pencil.style,{marginLeft:'7px',width:'24px',height:'24px',borderRadius:'7px',border:'1px solid #496b8d',background:'#10263b',color:'#f4ce45',cursor:'pointer',fontWeight:'900',lineHeight:'1',padding:'0'});
+    pencil.addEventListener('click',()=>{const raw=window.prompt('Quantidade de avaliações deste anúncio:',manualReviewCount==null?'':String(manualReviewCount));if(raw===null)return;const parsed=parseCount(raw);if(parsed==null){window.alert('Digite uma quantidade válida. Ex.: 23, 1000 ou 1mil+.');return;}manualReviewCount=parsed;const textNode=[...value.childNodes].find(n=>n.nodeType===Node.TEXT_NODE);if(textNode)textNode.nodeValue=String(parsed);else value.prepend(document.createTextNode(String(parsed)));});
+    value.appendChild(pencil);
+  }
+
+  window.fetch=async(input,init={})=>{
+    try{
+      const url=typeof input==='string'?input:input?.url||'',method=String(init?.method||(typeof input!=='string'?input?.method:'')||'GET').toUpperCase();
+      if(manualReviewCount!=null&&method==='POST'&&/\/api\/extension-intelligence\/reports(?:\?|$)/.test(url)&&typeof init?.body==='string'){
+        const body=JSON.parse(init.body);if(body?.product_snapshot&&(!currentItemId||String(body.item_id??body.itemId)===String(currentItemId))){body.product_snapshot.reviewCount=manualReviewCount;init={...init,body:JSON.stringify(body)};}
+      }
+    }catch{}
+    return originalFetch(input,init);
+  };
+  const observer=new MutationObserver(enhanceReviewCount);observer.observe(document.documentElement,{childList:true,subtree:true,characterData:true});
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',enhanceReviewCount,{once:true});else enhanceReviewCount();
+})();
