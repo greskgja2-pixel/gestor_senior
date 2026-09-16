@@ -2,12 +2,25 @@ import './background.js';
 
 const PANEL_PATH='sidepanel-v4.html';
 
-async function ensureSidePanel(){
+async function ensureSidePanel(tabId=null){
+  // Mantém uma configuração global válida.
   try{
     await chrome.sidePanel.setOptions({path:PANEL_PATH,enabled:true});
   }catch(error){
-    console.warn('GS side panel setOptions',error);
+    console.warn('GS side panel global setOptions',error);
   }
+
+  // Reaplica também por aba. Isso limpa opções antigas/stale que o Chrome pode
+  // conservar por tab e que resultavam em um painel lateral branco mesmo com a
+  // extensão carregada corretamente.
+  if(Number.isInteger(tabId)){
+    try{
+      await chrome.sidePanel.setOptions({tabId,path:PANEL_PATH,enabled:true});
+    }catch(error){
+      console.warn('GS side panel tab setOptions',error);
+    }
+  }
+
   try{
     await chrome.sidePanel.setPanelBehavior({openPanelOnActionClick:true});
   }catch(error){
@@ -15,17 +28,27 @@ async function ensureSidePanel(){
   }
 }
 
-// Reaplica a configuração também em reload/startup da extensão. Antes ela dependia
-// principalmente do onInstalled, então o painel podia deixar de abrir após reloads.
-ensureSidePanel();
-chrome.runtime.onInstalled.addListener(()=>{ensureSidePanel();});
-chrome.runtime.onStartup.addListener(()=>{ensureSidePanel();});
+async function ensureActiveTab(){
+  try{
+    const [tab]=await chrome.tabs.query({active:true,lastFocusedWindow:true});
+    await ensureSidePanel(tab?.id??null);
+  }catch(error){
+    console.warn('GS side panel active tab bootstrap',error);
+    await ensureSidePanel();
+  }
+}
 
-// Fallback explícito para o clique no ícone da extensão. O sidePanel.open é permitido
-// aqui porque o clique é uma ação direta do usuário.
+// Reaplica a configuração em reload/startup da extensão e também quando a aba ativa
+// muda. O objetivo é nunca depender de um estado antigo salvo pelo Chrome.
+ensureActiveTab();
+chrome.runtime.onInstalled.addListener(()=>{ensureActiveTab();});
+chrome.runtime.onStartup.addListener(()=>{ensureActiveTab();});
+chrome.tabs.onActivated.addListener(({tabId})=>{ensureSidePanel(tabId);});
+
+// Clique no ícone = força o caminho correto PARA ESTA ABA e só então abre o painel.
 chrome.action.onClicked.addListener(async tab=>{
-  await ensureSidePanel();
   if(!tab?.id)return;
+  await ensureSidePanel(tab.id);
   try{
     await chrome.sidePanel.open({tabId:tab.id});
   }catch(error){
