@@ -1,12 +1,36 @@
-import { getActiveShop } from "../../lib/shop";
-import { getProducts } from "../../lib/products";
-import RefreshButton from "../components/RefreshButton";
-import SendToSuperAnalysisButton from "../components/SendToSuperAnalysisButton";
+import {getActiveShop} from '../../lib/shop';
+import {getProducts} from '../../lib/products';
+import {supabaseAdmin} from '../../lib/supabase';
+import ProductsDashboard from './ProductsDashboard';
 
-export const dynamic = "force-dynamic";
-function fmtMoney(v){const n=Number(v||0);return "R$ "+n.toFixed(2).replace(".",",");}
+export const dynamic='force-dynamic';
+
+const finite=v=>Number.isFinite(Number(v))?Number(v):null;
+const imageOf=item=>item?.image?.image_url_list?.[0]||item?.image?.image_url||item?.image_url||item?.images?.[0]||null;
+
 export default async function ProdutosPage(){
-  const shop=await getActiveShop();if(!shop)return <div className="card"><h2>Produtos</h2><p className="sub">Nenhuma loja autorizada ainda.</p><a className="btn" href="/api/shopee/authorize">🔗 Conectar minha loja Shopee</a></div>;
-  let items=[],source=null,syncedAt=null,loadError=null;try{const result=await getProducts(shop);items=result.items;source=result.source;syncedAt=result.syncedAt}catch(e){loadError=String(e.message||e)}
-  return <div className="card"><div className="meta-row"><h2 style={{margin:0}}>Produtos ({items.length})</h2><RefreshButton apiPath="/api/shopee/products"/></div><div className="sub">{source==="cache"?`Servido do cache · sincronizado em ${new Date(syncedAt).toLocaleString("pt-BR")}`:"Buscado agora direto da Shopee"}</div>{loadError&&<div className="error-box">{loadError}</div>}{!loadError&&items.length===0&&<div className="empty-note">Nenhum produto encontrado (ou a sincronização ainda não rodou — clique em Atualizar).</div>}{items.length>0&&<table><thead><tr><th>Produto</th><th>Status</th><th>Preço</th><th>Estoque</th><th>Ações</th></tr></thead><tbody>{items.map(it=>{const price=it.price_info?.[0]?.current_price,stock=it.stock_info_v2?.summary_info?.total_available_stock;return <tr key={it.item_id}><td><b>{it.item_name}</b><br/><span style={{fontSize:11,color:"var(--text-muted)"}}>ID {it.item_id}</span></td><td><span className={"chip "+(it.item_status==="NORMAL"?"ok":"bad")}>{it.item_status}</span></td><td>{price!=null?fmtMoney(price):"—"}</td><td>{stock!=null?stock:"—"}</td><td><SendToSuperAnalysisButton shopId={shop.shop_id} itemId={it.item_id}/></td></tr>})}</tbody></table>}</div>;
+  const shop=await getActiveShop();
+  if(!shop)return <main style={{padding:40,fontFamily:'system-ui'}}>Nenhuma loja Shopee conectada.</main>;
+
+  let products=[],source='cache',syncedAt=null,loadError=null;
+  try{const result=await getProducts(shop);products=result.items||[];source=result.source||'cache';syncedAt=result.syncedAt||null;}catch(e){loadError=String(e?.message||e);}
+
+  const db=supabaseAdmin();
+  const [{data:costRows},{data:reports}]=await Promise.all([
+    db.from('product_costs').select('item_id,model_id,cost,packaging_cost,updated_at').eq('shop_id',shop.shop_id),
+    db.from('extension_analysis_reports').select('item_id,analyzed_at,finance_snapshot,metrics').eq('shop_id',shop.shop_id).order('analyzed_at',{ascending:false}).limit(2000)
+  ]);
+  const baseCosts=new Map();
+  for(const row of costRows||[])if(Number(row.model_id)===0)baseCosts.set(String(row.item_id),row);
+  const latestReport=new Map();
+  for(const row of reports||[]){const key=String(row.item_id);if(!latestReport.has(key))latestReport.set(key,row);}
+
+  const items=products.map(it=>{
+    const key=String(it.item_id),price=finite(it?.price_info?.[0]?.current_price??it?.price_info?.[0]?.original_price),stock=finite(it?.stock_info_v2?.summary_info?.total_available_stock??it?.stock),costRow=baseCosts.get(key),baseCost=finite(costRow?.cost),packaging=finite(costRow?.packaging_cost)??0,totalCost=baseCost==null?null:baseCost+packaging,report=latestReport.get(key),reportMargin=finite(report?.finance_snapshot?.marginPct??report?.metrics?.marginPct),reportProfit=finite(report?.finance_snapshot?.profit??report?.metrics?.marginR);
+    let marginPct=reportMargin,marginR=reportProfit,marginSource=reportMargin!=null||reportProfit!=null?'última Super Análise':null;
+    if(marginPct==null&&marginR==null&&price!=null&&price>0&&totalCost!=null){marginR=price-totalCost;marginPct=marginR/price*100;marginSource='bruta pelo custo cadastrado';}
+    return{itemId:String(it.item_id),title:it.item_name||`Produto ${it.item_id}`,image:imageOf(it),status:it.item_status||'—',price,stock,cost:totalCost,costSource:baseCost!=null?(packaging?`produto + embalagem`:'custo cadastrado'):null,marginPct,marginR,marginSource,hasModel:Boolean(it.has_model)};
+  });
+
+  return <ProductsDashboard items={items} source={source} syncedAt={syncedAt} shopId={shop.shop_id} loadError={loadError}/>;
 }
