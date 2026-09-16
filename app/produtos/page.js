@@ -5,7 +5,7 @@ import ProductsDashboard from './ProductsDashboard';
 
 export const dynamic='force-dynamic';
 
-const finite=v=>Number.isFinite(Number(v))?Number(v):null;
+const finite=v=>v===null||v===undefined||v===''?null:(Number.isFinite(Number(v))?Number(v):null);
 const imageOf=item=>item?.image?.image_url_list?.[0]||item?.image?.image_url||item?.image_url||item?.images?.[0]||null;
 
 export default async function ProdutosPage(){
