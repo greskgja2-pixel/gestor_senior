@@ -13,6 +13,9 @@
     position:fixed!important;
     inset:0 auto 0 0!important;
     width:var(--gs-sidebar-width)!important;
+    min-width:var(--gs-sidebar-width)!important;
+    max-width:var(--gs-sidebar-width)!important;
+    box-sizing:border-box!important;
     height:100vh!important;
     background:#fbfdff!important;
     color:#17243a!important;
@@ -86,6 +89,25 @@
     line-height:1.2!important;
     font-weight:700!important;
     transition:.15s!important;
+  }
+
+  aside[class*="_sidebar__"] nav a [data-gs-menu-icon]{
+    width:16px!important;
+    min-width:16px!important;
+    flex:0 0 16px!important;
+    display:inline-grid!important;
+    place-items:center!important;
+    text-align:center!important;
+    font-family:"Segoe UI Symbol","Arial Unicode MS",sans-serif!important;
+    font-size:14px!important;
+    line-height:1!important;
+    font-weight:700!important;
+  }
+
+  aside[class*="_sidebar__"] nav a [data-gs-menu-label]{
+    min-width:0!important;
+    font:inherit!important;
+    line-height:1.2!important;
   }
 
   aside[class*="_sidebar__"] nav a:hover{
