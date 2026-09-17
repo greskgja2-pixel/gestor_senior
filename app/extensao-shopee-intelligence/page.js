@@ -3,6 +3,7 @@ import {supabaseAdmin} from '../../lib/supabase';
 import SuperAnuncioDashboard from './SuperAnuncioDashboard';
 import SuperAnuncioEnhancements from './SuperAnuncioEnhancements';
 import MarginPriceEnhancements from './MarginPriceEnhancements';
+import ExtensionConnectionDock from './ExtensionConnectionDock';
 
 export const dynamic='force-dynamic';
 
@@ -29,5 +30,5 @@ export default async function ExtensionIntelligencePage(){
     adsSnapshot:item.latest?.ads_snapshot||{},
     competitors:Array.isArray(item.latest?.competitors)?item.latest.competitors.slice(0,3):[]
   }));
-  return <><SuperAnuncioDashboard items={items} shopName={shop.shop_name||''}/><SuperAnuncioEnhancements items={enhancementItems}/><MarginPriceEnhancements items={enhancementItems}/></>;
+  return <><SuperAnuncioDashboard items={items} shopName={shop.shop_name||''}/><SuperAnuncioEnhancements items={enhancementItems}/><MarginPriceEnhancements items={enhancementItems}/><ExtensionConnectionDock/></>;
 }
