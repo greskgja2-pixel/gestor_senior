@@ -1,4 +1,5 @@
 import './src/analysis-handoff-flow.js';
+import './src/analysis-handoff-guard.js';
 
 (() => {
   'use strict';
