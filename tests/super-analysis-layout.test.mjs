@@ -43,7 +43,7 @@ test('fluxo visual da Super Analise continua presente',()=>{
 
 test('mockup aprovado pertence a pagina Super Anuncio',()=>{
   assert.match(superAnuncioPage,/import\s+SuperAnuncioMockup\s+from\s+['"]\.\/SuperAnuncioMockup['"]/);
-  assert.match(superAnuncioPage,/return <SuperAnuncioMockup items=\{items\}/);
+  assert.match(superAnuncioPage,/initialItemId=\{initialItemId\}/);\n  assert.match(superAnuncioPage,/initialTab=\{initialTab\}/);
   for(const token of ['Super Anúncio','Anúncio acompanhado','Visão geral','Shopee Ads','Super Análise','Concorrentes','Histórico','Atributos & Variações','Nota geral do anúncio','Retrato atual do anúncio','Comparação com a análise anterior'])assert.ok(superAnuncio.includes(token),`faltando no Super Anuncio: ${token}`);
   assert.match(superAnuncioCss,/\.workspace\{[^}]*grid-template-columns:minmax\(0,1fr\)\s+300px/);
   assert.match(superAnuncioCss,/\.compare\{[^}]*grid-template-columns:minmax\(0,1fr\)\s+46px\s+minmax\(0,1fr\)/);
@@ -71,7 +71,7 @@ test('Gemini inicia automaticamente depois que Motor Senior salva o relatorio',(
   assert.match(page,/needsGemini=Boolean\(selected\?\.id&&!selected\?\.report\?\.ai_analysis\)/);
   assert.match(autoGemini,/\/api\/ai\/super-analysis/);
   assert.match(autoGemini,/report_id:reportId/);
-  assert.match(autoGemini,/location\.reload\(\)/);
+  assert.match(page,/itemId=\{selected\.item_id\}/);\n  assert.match(autoGemini,/gs-ai-progress-overlay/);\n  assert.match(autoGemini,/role=\"progressbar\"/);\n  assert.match(autoGemini,/\/extensao-shopee-intelligence\?/);\n  assert.match(autoGemini,/q\.set\('tab','analysis'\)/);\n  assert.match(superAnuncio,/initialItemId/);\n  assert.match(superAnuncio,/initialTab/);
 });
 
 test('cards do Motor Senior e Gemini seguem o tema atual em vez de trocar para azul ou rosa',()=>{
