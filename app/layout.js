@@ -1,5 +1,6 @@
 import "./globals.css";
 import "./sidebar-standard.css";
+import "./motor-senior-theme.css";
 import Image from "next/image";
 import SidebarOrderGuard from "./components/SidebarOrderGuard";
 
