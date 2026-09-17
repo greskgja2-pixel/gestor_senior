@@ -1,6 +1,7 @@
 import "./globals.css";
 import "./sidebar-standard.css";
 import Image from "next/image";
+import SidebarOrderGuard from "./components/SidebarOrderGuard";
 
 export const metadata = {
   title: "Gestor Senior",
@@ -11,6 +12,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="pt-BR">
       <body>
+        <SidebarOrderGuard />
         <div className="shell">
           <div className="topbar">
             <div className="brand">
