@@ -1,0 +1,149 @@
+/*
+ * PADRAO OFICIAL DO MENU LATERAL DO GESTOR SENIOR
+ *
+ * Regra de interface: toda pagina que possuir sidebar deve usar a mesma
+ * aparencia do layout branco aprovado (largura, fonte, espacamento, cores,
+ * marca e estado ativo). Paginas podem ter conteudos diferentes, mas nao
+ * podem criar um segundo tema visual para o menu.
+ */
+:root{--gs-sidebar-width:218px}
+
+@media (min-width:901px){
+  aside[class*="_sidebar__"]{
+    position:fixed!important;
+    inset:0 auto 0 0!important;
+    width:var(--gs-sidebar-width)!important;
+    height:100vh!important;
+    background:#fbfdff!important;
+    color:#17243a!important;
+    border-right:1px solid #e2e9f2!important;
+    padding:18px 14px!important;
+    z-index:2147483100!important;
+    overflow:auto!important;
+    font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  }
+
+  aside[class*="_sidebar__"]>div:first-child{
+    display:flex!important;
+    align-items:center!important;
+    gap:10px!important;
+    margin:0 3px 30px!important;
+    padding:0!important;
+    color:#17243a!important;
+  }
+
+  aside[class*="_sidebar__"]>div:first-child>span{
+    width:38px!important;
+    height:38px!important;
+    flex:0 0 38px!important;
+    display:grid!important;
+    place-items:center!important;
+    border-radius:11px!important;
+    background:#07192d!important;
+    color:#f2cb3f!important;
+    border:1px solid #e4bd3d!important;
+    font-size:14px!important;
+    font-weight:900!important;
+    box-shadow:0 4px 14px rgba(18,42,72,.08)!important;
+  }
+
+  aside[class*="_sidebar__"]>div:first-child>div{
+    display:flex!important;
+    flex-direction:column!important;
+    min-width:0!important;
+  }
+
+  aside[class*="_sidebar__"]>div:first-child b{
+    color:#17243a!important;
+    font-size:14px!important;
+    line-height:1.15!important;
+    font-weight:800!important;
+  }
+
+  aside[class*="_sidebar__"]>div:first-child small{
+    color:#71839a!important;
+    font-size:10px!important;
+    line-height:1.2!important;
+    margin-top:2px!important;
+  }
+
+  aside[class*="_sidebar__"] nav{
+    display:grid!important;
+    gap:5px!important;
+  }
+
+  aside[class*="_sidebar__"] nav a{
+    display:flex!important;
+    align-items:center!important;
+    gap:10px!important;
+    min-height:37px!important;
+    padding:10px 11px!important;
+    border-radius:10px!important;
+    background:transparent!important;
+    color:#405873!important;
+    text-decoration:none!important;
+    font-size:12px!important;
+    line-height:1.2!important;
+    font-weight:700!important;
+    transition:.15s!important;
+  }
+
+  aside[class*="_sidebar__"] nav a:hover{
+    background:#f0f6ff!important;
+    color:#1764c8!important;
+  }
+
+  aside[class*="_sidebar__"] nav a[class*="_active__"],
+  aside[class*="_sidebar__"] nav a[class*="_sideActive__"]{
+    background:#e8f2ff!important;
+    color:#1265d8!important;
+    box-shadow:inset 3px 0 0 #2677df!important;
+  }
+
+  /* Status da extensao/motor, quando a pagina precisar exibi-lo no menu. */
+  aside[class*="_sidebar__"]>div[class*="_engineCard__"],
+  aside[class*="_sidebar__"]>div[class*="_extCard__"]{
+    margin:16px 0 0!important;
+    padding:11px!important;
+    border-radius:11px!important;
+    border:1px solid #d9e6f2!important;
+    background:#f7fbff!important;
+    color:#36516f!important;
+    box-shadow:none!important;
+  }
+
+  aside[class*="_sidebar__"]>div[class*="_engineCard__"] b,
+  aside[class*="_sidebar__"]>div[class*="_extCard__"] b{
+    color:#294664!important;
+    font-size:11px!important;
+  }
+
+  aside[class*="_sidebar__"]>div[class*="_engineCard__"] small,
+  aside[class*="_sidebar__"]>div[class*="_extCard__"] small{
+    color:#71839a!important;
+    font-size:9px!important;
+    line-height:1.4!important;
+  }
+
+  /* As duas telas da Super Analise usavam 210/185px. Travamos em 218px,
+     a mesma largura usada por Produtos e Super Anuncio. */
+  div[class*="web-audit_screen__"],
+  div[class*="page_screen__"]{
+    grid-template-columns:var(--gs-sidebar-width) minmax(0,1fr)!important;
+  }
+
+  /* Tipografia do cabecalho principal tambem segue o mesmo ritmo visual. */
+  div[class*="web-audit_screen__"] main[class*="_main__"] header h1,
+  div[class*="page_screen__"] main[class*="_main__"] header h1{
+    font-size:28px!important;
+    line-height:1.05!important;
+    letter-spacing:-.02em!important;
+    color:#17243a!important;
+  }
+
+  div[class*="web-audit_screen__"] main[class*="_main__"] header p,
+  div[class*="page_screen__"] main[class*="_main__"] header p{
+    font-size:12px!important;
+    color:#718198!important;
+  }
+}
