@@ -34,6 +34,12 @@ test('Super Analise nao pode voltar para sidebar azul ou largura 210\/185',()=>{
   assert.match(css,/grid-template-columns:var\(--gs-sidebar-width\) minmax\(0,1fr\)!important/);
 });
 
+test('conteudo da Super Analise sempre ocupa a segunda coluna quando sidebar e fixa',()=>{
+  assert.match(css,/web-audit_screen__[^}]*>main\[class\*="_main__"\][^{]*\{[^}]*grid-column:2 \/ -1!important/s);
+  assert.match(css,/grid-column:2 \/ -1!important/);
+  assert.match(css,/min-width:0!important/);
+});
+
 test('ordem das nove paginas acompanha o fluxo operacional em todas as interfaces',()=>{
   assertOrder(guard,'Next');
   assertOrder(dashboardShell,'Dashboard');
