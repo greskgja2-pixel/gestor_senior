@@ -1,6 +1,7 @@
 import {getActiveShop} from '../../lib/shop';
 import {supabaseAdmin} from '../../lib/supabase';
 import SuperAnaliseInteligente from './SuperAnaliseInteligente';
+import WebAuditFlow from './WebAuditFlow';
 
 export const dynamic='force-dynamic';
 
@@ -8,6 +9,12 @@ export default async function SuperAnalisePage({searchParams}){
   const params=await Promise.resolve(searchParams||{});
   const shop=await getActiveShop();
   if(!shop)return <main style={{padding:40,fontFamily:'system-ui'}}>Nenhuma loja Shopee conectada.</main>;
+
+  const requestedReport=String(params?.report_id||'').trim();
+  const requestedItem=String(params?.item_id||'').trim();
+
+  // A Super Análise agora começa no site. A extensão funciona apenas como motor.
+  if(!requestedReport&&!requestedItem)return <WebAuditFlow/>;
 
   const db=supabaseAdmin();
   const {data:reports,error}=await db.from('extension_analysis_reports')
@@ -18,11 +25,8 @@ export default async function SuperAnalisePage({searchParams}){
 
   if(error)return <main style={{padding:40,fontFamily:'system-ui'}}>Erro carregando análises: {error.message}</main>;
 
-  const requestedReport=String(params?.report_id||'').trim();
-  const requestedItem=String(params?.item_id||'').trim();
   const selected=(reports||[]).find(r=>requestedReport&&String(r.id)===requestedReport)
     ||(reports||[]).find(r=>requestedItem&&String(r.item_id)===requestedItem)
-    ||(reports||[])[0]
     ||null;
 
   const products=[];
