@@ -2,6 +2,7 @@ import {getActiveShop} from '../../lib/shop';
 import {supabaseAdmin} from '../../lib/supabase';
 import SuperAnaliseInteligente from './SuperAnaliseInteligente';
 import SuperAnalysisPolish from './SuperAnalysisPolish';
+import SuperAnaliseBodyMode from './SuperAnaliseBodyMode';
 
 export const dynamic='force-dynamic';
 
@@ -22,5 +23,5 @@ export default async function SuperAnalisePage({searchParams}){
   const selected=(reports||[]).find(r=>requestedReport&&String(r.id)===requestedReport)||(reports||[]).find(r=>requestedItem&&String(r.item_id)===requestedItem)||(reports||[])[0]||null;
   const products=[];const seen=new Set();
   for(const r of reports||[]){const id=String(r.item_id);if(seen.has(id))continue;seen.add(id);products.push({itemId:id,title:r.product_snapshot?.title||r.product_snapshot?.item_name||`Produto ${id}`,score:r.score,analyzedAt:r.analyzed_at,imageUrl:r.product_snapshot?.imageUrl||r.product_snapshot?.image_url||r.product_snapshot?.imageUrls?.[0]||null});}
-  return <><SuperAnaliseInteligente report={selected} products={products} shopName={shop.shop_name||''}/><SuperAnalysisPolish report={selected}/></>;
+  return <><SuperAnaliseBodyMode/><SuperAnaliseInteligente report={selected} products={products} shopName={shop.shop_name||''}/><SuperAnalysisPolish report={selected}/></>;
 }
