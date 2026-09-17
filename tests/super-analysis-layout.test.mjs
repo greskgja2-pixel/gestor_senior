@@ -42,7 +42,7 @@ test('fluxo visual obrigatorio continua presente',()=>{
 
 test('Motor Senior e somente motor e fluxo acontece no site',()=>{
   assert.match(page,/if\(!requestedReport&&!requestedItem\)return <WebAuditFlow initialUrl=\{startUrl\}\/>/);
-  for(const token of ['Objetivo, situação e gargalo','Shopee Ads — dados atuais','Custos e margens','Selecione exatamente 3 concorrentes','Recarregar botões','Analisar Tudo','Motor Senior'])assert.ok(flow.includes(token),`faltando: ${token}`);
+  for(const token of ['Objetivo, situação e gargalo','Shopee Ads — dados atuais','Custos e margens','Selecione de 1 até 3 concorrentes','Recarregar botões','Analisar Tudo','Motor Senior'])assert.ok(flow.includes(token),`faltando: ${token}`);
   assert.match(flow,/GS_ENGINE_REQUEST/);
   assert.doesNotMatch(flow,/GS_OPEN_SIDE_PANEL/);
 });
@@ -51,8 +51,9 @@ test('fluxo guiado contempla dados editaveis, Ads completos, custos por variacao
   for(const token of ['Qtd. avaliações','GMV R$','Custo por venda R$','Custo unitário padrão R$','Custos por variação','Margem bruta preliminar','passe o mouse para conferir a conta','✎'])assert.ok(flow.includes(token),`faltando: ${token}`);
   assert.match(flow,/allVariationCosts/);
   assert.match(flow,/models\.length>0&&!allVariationCosts/);
-  assert.match(flow,/competitors\.length!==3/);
-  assert.match(flow,/competitors\.length===3/);
+  assert.match(flow,/competitors\.length<1\|\|competitors\.length>3/);
+  assert.match(flow,/competitors\.length>=1&&competitors\.length<=3/);
+  assert.match(flow,/coletado\(s\) em profundidade/);
 });
 
 test('Gemini inicia automaticamente depois que Motor Senior salva o relatorio',()=>{
