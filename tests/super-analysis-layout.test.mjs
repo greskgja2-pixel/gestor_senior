@@ -35,18 +35,18 @@ test('estrutura aprovada permanece horizontal no desktop',()=>{
 });
 
 test('fluxo visual obrigatorio continua presente',()=>{
-  for(const token of ['Título','Descrição','Imagens','Vídeo','Categoria Shopee','Preço & Concorrência','Atributos & Variações','Sugestão completa da IA','Aplicar sugestão','Por que a IA sugeriu essa alteração?'])assert.match(view,new RegExp(token));
+  for(const token of ['Título','Descrição','Imagens','Vídeo','Categoria Shopee','Preço & Concorrência','Atributos & Variações','Sugestão completa da IA','Aplicar sugestão','Por que a IA sugeriu essa alteração?'])assert.ok(view.includes(token),`faltando: ${token}`);
 });
 
 test('Motor Senior e somente motor e fluxo acontece no site',()=>{
   assert.match(page,/if\(!requestedReport&&!requestedItem\)return <WebAuditFlow initialUrl=\{startUrl\}\/>/);
-  for(const token of ['Objetivo, situação e gargalo','Shopee Ads — dados atuais','Custos e margens','Selecione exatamente 3 concorrentes','Recarregar botões','Analisar Tudo','Motor Senior'])assert.match(flow,new RegExp(token));
+  for(const token of ['Objetivo, situação e gargalo','Shopee Ads — dados atuais','Custos e margens','Selecione exatamente 3 concorrentes','Recarregar botões','Analisar Tudo','Motor Senior'])assert.ok(flow.includes(token),`faltando: ${token}`);
   assert.match(flow,/GS_ENGINE_REQUEST/);
   assert.doesNotMatch(flow,/GS_OPEN_SIDE_PANEL/);
 });
 
 test('fluxo guiado contempla dados editaveis, Ads completos, custos por variacao e prova de margem',()=>{
-  for(const token of ['Qtd. avaliações','GMV R$','Custo por venda R$','Custo unitário padrão R$','Custos por variação','Margem bruta preliminar','passe o mouse para conferir a conta','✎'])assert.match(flow,new RegExp(token));
+  for(const token of ['Qtd. avaliações','GMV R$','Custo por venda R$','Custo unitário padrão R$','Custos por variação','Margem bruta preliminar','passe o mouse para conferir a conta','✎'])assert.ok(flow.includes(token),`faltando: ${token}`);
   assert.match(flow,/allVariationCosts/);
   assert.match(flow,/models\.length>0&&!allVariationCosts/);
   assert.match(flow,/competitors\.length!==3/);
