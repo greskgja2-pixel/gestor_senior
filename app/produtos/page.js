@@ -26,10 +26,27 @@ export default async function ProdutosPage(){
   for(const row of reports||[]){const key=String(row.item_id);if(!latestReport.has(key))latestReport.set(key,row);}
 
   const items=products.map(it=>{
-    const key=String(it.item_id),price=finite(it?.price_info?.[0]?.current_price??it?.price_info?.[0]?.original_price),stock=finite(it?.stock_info_v2?.summary_info?.total_available_stock??it?.stock),costRow=baseCosts.get(key),baseCost=finite(costRow?.cost),packaging=finite(costRow?.packaging_cost)??0,totalCost=baseCost==null?null:baseCost+packaging,report=latestReport.get(key),reportMargin=finite(report?.finance_snapshot?.marginPct??report?.metrics?.marginPct),reportProfit=finite(report?.finance_snapshot?.profit??report?.metrics?.marginR);
-    let marginPct=reportMargin,marginR=reportProfit,marginSource=reportMargin!=null||reportProfit!=null?'última Super Análise':null;
-    if(marginPct==null&&marginR==null&&price!=null&&price>0&&totalCost!=null){marginR=price-totalCost;marginPct=marginR/price*100;marginSource='bruta pelo custo cadastrado';}
-    return{itemId:String(it.item_id),title:it.item_name||`Produto ${it.item_id}`,image:imageOf(it),status:it.item_status||'—',price,stock,cost:totalCost,costSource:baseCost!=null?(packaging?`produto + embalagem`:'custo cadastrado'):null,marginPct,marginR,marginSource,hasModel:Boolean(it.has_model)};
+    const key=String(it.item_id);
+    const price=finite(it?.price_info?.[0]?.current_price??it?.price_info?.[0]?.original_price);
+    const stock=finite(it?.stock_info_v2?.summary_info?.total_available_stock??it?.stock);
+    const costRow=baseCosts.get(key),baseCost=finite(costRow?.cost),packaging=finite(costRow?.packaging_cost)??0,totalCost=baseCost==null?null:baseCost+packaging;
+    const report=latestReport.get(key),lastMarginPct=finite(report?.finance_snapshot?.marginPct??report?.metrics?.marginPct),lastMarginR=finite(report?.finance_snapshot?.profit??report?.metrics?.marginR);
+
+    // REGRA: margem exibida como atual precisa usar preço atual válido + custo atual válido.
+    // Nunca reaproveitar a margem de uma análise antiga como se ainda fosse a margem corrente.
+    let marginPct=null,marginR=null,marginSource=null;
+    if(price!=null&&price>0&&totalCost!=null){
+      marginR=price-totalCost;
+      marginPct=marginR/price*100;
+      marginSource='bruta · preço atual × custo cadastrado';
+    }
+
+    return{
+      itemId:key,title:it.item_name||`Produto ${it.item_id}`,image:imageOf(it),status:it.item_status||'—',price,stock,
+      cost:totalCost,costSource:baseCost!=null?(packaging?'produto + embalagem':'custo cadastrado'):null,
+      marginPct,marginR,marginSource,hasModel:Boolean(it.has_model),
+      lastAnalysisMarginPct:lastMarginPct,lastAnalysisMarginR:lastMarginR,lastAnalysisAt:report?.analyzed_at||null
+    };
   });
 
   return <ProductsDashboard items={items} source={source} syncedAt={syncedAt} shopId={shop.shop_id} loadError={loadError}/>;
