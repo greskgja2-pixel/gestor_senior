@@ -13,6 +13,9 @@ const productsPage=read('app/produtos/page.js');
 const sendButton=read('app/components/SendToSuperAnalysisButton.js');
 const autoGemini=read('app/super-analise/AutoGeminiAnalysis.js');
 const motorTheme=read('app/motor-senior-theme.css');
+const superAnuncioPage=read('app/extensao-shopee-intelligence/page.js');
+const superAnuncio=read('app/extensao-shopee-intelligence/SuperAnuncioMockup.js');
+const superAnuncioCss=read('app/extensao-shopee-intelligence/super-anuncio-mockup.module.css');
 
 test('Super Analise usa somente a interface reconstruida',()=>{
   assert.match(page,/import\s+SuperAnaliseInteligente\s+from\s+['"]\.\/SuperAnaliseInteligente['"]/);
@@ -24,27 +27,27 @@ test('Super Analise usa somente a interface reconstruida',()=>{
   assert.match(view,/Super Análise Inteligente/);
 });
 
-test('Super Analise cobre o shell legado e ocupa a viewport inteira',()=>{
+test('Super Analise voltou ao visual anterior e nao recebe o mockup do Super Anuncio',()=>{
   assert.match(css,/\.screen\{[^}]*position:fixed[^}]*inset:0[^}]*z-index:2147483000/);
-  assert.match(css,/\.screen\{[^}]*grid-template-columns:218px\s+minmax\(0,1fr\)/);
-  assert.doesNotMatch(css,/\.screen\{[^}]*max-width\s*:/);
-  assert.match(css,/\.main\{[^}]*grid-column:2\/-1/);
+  assert.match(css,/\.screen\{[^}]*grid-template-columns:210px\s+minmax\(0,1fr\)/);
+  assert.match(css,/\.workspace\{[^}]*grid-template-columns:minmax\(0,1fr\)\s+255px/);
+  assert.match(css,/\.compare\{[^}]*grid-template-columns:minmax\(0,1fr\)\s+44px\s+minmax\(0,1fr\)/);
+  assert.match(css,/\.productBar\{[^}]*grid-template-columns:72px\s+minmax\(250px,1\.25fr\)\s+minmax\(620px,2\.4fr\)/);
+  assert.doesNotMatch(view,/Anúncio acompanhado|Retrato atual do anúncio/);
   assert.match(flowCss,/\.screen\{[^}]*position:fixed[^}]*inset:0[^}]*z-index:2147483000/);
 });
 
-test('mockup aprovado permanece horizontal no desktop',()=>{
-  assert.match(css,/\.workspace\{[^}]*grid-template-columns:minmax\(0,1fr\)\s+305px/);
-  assert.match(css,/\.compare\{[^}]*grid-template-columns:minmax\(0,1fr\)\s+58px\s+minmax\(0,1fr\)/);
-  assert.match(css,/\.productBar\{[^}]*grid-template-columns:90px\s+minmax\(280px,1\.25fr\)\s+minmax\(650px,2\.5fr\)/);
-  assert.match(css,/\.header\{[^}]*position:sticky/);
-  assert.match(css,/\.rightbar\{[^}]*position:sticky/);
+test('fluxo visual da Super Analise continua presente',()=>{
+  for(const token of ['Título','Descrição','Imagens','Vídeo','Categoria Shopee','Preço & Concorrência','Atributos & Variações','Sugestão completa da IA','Aplicar sugestão','Por que a IA sugeriu essa alteração?'])assert.ok(view.includes(token),`faltando: ${token}`);
 });
 
-test('fluxo visual obrigatorio continua presente no mockup',()=>{
-  for(const token of ['Título','Descrição','Imagens','Vídeo','Categoria Shopee','Preço & Concorrência','Atributos & Variações','Sugestão completa da IA','Aplicar sugestão','Por que a IA sugeriu essa alteração?','Nota geral do anúncio','Velocímetro da categoria','Melhorias detectadas na categoria','Resumo de impacto por categoria'])assert.ok(view.includes(token),`faltando: ${token}`);
-  assert.match(view,/Analisando anúncio da Shopee/);
-  assert.match(view,/Motor Senior conectado/);
-  assert.match(view,/Abrir Motor Senior/);
+test('mockup aprovado pertence a pagina Super Anuncio',()=>{
+  assert.match(superAnuncioPage,/import\s+SuperAnuncioMockup\s+from\s+['"]\.\/SuperAnuncioMockup['"]/);
+  assert.match(superAnuncioPage,/return <SuperAnuncioMockup items=\{items\}/);
+  for(const token of ['Super Anúncio','Anúncio acompanhado','Visão geral','Shopee Ads','Super Análise','Concorrentes','Histórico','Atributos & Variações','Nota geral do anúncio','Retrato atual do anúncio','Comparação com a análise anterior'])assert.ok(superAnuncio.includes(token),`faltando no Super Anuncio: ${token}`);
+  assert.match(superAnuncioCss,/\.workspace\{[^}]*grid-template-columns:minmax\(0,1fr\)\s+300px/);
+  assert.match(superAnuncioCss,/\.compare\{[^}]*grid-template-columns:minmax\(0,1fr\)\s+46px\s+minmax\(0,1fr\)/);
+  assert.match(superAnuncioCss,/\.productBar\{[^}]*grid-template-columns:112px\s+minmax\(310px,1\.25fr\)\s+minmax\(660px,2fr\)/);
 });
 
 test('Motor Senior e somente motor e fluxo acontece no site',()=>{
