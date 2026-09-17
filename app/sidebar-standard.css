@@ -132,6 +132,14 @@
     grid-template-columns:var(--gs-sidebar-width) minmax(0,1fr)!important;
   }
 
+  /* A sidebar virou position:fixed. Sem esta regra, o main passa a ocupar a
+     primeira coluna do grid e fica escondido exatamente atrás do menu. */
+  div[class*="web-audit_screen__"]>main[class*="_main__"]{
+    grid-column:2 / -1!important;
+    min-width:0!important;
+    width:auto!important;
+  }
+
   div[class*="web-audit_screen__"] main[class*="_main__"] header h1,
   div[class*="page_screen__"] main[class*="_main__"] header h1{
     font-size:28px!important;
