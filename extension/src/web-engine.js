@@ -61,28 +61,81 @@ async function saveCosts(payload={}){
   return{ok:true,baseCost:base,variationCosts:rows,allVariationCosts};
 }
 
-async function openPicker({title,itemId}){
+async function focusGestor(session={}){
+  let tab=null;
+  if(session.gestorTabId)tab=await chrome.tabs.get(Number(session.gestorTabId)).catch(()=>null);
+  if(!tab){
+    const candidates=await chrome.tabs.query({url:['https://shopeeos-real.vercel.app/super-analise*','https://shopeeos-real-greskgja.vercel.app/super-analise*']}).catch(()=>[]);
+    tab=candidates[0]||null;
+  }
+  if(!tab?.id)return false;
+  await chrome.tabs.update(tab.id,{active:true}).catch(()=>{});
+  if(tab.windowId!=null)await chrome.windows.update(tab.windowId,{focused:true}).catch(()=>{});
+  return true;
+}
+async function notifyPicker(session,message,current=0,total=0){if(!session?.tabId)return;await chrome.tabs.sendMessage(session.tabId,{type:'GS_PICKER_COLLECT_PROGRESS',requestId:session.requestId,message,current,total}).catch(()=>{});}
+
+async function openPicker({title,itemId,gestorTabId}){
   const requestId=crypto.randomUUID(),query=searchQuery(title)||String(title||'').slice(0,80),url=`https://shopee.com.br/search?keyword=${encodeURIComponent(query)}#gs_competitor_picker=${encodeURIComponent(requestId)}&gs_own_item=${encodeURIComponent(itemId)}`;
-  await chrome.storage.local.remove(RESULT_KEY);const tab=await chrome.tabs.create({url,active:true});
-  await chrome.storage.local.set({[SESSION_KEY]:{requestId,tabId:tab.id,url,createdAt:Date.now(),itemId:String(itemId)}});
+  await chrome.storage.local.remove([RESULT_KEY,SESSION_KEY]);const tab=await chrome.tabs.create({url,active:true});
+  await chrome.storage.local.set({[SESSION_KEY]:{requestId,tabId:tab.id,gestorTabId:Number(gestorTabId)||null,url,createdAt:Date.now(),itemId:String(itemId)}});
   return{requestId,tabId:tab.id,query};
 }
 async function pickerResult({requestId}){
   const x=await chrome.storage.local.get([RESULT_KEY,SESSION_KEY]),r=x[RESULT_KEY],s=x[SESSION_KEY];
   if(!r||String(r.requestId)!==String(requestId))return{done:false};
-  if(s?.tabId)chrome.tabs.remove(s.tabId).catch(()=>{});await chrome.storage.local.remove([RESULT_KEY,SESSION_KEY]);
-  return{done:true,cancelled:!!r.cancelled,items:Array.isArray(r.items)?r.items.slice(0,3):[]};
+  await focusGestor(s||{});
+  if(s?.tabId)chrome.tabs.remove(s.tabId).catch(()=>{});
+  await chrome.storage.local.remove([RESULT_KEY,SESSION_KEY]);
+  return{done:true,cancelled:!!r.cancelled,collected:!!r.collected,items:Array.isArray(r.items)?r.items.slice(0,3):[]};
 }
 async function reloadPicker({requestId}){const x=await chrome.storage.local.get(SESSION_KEY),s=x[SESSION_KEY];if(!s||String(s.requestId)!==String(requestId))throw new Error('A seleção de concorrentes não está mais ativa.');const tab=await chrome.tabs.get(s.tabId).catch(()=>null);if(tab){await chrome.tabs.reload(s.tabId);return{ok:true};}const t=await chrome.tabs.create({url:s.url,active:true});s.tabId=t.id;await chrome.storage.local.set({[SESSION_KEY]:s});return{ok:true};}
 
 async function deepCompetitor(c){
   if(!c?.link)return c;const tab=await chrome.tabs.create({url:c.link,active:false});
-  try{await waitTab(tab.id,18000);await wait(550);let last=null;for(let i=0;i<12;i++){try{const r=await chrome.tabs.sendMessage(tab.id,{type:'GS_PARSE_COMPETITOR_DEEP',shopId:c.shopId,itemId:c.itemId});if(r?.ok)return{...c,...r,link:c.link,source:'manual-shopee-picker+deep'};last=r?.error;}catch(e){last=String(e?.message||e);}await wait(400);}return{...c,deepError:last||'Não foi possível aprofundar a coleta.'};}finally{chrome.tabs.remove(tab.id).catch(()=>{});}
+  try{
+    await waitTab(tab.id,22000);await wait(700);let last=null;
+    for(let i=0;i<16;i++){try{const r=await chrome.tabs.sendMessage(tab.id,{type:'GS_PARSE_COMPETITOR_DEEP',shopId:c.shopId,itemId:c.itemId});if(r?.ok)return{...c,...r,link:c.link,imageUrl:r.imageUrls?.[0]||c.imageUrl||null,source:'manual-shopee-picker+deep'};last=r?.error;}catch(e){last=String(e?.message||e);}await wait(450);}
+    try{const fallback=await parseCurrent(tab.id);return{...c,...fallback,link:c.link,imageUrl:fallback.imageUrl||fallback.imageUrls?.[0]||c.imageUrl||null,source:'manual-shopee-picker+fallback',deepError:last||null};}catch(e){return{...c,deepError:last||String(e?.message||e)||'Não foi possível aprofundar a coleta.'};}
+  }finally{chrome.tabs.remove(tab.id).catch(()=>{});}
+}
+
+async function collectPickerSelection({requestId,items}){
+  const selected=Array.isArray(items)?items.slice(0,3):[];
+  if(selected.length<1||selected.length>3)throw new Error('Selecione de 1 até 3 concorrentes.');
+  const x=await chrome.storage.local.get(SESSION_KEY),session=x[SESSION_KEY];
+  if(!session||String(session.requestId)!==String(requestId))throw new Error('A seleção de concorrentes não está mais ativa.');
+  const deep=[];
+  for(let i=0;i<selected.length;i++){
+    const c=selected[i];
+    await notifyPicker(session,`Coletando concorrente ${i+1}/${selected.length}: ${String(c?.title||'anúncio').slice(0,80)}…`,i+1,selected.length);
+    deep.push(await deepCompetitor(c));
+  }
+  await notifyPicker(session,'Coleta concluída. Voltando para a Super Análise…',selected.length,selected.length);
+  const result={requestId,createdAt:Date.now(),cancelled:false,collected:true,items:deep};
+  await chrome.storage.local.set({[RESULT_KEY]:result});
+  await focusGestor(session);
+  return{...result,pickerTabId:session.tabId};
+}
+
+async function cancelPicker(requestId){
+  const x=await chrome.storage.local.get(SESSION_KEY),session=x[SESSION_KEY];
+  if(!session||String(session.requestId)!==String(requestId))throw new Error('A seleção de concorrentes não está mais ativa.');
+  const result={requestId,createdAt:Date.now(),cancelled:true,collected:false,items:[]};
+  await chrome.storage.local.set({[RESULT_KEY]:result});
+  await focusGestor(session);
+  return{...result,pickerTabId:session.tabId};
 }
 
 async function analyzeAll(payload={}){
-  const p=payload.product;if(!p?.itemId)throw new Error('Produto não carregado.');const selected=Array.isArray(payload.competitors)?payload.competitors.slice(0,3):[];if(selected.length!==3)throw new Error('Selecione exatamente 3 concorrentes.');
-  const deep=[];for(const c of selected)deep.push(await deepCompetitor(c));
+  const p=payload.product;if(!p?.itemId)throw new Error('Produto não carregado.');
+  const selected=Array.isArray(payload.competitors)?payload.competitors.slice(0,3):[];
+  if(selected.length<1||selected.length>3)throw new Error('Selecione de 1 até 3 concorrentes.');
+  const deep=[];
+  for(const c of selected){
+    const alreadyDeep=Boolean(c?.deepSource||String(c?.source||'').includes('+deep')||String(c?.source||'').includes('+fallback'));
+    deep.push(alreadyDeep?c:await deepCompetitor(c));
+  }
   const ads={roas:n(payload.ads?.roas),targetRoas:n(payload.ads?.targetRoas),spend:n(payload.ads?.spend),gmv:n(payload.ads?.gmv),costPerSale:n(payload.ads?.costPerSale??payload.ads?.cpa),ctr:n(payload.ads?.ctr),orders:n(payload.ads?.orders)};
   const baseCost=n(payload.baseCost),models=Array.isArray(payload.models)?payload.models:[],variationCosts=Array.isArray(payload.variationCosts)?payload.variationCosts:[];
   const adsCostPerSale=ads.costPerSale??(ads.orders&&ads.spend!=null?ads.spend/ads.orders:0);
@@ -108,10 +161,29 @@ async function handleAction(action,payload={}){
   }
 }
 
+chrome.runtime.onMessage.addListener((msg,sender,sendResponse)=>{
+  if(msg?.type==='GS_PICKER_COLLECT_REQUEST'){
+    collectPickerSelection({requestId:msg.requestId,items:msg.items}).then(result=>{
+      sendResponse({ok:true,items:result.items});
+      const tabId=result.pickerTabId||sender?.tab?.id;if(tabId)setTimeout(()=>chrome.tabs.remove(tabId).catch(()=>{}),650);
+    }).catch(e=>sendResponse({ok:false,error:String(e?.message||e)}));
+    return true;
+  }
+  if(msg?.type==='GS_PICKER_CANCEL_REQUEST'){
+    cancelPicker(msg.requestId).then(result=>{
+      sendResponse({ok:true,cancelled:true});
+      const tabId=result.pickerTabId||sender?.tab?.id;if(tabId)setTimeout(()=>chrome.tabs.remove(tabId).catch(()=>{}),350);
+    }).catch(e=>sendResponse({ok:false,error:String(e?.message||e)}));
+    return true;
+  }
+});
+
 chrome.runtime.onConnect.addListener(port=>{
   if(port.name!=='GS_WEB_ENGINE_PORT')return;
   port.onMessage.addListener(msg=>{
     const requestId=String(msg?.requestId||'');
-    handleAction(String(msg?.action||''),msg?.payload||{}).then(result=>port.postMessage({requestId,result})).catch(e=>port.postMessage({requestId,result:{ok:false,error:String(e?.message||e)}}));
+    const payload={...(msg?.payload||{})};
+    if(String(msg?.action||'')==='openCompetitorPicker'&&port.sender?.tab?.id)payload.gestorTabId=port.sender.tab.id;
+    handleAction(String(msg?.action||''),payload).then(result=>port.postMessage({requestId,result})).catch(e=>port.postMessage({requestId,result:{ok:false,error:String(e?.message||e)}}));
   });
 });
