@@ -37,8 +37,15 @@ test('fluxo visual obrigatorio continua presente',()=>{
 });
 
 test('extensao e somente motor e fluxo acontece no site',()=>{
-  assert.match(page,/if\(!requestedReport&&!requestedItem\)return <WebAuditFlow\/>/);
+  assert.match(page,/if\(!requestedReport&&!requestedItem\)return <WebAuditFlow initialUrl=\{startUrl\}\/>/);
   for(const token of ['Objetivo, situação e gargalo','Shopee Ads — últimos 7 dias','Custos','Selecione 3 concorrentes','Recarregar botões','Analisar Tudo','Motor da extensão'])assert.match(flow,new RegExp(token));
   assert.match(flow,/GS_ENGINE_REQUEST/);
   assert.doesNotMatch(flow,/GS_OPEN_SIDE_PANEL/);
+});
+
+test('envio da lista de produtos inicia a analise guiada automaticamente',()=>{
+  assert.match(page,/const startUrl=String\(params\?\.start_url\|\|''\)\.trim\(\)/);
+  assert.match(flow,/export default function WebAuditFlow\(\{initialUrl=''\}\)/);
+  assert.match(flow,/if\(!initialUrl\|\|!connected\|\|autoStartedRef\.current\)return/);
+  assert.match(flow,/loadProduct\(initialUrl\)/);
 });
