@@ -1,6 +1,6 @@
 'use client';
 
-import {useEffect} from 'react';
+import {useLayoutEffect} from 'react';
 
 // ORDEM OFICIAL E IMUTAVEL DO MENU DO GESTOR SENIOR.
 // A ordem acompanha o fluxo real de uso: visão geral -> escolher produto -> analisar -> acompanhar histórico.
@@ -104,7 +104,7 @@ function normalizeMotorSenior(){
 function normalizeAll(){findSidebarNavs().forEach(normalizeNav);normalizeMotorSenior();}
 
 export default function SidebarOrderGuard(){
-  useEffect(()=>{
+  useLayoutEffect(()=>{
     normalizeAll();
     let queued=false;
     const observer=new MutationObserver(()=>{if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;normalizeAll();});});
