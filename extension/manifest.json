@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Gestor Sênior — Shopee Intelligence",
-  "version": "0.12.7",
-  "version_name": "0.12.7 - Base funcional restaurada e pacote corrigido",
+  "version": "0.12.8",
+  "version_name": "0.12.8 - IA comparativa de concorrentes",
   "minimum_chrome_version": "114",
   "description": "Extensão unificada do Gestor Sênior: Super Análise guiada, histórico web centralizado, gestor de reanálises, Shopee Ads, dashboard analítica, melhoria contínua, ações em massa, Auto Mapper v2.4 e Coletor Shopee v3.1.",
   "permissions": ["storage", "unlimitedStorage", "tabs", "alarms", "notifications", "sidePanel", "scripting", "downloads", "clipboardWrite"],
