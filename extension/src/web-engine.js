@@ -91,16 +91,23 @@ async function analyzeAll(payload={}){
   const saved=await gestorApi.saveAnalysisReport(reportPayload);return{ok:true,reportId:saved?.report?.id||saved?.id||null,itemId:String(p.itemId),score:analysis.score,competitors:deep};
 }
 
-chrome.runtime.onMessage.addListener((msg,_sender,reply)=>{
-  if(msg?.type!=='GS_WEB_ENGINE')return;
-  (async()=>{switch(msg.action){
+async function handleAction(action,payload={}){
+  switch(action){
     case'ping':return{ok:true,version:chrome.runtime.getManifest().version};
-    case'collectProduct':return{ok:true,data:await collectProduct(msg.payload?.url)};
-    case'saveCosts':return{ok:true,data:await saveCosts(msg.payload)};
-    case'openCompetitorPicker':return{ok:true,data:await openPicker(msg.payload||{})};
-    case'pickerResult':return{ok:true,data:await pickerResult(msg.payload||{})};
-    case'reloadCompetitorPicker':return{ok:true,data:await reloadPicker(msg.payload||{})};
-    case'analyzeAll':return{ok:true,data:await analyzeAll(msg.payload||{})};
+    case'collectProduct':return{ok:true,data:await collectProduct(payload?.url)};
+    case'saveCosts':return{ok:true,data:await saveCosts(payload)};
+    case'openCompetitorPicker':return{ok:true,data:await openPicker(payload||{})};
+    case'pickerResult':return{ok:true,data:await pickerResult(payload||{})};
+    case'reloadCompetitorPicker':return{ok:true,data:await reloadPicker(payload||{})};
+    case'analyzeAll':return{ok:true,data:await analyzeAll(payload||{})};
     default:throw new Error('Ação do motor não reconhecida.');
-  }})().then(reply).catch(e=>reply({ok:false,error:String(e?.message||e)}));return true;
+  }
+}
+
+chrome.runtime.onConnect.addListener(port=>{
+  if(port.name!=='GS_WEB_ENGINE_PORT')return;
+  port.onMessage.addListener(msg=>{
+    const requestId=String(msg?.requestId||'');
+    handleAction(String(msg?.action||''),msg?.payload||{}).then(result=>port.postMessage({requestId,result})).catch(e=>port.postMessage({requestId,result:{ok:false,error:String(e?.message||e)}}));
+  });
 });
