@@ -1,3 +1,5 @@
+import './src/competitor-ai-review.js';
+
 (() => {
   'use strict';
   const KEY='gsPendingGuidedAuditV1';
