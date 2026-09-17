@@ -18,7 +18,7 @@ test('layout global carrega o padrao oficial do menu lateral',()=>{
 });
 
 test('menu lateral oficial permanece branco e com largura fixa de 218px',()=>{
-  assert.match(css,/--gs-sidebar-width:218px/);
+  assert.match(css,/--gs-sidebar-width:218px/);\n  assert.match(css,/min-width:var\(--gs-sidebar-width\)!important/);\n  assert.match(css,/max-width:var\(--gs-sidebar-width\)!important/);
   assert.match(css,/background:#fbfdff!important/);
   assert.match(css,/border-right:1px solid #e2e9f2!important/);
   assert.match(css,/font-size:12px!important/);
@@ -44,7 +44,7 @@ test('ordem das nove paginas acompanha o fluxo operacional em todas as interface
   assertOrder(guard,'Next');
   assertOrder(dashboardShell,'Dashboard');
   assert.match(guard,/export const GS_MENU_ORDER=/);
-  assert.match(guard,/nav\.appendChild\(fragment\)/);
+  assert.match(guard,/nav\.appendChild\(fragment\)/);\n  assert.match(guard,/data-gs-menu-icon/);\n  assert.match(guard,/data-gs-menu-label/);\n  assert.match(css,/data-gs-menu-icon/);
   assert.match(guard,/Motor Senior/);
   assert.match(css,/data-gs-active="true"/);
   assert.match(dashboardShell,/Super Análises — resumo/);
