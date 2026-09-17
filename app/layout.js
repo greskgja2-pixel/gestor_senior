@@ -1,4 +1,5 @@
 import "./globals.css";
+import "./sidebar-standard.css";
 import Image from "next/image";
 
 export const metadata = {
