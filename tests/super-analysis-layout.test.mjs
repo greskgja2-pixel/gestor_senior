@@ -12,6 +12,7 @@ const products=read('app/produtos/ProductsDashboard.js');
 const productsPage=read('app/produtos/page.js');
 const sendButton=read('app/components/SendToSuperAnalysisButton.js');
 const autoGemini=read('app/super-analise/AutoGeminiAnalysis.js');
+const motorTheme=read('app/motor-senior-theme.css');
 
 test('Super Analise usa somente a interface reconstruida',()=>{
   assert.match(page,/import\s+SuperAnaliseInteligente\s+from\s+['"]\.\/SuperAnaliseInteligente['"]/);
@@ -62,6 +63,15 @@ test('Gemini inicia automaticamente depois que Motor Senior salva o relatorio',(
   assert.match(autoGemini,/\/api\/ai\/super-analysis/);
   assert.match(autoGemini,/report_id:reportId/);
   assert.match(autoGemini,/location\.reload\(\)/);
+});
+
+test('cards do Motor Senior e Gemini seguem o tema atual em vez de trocar para azul ou rosa',()=>{
+  assert.match(motorTheme,/--gs-theme-card:#ffffff/);
+  assert.match(motorTheme,/--gs-theme-control:#ffffff/);
+  assert.match(motorTheme,/\.gs-theme-floating-card/);
+  assert.match(autoGemini,/className="gs-theme-floating-card"/);
+  assert.match(autoGemini,/className="gs-theme-control"/);
+  assert.doesNotMatch(autoGemini,/#fff5f5|#f3b8b8|background:'#1769e8'/);
 });
 
 test('Produtos nunca reaproveita margem historica como margem atual',()=>{
