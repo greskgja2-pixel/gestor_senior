@@ -1,0 +1,45 @@
+/* Mantem o status do Motor Senior no mesmo tema branco do Gestor em todas as etapas. */
+aside[class*="_sidebar__"] nav > div[class*="_extCard__"],
+aside[class*="_sidebar__"] > div[class*="_extCard__"],
+aside[class*="_sidebar__"] > div[class*="_engineCard__"]{
+  margin:16px 0 0!important;
+  padding:12px!important;
+  border-radius:12px!important;
+  border:1px solid #d9e6f2!important;
+  background:#f7fbff!important;
+  color:#294664!important;
+  box-shadow:none!important;
+}
+
+aside[class*="_sidebar__"] div[class*="_extCard__"] > div,
+aside[class*="_sidebar__"] div[class*="_engineCard__"] > div{
+  display:flex!important;
+  align-items:center!important;
+  gap:8px!important;
+}
+
+aside[class*="_sidebar__"] div[class*="_extCard__"] b,
+aside[class*="_sidebar__"] div[class*="_engineCard__"] b{
+  color:#294664!important;
+  font-size:12px!important;
+  font-weight:800!important;
+}
+
+aside[class*="_sidebar__"] div[class*="_extCard__"] small,
+aside[class*="_sidebar__"] div[class*="_engineCard__"] small{
+  display:block!important;
+  margin-top:6px!important;
+  color:#71839a!important;
+  font-size:9px!important;
+  line-height:1.45!important;
+}
+
+aside[class*="_sidebar__"] div[class*="_extCard__"]:has(i[class*="_online__"]) small,
+aside[class*="_sidebar__"] div[class*="_engineCard__"]:has(i) strong{
+  color:#28c982!important;
+}
+
+/* O Motor Senior e somente o motor da coleta. Nao abrir um painel azul dentro do fluxo. */
+aside[class*="_sidebar__"] div[class*="_extCard__"] > button{
+  display:none!important;
+}
