@@ -3,8 +3,8 @@
  *
  * Regra de interface: toda pagina que possuir sidebar deve usar a mesma
  * aparencia do layout branco aprovado (largura, fonte, espacamento, cores,
- * marca e estado ativo). Paginas podem ter conteudos diferentes, mas nao
- * podem criar um segundo tema visual para o menu.
+ * marca, ordem e estado ativo). Paginas podem ter conteudos diferentes, mas
+ * nao podem criar um segundo tema visual nem reorganizar os nove itens.
  */
 :root{--gs-sidebar-width:218px}
 
@@ -94,7 +94,9 @@
   }
 
   aside[class*="_sidebar__"] nav a[class*="_active__"],
-  aside[class*="_sidebar__"] nav a[class*="_sideActive__"]{
+  aside[class*="_sidebar__"] nav a[class*="_sideActive__"],
+  aside[class*="_sidebar__"] nav a[data-gs-active="true"],
+  aside[class*="_sidebar__"] nav a[aria-current="page"]{
     background:#e8f2ff!important;
     color:#1265d8!important;
     box-shadow:inset 3px 0 0 #2677df!important;
@@ -125,14 +127,11 @@
     line-height:1.4!important;
   }
 
-  /* As duas telas da Super Analise usavam 210/185px. Travamos em 218px,
-     a mesma largura usada por Produtos e Super Anuncio. */
   div[class*="web-audit_screen__"],
   div[class*="page_screen__"]{
     grid-template-columns:var(--gs-sidebar-width) minmax(0,1fr)!important;
   }
 
-  /* Tipografia do cabecalho principal tambem segue o mesmo ritmo visual. */
   div[class*="web-audit_screen__"] main[class*="_main__"] header h1,
   div[class*="page_screen__"] main[class*="_main__"] header h1{
     font-size:28px!important;
