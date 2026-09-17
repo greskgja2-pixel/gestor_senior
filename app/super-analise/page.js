@@ -2,6 +2,7 @@ import {getActiveShop} from '../../lib/shop';
 import {supabaseAdmin} from '../../lib/supabase';
 import SuperAnaliseInteligente from './SuperAnaliseInteligente';
 import WebAuditFlow from './WebAuditFlow';
+import AutoGeminiAnalysis from './AutoGeminiAnalysis';
 
 export const dynamic='force-dynamic';
 
@@ -14,7 +15,7 @@ export default async function SuperAnalisePage({searchParams}){
   const requestedItem=String(params?.item_id||'').trim();
   const startUrl=String(params?.start_url||'').trim();
 
-  // A Super Análise começa no site. A extensão funciona apenas como motor.
+  // A Super Análise começa no site. O Motor Senior funciona apenas como motor.
   // Quando o usuário vem de "Enviar para Super Análise", start_url inicia a coleta guiada automaticamente.
   if(!requestedReport&&!requestedItem)return <WebAuditFlow initialUrl={startUrl}/>;
 
@@ -47,5 +48,6 @@ export default async function SuperAnalisePage({searchParams}){
     });
   }
 
-  return <SuperAnaliseInteligente report={selected} products={products} shopName={shop.shop_name||''}/>;
+  const needsGemini=Boolean(selected?.id&&!selected?.report?.ai_analysis);
+  return <>{needsGemini&&<AutoGeminiAnalysis reportId={selected.id}/>}<SuperAnaliseInteligente report={selected} products={products} shopName={shop.shop_name||''}/></>;
 }
