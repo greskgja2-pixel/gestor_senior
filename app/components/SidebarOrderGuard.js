@@ -17,6 +17,10 @@ export const GS_MENU_ORDER=[
 ];
 
 const norm=s=>String(s||'').replace(/\s+/g,' ').trim().toLowerCase();
+const MOTOR_TEXT=new Map([
+  ['extensão','Motor Senior'],['extensão conectada','Motor Senior conectado'],['extensão desconectada','Motor Senior desconectado'],
+  ['abrir extensão','Abrir Motor Senior'],['motor da extensão','Motor Senior'],['motor conectado','Motor Senior conectado']
+]);
 
 function activeLabel(){
   const path=location.pathname;
@@ -50,68 +54,49 @@ function findSidebarNavs(){
 
 function setLinkContent(a,item){
   const span=a.querySelector('span');
-  if(span){
-    if(span.textContent!==item.label)span.textContent=item.label;
-  }else{
-    const desired=`${item.icon} ${item.label}`;
-    if(a.textContent!==desired)a.textContent=desired;
-  }
+  if(span){if(span.textContent!==item.label)span.textContent=item.label;}
+  else{const desired=`${item.icon} ${item.label}`;if(a.textContent!==desired)a.textContent=desired;}
 }
 
 function normalizeNav(nav){
   const existing=[...nav.querySelectorAll(':scope > a')];
   const byLabel=new Map();
-  for(const a of existing){
-    const label=labelOf(a);
-    if(label&&!byLabel.has(label))byLabel.set(label,a);
-  }
-
+  for(const a of existing){const label=labelOf(a);if(label&&!byLabel.has(label))byLabel.set(label,a);}
   const active=activeLabel();
   const desired=GS_MENU_ORDER.map(item=>{
-    let a=byLabel.get(item.label);
-    if(!a)a=document.createElement('a');
-    setLinkContent(a,item);
-    if(a.getAttribute('href')!==item.href)a.setAttribute('href',item.href);
-    a.dataset.gsMenuItem=item.label;
-    if(item.label===active){
-      if(a.getAttribute('aria-current')!=='page')a.setAttribute('aria-current','page');
-      a.dataset.gsActive='true';
-    }else{
-      if(a.hasAttribute('aria-current'))a.removeAttribute('aria-current');
-      if(a.dataset.gsActive)a.removeAttribute('data-gs-active');
-    }
+    let a=byLabel.get(item.label);if(!a)a=document.createElement('a');setLinkContent(a,item);
+    if(a.getAttribute('href')!==item.href)a.setAttribute('href',item.href);a.dataset.gsMenuItem=item.label;
+    if(item.label===active){if(a.getAttribute('aria-current')!=='page')a.setAttribute('aria-current','page');a.dataset.gsActive='true';}
+    else{if(a.hasAttribute('aria-current'))a.removeAttribute('aria-current');if(a.dataset.gsActive)a.removeAttribute('data-gs-active');}
     return a;
   });
-
-  for(const a of existing){
-    if(!desired.includes(a))a.remove();
-  }
-
+  for(const a of existing){if(!desired.includes(a))a.remove();}
   const current=[...nav.querySelectorAll(':scope > a')];
   const alreadyCorrect=current.length===desired.length&&desired.every((a,i)=>current[i]===a);
-  if(!alreadyCorrect){
-    const fragment=document.createDocumentFragment();
-    desired.forEach(a=>fragment.appendChild(a));
-    nav.appendChild(fragment);
-  }
+  if(!alreadyCorrect){const fragment=document.createDocumentFragment();desired.forEach(a=>fragment.appendChild(a));nav.appendChild(fragment);}
   nav.dataset.gsMenuReady='true';
 }
 
-function normalizeAll(){findSidebarNavs().forEach(normalizeNav);}
+function normalizeMotorSenior(){
+  const candidates=document.querySelectorAll('aside b,aside small,aside button,header span,header button');
+  for(const el of candidates){
+    const key=norm(el.textContent);
+    if(MOTOR_TEXT.has(key))el.textContent=MOTOR_TEXT.get(key);
+    if(key.includes('a extensão só coleta'))el.textContent='O Motor Senior só coleta e executa tarefas na Shopee.';
+    if(key.includes('a extensão trabalha em segundo plano'))el.textContent='O Motor Senior trabalha em segundo plano e devolve os dados ao Gestor.';
+  }
+}
+
+function normalizeAll(){findSidebarNavs().forEach(normalizeNav);normalizeMotorSenior();}
 
 export default function SidebarOrderGuard(){
   useEffect(()=>{
     normalizeAll();
     let queued=false;
-    const observer=new MutationObserver(()=>{
-      if(queued)return;
-      queued=true;
-      requestAnimationFrame(()=>{queued=false;normalizeAll();});
-    });
+    const observer=new MutationObserver(()=>{if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;normalizeAll();});});
     observer.observe(document.body,{childList:true,subtree:true});
     const onRoute=()=>setTimeout(normalizeAll,0);
-    window.addEventListener('popstate',onRoute);
-    window.addEventListener('hashchange',onRoute);
+    window.addEventListener('popstate',onRoute);window.addEventListener('hashchange',onRoute);
     return()=>{observer.disconnect();window.removeEventListener('popstate',onRoute);window.removeEventListener('hashchange',onRoute);};
   },[]);
   return null;
