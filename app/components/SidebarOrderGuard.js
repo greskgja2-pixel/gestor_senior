@@ -2,7 +2,9 @@
 
 import {useEffect} from 'react';
 
-const MENU=[
+// ORDEM OFICIAL E IMUTAVEL DO MENU DO GESTOR SENIOR.
+// Nenhuma pagina pode reorganizar estes nove itens.
+export const GS_MENU_ORDER=[
   {label:'Dashboard',icon:'⌂',href:'/'},
   {label:'Super Anúncio',icon:'▣',href:'/extensao-shopee-intelligence'},
   {label:'Super Análise',icon:'▤',href:'/super-analise'},
@@ -33,6 +35,12 @@ function activeLabel(){
   return'';
 }
 
+function labelOf(a){
+  if(a?.dataset?.gsMenuItem)return a.dataset.gsMenuItem;
+  const text=norm(a?.textContent);
+  return GS_MENU_ORDER.find(item=>text.includes(norm(item.label)))?.label||'';
+}
+
 function findSidebarNavs(){
   return [...document.querySelectorAll('aside nav')].filter(nav=>{
     const text=norm(nav.textContent);
@@ -40,51 +48,66 @@ function findSidebarNavs(){
   });
 }
 
+function setLinkContent(a,item){
+  const span=a.querySelector('span');
+  if(span){
+    if(span.textContent!==item.label)span.textContent=item.label;
+  }else{
+    const desired=`${item.icon} ${item.label}`;
+    if(a.textContent!==desired)a.textContent=desired;
+  }
+}
+
 function normalizeNav(nav){
   const existing=[...nav.querySelectorAll(':scope > a')];
   const byLabel=new Map();
   for(const a of existing){
-    const text=norm(a.textContent);
-    for(const item of MENU){
-      if(text.includes(norm(item.label))&&!byLabel.has(item.label))byLabel.set(item.label,a);
-    }
+    const label=labelOf(a);
+    if(label&&!byLabel.has(label))byLabel.set(label,a);
   }
 
   const active=activeLabel();
-  for(const item of MENU){
+  const desired=GS_MENU_ORDER.map(item=>{
     let a=byLabel.get(item.label);
-    if(!a){
-      a=document.createElement('a');
-      a.textContent=`${item.icon} ${item.label}`;
-    }else{
-      const span=a.querySelector('span');
-      if(span)span.textContent=item.label;
-      else a.textContent=`${item.icon} ${item.label}`;
-    }
-    a.href=item.href;
+    if(!a)a=document.createElement('a');
+    setLinkContent(a,item);
+    if(a.getAttribute('href')!==item.href)a.setAttribute('href',item.href);
     a.dataset.gsMenuItem=item.label;
     if(item.label===active){
-      a.setAttribute('aria-current','page');
+      if(a.getAttribute('aria-current')!=='page')a.setAttribute('aria-current','page');
       a.dataset.gsActive='true';
     }else{
-      a.removeAttribute('aria-current');
-      delete a.dataset.gsActive;
+      if(a.hasAttribute('aria-current'))a.removeAttribute('aria-current');
+      if(a.dataset.gsActive)a.removeAttribute('data-gs-active');
     }
-    nav.appendChild(a);
-  }
+    return a;
+  });
 
   for(const a of existing){
-    if(!a.dataset.gsMenuItem&&!MENU.some(item=>norm(a.textContent).includes(norm(item.label))))a.remove();
+    if(!desired.includes(a))a.remove();
+  }
+
+  const current=[...nav.querySelectorAll(':scope > a')];
+  const alreadyCorrect=current.length===desired.length&&desired.every((a,i)=>current[i]===a);
+  if(!alreadyCorrect){
+    const fragment=document.createDocumentFragment();
+    desired.forEach(a=>fragment.appendChild(a));
+    nav.appendChild(fragment);
   }
   nav.dataset.gsMenuReady='true';
 }
 
-function normalizeAll(){for(const nav of findSidebarNavs())normalizeNav(nav);}
+function normalizeAll(){findSidebarNavs().forEach(normalizeNav);}
 
 export default function SidebarOrderGuard(){
   useEffect(()=>{
     normalizeAll();
-    const observer=new MutationObserver(()=>normalizeAll());
+    let queued=false;
+    const observer=new MutationObserver(()=>{
+      if(queued)return;
+      queued=true;
+      requestAnimationFrame(()=>{queued=false;normalizeAll();});
+    });
     observer.observe(document.body,{childList:true,subtree:true});
     const onRoute=()=>setTimeout(normalizeAll,0);
     window.addEventListener('popstate',onRoute);
