@@ -3,12 +3,12 @@
 import {useEffect} from 'react';
 
 // ORDEM OFICIAL E IMUTAVEL DO MENU DO GESTOR SENIOR.
-// Nenhuma pagina pode reorganizar estes nove itens.
+// A ordem acompanha o fluxo real de uso: visão geral -> escolher produto -> analisar -> acompanhar histórico.
 export const GS_MENU_ORDER=[
   {label:'Dashboard',icon:'⌂',href:'/'},
-  {label:'Super Anúncio',icon:'▣',href:'/extensao-shopee-intelligence'},
-  {label:'Super Análise',icon:'▤',href:'/super-analise'},
   {label:'Produtos',icon:'▱',href:'/produtos'},
+  {label:'Super Análise',icon:'▤',href:'/super-analise'},
+  {label:'Super Anúncio',icon:'▣',href:'/extensao-shopee-intelligence'},
   {label:'Concorrentes',icon:'⌘',href:'/extensao-shopee-intelligence#concorrentes'},
   {label:'Shopee Ads',icon:'◎',href:'/extensao-shopee-intelligence#shopee-ads'},
   {label:'Reanálises',icon:'↻',href:'/extensao-shopee-intelligence#reanálises'},
@@ -22,8 +22,8 @@ function activeLabel(){
   const path=location.pathname;
   const hash=location.hash;
   if(path==='/')return'Dashboard';
-  if(path.startsWith('/super-analise'))return'Super Análise';
   if(path.startsWith('/produtos'))return'Produtos';
+  if(path.startsWith('/super-analise'))return'Super Análise';
   if(path.startsWith('/extensao-shopee-intelligence')){
     if(hash==='#concorrentes')return'Concorrentes';
     if(hash==='#shopee-ads')return'Shopee Ads';
@@ -44,7 +44,7 @@ function labelOf(a){
 function findSidebarNavs(){
   return [...document.querySelectorAll('aside nav')].filter(nav=>{
     const text=norm(nav.textContent);
-    return ['dashboard','super anúncio','produtos'].filter(x=>text.includes(x)).length>=2;
+    return ['dashboard','produtos','super análise','super anúncio'].filter(x=>text.includes(x)).length>=2;
   });
 }
 
