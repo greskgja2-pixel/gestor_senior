@@ -7,6 +7,7 @@
   let autoContinue=false;
 
   const wait=ms=>new Promise(r=>setTimeout(r,ms));
+  const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
 
   function idsFromValidation(){
     const text=document.querySelector('#productValidation')?.textContent||'';
@@ -104,10 +105,20 @@
   async function continueWhenRendered(){
     if(!autoContinue)return;
     const list=document.querySelector('#competitorList');
-    const inputs=[...(list?.querySelectorAll('input[type="checkbox"]')||[])];
+    const rows=[...(list?.querySelectorAll('.competitor')||[])];
+    const inputs=rows.map(r=>r.querySelector('input[type="checkbox"]')).filter(Boolean);
     if(inputs.length<3)return;
+    let targets=[];
+    try{
+      const stored=await chrome.storage.local.get(DEEP_KEY),wanted=stored?.[DEEP_KEY]?.items||[];
+      for(const item of wanted.slice(0,3)){
+        const row=rows.find(r=>norm(r.querySelector('strong')?.textContent)===norm(item.title));
+        const input=row?.querySelector('input[type="checkbox"]');if(input&&!targets.includes(input))targets.push(input);
+      }
+    }catch{}
+    if(targets.length!==3)targets=inputs.slice(0,3);
     autoContinue=false;
-    for(const input of inputs.slice(0,3)){if(!input.checked){input.click();await wait(30);}}
+    for(const input of targets){if(!input.checked){input.click();await wait(30);}}
     await wait(120);
     const next=document.querySelector('#step3Next');if(next&&!next.disabled)next.click();
   }
