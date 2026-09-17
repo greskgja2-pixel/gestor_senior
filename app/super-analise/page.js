@@ -49,5 +49,5 @@ export default async function SuperAnalisePage({searchParams}){
   }
 
   const needsGemini=Boolean(selected?.id&&!selected?.report?.ai_analysis);
-  return <>{needsGemini&&<AutoGeminiAnalysis reportId={selected.id}/>}<SuperAnaliseInteligente report={selected} products={products} shopName={shop.shop_name||''}/></>;
+  return <>{needsGemini&&<AutoGeminiAnalysis reportId={selected.id} itemId={selected.item_id}/>}<SuperAnaliseInteligente report={selected} products={products} shopName={shop.shop_name||''}/></>;
 }
