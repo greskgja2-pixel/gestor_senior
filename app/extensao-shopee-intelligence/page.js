@@ -1,3 +1,4 @@
+import {redirect} from 'next/navigation';
 import {getActiveShop} from '../../lib/shop';
 import {supabaseAdmin} from '../../lib/supabase';
 import SuperAnuncioDashboard from './SuperAnuncioDashboard';
@@ -7,7 +8,12 @@ import ExtensionConnectionDock from './ExtensionConnectionDock';
 
 export const dynamic='force-dynamic';
 
-export default async function ExtensionIntelligencePage(){
+export default async function ExtensionIntelligencePage({searchParams}){
+  const params=await Promise.resolve(searchParams||{});
+  if(String(params?.view||'')==='super-analysis'){
+    const qs=new URLSearchParams();if(params?.item_id)qs.set('item_id',String(params.item_id));if(params?.report_id)qs.set('report_id',String(params.report_id));
+    redirect(`/super-analise${qs.toString()?`?${qs.toString()}`:''}`);
+  }
   const shop=await getActiveShop();
   if(!shop)return <main style={{padding:40,fontFamily:'system-ui'}}>Nenhuma loja Shopee conectada.</main>;
   const db=supabaseAdmin();
