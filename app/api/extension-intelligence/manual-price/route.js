@@ -64,7 +64,7 @@ function recalcMargins({product,finance,metrics,ads}){
   }else{
     const price=num(metrics.price??product.price),calc=calcFinance({price,cost:finance.productCost,finance,cpa});
     if(calc){Object.assign(finance,{profit:calc.profit,marginPct:calc.marginPct,breakEvenRoas:calc.breakEvenRoas,commissionRate:calc.commissionRate,fixedFee:calc.fixedFee,packagingCost:calc.packagingCost,taxRate:calc.taxRate,otherCost:calc.otherCost,adsCostPerSale:calc.adsCostPerSale,marginCalculationMode:'single',marginStatus:'ok'});}
-    else{finance.profit=null;finance.marginPct=null;finance.marginStatus:'incomplete';}
+    else{finance.profit=null;finance.marginPct=null;finance.marginStatus='incomplete';}
   }
   metrics.price=product.price??metrics.price??null;
   metrics.marginPct=finance.marginPct??null;
