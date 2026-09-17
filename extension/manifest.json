@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Gestor Sênior — Shopee Intelligence",
-  "version": "0.13.0",
-  "version_name": "0.13.0 - Coleta na extensão e análise no Gestor",
+  "version": "0.13.1",
+  "version_name": "0.13.1 - Bridge do Gestor e fluxo web refinados",
   "minimum_chrome_version": "114",
   "description": "Extensão unificada do Gestor Sênior: coleta técnica da Shopee, Super Análise guiada, concorrentes, Ads, custos por variação e sincronização com o Gestor Sênior.",
   "permissions": ["storage", "unlimitedStorage", "tabs", "alarms", "notifications", "sidePanel", "scripting", "downloads", "clipboardWrite"],
