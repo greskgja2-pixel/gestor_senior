@@ -1,10 +1,10 @@
 {
   "manifest_version": 3,
   "name": "Gestor Sênior — Shopee Intelligence",
-  "version": "0.12.9",
-  "version_name": "0.12.9 - Análise profunda de concorrentes",
+  "version": "0.13.0",
+  "version_name": "0.13.0 - Coleta na extensão e análise no Gestor",
   "minimum_chrome_version": "114",
-  "description": "Extensão unificada do Gestor Sênior: Super Análise guiada, histórico web centralizado, gestor de reanálises, Shopee Ads, dashboard analítica, melhoria contínua, ações em massa, Auto Mapper v2.4 e Coletor Shopee v3.1.",
+  "description": "Extensão unificada do Gestor Sênior: coleta técnica da Shopee, Super Análise guiada, concorrentes, Ads, custos por variação e sincronização com o Gestor Sênior.",
   "permissions": ["storage", "unlimitedStorage", "tabs", "alarms", "notifications", "sidePanel", "scripting", "downloads", "clipboardWrite"],
   "host_permissions": ["https://shopee.com.br/*", "https://*.shopee.com.br/*", "https://seller.shopee.com.br/*", "https://*.shopeemobile.com/*", "https://shopeeos-real.vercel.app/*", "https://shopeeos-real-greskgja.vercel.app/*"],
   "icons": {"16":"icons/icon16.png","32":"icons/icon32.png","48":"icons/icon48.png","128":"icons/icon128.png"},
@@ -14,7 +14,7 @@
   "content_scripts": [
     {"matches":["https://shopee.com.br/*"],"js":["src/collector-interceptor.js","src/page-hook.js"],"run_at":"document_start","world":"MAIN"},
     {"matches":["https://seller.shopee.com.br/*","https://*.shopee.com.br/*"],"js":["src/page-hook.js"],"run_at":"document_start","world":"MAIN"},
-    {"matches":["https://shopee.com.br/*"],"js":["src/content.js","src/collector-content.js","src/competitor-picker-content.js","src/competitor-deep-content.js"],"run_at":"document_start","world":"ISOLATED"},
+    {"matches":["https://shopee.com.br/*"],"js":["src/content.js","src/collector-content.js","src/competitor-picker-content.js","src/competitor-picker-reload.js","src/competitor-deep-content.js"],"run_at":"document_start","world":"ISOLATED"},
     {"matches":["https://seller.shopee.com.br/*","https://*.shopee.com.br/*"],"js":["src/content.js","src/competitor-deep-content.js"],"run_at":"document_start","world":"ISOLATED"},
     {"matches":["https://shopeeos-real.vercel.app/*","https://shopeeos-real-greskgja.vercel.app/*"],"js":["src/gestor-bridge.js"],"run_at":"document_start","world":"ISOLATED","all_frames":true}
   ],
