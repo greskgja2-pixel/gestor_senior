@@ -26,19 +26,25 @@ test('Super Analise usa somente a interface reconstruida',()=>{
 
 test('Super Analise cobre o shell legado e ocupa a viewport inteira',()=>{
   assert.match(css,/\.screen\{[^}]*position:fixed[^}]*inset:0[^}]*z-index:2147483000/);
-  assert.match(css,/\.screen\{[^}]*grid-template-columns:210px\s+minmax\(0,1fr\)/);
+  assert.match(css,/\.screen\{[^}]*grid-template-columns:218px\s+minmax\(0,1fr\)/);
   assert.doesNotMatch(css,/\.screen\{[^}]*max-width\s*:/);
+  assert.match(css,/\.main\{[^}]*grid-column:2\/-1/);
   assert.match(flowCss,/\.screen\{[^}]*position:fixed[^}]*inset:0[^}]*z-index:2147483000/);
 });
 
-test('estrutura aprovada permanece horizontal no desktop',()=>{
-  assert.match(css,/\.workspace\{[^}]*grid-template-columns:minmax\(0,1fr\)\s+255px/);
-  assert.match(css,/\.compare\{[^}]*grid-template-columns:minmax\(0,1fr\)\s+44px\s+minmax\(0,1fr\)/);
-  assert.match(css,/\.productBar\{[^}]*grid-template-columns:72px\s+minmax\(250px,1\.25fr\)\s+minmax\(620px,2\.4fr\)/);
+test('mockup aprovado permanece horizontal no desktop',()=>{
+  assert.match(css,/\.workspace\{[^}]*grid-template-columns:minmax\(0,1fr\)\s+305px/);
+  assert.match(css,/\.compare\{[^}]*grid-template-columns:minmax\(0,1fr\)\s+58px\s+minmax\(0,1fr\)/);
+  assert.match(css,/\.productBar\{[^}]*grid-template-columns:90px\s+minmax\(280px,1\.25fr\)\s+minmax\(650px,2\.5fr\)/);
+  assert.match(css,/\.header\{[^}]*position:sticky/);
+  assert.match(css,/\.rightbar\{[^}]*position:sticky/);
 });
 
-test('fluxo visual obrigatorio continua presente',()=>{
-  for(const token of ['Título','Descrição','Imagens','Vídeo','Categoria Shopee','Preço & Concorrência','Atributos & Variações','Sugestão completa da IA','Aplicar sugestão','Por que a IA sugeriu essa alteração?'])assert.ok(view.includes(token),`faltando: ${token}`);
+test('fluxo visual obrigatorio continua presente no mockup',()=>{
+  for(const token of ['Título','Descrição','Imagens','Vídeo','Categoria Shopee','Preço & Concorrência','Atributos & Variações','Sugestão completa da IA','Aplicar sugestão','Por que a IA sugeriu essa alteração?','Nota geral do anúncio','Velocímetro da categoria','Melhorias detectadas na categoria','Resumo de impacto por categoria'])assert.ok(view.includes(token),`faltando: ${token}`);
+  assert.match(view,/Analisando anúncio da Shopee/);
+  assert.match(view,/Motor Senior conectado/);
+  assert.match(view,/Abrir Motor Senior/);
 });
 
 test('Motor Senior e somente motor e fluxo acontece no site',()=>{
