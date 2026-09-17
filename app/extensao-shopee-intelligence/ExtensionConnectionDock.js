@@ -7,7 +7,13 @@ export default function ExtensionConnectionDock(){
   const [connected,setConnected]=useState(false);
   useEffect(()=>{
     const check=()=>setConnected(document.documentElement?.dataset?.gsExtensionBridge==='ready');
-    check();const id=setInterval(check,900);return()=>clearInterval(id);
+    check();const id=setInterval(check,900);
+    const nav=document.querySelector('aside nav');
+    if(nav&&!nav.querySelector('[data-gs-super-analise-nav]')){
+      const a=document.createElement('a');a.href='/super-analise';a.dataset.gsSuperAnaliseNav='1';a.innerHTML='✦ <span>Super Análise</span>';a.style.cssText='display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;color:#24415f;text-decoration:none;font-size:12px;font-weight:700;background:#eef5ff;margin:2px 0';
+      const config=[...nav.querySelectorAll('a')].find(x=>/configura/i.test(x.textContent||''));nav.insertBefore(a,config||null);
+    }
+    return()=>clearInterval(id);
   },[]);
   return <div style={{position:'fixed',left:14,bottom:16,width:126,zIndex:50,background:'#16375e',border:'1px solid #31577e',borderRadius:12,padding:10,color:'#fff',boxShadow:'0 10px 30px rgba(11,34,60,.2)',fontFamily:'system-ui'}}>
     <div style={{display:'flex',alignItems:'center',gap:6,fontSize:10,fontWeight:800}}><span style={{width:8,height:8,borderRadius:99,background:connected?'#20ca78':'#ef5a5a',boxShadow:`0 0 0 3px ${connected?'rgba(32,202,120,.15)':'rgba(239,90,90,.15)'}`}}/>Extensão</div>
