@@ -53,9 +53,20 @@ function findSidebarNavs(){
 }
 
 function setLinkContent(a,item){
-  const span=a.querySelector('span');
-  if(span){if(span.textContent!==item.label)span.textContent=item.label;}
-  else{const desired=`${item.icon} ${item.label}`;if(a.textContent!==desired)a.textContent=desired;}
+  // Reconstrói o conteúdo interno para impedir que cada página use um glifo,
+  // tamanho ou espaçamento diferente. O elemento <a> é preservado para não
+  // quebrar a navegação do Next; apenas ícone e rótulo viram canônicos.
+  let icon=a.querySelector('[data-gs-menu-icon]');
+  let label=a.querySelector('[data-gs-menu-label]');
+  if(!icon||!label){
+    icon=document.createElement('span');
+    label=document.createElement('span');
+    icon.dataset.gsMenuIcon='true';
+    label.dataset.gsMenuLabel='true';
+    a.replaceChildren(icon,label);
+  }
+  if(icon.textContent!==item.icon)icon.textContent=item.icon;
+  if(label.textContent!==item.label)label.textContent=item.label;
 }
 
 function normalizeNav(nav){
