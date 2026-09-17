@@ -1,3 +1,22 @@
+/*
+ * TOKENS VISUAIS DO TEMA ATUAL DO GESTOR SENIOR.
+ * Cards auxiliares (Motor Senior, Gemini etc.) devem consumir estas variaveis
+ * em vez de trocar para um tema azul/vermelho proprio durante o fluxo.
+ */
+:root{
+  --gs-theme-card:#ffffff;
+  --gs-theme-card-soft:#f7fbff;
+  --gs-theme-border:#d9e6f2;
+  --gs-theme-text:#294664;
+  --gs-theme-muted:#71839a;
+  --gs-theme-control:#ffffff;
+  --gs-theme-control-border:#cfdae7;
+  --gs-theme-control-text:#294664;
+  --gs-theme-shadow:0 8px 24px rgba(28,57,95,.10);
+  --gs-theme-success:#28c982;
+  --gs-theme-error:#c75656;
+}
+
 /* Mantem o status do Motor Senior no mesmo tema branco do Gestor em todas as etapas. */
 aside[class*="_sidebar__"] nav > div[class*="_extCard__"],
 aside[class*="_sidebar__"] > div[class*="_extCard__"],
@@ -5,9 +24,9 @@ aside[class*="_sidebar__"] > div[class*="_engineCard__"]{
   margin:16px 0 0!important;
   padding:12px!important;
   border-radius:12px!important;
-  border:1px solid #d9e6f2!important;
-  background:#f7fbff!important;
-  color:#294664!important;
+  border:1px solid var(--gs-theme-border)!important;
+  background:var(--gs-theme-card-soft)!important;
+  color:var(--gs-theme-text)!important;
   box-shadow:none!important;
 }
 
@@ -20,7 +39,7 @@ aside[class*="_sidebar__"] div[class*="_engineCard__"] > div{
 
 aside[class*="_sidebar__"] div[class*="_extCard__"] b,
 aside[class*="_sidebar__"] div[class*="_engineCard__"] b{
-  color:#294664!important;
+  color:var(--gs-theme-text)!important;
   font-size:12px!important;
   font-weight:800!important;
 }
@@ -29,17 +48,58 @@ aside[class*="_sidebar__"] div[class*="_extCard__"] small,
 aside[class*="_sidebar__"] div[class*="_engineCard__"] small{
   display:block!important;
   margin-top:6px!important;
-  color:#71839a!important;
+  color:var(--gs-theme-muted)!important;
   font-size:9px!important;
   line-height:1.45!important;
 }
 
 aside[class*="_sidebar__"] div[class*="_extCard__"]:has(i[class*="_online__"]) small,
 aside[class*="_sidebar__"] div[class*="_engineCard__"]:has(i) strong{
-  color:#28c982!important;
+  color:var(--gs-theme-success)!important;
 }
 
-/* O Motor Senior e somente o motor da coleta. Nao abrir um painel azul dentro do fluxo. */
+/* O botao continua disponivel, mas herda o tema atual; nunca vira um bloco azul separado. */
 aside[class*="_sidebar__"] div[class*="_extCard__"] > button{
-  display:none!important;
+  display:block!important;
+  width:100%!important;
+  margin-top:9px!important;
+  padding:8px 10px!important;
+  border:1px solid var(--gs-theme-control-border)!important;
+  border-radius:8px!important;
+  background:var(--gs-theme-control)!important;
+  color:var(--gs-theme-control-text)!important;
+  box-shadow:none!important;
+  font-size:10px!important;
+  font-weight:800!important;
+  cursor:pointer!important;
+}
+aside[class*="_sidebar__"] div[class*="_extCard__"] > button:hover{
+  background:var(--gs-theme-card-soft)!important;
+}
+
+/* Cards flutuantes de processo (ex.: Gemini) tambem seguem o mesmo tema. */
+.gs-theme-floating-card{
+  border:1px solid var(--gs-theme-border)!important;
+  background:var(--gs-theme-card)!important;
+  color:var(--gs-theme-text)!important;
+  box-shadow:var(--gs-theme-shadow)!important;
+}
+.gs-theme-floating-card[data-state="error"]{
+  border-color:var(--gs-theme-border)!important;
+  background:var(--gs-theme-card)!important;
+}
+.gs-theme-floating-card .gs-theme-muted{
+  color:var(--gs-theme-muted)!important;
+}
+.gs-theme-floating-card .gs-theme-error{
+  color:var(--gs-theme-error)!important;
+}
+.gs-theme-floating-card .gs-theme-control{
+  border:1px solid var(--gs-theme-control-border)!important;
+  background:var(--gs-theme-control)!important;
+  color:var(--gs-theme-control-text)!important;
+  box-shadow:none!important;
+}
+.gs-theme-floating-card .gs-theme-control:hover{
+  background:var(--gs-theme-card-soft)!important;
 }
