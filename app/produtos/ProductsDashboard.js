@@ -46,7 +46,17 @@ export default function ProductsDashboard({items=[],source='cache',syncedAt=null
     catch(e){setRefreshError(String(e?.message||e));}
     finally{setRefreshing(false);}
   }
-  function sendToAnalysis(item){window.open(`https://shopee.com.br/product/${shopId}/${item.itemId}?gs_super_analise=1&gs_source=gestor`,'_blank','noopener,noreferrer');}
+
+  function sendToAnalysis(item){
+    const shopeeUrl=`https://shopee.com.br/product/${shopId}/${item.itemId}`;
+    const q=new URLSearchParams({
+      start_url:shopeeUrl,
+      start_item_id:String(item.itemId||''),
+      start_title:String(item.title||''),
+      start_image:String(item.image||'')
+    });
+    router.push(`/super-analise?${q.toString()}`);
+  }
 
   const from=filtered.length?start+1:0,to=Math.min(start+pageSize,filtered.length);
   return <div className={shell.shell}>
