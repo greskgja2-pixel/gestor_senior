@@ -30,8 +30,8 @@
         (document.head || document.documentElement).appendChild(marker);
       }
       marker.setAttribute('content', version || 'ready');
-      window.dispatchEvent(new CustomEvent('gs-extension-ready', { detail: { version } }));
-      window.postMessage({ source: 'GS_EXTENSION', type: 'GS_EXTENSION_READY', version }, location.origin);
+      window.dispatchEvent(new CustomEvent('gs-extension-ready', { detail: { version, name:'Motor Senior' } }));
+      window.postMessage({ source: 'GS_EXTENSION', type: 'GS_EXTENSION_READY', version, name:'Motor Senior' }, location.origin);
     } catch {}
   }
 
@@ -50,7 +50,7 @@
     if (!requestId || !action) return;
     const enginePort = getPort();
     if (!enginePort) {
-      window.postMessage({ source: 'GS_EXTENSION', type: 'GS_ENGINE_RESPONSE', requestId, result: { ok:false, error:'Motor da extensão indisponível.' } }, location.origin);
+      window.postMessage({ source: 'GS_EXTENSION', type: 'GS_ENGINE_RESPONSE', requestId, result: { ok:false, error:'Motor Senior indisponível.' } }, location.origin);
       return;
     }
     try { enginePort.postMessage({ requestId, action, payload: event.data.payload || {} }); }
