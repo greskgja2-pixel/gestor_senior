@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Gestor Sênior — Shopee Intelligence",
-  "version": "0.13.2",
-  "version_name": "0.13.2 - Motor da Super Análise no Gestor web",
+  "version": "0.13.3",
+  "version_name": "0.13.3 - Envio direto para análise guiada no Gestor",
   "minimum_chrome_version": "114",
   "description": "Motor técnico do Gestor Sênior para coleta da Shopee, concorrentes, Ads, custos e sincronização com a Super Análise exibida no site.",
   "permissions": ["storage", "unlimitedStorage", "tabs", "alarms", "notifications", "sidePanel", "scripting", "downloads", "clipboardWrite"],
@@ -14,7 +14,7 @@
   "content_scripts": [
     {"matches":["https://shopee.com.br/*"],"js":["src/collector-interceptor.js","src/page-hook.js"],"run_at":"document_start","world":"MAIN"},
     {"matches":["https://seller.shopee.com.br/*","https://*.shopee.com.br/*"],"js":["src/page-hook.js"],"run_at":"document_start","world":"MAIN"},
-    {"matches":["https://shopee.com.br/*"],"js":["src/content.js","src/collector-content.js","src/competitor-picker-content.js","src/competitor-picker-reload.js","src/competitor-deep-content.js"],"run_at":"document_start","world":"ISOLATED"},
+    {"matches":["https://shopee.com.br/*"],"js":["src/gestor-guided-redirect.js","src/content.js","src/collector-content.js","src/competitor-picker-content.js","src/competitor-picker-reload.js","src/competitor-deep-content.js"],"run_at":"document_start","world":"ISOLATED"},
     {"matches":["https://seller.shopee.com.br/*","https://*.shopee.com.br/*"],"js":["src/content.js","src/competitor-deep-content.js"],"run_at":"document_start","world":"ISOLATED"},
     {"matches":["https://shopeeos-real.vercel.app/*","https://shopeeos-real-greskgja.vercel.app/*"],"js":["src/gestor-bridge.js"],"run_at":"document_start","world":"ISOLATED","all_frames":true}
   ],
