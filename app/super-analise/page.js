@@ -12,9 +12,11 @@ export default async function SuperAnalisePage({searchParams}){
 
   const requestedReport=String(params?.report_id||'').trim();
   const requestedItem=String(params?.item_id||'').trim();
+  const startUrl=String(params?.start_url||'').trim();
 
-  // A Super Análise agora começa no site. A extensão funciona apenas como motor.
-  if(!requestedReport&&!requestedItem)return <WebAuditFlow/>;
+  // A Super Análise começa no site. A extensão funciona apenas como motor.
+  // Quando o usuário vem de "Enviar para Super Análise", start_url inicia a coleta guiada automaticamente.
+  if(!requestedReport&&!requestedItem)return <WebAuditFlow initialUrl={startUrl}/>;
 
   const db=supabaseAdmin();
   const {data:reports,error}=await db.from('extension_analysis_reports')
