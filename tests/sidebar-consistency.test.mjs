@@ -27,8 +27,8 @@ test('Super Analise nao pode voltar para sidebar azul ou largura 210\/185',()=>{
   assert.match(css,/grid-template-columns:var\(--gs-sidebar-width\) minmax\(0,1fr\)!important/);
 });
 
-test('ordem das nove paginas do menu e global e imutavel',()=>{
-  const order=['Dashboard','Super Anúncio','Super Análise','Produtos','Concorrentes','Shopee Ads','Reanálises','Prioridades','Relatórios'];
+test('ordem das nove paginas do menu acompanha o fluxo operacional e e imutavel',()=>{
+  const order=['Dashboard','Produtos','Super Análise','Super Anúncio','Concorrentes','Shopee Ads','Reanálises','Prioridades','Relatórios'];
   let last=-1;
   for(const label of order){
     const pos=guard.indexOf(`label:'${label}'`);
@@ -37,5 +37,6 @@ test('ordem das nove paginas do menu e global e imutavel',()=>{
   }
   assert.match(guard,/export const GS_MENU_ORDER=/);
   assert.match(guard,/nav\.appendChild\(fragment\)/);
+  assert.match(guard,/Motor Senior/);
   assert.match(css,/data-gs-active="true"/);
 });
