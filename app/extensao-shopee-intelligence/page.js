@@ -23,5 +23,7 @@ export default async function ExtensionIntelligencePage({searchParams}){
   for(const r of reports||[]){const k=String(r.item_id);if(!grouped.has(k))grouped.set(k,[]);grouped.get(k).push(r);}
   const scheduleMap=new Map((schedules||[]).map(s=>[String(s.item_id),s]));
   const items=[...grouped.entries()].map(([itemId,history])=>({itemId,history,latest:history[0],previous:history[1]||null,schedule:scheduleMap.get(itemId)||null})).sort((a,b)=>new Date(b.latest?.analyzed_at||0)-new Date(a.latest?.analyzed_at||0));
-  return <SuperAnuncioMockup items={items} shopName={shop.shop_name||''}/>;
+  const initialItemId=String(params?.item_id||'').trim();
+  const initialTab=String(params?.tab||'overview').trim();
+  return <SuperAnuncioMockup items={items} shopName={shop.shop_name||''} initialItemId={initialItemId} initialTab={initialTab}/>;
 }
