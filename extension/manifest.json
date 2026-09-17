@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Motor Senior",
-  "version": "0.13.5",
-  "version_name": "0.13.5 - Compatibilidade com fluxo corrigido da Super Análise",
+  "version": "0.13.6",
+  "version_name": "0.13.6 - Coleta profunda de 1 a 3 concorrentes antes do retorno",
   "minimum_chrome_version": "114",
   "description": "Motor técnico do Gestor Sênior para coleta da Shopee, concorrentes, Ads, custos e sincronização com a Super Análise exibida no site.",
   "permissions": ["storage", "unlimitedStorage", "tabs", "alarms", "notifications", "sidePanel", "scripting", "downloads", "clipboardWrite"],
