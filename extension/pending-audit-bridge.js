@@ -1,4 +1,4 @@
-import './src/competitor-ai-review.js';
+import './src/analysis-handoff-flow.js';
 
 (() => {
   'use strict';
@@ -40,8 +40,6 @@ import './src/competitor-ai-review.js';
     consume(changes[KEY].newValue).catch(()=>{});
   });
 
-  // O guided-audit.js já consome pedidos existentes ao abrir o painel.
-  // Este segundo passe cobre corridas de carregamento e pedidos que chegam com o painel já aberto.
   setTimeout(()=>{
     chrome.storage.local.get(KEY).then(x=>consume(x[KEY])).catch(()=>{});
   },400);
