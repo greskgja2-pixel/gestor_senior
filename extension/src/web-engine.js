@@ -22,6 +22,7 @@ function productPrice(p){return n(p?.price_info?.[0]?.current_price??p?.price_in
 function imageList(p){return p?.image?.image_url_list||p?.imageUrls||[];}
 function campaignForItem(ads,itemId){const v=ads?.v7||ads?.v5||ads||{};return(v.campaigns||[]).find(c=>String(c.itemId??c.item_id)===String(itemId))||null;}
 function searchQuery(title=''){const noise=new Set(['tema','folha','folhas','a4','melhor','shopee','oficial','original','promoção','promocao','frete','grátis','gratis']);return String(title).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9 ]/g,' ').split(/\s+/).filter(w=>w.length>1&&!noise.has(w.toLowerCase())).slice(0,7).join(' ');}
+function grossMargin(price,cost){const p=n(price),c=n(cost);if(p==null||p<=0||c==null)return{profit:null,marginPct:null};const profit=p-c;return{profit,marginPct:(profit/p)*100};}
 
 async function collectProduct(url){
   if(!/^https:\/\/(?:www\.)?shopee\.com\.br\//i.test(String(url||'')))throw new Error('Cole um link válido de anúncio da Shopee Brasil.');
@@ -42,7 +43,8 @@ async function collectProduct(url){
     const allVariationCosts=models.length>0&&variationCosts.every(x=>x.cost!=null&&x.cost>=0);
     const product={...dom,url:final.url||url,itemId,shopId:String(ids.shopId||dom.shopId||''),title:cached.item_name||dom.title,description:cached.description||dom.description||'',categoryId,category:categoryName(categories,categoryId),imageUrls:imgs.length?imgs:(dom.imageUrls||[]),imageUrl:imgs[0]||dom.imageUrl||null,imageCount:imgs.length||dom.imageCount||0,hasVideo:Boolean(dom.hasVideo||cached.video_info),rating:n(publicRow?.rating)??n(dom.rating),reviewCount:n(publicRow?.reviewCount)??n(dom.reviewCount),sold:n(dom.sold)??n(publicRow?.historicalSold),stock:n(publicRow?.stock)??n(dom.stock),attributesCount:Array.isArray(cached.attribute_list)?cached.attribute_list.length:n(dom.attributesCount)??0,variationCount:models.length,price:productPrice(cached)??n(publicRow?.price)??n(dom.price),priceBeforeDiscount:n(publicRow?.priceBeforeDiscount)??n(cached.price_info?.[0]?.original_price)??n(dom.priceBeforeDiscount)};
     const campaign=campaignForItem(adsRaw,itemId);
-    return{product,models,ads:campaign?{roas:n(campaign.roas),targetRoas:n(campaign.targetRoas),spend:n(campaign.spend),gmv:n(campaign.gmv),ctr:n(campaign.ctr),orders:n(campaign.orders),campaignId:campaign.campaignId}:null,baseCost:n(base?.cost),variationCosts,needsBaseCost:!allVariationCosts,adsTimedOut:adsRaw==null};
+    const campaignSpend=n(campaign?.spend),campaignOrders=n(campaign?.orders),campaignCostPerSale=n(campaign?.costPerSale??campaign?.cost_per_sale??campaign?.cpa)??(campaignSpend!=null&&campaignOrders>0?campaignSpend/campaignOrders:null);
+    return{product,models,ads:campaign?{roas:n(campaign.roas),targetRoas:n(campaign.targetRoas),spend:campaignSpend,gmv:n(campaign.gmv),costPerSale:campaignCostPerSale,ctr:n(campaign.ctr),orders:campaignOrders,campaignId:campaign.campaignId}:null,baseCost:n(base?.cost),variationCosts,needsBaseCost:!allVariationCosts,adsTimedOut:adsRaw==null};
   }finally{chrome.tabs.remove(tab.id).catch(()=>{});}
 }
 
@@ -81,13 +83,15 @@ async function deepCompetitor(c){
 async function analyzeAll(payload={}){
   const p=payload.product;if(!p?.itemId)throw new Error('Produto não carregado.');const selected=Array.isArray(payload.competitors)?payload.competitors.slice(0,3):[];if(selected.length!==3)throw new Error('Selecione exatamente 3 concorrentes.');
   const deep=[];for(const c of selected)deep.push(await deepCompetitor(c));
-  const ads={roas:n(payload.ads?.roas),targetRoas:n(payload.ads?.targetRoas),spend:n(payload.ads?.spend),gmv:n(payload.ads?.gmv),ctr:n(payload.ads?.ctr),orders:n(payload.ads?.orders)};
-  const baseCost=n(payload.baseCost),variationCosts=Array.isArray(payload.variationCosts)?payload.variationCosts:[];
-  const finance=baseCost!=null&&n(p.price)!=null?computeProfit({price:n(p.price),productCost:baseCost,adsCostPerSale:ads.orders&&ads.spend!=null?ads.spend/ads.orders:0,...DEFAULT_FINANCE}):null;
-  const analysis=analyze({url:p.url,title:p.title,description:p.description,category:p.category,price:p.price,adsActive:ads.roas!=null||ads.spend!=null,roas7d:ads.roas,roasTarget:ads.targetRoas,adsSpend7d:ads.spend,productCost:baseCost,product:p,competitors:deep});
-  const metrics={visitors:n(p.views??p.viewCount??p.view_count),sales:ads.orders,gmv:ads.gmv,spend:ads.spend,roas:ads.roas,targetRoas:ads.targetRoas,ctr:ads.ctr,sold:n(p.sold),price:n(p.price),marginR:finance?.valid?finance.profit:null,marginPct:finance?.valid?finance.marginPct:null};
+  const ads={roas:n(payload.ads?.roas),targetRoas:n(payload.ads?.targetRoas),spend:n(payload.ads?.spend),gmv:n(payload.ads?.gmv),costPerSale:n(payload.ads?.costPerSale??payload.ads?.cpa),ctr:n(payload.ads?.ctr),orders:n(payload.ads?.orders)};
+  const baseCost=n(payload.baseCost),models=Array.isArray(payload.models)?payload.models:[],variationCosts=Array.isArray(payload.variationCosts)?payload.variationCosts:[];
+  const adsCostPerSale=ads.costPerSale??(ads.orders&&ads.spend!=null?ads.spend/ads.orders:0);
+  const finance=baseCost!=null&&n(p.price)!=null?computeProfit({price:n(p.price),productCost:baseCost,adsCostPerSale,...DEFAULT_FINANCE}):null;
+  const variationMargins=models.map(m=>{const row=variationCosts.find(x=>String(x.modelId)===String(m.modelId));const calc=grossMargin(m.price,row?.cost);return{modelId:m.modelId,name:m.name,price:n(m.price),cost:n(row?.cost),profit:calc.profit,marginPct:calc.marginPct};});
+  const analysis=analyze({url:p.url,title:p.title,description:p.description,category:p.category,price:p.price,adsActive:ads.roas!=null||ads.spend!=null,roas7d:ads.roas,roasTarget:ads.targetRoas,adsSpend7d:ads.spend,productCost:baseCost,product:{...p,models,variationCosts,variationMargins},competitors:deep});
+  const metrics={visitors:n(p.views??p.viewCount??p.view_count),sales:ads.orders,gmv:ads.gmv,spend:ads.spend,costPerSale:ads.costPerSale,roas:ads.roas,targetRoas:ads.targetRoas,ctr:ads.ctr,sold:n(p.sold),price:n(p.price),marginR:finance?.valid?finance.profit:null,marginPct:finance?.valid?finance.marginPct:null};
   const next=new Date(Date.now()+10*86400000);
-  const reportPayload={item_id:Number(p.itemId),analyzed_at:new Date().toISOString(),next_reanalysis_at:next.toISOString(),frequency_days:10,mode:'approve',extension_version:'0.13.2',source:'gestor-web-extension-engine',objective:payload.objective||'',situation:payload.situation||'',bottleneck:payload.bottleneck||'',score:analysis.score,product_snapshot:{...p,variationCosts},ads_snapshot:{...payload.ads,manual:ads},finance_snapshot:{productCost:baseCost,profit:finance?.valid?finance.profit:null,marginPct:finance?.valid?finance.marginPct:null,breakEvenRoas:finance?.valid?finance.breakEvenRoas:null},competitors:deep,report:{score:analysis.score,summary:analysis.summary,dimensions:analysis.dimensions,lessons:analysis.lessons,priceInsight:analysis.priceInsight,roasStrategy:analysis.roasStrategy},suggestions:{},metrics,schedule_settings:{objective:payload.objective||'',situation:payload.situation||'',bottleneck:payload.bottleneck||''}};
+  const reportPayload={item_id:Number(p.itemId),analyzed_at:new Date().toISOString(),next_reanalysis_at:next.toISOString(),frequency_days:10,mode:'approve',extension_version:chrome.runtime.getManifest().version,source:'motor-senior',objective:payload.objective||'',situation:payload.situation||'',bottleneck:payload.bottleneck||'',score:analysis.score,product_snapshot:{...p,models,variationCosts,variationMargins},ads_snapshot:{...payload.ads,manual:ads},finance_snapshot:{productCost:baseCost,profit:finance?.valid?finance.profit:null,marginPct:finance?.valid?finance.marginPct:null,breakEvenRoas:finance?.valid?finance.breakEvenRoas:null,variationMargins},competitors:deep,report:{score:analysis.score,summary:analysis.summary,dimensions:analysis.dimensions,lessons:analysis.lessons,priceInsight:analysis.priceInsight,roasStrategy:analysis.roasStrategy},suggestions:{},metrics,schedule_settings:{objective:payload.objective||'',situation:payload.situation||'',bottleneck:payload.bottleneck||''}};
   const saved=await gestorApi.saveAnalysisReport(reportPayload);return{ok:true,reportId:saved?.report?.id||saved?.id||null,itemId:String(p.itemId),score:analysis.score,competitors:deep};
 }
 
@@ -100,7 +104,7 @@ async function handleAction(action,payload={}){
     case'pickerResult':return{ok:true,data:await pickerResult(payload||{})};
     case'reloadCompetitorPicker':return{ok:true,data:await reloadPicker(payload||{})};
     case'analyzeAll':return{ok:true,data:await analyzeAll(payload||{})};
-    default:throw new Error('Ação do motor não reconhecida.');
+    default:throw new Error('Ação do Motor Senior não reconhecida.');
   }
 }
 
