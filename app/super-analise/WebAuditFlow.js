@@ -24,13 +24,13 @@ function engine(action,payload={},ms=30000){
 function Help({children}){return <span className={styles.help} title={children}>?</span>}
 function Step({n:step,current,label}){const done=current>step,active=current===step;return <div className={`${styles.step} ${done?styles.done:''} ${active?styles.active:''}`}><span>{done?'✓':step}</span><small>{label}</small></div>}
 
-export default function WebAuditFlow(){
+export default function WebAuditFlow({initialUrl=''}){
   const [connected,setConnected]=useState(false),[version,setVersion]=useState('');
-  const [step,setStep]=useState(1),[url,setUrl]=useState(''),[loading,setLoading]=useState(false),[message,setMessage]=useState('');
+  const [step,setStep]=useState(1),[url,setUrl]=useState(initialUrl||''),[loading,setLoading]=useState(false),[message,setMessage]=useState(initialUrl?'Preparando a análise guiada deste produto…':'');
   const [bundle,setBundle]=useState(null),[objective,setObjective]=useState('Aumentar vendas'),[situation,setSituation]=useState('Vende bem'),[bottleneck,setBottleneck]=useState('Não sei');
   const [ads,setAds]=useState({roas:'',targetRoas:'',spend:''}),[baseCost,setBaseCost]=useState(''),[variationCosts,setVariationCosts]=useState([]);
   const [picker,setPicker]=useState(null),[competitors,setCompetitors]=useState([]),[analyzing,setAnalyzing]=useState(false);
-  const pollRef=useRef(null);
+  const pollRef=useRef(null),autoStartedRef=useRef(false);
 
   useEffect(()=>{
     const ready=e=>{if(e.source===window&&e.data?.source==='GS_EXTENSION'&&e.data?.type==='GS_EXTENSION_READY'){setConnected(true);setVersion(e.data.version||'');}};
@@ -40,15 +40,23 @@ export default function WebAuditFlow(){
     return()=>{clearInterval(ping);clearInterval(stale);clearInterval(pollRef.current);window.removeEventListener('message',ready);};
   },[]);
 
+  useEffect(()=>{
+    if(!initialUrl||!connected||autoStartedRef.current)return;
+    autoStartedRef.current=true;
+    loadProduct(initialUrl);
+  },[connected,initialUrl]);
+
   const needsBase=bundle?.needsBaseCost!==false;
   const allVariationCosts=useMemo(()=>bundle?.models?.length>0&&bundle.models.every(m=>variationCosts.find(x=>String(x.modelId)===String(m.modelId))?.cost!==''&&n(variationCosts.find(x=>String(x.modelId)===String(m.modelId))?.cost)!=null),[bundle,variationCosts]);
 
-  async function loadProduct(){
+  async function loadProduct(targetUrl=url){
+    const chosen=String(targetUrl||url||'').trim();
+    if(!chosen)return setMessage('Informe o link do anúncio da Shopee.');
     if(!connected)return setMessage('A extensão-motor não foi detectada. Recarregue a página depois de instalar/ativar a versão nova.');
-    setLoading(true);setMessage('Abrindo o anúncio em segundo plano e coletando os dados da Shopee…');
+    setUrl(chosen);setLoading(true);setMessage('Abrindo o anúncio em segundo plano e coletando os dados da Shopee…');
     try{
-      const data=await engine('collectProduct',{url},45000);setBundle(data);setAds({roas:data.ads?.roas??'',targetRoas:data.ads?.targetRoas??'',spend:data.ads?.spend??''});setBaseCost(data.baseCost??'');setVariationCosts((data.variationCosts||[]).map(x=>({...x,cost:x.cost??''})));setStep(2);setMessage(data.adsTimedOut?'Anúncio carregado. Os Ads demoraram para responder; os campos ficaram liberados para edição manual.':'Anúncio carregado. Confira os dados antes de continuar.');
-    }catch(e){setMessage(String(e?.message||e));}finally{setLoading(false);}
+      const data=await engine('collectProduct',{url:chosen},45000);setBundle(data);setAds({roas:data.ads?.roas??'',targetRoas:data.ads?.targetRoas??'',spend:data.ads?.spend??''});setBaseCost(data.baseCost??'');setVariationCosts((data.variationCosts||[]).map(x=>({...x,cost:x.cost??''})));setStep(2);setMessage(data.adsTimedOut?'Anúncio carregado. Os Ads demoraram para responder; os campos ficaram liberados para edição manual.':'Anúncio carregado. Confira os dados, escolha objetivo/situação/gargalo e continue a análise guiada.');
+    }catch(e){setMessage(String(e?.message||e));autoStartedRef.current=false;}finally{setLoading(false);}
   }
 
   async function saveAndContinue(){
@@ -81,7 +89,7 @@ export default function WebAuditFlow(){
     }catch(e){setMessage(String(e?.message||e));setAnalyzing(false);}
   }
 
-  function reset(){clearInterval(pollRef.current);setStep(1);setUrl('');setBundle(null);setAds({roas:'',targetRoas:'',spend:''});setBaseCost('');setVariationCosts([]);setCompetitors([]);setPicker(null);setMessage('');setAnalyzing(false);}
+  function reset(){clearInterval(pollRef.current);autoStartedRef.current=true;setStep(1);setUrl('');setBundle(null);setAds({roas:'',targetRoas:'',spend:''});setBaseCost('');setVariationCosts([]);setCompetitors([]);setPicker(null);setMessage('');setAnalyzing(false);}
 
   const p=bundle?.product;
   return <div className={styles.screen}>
@@ -91,11 +99,11 @@ export default function WebAuditFlow(){
       <div className={`${styles.engineCard} ${connected?styles.engineOn:styles.engineOff}`}><div><i/> <b>Motor da extensão</b></div><strong>{connected?`Conectado${version?` · v${version}`:''}`:'Desconectado'}</strong><small>A interface fica no Gestor. A extensão só coleta e executa tarefas na Shopee.</small></div>
     </aside>
     <main className={styles.main}>
-      <header className={styles.header}><div><h1>✦ Super Análise</h1><p>Coleta no site, execução pela extensão-motor, análise completa no Gestor.</p></div><button onClick={reset}>Recomeçar</button></header>
+      <header className={styles.header}><div><h1>✦ Super Análise</h1><p>Análise guiada no Gestor; a extensão trabalha apenas como motor de coleta.</p></div><button onClick={reset}>Recomeçar</button></header>
       <section className={styles.progress}><Step n={1} current={step} label="Anúncio"/><Step n={2} current={step} label="Contexto, Ads e custos"/><Step n={3} current={step} label="3 concorrentes"/><Step n={4} current={step} label="Analisar tudo"/></section>
       {message&&<div className={styles.message}>{message}</div>}
 
-      {step===1&&<section className={styles.card}><div className={styles.cardHead}><div><span className={styles.num}>1</span><h2>Carregar anúncio</h2></div><Help>A extensão abre o anúncio em segundo plano para ler os dados reais da Shopee sem você sair do Gestor.</Help></div><p>Cole o link do anúncio que será analisado.</p><div className={styles.row}><input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://shopee.com.br/..."/><button className={styles.primary} disabled={loading||!url.trim()} onClick={loadProduct}>{loading?'Coletando…':'Carregar anúncio'}</button></div></section>}
+      {step===1&&<section className={styles.card}><div className={styles.cardHead}><div><span className={styles.num}>1</span><h2>Carregar anúncio</h2></div><Help>A extensão abre o anúncio em segundo plano para ler os dados reais da Shopee sem você sair do Gestor.</Help></div><p>Cole o link do anúncio que será analisado.</p><div className={styles.row}><input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://shopee.com.br/..."/><button className={styles.primary} disabled={loading||!url.trim()} onClick={()=>loadProduct()}>{loading?'Coletando…':'Carregar anúncio'}</button></div></section>}
 
       {step===2&&<><section className={styles.productCard}>{p?.imageUrl?<img src={p.imageUrl} alt=""/>:<div className={styles.noImg}/>}<div><b>{p?.title}</b><small>ID {p?.itemId} · {p?.category}</small></div><div className={styles.metrics}><span><small>Preço</small><b>{money(p?.price)}</b></span><span><small>Vendidos</small><b>{p?.sold??'—'}</b></span><span><small>Avaliação</small><b>{p?.rating??'—'} ★</b></span><span><small>Fotos</small><b>{p?.imageCount??'—'}</b></span><span><small>Variações</small><b>{p?.variationCount??0}</b></span></div></section><section className={styles.card}><div className={styles.cardHead}><div><span className={styles.num}>2</span><h2>Objetivo, situação e gargalo</h2></div><Help>Essas respostas orientam o Gemini para não sugerir mudanças que contrariem sua meta ou prejudiquem a margem.</Help></div><div className={styles.three}><label>Objetivo principal<select value={objective} onChange={e=>setObjective(e.target.value)}><option>Aumentar vendas</option><option>Aumentar lucro</option><option>Melhorar ROAS</option><option>Ganhar posicionamento</option><option>Melhorar conversão</option></select></label><label>Situação atual<select value={situation} onChange={e=>setSituation(e.target.value)}><option>Vende bem</option><option>Vende pouco</option><option>Não vende</option><option>Está começando</option><option>Oscila muito</option></select></label><label>Principal gargalo<select value={bottleneck} onChange={e=>setBottleneck(e.target.value)}><option>Não sei</option><option>Poucos cliques</option><option>Pouca conversão</option><option>Preço</option><option>Margem</option><option>ROAS</option><option>Conteúdo do anúncio</option></select></label></div></section><div className={styles.twoCols}><section className={styles.card}><div className={styles.cardHead}><h2>Shopee Ads — últimos 7 dias</h2><Help>Os valores são buscados automaticamente. Se a Shopee não responder, você pode preencher manualmente.</Help></div><div className={styles.three}><label>ROAS<input type="number" step="0.01" value={ads.roas} onChange={e=>setAds({...ads,roas:e.target.value})}/></label><label>ROAS alvo<input type="number" step="0.01" value={ads.targetRoas} onChange={e=>setAds({...ads,targetRoas:e.target.value})}/></label><label>Gasto Ads R$<input type="number" step="0.01" value={ads.spend} onChange={e=>setAds({...ads,spend:e.target.value})}/></label></div></section><section className={styles.card}><div className={styles.cardHead}><h2>Custos</h2><Help>Quando todas as variações já têm custo, o Gestor não exige um custo unitário padrão.</Help></div>{needsBase&&!allVariationCosts&&<label>Custo unitário padrão R$<input type="number" min="0" step="0.01" value={baseCost} onChange={e=>setBaseCost(e.target.value)} placeholder="Ex.: 12,50"/></label>}{bundle.models?.length>0?<div className={styles.variations}><b>Custos por variação</b>{bundle.models.map(m=>{const row=variationCosts.find(x=>String(x.modelId)===String(m.modelId))||{modelId:m.modelId,name:m.name,cost:''};return <div key={m.modelId}><span><strong>{m.name}</strong><small>{m.sku||'Sem SKU'} · preço {money(m.price)}</small></span><input type="number" min="0" step="0.01" value={row.cost} onChange={e=>setVariationCosts(v=>v.map(x=>String(x.modelId)===String(m.modelId)?{...x,cost:e.target.value}:x))}/></div>})}</div>:<small className={styles.muted}>Este anúncio não possui variações.</small>}</section></div><div className={styles.actions}><button onClick={()=>setStep(1)}>‹ Voltar</button><button className={styles.primary} disabled={loading} onClick={saveAndContinue}>{loading?'Salvando…':'Continuar ›'}</button></div></>}
 
