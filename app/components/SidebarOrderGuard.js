@@ -60,6 +60,7 @@ function setLinkContent(a,item){
 
 function normalizeNav(nav){
   const existing=[...nav.querySelectorAll(':scope > a')];
+  const utility=[...nav.children].filter(el=>el.tagName!=='A');
   const byLabel=new Map();
   for(const a of existing){const label=labelOf(a);if(label&&!byLabel.has(label))byLabel.set(label,a);}
   const active=activeLabel();
@@ -74,6 +75,8 @@ function normalizeNav(nav){
   const current=[...nav.querySelectorAll(':scope > a')];
   const alreadyCorrect=current.length===desired.length&&desired.every((a,i)=>current[i]===a);
   if(!alreadyCorrect){const fragment=document.createDocumentFragment();desired.forEach(a=>fragment.appendChild(a));nav.appendChild(fragment);}
+  // Cards de status/controles ficam sempre abaixo das 9 páginas e nunca quebram a ordem visual.
+  utility.forEach(el=>nav.appendChild(el));
   nav.dataset.gsMenuReady='true';
 }
 
