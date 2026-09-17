@@ -28,16 +28,18 @@
   window.addEventListener('pagehide', () => clearInterval(heartbeat), { once: true });
 
   window.addEventListener('message', event => {
-    if (event.source !== window || event.data?.source !== 'GS_GESTOR' || event.data?.type !== 'GS_EXTENSION_PING') return;
-    announce();
-  });
-
-  document.addEventListener('click', event => {
-    const target = event.target instanceof Element ? event.target : null;
-    const button = target?.closest?.('[data-gs-super-analysis]');
-    if (!button) return;
+    if (event.source !== window || event.data?.source !== 'GS_GESTOR') return;
+    if (event.data?.type === 'GS_EXTENSION_PING') return announce();
+    if (event.data?.type !== 'GS_ENGINE_REQUEST') return;
+    const requestId = String(event.data.requestId || '');
+    const action = String(event.data.action || '');
+    if (!requestId || !action) return;
     try {
-      chrome.runtime.sendMessage({ type: 'GS_OPEN_SIDE_PANEL', source: 'gestor-super-analysis-card' }).catch(() => {});
-    } catch {}
-  }, true);
+      chrome.runtime.sendMessage({ type: 'GS_WEB_ENGINE', action, payload: event.data.payload || {} })
+        .then(result => window.postMessage({ source: 'GS_EXTENSION', type: 'GS_ENGINE_RESPONSE', requestId, result }, location.origin))
+        .catch(error => window.postMessage({ source: 'GS_EXTENSION', type: 'GS_ENGINE_RESPONSE', requestId, result: { ok:false, error:String(error?.message || error) } }, location.origin));
+    } catch (error) {
+      window.postMessage({ source: 'GS_EXTENSION', type: 'GS_ENGINE_RESPONSE', requestId, result: { ok:false, error:String(error?.message || error) } }, location.origin);
+    }
+  });
 })();
