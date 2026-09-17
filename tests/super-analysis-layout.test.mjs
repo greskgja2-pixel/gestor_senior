@@ -8,6 +8,8 @@ const view=read('app/super-analise/SuperAnaliseInteligente.js');
 const css=read('app/super-analise/page.module.css');
 const flow=read('app/super-analise/WebAuditFlow.js');
 const flowCss=read('app/super-analise/web-audit.module.css');
+const products=read('app/produtos/ProductsDashboard.js');
+const sendButton=read('app/components/SendToSuperAnalysisButton.js');
 
 test('Super Analise usa somente a interface reconstruida',()=>{
   assert.match(page,/import\s+SuperAnaliseInteligente\s+from\s+['"]\.\/SuperAnaliseInteligente['"]/);
@@ -48,4 +50,8 @@ test('envio da lista de produtos inicia a analise guiada automaticamente',()=>{
   assert.match(flow,/export default function WebAuditFlow\(\{initialUrl=''\}\)/);
   assert.match(flow,/if\(!initialUrl\|\|!connected\|\|autoStartedRef\.current\)return/);
   assert.match(flow,/loadProduct\(initialUrl\)/);
+  assert.match(products,/router\.push\(`\/super-analise\?\$\{q\.toString\(\)\}`\)/);
+  assert.match(products,/start_url:shopeeUrl/);
+  assert.doesNotMatch(products,/window\.open\(`https:\/\/shopee\.com\.br\/product/);
+  assert.match(sendButton,/router\.push\(`\/super-analise\?\$\{q\.toString\(\)\}`\)/);
 });
