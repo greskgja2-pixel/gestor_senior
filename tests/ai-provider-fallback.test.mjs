@@ -24,7 +24,7 @@ test('fallback Groq preserva analise visual em lotes de no maximo cinco imagens'
 });
 
 test('interface informa troca automatica de provedor sem travar a pagina',()=>{
-  assert.match(auto,/Se houver limite ou indisponibilidade, a Groq assume automaticamente/);
+  assert.match(auto,/se houver limite ou indisponibilidade, a Groq assume automaticamente/i);
   assert.match(auto,/Gemini indisponível/);
   assert.match(auto,/A análise de IA não concluiu/);
   assert.match(auto,/Tentar novamente/);
