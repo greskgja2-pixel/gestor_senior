@@ -18,13 +18,21 @@ function Gauge({score,label}){const s=n(score);const p=Math.max(0,Math.min(100,s
 function Metric({label,value,good,title}){return <div className={styles.metric} title={title||''}><small>{label}</small><b className={good?styles.good:''}>{value}</b></div>}
 function Sidebar({connected}){return <aside className={styles.sidebar}><div className={styles.brand}><span>GS</span><div><b>Gestor Sênior</b><small>Shopee Intelligence</small></div></div><nav><Link href="/">⌂ <span>Dashboard</span></Link><Link href="/produtos">▱ <span>Produtos</span></Link><Link href="/super-analise">▤ <span>Super Análise</span></Link><Link className={styles.active} href="/extensao-shopee-intelligence">▣ <span>Super Anúncio</span></Link><Link href="/extensao-shopee-intelligence#concorrentes">⌘ <span>Concorrentes</span></Link><Link href="/extensao-shopee-intelligence#shopee-ads">◎ <span>Shopee Ads</span></Link><Link href="/extensao-shopee-intelligence#reanálises">↻ <span>Reanálises</span></Link><Link href="/extensao-shopee-intelligence#prioridades">☆ <span>Prioridades</span></Link><Link href="/extensao-shopee-intelligence#relatorios">▤ <span>Relatórios</span></Link></nav><div className={styles.motor}><div><i className={connected?styles.online:styles.offline}/><b>Motor Senior</b></div><strong>{connected?'Conectado e pronto':'Desconectado'}</strong><small>Coleta e executa tarefas na Shopee em segundo plano.</small></div></aside>}
 
-export default function SuperAnuncioMockup({items=[]}){
+export default function SuperAnuncioMockup({items=[],initialItemId='',initialTab='overview'}){
   const [connected,setConnected]=useState(false);
-  const [selectedId,setSelectedId]=useState(items?.[0]?.itemId||'');
-  const [tab,setTab]=useState('overview');
+  const initialSelected=items.find(x=>String(x.itemId)===String(initialItemId))||items[0]||null;
+  const allowedTabs=useMemo(()=>new Set(TABS.map(([key])=>key)),[]);
+  const [selectedId,setSelectedId]=useState(initialSelected?.itemId||'');
+  const [tab,setTab]=useState(allowedTabs.has(initialTab)?initialTab:'overview');
   const item=useMemo(()=>items.find(x=>String(x.itemId)===String(selectedId))||items[0]||null,[items,selectedId]);
 
-  useEffect(()=>{\n    const selected=items.find(x=>String(x.itemId)===String(initialItemId));\n    if(selected)setSelectedId(selected.itemId);\n    if(allowedTabs.has(initialTab))setTab(initialTab);\n  },[initialItemId,initialTab]);\n\n  useEffect(()=>{const ready=()=>setConnected(true);const msg=e=>{if(e.source===window&&e.data?.source==='GS_EXTENSION'&&(e.data?.type==='GS_EXTENSION_READY'||e.data?.type==='GS_EXTENSION_PONG'))ready()};window.addEventListener('gs-extension-ready',ready);window.addEventListener('message',msg);const id=setInterval(()=>{if(document.documentElement?.dataset?.gsExtensionBridge==='ready'||document.getElementById('gs-extension-bridge-marker'))setConnected(true);window.postMessage({source:'GS_GESTOR',type:'GS_EXTENSION_PING'},location.origin)},1000);return()=>{clearInterval(id);window.removeEventListener('gs-extension-ready',ready);window.removeEventListener('message',msg)}},[]);
+  useEffect(()=>{
+    const selected=items.find(x=>String(x.itemId)===String(initialItemId));
+    if(selected)setSelectedId(selected.itemId);
+    if(allowedTabs.has(initialTab))setTab(initialTab);
+  },[items,initialItemId,initialTab,allowedTabs]);
+
+  useEffect(()=>{const ready=()=>setConnected(true);const msg=e=>{if(e.source===window&&e.data?.source==='GS_EXTENSION'&&(e.data?.type==='GS_EXTENSION_READY'||e.data?.type==='GS_EXTENSION_PONG'))ready()};window.addEventListener('gs-extension-ready',ready);window.addEventListener('message',msg);const id=setInterval(()=>{if(document.documentElement?.dataset?.gsExtensionBridge==='ready'||document.getElementById('gs-extension-bridge-marker'))setConnected(true);window.postMessage({source:'GS_GESTOR',type:'GS_EXTENSION_PING'},location.origin)},1000);return()=>{clearInterval(id);window.removeEventListener('gs-extension-ready',ready);window.removeEventListener('message',msg)}},[]);
 
   if(!item)return <div className={styles.screen}><Sidebar connected={connected}/><main className={styles.empty}><h1>Super Anúncio</h1><p>Nenhum anúncio analisado ainda. Comece em Produtos → Enviar para Super Análise.</p></main></div>;
 
