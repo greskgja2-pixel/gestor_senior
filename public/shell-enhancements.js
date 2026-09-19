@@ -3,24 +3,34 @@
 
 // MENU OFICIAL DO GESTOR SENIOR — mesma ordem usada em todas as telas.
 const PAGES=[
-  {id:'dashboard',page:'home',icon:'⌂',label:'Dashboard',live:true,desc:'Resumo da operação e dos resultados das Super Análises.'},
-  {id:'produtos',icon:'▱',label:'Produtos',href:'/produtos',desc:'Escolha o anúncio que será enviado para a Super Análise.'},
-  {id:'super-analise',icon:'▤',label:'Super Análise',href:'/super-analise',desc:'Fluxo guiado, Original × IA e Antes × Depois.'},
-  {id:'super-anuncio',icon:'▣',label:'Super Anúncio',href:'/extensao-shopee-intelligence?section=super-anuncio',desc:'Histórico completo dos anúncios já analisados.'},
-  {id:'concorrentes',icon:'⌘',label:'Concorrentes',href:'/extensao-shopee-intelligence?section=concorrentes',desc:'Concorrentes vinculados, snapshots e rechecagens.'},
-  {id:'shopee-ads',icon:'◎',label:'Shopee Ads',href:'/extensao-shopee-intelligence?section=shopee-ads',desc:'ROAS, ROAS alvo, GMV, gasto e custo por venda.'},
-  {id:'protecao-roas',icon:'◈',label:'Proteção ROAS',href:'/protecao-roas',desc:'Status interno e desativação da proteção de ROAS.'},
-  {id:'reanálises',icon:'↻',label:'Reanálises',href:'/extensao-shopee-intelligence?section=reanalises',desc:'Anúncios que precisam passar por uma nova análise.'},
-  {id:'prioridades',icon:'☆',label:'Prioridades',href:'/extensao-shopee-intelligence?section=prioridades',desc:'Central de tarefas e ações recomendadas.'},
-  {id:'relatorios',icon:'▤',label:'Relatórios',href:'/extensao-shopee-intelligence?section=relatorios',desc:'Relatórios consolidados, históricos e comparativos.'}
+  {id:'dashboard',page:'home',icon:'⌂',tone:'violet',label:'Dashboard',live:true,desc:'Resumo da operação e dos resultados das Super Análises.'},
+  {id:'produtos',icon:'▱',tone:'blue',label:'Produtos',href:'/produtos',group:'products',parent:true,desc:'Escolha o anúncio que será enviado para a Super Análise.'},
+  {id:'super-analise',icon:'▤',tone:'indigo',label:'Super Análise',href:'/super-analise',group:'products',child:true,desc:'Fluxo guiado, Original × IA e Antes × Depois.'},
+  {id:'super-anuncio',icon:'▣',tone:'cyan',label:'Super Anúncio',href:'/extensao-shopee-intelligence?section=super-anuncio',group:'products',child:true,desc:'Histórico completo dos anúncios já analisados.'},
+  {id:'concorrentes',icon:'⌘',tone:'orange',label:'Concorrentes',href:'/extensao-shopee-intelligence?section=concorrentes',group:'products',child:true,desc:'Concorrentes vinculados, snapshots e rechecagens.'},
+  {id:'reanálises',icon:'↻',tone:'purple',label:'Reanálises',href:'/extensao-shopee-intelligence?section=reanalises',group:'products',child:true,desc:'Anúncios que precisam passar por uma nova análise.'},
+  {id:'prioridades',icon:'☆',tone:'amber',label:'Prioridades',href:'/extensao-shopee-intelligence?section=prioridades',group:'products',child:true,desc:'Central de tarefas e ações recomendadas.'},
+  {id:'relatorios',icon:'▤',tone:'teal',label:'Relatórios',href:'/extensao-shopee-intelligence?section=relatorios',group:'products',child:true,desc:'Relatórios consolidados, históricos e comparativos.'},
+  {id:'shopee-ads',icon:'◎',tone:'coral',label:'Shopee Ads',href:'/extensao-shopee-intelligence?section=shopee-ads',group:'ads',parent:true,desc:'ROAS, ROAS alvo, GMV, gasto e custo por venda.'},
+  {id:'protecao-roas',icon:'◈',tone:'green',label:'Proteção ROAS',href:'/protecao-roas',group:'ads',child:true,desc:'Status interno e desativação da proteção de ROAS.'},
+  {id:'temas',icon:'◐',tone:'pink',label:'Temas',desc:'Escolha a aparência do Gestor Sênior.'},
+  {id:'config',icon:'⚙',tone:'slate',label:'Configurações',desc:'Preferências gerais do Gestor Sênior.'}
 ];
 const pageMap=new Map(PAGES.map(x=>[x.id,x]));
 let summaryTimer=null;
 
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function navButton(p){const real=p.page?' data-page="'+esc(p.page)+'"':'';return '<button class="shell-page" data-shell-id="'+esc(p.id)+'"'+real+' title="'+esc(p.desc||'')+'"><span class="shell-icon">'+p.icon+'</span><span class="shell-label">'+esc(p.label)+'</span></button>';}
-function buildNav(){const nav=document.getElementById('nav');if(!nav)return;nav.innerHTML='<div class="shell-nav-title">Gestor Sênior</div>'+PAGES.map(navButton).join('');}
-function updateActive(id){document.querySelectorAll('#nav .shell-page').forEach(b=>b.classList.toggle('active',b.dataset.shellId===id));}
+function navButton(p){const real=p.page?' data-page="'+esc(p.page)+'"':'';const child=p.child?' data-shell-child="true"':'';return '<button class="shell-page" data-shell-id="'+esc(p.id)+'" data-shell-tone="'+esc(p.tone||'blue')+'"'+real+child+' title="'+esc(p.desc||'')+'"><span class="shell-icon">'+p.icon+'</span><span class="shell-label">'+esc(p.label)+'</span>'+(p.parent?'<span class="shell-chevron">›</span>':'')+'</button>';}
+function buildGroup(id){
+  const parent=PAGES.find(p=>p.group===id&&p.parent),children=PAGES.filter(p=>p.group===id&&p.child);
+  return '<div class="shell-menu-group" data-shell-group="'+esc(id)+'">'+navButton(parent)+'<div class="shell-submenu">'+children.map(navButton).join('')+'</div></div>';
+}
+function buildNav(){
+  const nav=document.getElementById('nav');if(!nav)return;
+  const dashboard=PAGES.find(p=>p.id==='dashboard'),themes=PAGES.find(p=>p.id==='temas'),config=PAGES.find(p=>p.id==='config');
+  nav.innerHTML='<div class="shell-nav-title">Gestor Sênior</div>'+navButton(dashboard)+buildGroup('products')+buildGroup('ads')+'<div class="shell-nav-title shell-system-title">Sistema</div>'+navButton(themes)+navButton(config);
+}
+function updateActive(id){document.querySelectorAll('#nav .shell-page').forEach(b=>b.classList.toggle('active',b.dataset.shellId===id));document.querySelectorAll('#nav .shell-menu-group').forEach(g=>{const active=!!g.querySelector('.shell-page.active');g.classList.toggle('expanded',active);});}
 function closeDrawer(){document.querySelector('.sidebar')?.classList.remove('shell-open');document.querySelector('.shell-backdrop')?.classList.remove('open');}
 function addMobile(){const bar=document.querySelector('.topbar');if(!bar||bar.querySelector('.shell-menu-btn'))return;const btn=document.createElement('button');btn.className='shell-menu-btn';btn.type='button';btn.textContent='☰';btn.title='Abrir menu';bar.insertBefore(btn,bar.firstChild);let bd=document.querySelector('.shell-backdrop');if(!bd){bd=document.createElement('div');bd.className='shell-backdrop';document.body.appendChild(bd);}btn.addEventListener('click',()=>{document.querySelector('.sidebar')?.classList.toggle('shell-open');bd.classList.toggle('open');});bd.addEventListener('click',closeDrawer);}
 function liveModule(id){return window.GestorLiveModules&&window.GestorLiveModules.supports&&window.GestorLiveModules.supports(id);}
@@ -57,15 +67,39 @@ document.addEventListener('click',function(e){
 },true);
 
 function renderInitial(attempt=0){
-  if(liveModule('dashboard')){updateActive('dashboard');window.GestorLiveModules.render('dashboard');scheduleSummary();return true;}
+  const section=new URLSearchParams(location.search).get('section')||'';
+  const target=(section==='temas'||section==='config')?section:'dashboard';
+  if(liveModule(target)){updateActive(target);window.GestorLiveModules.render(target);if(target==='dashboard')scheduleSummary();return true;}
   if(attempt<300){setTimeout(()=>renderInitial(attempt+1),100);return false;}
-  console.warn('Gestor Senior: dashboard module was not ready after 30s');return false;
+  console.warn('Gestor Senior: initial module was not ready after 30s');return false;
 }
 function normalizeShellIdentity(){
   const mark=document.querySelector('.logoMark');if(mark)mark.textContent='GS';
   document.querySelectorAll('.logo .live').forEach(el=>el.remove());
 }
-function init(){buildNav();normalizeShellIdentity();addMobile();renderInitial();}
+let systemStatusTimer=null;
+function motorReady(){
+  try{
+    if(document.documentElement?.dataset?.gsExtensionBridge==='ready'||document.getElementById('gs-extension-bridge-marker'))return true;
+    return window.parent!==window&&(window.parent.document?.documentElement?.dataset?.gsExtensionBridge==='ready'||!!window.parent.document?.getElementById('gs-extension-bridge-marker'));
+  }catch{return false;}
+}
+function ensureSystemStatus(){
+  const sidebar=document.querySelector('.sidebar');if(!sidebar)return null;
+  let box=sidebar.querySelector('[data-shell-system-status]');
+  if(!box){box=document.createElement('div');box.dataset.shellSystemStatus='true';sidebar.appendChild(box);}
+  return box;
+}
+function statusLine(icon,title,value,ok){return '<div class="shell-status-line"><span class="shell-status-icon '+(ok?'ok':'')+'">'+icon+'</span><div><b>'+esc(title)+'</b><small>'+esc(value)+'</small></div></div>';}
+async function refreshSystemStatus(){
+  const box=ensureSystemStatus();if(!box)return;
+  let conn={connected:false};
+  try{const r=await fetch('/api/shopee/connection',{cache:'no-store'});const j=await r.json();if(r.ok)conn=j;}catch{}
+  const ext=motorReady(),shop=!!conn.connected;
+  box.innerHTML=statusLine('●','Motor Senior',ext?'Extensão conectada':'Extensão não detectada',ext)+statusLine('◆','Loja Shopee',shop?(conn.shopName||('Loja #'+(conn.shopId||''))):'Loja desconectada',shop)+(shop?'<button type="button" data-shell-logout>Sair da loja</button>':'<a href="/api/shopee/authorize" target="_top">Conectar loja</a>');
+  box.querySelector('[data-shell-logout]')?.addEventListener('click',async e=>{const b=e.currentTarget;b.disabled=true;b.textContent='Saindo…';try{const r=await fetch('/api/shopee/logout',{method:'POST'});if(!r.ok)throw new Error();window.top.location.href='/';}catch{b.disabled=false;b.textContent='Tentar sair novamente';}});
+}
+function init(){buildNav();normalizeShellIdentity();addMobile();renderInitial();refreshSystemStatus();clearInterval(systemStatusTimer);systemStatusTimer=setInterval(refreshSystemStatus,5000);}
 window.addEventListener('gestor-live-modules-ready',()=>renderInitial(0));
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
