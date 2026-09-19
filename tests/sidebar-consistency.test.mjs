@@ -97,3 +97,13 @@ test('itens do menu (principais e do submenu) tem a mesma altura de linha',()=>{
   assert.ok(submenuHeight,'regra do submenu nao encontrada');
   assert.equal(submenuHeight[1],topLevelHeight[1],'submenu tem altura diferente do menu principal');
 });
+
+test('nav do menu nao espalha espaco vazio entre as linhas (align-content:start)',()=>{
+  // Regressao real (print do usuario): ".gs-nav" e um grid com "flex:1 1 auto", ou seja, ele cresce
+  // para ocupar o espaco vertical sobrando entre a marca e o rodape de status da sidebar. Sem
+  // "align-content:start", o comportamento padrao do CSS Grid ("normal", que age como "stretch")
+  // distribui esse espaco sobrando IGUALMENTE entre as linhas do grid (Dashboard, grupo Produtos,
+  // Pedidos, grupo Shopee Ads, Temas, Configuracoes) — criando gaps enormes e desiguais entre os
+  // itens principais em vez de deixar o espaco sobrando compactado no final da lista.
+  assert.match(css,/\.gs-nav\{display:grid;align-content:start;/,'.gs-nav precisa de align-content:start para nao espalhar espaco vazio entre as linhas');
+});
