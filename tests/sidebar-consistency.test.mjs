@@ -79,3 +79,15 @@ test('regra que esconde a sidebar antiga do iframe tem especificidade reforcada 
   assert.match(frame,/html body \.app \.sidebar\{display:none!important\}/);
   assert.match(frame,/html body \.app \.topbar\{display:none!important\}/);
 });
+
+test('itens do menu (principais e do submenu) tem a mesma altura de linha',()=>{
+  // Pedido do usuario: as linhas de "Produtos"/"Shopee Ads" (itens principais) nao podem ficar
+  // mais altas que as linhas dos filhos ("Super Analise", "Protecao ROAS" etc). Os dois grupos de
+  // link (".gs-nav>a,.gs-nav-parent-link,.gs-nav-submenu>a" e ".gs-nav-submenu>a") precisam ter o
+  // mesmo min-height para que a altura visual da linha seja identica em toda a sidebar.
+  const topLevelHeight=css.match(/\.gs-nav>a,\.gs-nav-parent-link,\.gs-nav-submenu>a\{[^}]*min-height:(\d+)px/);
+  const submenuHeight=css.match(/\.gs-nav-submenu>a\{min-height:(\d+)px/);
+  assert.ok(topLevelHeight,'regra base do menu nao encontrada');
+  assert.ok(submenuHeight,'regra do submenu nao encontrada');
+  assert.equal(submenuHeight[1],topLevelHeight[1],'submenu tem min-height diferente do menu principal');
+});
