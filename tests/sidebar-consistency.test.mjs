@@ -36,9 +36,16 @@ test('menu canonico contem rotas e grupos exigidos',()=>{
   for(const label of ['Dashboard','Produtos','Super Análise','Super Anúncio','Concorrentes','Reanálises','Prioridades','Relatórios','Pedidos','Shopee Ads','Proteção ROAS','Temas','Configurações']){
     assert.ok(shell.includes("label:'"+label+"'"),'item ausente: '+label);
   }
-  assert.match(shell,/STORAGE_GROUPS/);
-  assert.match(shell,/localStorage\.setItem\(STORAGE_GROUPS/);
-  assert.match(shell,/activeGroup/);
+});
+
+test('menu nao tem accordion: sem botao de recolher/expandir nem submenu escondido',()=>{
+  assert.doesNotMatch(shell,/toggleGroup/);
+  assert.doesNotMatch(shell,/aria-expanded/);
+  assert.doesNotMatch(shell,/Recolher \$\{entry\.label\}/);
+  assert.doesNotMatch(shell,/Expandir \$\{entry\.label\}/);
+  assert.doesNotMatch(shell,/STORAGE_GROUPS/);
+  assert.doesNotMatch(css,/\.gs-nav-submenu\{display:none/);
+  assert.match(css,/\.gs-nav-submenu\{display:grid/);
 });
 
 test('componentes de rota nao renderizam outra Sidebar ativa',()=>{
