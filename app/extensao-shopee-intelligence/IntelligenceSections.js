@@ -10,6 +10,18 @@ const money=v=>n(v)==null?'—':n(v).toLocaleString('pt-BR',{style:'currency',cu
 const num=v=>n(v)==null?'—':n(v).toLocaleString('pt-BR',{maximumFractionDigits:2});
 const when=v=>{if(!v)return'—';const d=new Date(v);return Number.isNaN(d.getTime())?'—':d.toLocaleString('pt-BR')};
 const metric=(r,k)=>r?.metrics?.[k]??r?.ads_snapshot?.manual?.[k]??r?.ads_snapshot?.[k]??null;
+function motorRequest(action,payload={},timeoutMs=22000){
+  if(typeof window==='undefined')return Promise.resolve(null);
+  return new Promise(resolve=>{
+    const requestId='gs-'+Date.now()+'-'+Math.random().toString(36).slice(2);
+    let done=false;
+    const finish=v=>{if(done)return;done=true;clearTimeout(timer);window.removeEventListener('message',onMessage);resolve(v)};
+    const onMessage=e=>{if(e.source===window&&e.data?.source==='GS_EXTENSION'&&e.data?.type==='GS_ENGINE_RESPONSE'&&String(e.data?.requestId)===requestId)finish(e.data?.result||null)};
+    const timer=setTimeout(()=>finish(null),timeoutMs);
+    window.addEventListener('message',onMessage);
+    window.postMessage({source:'GS_GESTOR',type:'GS_ENGINE_REQUEST',requestId,action,payload},location.origin);
+  });
+}
 const titles={
   concorrentes:['Concorrentes','Acompanhe os concorrentes vinculados aos anúncios já analisados.','⌘'],
   'shopee-ads':['Shopee Ads','Veja campanhas, ROAS, meta, investimento e resultados sem sair do Gestor.','◎'],
@@ -49,13 +61,27 @@ function Competitors({items}){
 }
 
 function Ads(){
-  const [data,setData]=useState(null),[loading,setLoading]=useState(true),[error,setError]=useState('');
-  async function load(){setLoading(true);setError('');try{const r=await fetch('/api/shopee/ads?days=30',{cache:'no-store'});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j?.error||'Falha ao carregar Shopee Ads.');setData(j?.v7||j?.v5||null)}catch(e){setError(String(e?.message||e))}finally{setLoading(false)}}
+  const [data,setData]=useState(null),[loading,setLoading]=useState(true),[error,setError]=useState(''),[syncSource,setSyncSource]=useState('');
+  async function load(){
+    setLoading(true);setError('');setSyncSource('Consultando o Motor Senior…');
+    try{
+      const motor=await motorRequest('syncShopeeAds',{days:30,reason:'open-shopee-ads'});
+      if(motor?.ok&&motor?.data?.v7){
+        setData(motor.data.v7);setSyncSource('Dados atualizados pelo Motor Senior');
+        setLoading(false);return;
+      }
+      setSyncSource('Usando integração do Gestor…');
+      const r=await fetch('/api/shopee/ads?days=30',{cache:'no-store'});const j=await r.json().catch(()=>({}));
+      if(!r.ok)throw new Error(j?.error||'Falha ao carregar Shopee Ads.');
+      setData(j?.v7||j?.v5||null);setSyncSource('Dados carregados pela integração do Gestor');
+    }catch(e){setError(String(e?.message||e))}
+    finally{setLoading(false)}
+  }
   useEffect(()=>{load()},[]);
   const campaigns=arr(data?.campaigns),active=campaigns.filter(c=>String(c.state||'').toLowerCase()==='ongoing'),summary=data?.summary||{};
-  if(loading)return <Empty text="Carregando campanhas do Shopee Ads…"/>;
+  if(loading)return <Empty text={syncSource||"Sincronizando campanhas do Shopee Ads…"}/>;
   if(error)return <div className={styles.error}>{error}<button onClick={load}>Tentar novamente</button></div>;
-  return <><div className={styles.kpis}><Kpi label="Campanhas ativas" value={active.length}/><Kpi label="Investimento 30 dias" value={money(summary.spend)}/><Kpi label="GMV via Ads" value={money(summary.gmv)}/><Kpi label="ROAS" value={num(summary.roas)}/></div><section className={styles.panel}><div className={styles.panelHead}><div><h2>Campanhas</h2><p>Dados carregados diretamente da integração do Shopee Ads.</p></div><button onClick={load}>↻ Atualizar</button></div>{campaigns.length?<div className={styles.tableWrap}><table><thead><tr><th>Campanha</th><th>Status</th><th>ROAS</th><th>Meta</th><th>Gasto</th><th>GMV</th><th>Pedidos</th></tr></thead><tbody>{campaigns.map(c=><tr key={c.campaignId}><td><b>{c.productName||c.title||`Campanha ${c.campaignId}`}</b><small>#{c.campaignId}</small></td><td><span className={String(c.state)==='ongoing'?styles.live:styles.mutedBadge}>{String(c.state)==='ongoing'?'Ativo':c.state||'—'}</span></td><td>{num(c.roas)}</td><td>{num(c.targetRoas)}</td><td>{money(c.spend)}</td><td>{money(c.gmv)}</td><td>{n(c.orders)?.toLocaleString('pt-BR')||'—'}</td></tr>)}</tbody></table></div>:<Empty text="Nenhuma campanha de Ads foi retornada para esta loja."/>}</section></>
+  return <><div className={styles.kpis}><Kpi label="Campanhas ativas" value={active.length}/><Kpi label="Investimento 30 dias" value={money(summary.spend)}/><Kpi label="GMV via Ads" value={money(summary.gmv)}/><Kpi label="ROAS" value={num(summary.roas)}/></div><section className={styles.panel}><div className={styles.panelHead}><div><h2>Campanhas</h2><p>{syncSource||'Dados do Shopee Ads.'}</p></div><button onClick={load}>↻ Atualizar</button></div>{campaigns.length?<div className={styles.tableWrap}><table><thead><tr><th>Campanha</th><th>Status</th><th>ROAS</th><th>Meta</th><th>Gasto</th><th>GMV</th><th>Pedidos</th></tr></thead><tbody>{campaigns.map(c=><tr key={c.campaignId}><td><b>{c.productName||c.title||`Campanha ${c.campaignId}`}</b><small>#{c.campaignId}</small></td><td><span className={String(c.state)==='ongoing'?styles.live:styles.mutedBadge}>{String(c.state)==='ongoing'?'Ativo':c.state||'—'}</span></td><td>{num(c.roas)}</td><td>{num(c.targetRoas)}</td><td>{money(c.spend)}</td><td>{money(c.gmv)}</td><td>{n(c.orders)?.toLocaleString('pt-BR')||'—'}</td></tr>)}</tbody></table></div>:<Empty text="Nenhuma campanha de Ads foi retornada para esta loja."/ >}</section></>;
 }
 
 function Reanalises({items}){
