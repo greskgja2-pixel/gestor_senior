@@ -2,6 +2,7 @@ import "./globals.css";
 import "./motor-senior-theme.css";
 import "./app-shell.css";
 import AppShell from "./components/AppShell";
+import { Suspense } from "react";
 
 const themeBootstrap=`(()=>{try{
   const allowed=new Set(['dark','warm','win11','classic','ubuntu','light']);
@@ -30,7 +31,7 @@ export default function RootLayout({ children }) {
     <html lang="pt-BR" suppressHydrationWarning>
       <body suppressHydrationWarning>
         <script dangerouslySetInnerHTML={{__html:themeBootstrap}} />
-        <AppShell>{children}</AppShell>
+        <Suspense fallback={<div style={{minHeight:"100vh",background:"var(--gs-shell-bg,#f4f7fb)"}} />}><AppShell>{children}</AppShell></Suspense>
       </body>
     </html>
   );
