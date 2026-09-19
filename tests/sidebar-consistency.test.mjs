@@ -9,7 +9,7 @@ const guard=read('app/components/SidebarOrderGuard.js');
 const dashboardShell=read('public/shell-enhancements.js');
 const dashboardCss=read('public/shell-enhancements.css');
 
-const order=['Dashboard','Produtos','Super Análise','Super Anúncio','Concorrentes','Shopee Ads','Proteção ROAS','Reanálises','Prioridades','Relatórios'];
+const order=['Dashboard','Produtos','Super Análise','Super Anúncio','Concorrentes','Reanálises','Prioridades','Relatórios','Shopee Ads','Proteção ROAS','Temas','Configurações'];
 function assertOrder(source,name){let last=-1;for(const label of order){const pos=source.indexOf(`label:'${label}'`);assert.ok(pos>last,`${label} saiu da ordem oficial em ${name}`);last=pos;}}
 
 test('layout global carrega o padrao oficial do menu lateral',()=>{
@@ -46,11 +46,16 @@ test('ordem, icones e rotulos das paginas sao canonicos',()=>{
   assertOrder(guard,'Next');
   assertOrder(dashboardShell,'Dashboard');
   assert.match(guard,/export const GS_MENU_ORDER=/);
-  assert.match(guard,/nav\.appendChild\(fragment\)/);
+  assert.match(guard,/data\.gsMenuGroup|dataset\.gsMenuGroup/);
+  assert.match(guard,/data\.gsSubmenu|dataset\.gsSubmenu/);
+  assert.match(guard,/label:'Temas'/);
+  assert.match(guard,/label:'Configurações'/);
   assert.match(guard,/gsMenuIcon/);
   assert.match(guard,/gsMenuLabel/);
   assert.match(css,/data-gs-menu-icon/);
   assert.match(css,/data-gs-menu-label/);
+  assert.match(css,/data-gs-tone/);
+  assert.match(css,/data-gs-system-status/);
   assert.match(guard,/useLayoutEffect/);
   assert.match(guard,/Motor Senior/);
   assert.match(css,/data-gs-active="true"/);
