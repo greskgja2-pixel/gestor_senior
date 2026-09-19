@@ -8,13 +8,13 @@ export const GS_MENU_ORDER=[
   {label:'Dashboard',icon:'⌂',href:'/'},
   {label:'Produtos',icon:'▱',href:'/produtos'},
   {label:'Super Análise',icon:'▤',href:'/super-analise'},
-  {label:'Super Anúncio',icon:'▣',href:'/extensao-shopee-intelligence'},
-  {label:'Concorrentes',icon:'⌘',href:'/extensao-shopee-intelligence#concorrentes'},
-  {label:'Shopee Ads',icon:'◎',href:'/extensao-shopee-intelligence#shopee-ads'},
+  {label:'Super Anúncio',icon:'▣',href:'/extensao-shopee-intelligence?section=super-anuncio'},
+  {label:'Concorrentes',icon:'⌘',href:'/extensao-shopee-intelligence?section=concorrentes'},
+  {label:'Shopee Ads',icon:'◎',href:'/extensao-shopee-intelligence?section=shopee-ads'},
   {label:'Proteção ROAS',icon:'◈',href:'/protecao-roas'},
-  {label:'Reanálises',icon:'↻',href:'/extensao-shopee-intelligence#reanálises'},
-  {label:'Prioridades',icon:'☆',href:'/extensao-shopee-intelligence#prioridades'},
-  {label:'Relatórios',icon:'▤',href:'/extensao-shopee-intelligence#relatorios'}
+  {label:'Reanálises',icon:'↻',href:'/extensao-shopee-intelligence?section=reanalises'},
+  {label:'Prioridades',icon:'☆',href:'/extensao-shopee-intelligence?section=prioridades'},
+  {label:'Relatórios',icon:'▤',href:'/extensao-shopee-intelligence?section=relatorios'}
 ];
 
 const norm=s=>String(s||'').replace(/\s+/g,' ').trim().toLowerCase();
@@ -31,11 +31,12 @@ function activeLabel(){
   if(path.startsWith('/super-analise'))return'Super Análise';
   if(path.startsWith('/protecao-roas'))return'Proteção ROAS';
   if(path.startsWith('/extensao-shopee-intelligence')){
-    if(hash==='#concorrentes')return'Concorrentes';
-    if(hash==='#shopee-ads')return'Shopee Ads';
-    if(hash==='#reanálises')return'Reanálises';
-    if(hash==='#prioridades')return'Prioridades';
-    if(hash==='#relatorios')return'Relatórios';
+    const section=new URLSearchParams(location.search).get('section')||'';
+    if(section==='concorrentes'||hash==='#concorrentes')return'Concorrentes';
+    if(section==='shopee-ads'||hash==='#shopee-ads')return'Shopee Ads';
+    if(section==='reanalises'||hash==='#reanálises')return'Reanálises';
+    if(section==='prioridades'||hash==='#prioridades')return'Prioridades';
+    if(section==='relatorios'||hash==='#relatorios')return'Relatórios';
     return'Super Anúncio';
   }
   return'';
