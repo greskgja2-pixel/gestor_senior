@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "prebuild": "node --test tests/super-analysis-layout.test.mjs tests/sidebar-consistency.test.mjs tests/ai-provider-fallback.test.mjs",
+    "prebuild": "node --test tests/super-analysis-layout.test.mjs tests/sidebar-consistency.test.mjs tests/ai-provider-fallback.test.mjs tests/navigation-routes.test.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start"
