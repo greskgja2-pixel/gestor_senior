@@ -44,16 +44,25 @@ function installHostedLayout(doc){
   if(!doc?.head)return;
   let style=doc.getElementById("gs-hosted-layout");
   if(!style){style=doc.createElement("style");style.id="gs-hosted-layout";doc.head.appendChild(style)}
+  // Seletores reforçados (html body .app ...) de propósito: o CSS legado do iframe
+  // (shell-enhancements.css) carrega DEPOIS deste <style> e tem uma regra `.sidebar{display:flex!important}`
+  // com a MESMA especificidade — quem carrega por último vence o empate, então a sidebar antiga
+  // voltava a aparecer (visível em telas >900px, escondida por acidente só em telas estreitas pela
+  // media query do drawer mobile). Elevar a especificidade aqui garante que esta regra sempre vença,
+  // não importa a ordem de carregamento dos scripts/estilos opcionais.
   style.textContent=`
     :root{--gs-host-sidebar-width:218px}
     html,body{margin:0!important;min-height:100%!important;background:#f4f7fb!important;background-image:none!important}
-    .app{display:block!important;grid-template-columns:1fr!important;min-height:100vh!important;width:100%!important}
-    .sidebar{display:none!important}
-    .main{min-width:0!important;width:100%!important;margin:0!important}
-    .topbar{display:none!important}
-    .content{max-width:none!important;width:100%!important;margin:0!important;padding:16px 18px 30px!important}
-    @media(max-width:900px){.content{padding:12px!important}}
+    html body .app{display:block!important;grid-template-columns:1fr!important;min-height:100vh!important;width:100%!important}
+    html body .app .sidebar{display:none!important}
+    html body .app .main{min-width:0!important;width:100%!important;margin:0!important}
+    html body .app .topbar{display:none!important}
+    html body .app .content{max-width:none!important;width:100%!important;margin:0!important;padding:16px 18px 30px!important}
+    @media(max-width:900px){html body .app .content{padding:12px!important}}
   `;
+  // Mantém este <style> como o último filho de <head>: reforço extra contra empates de
+  // especificidade em regras que eu não tenha previsto (defesa em profundidade).
+  if(style.nextSibling)doc.head.appendChild(style);
 }
 
 async function waitForModernHome(doc){
