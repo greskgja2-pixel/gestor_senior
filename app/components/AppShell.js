@@ -23,7 +23,6 @@ const MENU=[
   {type:'item',label:'Configurações',icon:'⚙',tone:'slate',href:'/?section=config'}
 ];
 
-const STORAGE_GROUPS='gs-sidebar-open-groups-v1';
 const STORAGE_SHOP='gs-shop-state-v2';
 
 function routeState(pathname,section){
@@ -51,33 +50,12 @@ function routeState(pathname,section){
   return{label:''};
 }
 
-function loadStoredGroups(){
-  try{
-    const parsed=JSON.parse(localStorage.getItem(STORAGE_GROUPS)||'{}');
-    return parsed&&typeof parsed==='object'?parsed:{};
-  }catch{return{}}
-}
-
 function Icon({item}){return <span className="gs-nav-icon" data-tone={item.tone}>{item.icon}</span>}
 
-function AppSidebar({active,activeGroup,section,onNavigate,onCloseMobile}){
-  const [open,setOpen]=useState({products:true,ads:false});
+function AppSidebar({active,onNavigate,onCloseMobile}){
   const [extension,setExtension]=useState('checking');
   const [shop,setShop]=useState({status:'checking',connected:null,paused:false,shopId:null,shopName:null,error:''});
   const [busy,setBusy]=useState(false);
-
-  useEffect(()=>{
-    const stored=loadStoredGroups();
-    setOpen(prev=>({...prev,...stored,...(activeGroup?{[activeGroup]:true}:{})}));
-  },[activeGroup]);
-
-  function toggleGroup(id){
-    setOpen(prev=>{
-      const next={...prev,[id]:!prev[id]};
-      try{localStorage.setItem(STORAGE_GROUPS,JSON.stringify(next))}catch{}
-      return next;
-    });
-  }
 
   useEffect(()=>{
     let alive=true;
@@ -161,14 +139,10 @@ function AppSidebar({active,activeGroup,section,onNavigate,onCloseMobile}){
             <Icon item={entry}/><span>{entry.label}</span>
           </Link>
         }
-        const expanded=!!open[entry.id]||activeGroup===entry.id;
-        return <div className="gs-nav-group" data-open={expanded?'true':'false'} key={entry.id}>
-          <div className="gs-nav-parent">
-            <Link href={entry.href} onClick={onNavigate} className={active===entry.label?'is-active':''}>
-              <Icon item={entry}/><span>{entry.label}</span>
-            </Link>
-            <button type="button" onClick={()=>toggleGroup(entry.id)} aria-label={expanded?`Recolher ${entry.label}`:`Expandir ${entry.label}`} aria-expanded={expanded}>⌄</button>
-          </div>
+        return <div className="gs-nav-group" key={entry.id}>
+          <Link href={entry.href} onClick={onNavigate} className={'gs-nav-parent-link '+(active===entry.label?'is-active':'')}>
+            <Icon item={entry}/><span>{entry.label}</span>
+          </Link>
           <div className="gs-nav-submenu">
             {entry.children.map(child=><Link key={child.label} href={child.href} onClick={onNavigate} className={active===child.label?'is-active':''}>
               <Icon item={child}/><span>{child.label}</span>
@@ -202,7 +176,7 @@ export default function AppShell({children}){
   const close=()=>setDrawer(false);
 
   return <div className="gs-app-shell" data-drawer={drawer?'open':'closed'}>
-    <AppSidebar active={route.label} activeGroup={route.group} section={section} onNavigate={close} onCloseMobile={close}/>
+    <AppSidebar active={route.label} onNavigate={close} onCloseMobile={close}/>
     <div className="gs-mobile-bar">
       <button type="button" onClick={()=>setDrawer(true)} aria-label="Abrir menu">☰</button>
       <span className="gs-logo-mark">GS</span><b>Gestor Sênior</b><small>{route.label||'Painel'}</small>
