@@ -62,3 +62,18 @@ test('ordem, icones e rotulos das paginas sao canonicos',()=>{
   assert.match(dashboardShell,/Super Análises — resumo/);
   assert.match(dashboardShell,/\/api\/extension-intelligence\/reports\?limit=200/);
 });
+
+
+test('telas modernas nunca ficam escondidas atras da sidebar fixa',()=>{
+  assert.match(css,/div\[class\*="_screen__"\]>main\[class\*="_main__"\]/);
+  assert.match(css,/grid-column:2 \/ -1!important/);
+  assert.match(css,/body:has\(aside\)>\.shell>\.topbar/);
+});
+
+test('estado da loja no menu usa cache confirmado e nao pisca como desconectado',()=>{
+  assert.match(guard,/SHOP_CACHE_KEY/);
+  assert.match(guard,/Verificando loja/);
+  assert.match(guard,/gsStatusSignature/);
+  assert.match(guard,/removeLegacyStatusCards/);
+  assert.match(guard,/Uma falha transitória não transforma/);
+});

@@ -9,6 +9,9 @@ const page=read('app/extensao-shopee-intelligence/page.js');
 const superAnuncio=read('app/extensao-shopee-intelligence/SuperAnuncioMockup.js');
 const sections=read('app/extensao-shopee-intelligence/IntelligenceSections.js');
 const roas=read('app/protecao-roas/ProtectionRoasDashboard.js');
+const live=read('public/live-modules.js');
+const frame=read('app/components/ShopeeLiveFrame.js');
+const shellCss=read('public/shell-enhancements.css');
 
 const routes=[
   '/extensao-shopee-intelligence?section=super-anuncio',
@@ -50,4 +53,19 @@ test('Protecao ROAS faz parte do mesmo menu canonico',()=>{
   assert.match(guard,/\/?section=config/);
   assert.match(dashboard,/id:'temas'/);
   assert.match(dashboard,/id:'config'/);
+});
+
+
+test('Temas e Configuracoes atualizam a URL real e compartilham o mesmo seletor',()=>{
+  assert.match(dashboard,/id:'temas'[^\n]*href:'\/\?section=temas'/);
+  assert.match(dashboard,/id:'config'[^\n]*href:'\/\?section=config'/);
+  assert.match(live,/const GS_THEMES=/);
+  assert.match(live,/window\.parent\.location\.href='\/\?section=temas'/);
+});
+
+test('Dashboard e cache do shell usam a versao corrigida',()=>{
+  assert.match(live,/const name='Dashboard'/);
+  assert.doesNotMatch(live,/const name='Início'/);
+  assert.match(frame,/VERSION="20260919-01"/);
+  assert.match(shellCss,/\.topbar \.status\{display:none!important\}/);
 });

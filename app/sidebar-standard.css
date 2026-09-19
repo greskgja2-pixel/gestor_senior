@@ -281,3 +281,31 @@
   aside [data-gs-submenu]{display:none}
   aside [data-gs-menu-group][data-gs-expanded="true"]>[data-gs-submenu]{display:grid}
 }
+
+
+/* Correção estrutural 2026-09-19:
+   qualquer tela moderna com sidebar fixa mantém o conteúdo na segunda coluna.
+   Isso evita as páginas "em branco" quando a sidebar sai do fluxo do grid. */
+@media (min-width:901px){
+  div[class*="_screen__"]{
+    grid-template-columns:var(--gs-sidebar-width) minmax(0,1fr)!important;
+  }
+  div[class*="_screen__"]>main[class*="_main__"],
+  div[class*="_screen__"]>main[class*="_empty__"]{
+    grid-column:2 / -1!important;
+    min-width:0!important;
+    width:auto!important;
+  }
+
+  /* O layout raiz antigo (logo grande + Início/Produtos/Pedidos) não deve
+     aparecer por cima das páginas que já possuem o AppShell oficial. */
+  body:has(aside)>.shell{
+    max-width:none!important;
+    width:100%!important;
+    margin:0!important;
+    padding:0!important;
+  }
+  body:has(aside)>.shell>.topbar{
+    display:none!important;
+  }
+}

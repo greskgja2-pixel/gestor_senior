@@ -13,8 +13,8 @@ const PAGES=[
   {id:'relatorios',icon:'▤',tone:'teal',label:'Relatórios',href:'/extensao-shopee-intelligence?section=relatorios',group:'products',child:true,desc:'Relatórios consolidados, históricos e comparativos.'},
   {id:'shopee-ads',icon:'◎',tone:'coral',label:'Shopee Ads',href:'/extensao-shopee-intelligence?section=shopee-ads',group:'ads',parent:true,desc:'ROAS, ROAS alvo, GMV, gasto e custo por venda.'},
   {id:'protecao-roas',icon:'◈',tone:'green',label:'Proteção ROAS',href:'/protecao-roas',group:'ads',child:true,desc:'Status interno e desativação da proteção de ROAS.'},
-  {id:'temas',icon:'◐',tone:'pink',label:'Temas',desc:'Escolha a aparência do Gestor Sênior.'},
-  {id:'config',icon:'⚙',tone:'slate',label:'Configurações',desc:'Preferências gerais do Gestor Sênior.'}
+  {id:'temas',icon:'◐',tone:'pink',label:'Temas',href:'/?section=temas',desc:'Escolha a aparência do Gestor Sênior.'},
+  {id:'config',icon:'⚙',tone:'slate',label:'Configurações',href:'/?section=config',desc:'Preferências gerais do Gestor Sênior.'}
 ];
 const pageMap=new Map(PAGES.map(x=>[x.id,x]));
 let summaryTimer=null;

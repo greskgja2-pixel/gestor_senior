@@ -1,6 +1,6 @@
 "use client";
 import {useCallback,useEffect,useRef,useState} from "react";
-const VERSION="20260918-02";
+const VERSION="20260919-01";
 const frameSrc=section=>`/shopeeos-live.html?v=full-live-${VERSION}${section?`&section=${encodeURIComponent(section)}`:''}`;
 const STYLES=[["shell-enhancements-css","/shell-enhancements.css"],["legacy-themes-css","/legacy-themes.css"],["runtime-restoration-css","/runtime-restoration.css"],["live-modules-css","/live-modules.css"],["advanced-modules-css","/advanced-modules.css"],["editor-ai-css","/editor-ai.css"],["editor-variations-css","/editor-variations.css"],["editor-images-css","/editor-images.css"],["editor-shipping-css","/editor-shipping.css"],["editor-other-css","/editor-other.css"],["products-profit-enhancements-css","/products-profit-enhancements.css"],["product-trends-css","/product-trends.css"],["home-encyclopedia-css","/home-encyclopedia.css"],["product-encyclopedia-v6-css","/product-encyclopedia-v6.css"],["ads-shopee-replica-v11-css","/ads-shopee-replica-v11.css"],["layout-wide-v2-css","/layout-wide-v2.css"]];
 const CORE_SCRIPTS=[["runtime-restoration-js","/runtime-restoration.js"],["live-modules-js","/live-modules.js"],["shell-enhancements-js","/shell-enhancements.js"]];
