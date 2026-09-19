@@ -82,12 +82,18 @@ test('regra que esconde a sidebar antiga do iframe tem especificidade reforcada 
 
 test('itens do menu (principais e do submenu) tem a mesma altura de linha',()=>{
   // Pedido do usuario: as linhas de "Produtos"/"Shopee Ads" (itens principais) nao podem ficar
-  // mais altas que as linhas dos filhos ("Super Analise", "Protecao ROAS" etc). Os dois grupos de
-  // link (".gs-nav>a,.gs-nav-parent-link,.gs-nav-submenu>a" e ".gs-nav-submenu>a") precisam ter o
-  // mesmo min-height para que a altura visual da linha seja identica em toda a sidebar.
-  const topLevelHeight=css.match(/\.gs-nav>a,\.gs-nav-parent-link,\.gs-nav-submenu>a\{[^}]*min-height:(\d+)px/);
-  const submenuHeight=css.match(/\.gs-nav-submenu>a\{min-height:(\d+)px/);
+  // mais altas que as linhas dos filhos ("Super Analise", "Protecao ROAS" etc).
+  // Regressao real: usar `min-height` igual (37px) nos dois grupos NAO bastava, porque o icone do
+  // item principal e maior (27px) que o do submenu (23px) — com `min-height`, o icone maior do
+  // item principal empurra a linha alem do valor declarado (vira ~42px), enquanto o submenu fica
+  // no minimo (~37px), e a diferenca volta a aparecer visualmente. A correcao usa `height` FIXO
+  // (nao `min-height`) nos dois grupos de link, com o mesmo valor, para que a altura da linha seja
+  // sempre identica independente do tamanho do icone/fonte de cada nivel.
+  assert.doesNotMatch(css,/\.gs-nav>a,\.gs-nav-parent-link,\.gs-nav-submenu>a\{[^}]*min-height/,'item principal nao pode usar min-height (icone maior estoura a altura)');
+  assert.doesNotMatch(css,/\.gs-nav-submenu>a\{min-height/,'submenu nao pode usar min-height (fica mais baixo que o item principal)');
+  const topLevelHeight=css.match(/\.gs-nav>a,\.gs-nav-parent-link,\.gs-nav-submenu>a\{[^}]*[;{]height:(\d+)px/);
+  const submenuHeight=css.match(/(?<!,)\.gs-nav-submenu>a\{height:(\d+)px/);
   assert.ok(topLevelHeight,'regra base do menu nao encontrada');
   assert.ok(submenuHeight,'regra do submenu nao encontrada');
-  assert.equal(submenuHeight[1],topLevelHeight[1],'submenu tem min-height diferente do menu principal');
+  assert.equal(submenuHeight[1],topLevelHeight[1],'submenu tem altura diferente do menu principal');
 });
