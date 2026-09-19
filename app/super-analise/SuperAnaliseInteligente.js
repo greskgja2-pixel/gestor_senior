@@ -3,11 +3,15 @@
 import {useEffect,useMemo,useState} from 'react';
 import Link from 'next/link';
 import styles from './page.module.css';
+import {fetchJsonWithTimeout,classifyAsyncError} from '../lib/client-async';
 
 const n=v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v))?null:Number(v);
 const money=v=>n(v)==null?'—':n(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const pct=v=>n(v)==null?'—':`${n(v).toLocaleString('pt-BR',{maximumFractionDigits:1})}%`;
 const arr=v=>Array.isArray(v)?v:[];
+const missingStatus=obj=>{const s=String(obj?.collectionStatus||obj?.collection_status||'').toLowerCase();if(obj?.collectionError||obj?.collection_error||obj?.error||s==='error')return'Erro de coleta';if(s==='not_integrated'||s==='unsupported')return'Não integrado';if(obj&&Object.keys(obj).length)return'Sem dados';return'Não coletado'};
+const countValue=(explicit,rows,obj)=>n(explicit)!=null?Number(explicit).toLocaleString('pt-BR'):(Array.isArray(rows)&&rows.length?rows.length.toLocaleString('pt-BR'):missingStatus(obj));
+const boolValue=(value,obj)=>value===true?'Sim':value===false?'Não':missingStatus(obj);
 const metric=(r,k)=>r?.metrics?.[k]??r?.ads_snapshot?.manual?.[k]??r?.ads_snapshot?.[k]??null;
 const productImage=p=>p?.imageUrl||p?.image_url||p?.imageUrls?.[0]||p?.image?.image_url_list?.[0]||null;
 
@@ -24,27 +28,9 @@ function dimScore(report,terms){const d=arr(report?.report?.dimensions).find(x=>
 function scoreMap(report){return Object.fromEntries(Object.entries(SCORE_TERMS).map(([k,t])=>[k,dimScore(report,t)]))}
 function currentMargin(price,cost,deductions=0){const p=n(price),c=n(cost),d=n(deductions)??0;if(p==null||p<=0||c==null)return null;return ((p-c-d)/p)*100}
 
-function Sidebar({connected,onOpen}){return <aside className={styles.sidebar}>
-  <div className={styles.brand}><span>GS</span><div><b>Gestor Sênior</b><small>Shopee Intelligence</small></div></div>
-  <nav>
-    <Link href="/">⌂ <span>Dashboard</span></Link>
-    <Link href="/extensao-shopee-intelligence">▣ <span>Super Anúncio</span></Link>
-    <Link className={styles.active} href="/super-analise">▤ <span>Super Análise</span></Link>
-    <Link href="/produtos">▱ <span>Produtos</span></Link>
-    <Link href="/extensao-shopee-intelligence#concorrentes">⌘ <span>Concorrentes</span></Link>
-    <Link href="/extensao-shopee-intelligence">◎ <span>Shopee Ads</span></Link>
-    <Link href="/extensao-shopee-intelligence#reanálises">↻ <span>Reanálises</span></Link>
-    <Link href="/extensao-shopee-intelligence">☆ <span>Prioridades</span></Link>
-    <Link href="/extensao-shopee-intelligence">▤ <span>Relatórios</span></Link>
-    <div className={styles.extCard}><div><i className={connected?styles.online:styles.offline}/><b>Extensão</b></div><small>{connected?'Conectada e pronta':'Não detectada nesta aba'}</small><button type="button" data-gs-super-analysis onClick={onOpen}>Abrir extensão</button></div>
-    <Link href="/">⚙ <span>Configurações</span></Link>
-  </nav>
-</aside>}
-
 function Metric({label,value,title}){return <div className={styles.metric} title={title||''}><small>{label}</small><b>{value}</b></div>}
 
 export default function SuperAnaliseInteligente({report,products=[]}){
-  const [connected,setConnected]=useState(false);
   const [tab,setTab]=useState('title');
   const [analysis,setAnalysis]=useState(report?.report?.ai_analysis||null);
   const [busy,setBusy]=useState(false);
@@ -82,57 +68,47 @@ export default function SuperAnaliseInteligente({report,products=[]}){
   },[report?.id]);
 
   useEffect(()=>{
-    const ready=()=>setConnected(true);
-    const onMessage=e=>{if(e.source===window&&e.data?.source==='GS_EXTENSION'&&(e.data?.type==='GS_EXTENSION_READY'||e.data?.type==='GS_EXTENSION_PONG'))ready()};
-    window.addEventListener('gs-extension-ready',ready);window.addEventListener('message',onMessage);
-    const id=setInterval(()=>{
-      const ok=document.documentElement?.dataset?.gsExtensionBridge==='ready'||!!document.getElementById('gs-extension-bridge-marker');
-      if(ok)setConnected(true);
-      window.postMessage({source:'GS_GESTOR',type:'GS_EXTENSION_PING'},location.origin);
-    },900);
-    return()=>{clearInterval(id);window.removeEventListener('gs-extension-ready',ready);window.removeEventListener('message',onMessage)};
-  },[]);
-
-  useEffect(()=>{
-    fetch('/api/shopee/catalog?resource=categories',{cache:'no-store'}).then(r=>r.json()).then(raw=>{
+    let alive=true;
+    fetchJsonWithTimeout('/api/shopee/catalog?resource=categories',{cache:'no-store'},15000).then(raw=>{
+      if(!alive)return;
       const roots=raw?.response?.category_list||raw?.category_list||raw?.response?.list||[];const out=[];
       const walk=(x,parent='')=>{if(Array.isArray(x)){x.forEach(v=>walk(v,parent));return}if(!x||typeof x!=='object')return;const id=x.category_id??x.id,name=x.display_category_name||x.original_category_name||x.category_name||x.name;if(id&&name){const label=parent?`${parent} > ${name}`:String(name);out.push({id:String(id),label});for(const k of ['children','child_list','category_list','sub_categories'])if(Array.isArray(x[k]))walk(x[k],label)}else Object.values(x).forEach(v=>Array.isArray(v)&&walk(v,parent))};
       walk(roots);setCategories(out);
-    }).catch(()=>{});
+    }).catch(error=>console.warn('[Super Análise] categorias indisponíveis',error));
+    return()=>{alive=false};
   },[]);
 
   function openExtension(){window.postMessage({source:'GS_GESTOR',type:'GS_OPEN_SIDE_PANEL'},location.origin)}
   function setField(k,v){setDraft(d=>({...d,[k]:v}))}
   function saveDraft(){localStorage.setItem(`gs-super-analysis-draft-${report?.id}`,JSON.stringify({draft,chosenCategory,analysis,savedAt:new Date().toISOString()}));setMessage('Rascunho salvo neste navegador.')}
   function applyAll(){if(!analysis)return;setDraft(d=>({...d,title:analysis?.title?.suggestion||d.title,description:analysis?.description?.suggestion||d.description,imagePlan:analysis?.images?.suggestion||d.imagePlan,videoPlan:analysis?.video?.suggestion||d.videoPlan,pricePlan:analysis?.price?.suggestion||d.pricePlan,variationsPlan:analysis?.variations?.suggestion||d.variationsPlan}));setMessage('Todas as sugestões foram aplicadas ao rascunho. Nada foi alterado na Shopee.')}
-  async function runGemini(){if(!report?.id)return;setBusy(true);setMessage('Analisando anúncio e concorrentes com Gemini…');try{const r=await fetch('/api/ai/super-analysis',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({report_id:report.id})});const j=await r.json();if(!r.ok)throw new Error(j.error||`HTTP ${r.status}`);setAnalysis(j.analysis);setDraft(d=>({...d,suggestionTitle:j.analysis?.title?.suggestion||'',suggestionDescription:j.analysis?.description?.suggestion||'',imagePlan:j.analysis?.images?.suggestion||'',videoPlan:j.analysis?.video?.suggestion||'',pricePlan:j.analysis?.price?.suggestion||'',variationsPlan:j.analysis?.variations?.suggestion||''}));setMessage(`Análise concluída${j.visualImages?` · ${j.visualImages} imagens avaliadas visualmente`:''}.`)}catch(e){setMessage(String(e?.message||e))}finally{setBusy(false)}}
+  async function runGemini(){if(!report?.id)return;setBusy(true);setMessage('Analisando anúncio e concorrentes com Gemini…');try{const j=await fetchJsonWithTimeout('/api/ai/super-analysis',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({report_id:report.id})},120000);setAnalysis(j.analysis);setDraft(d=>({...d,suggestionTitle:j.analysis?.title?.suggestion||'',suggestionDescription:j.analysis?.description?.suggestion||'',imagePlan:j.analysis?.images?.suggestion||'',videoPlan:j.analysis?.video?.suggestion||'',pricePlan:j.analysis?.price?.suggestion||'',variationsPlan:j.analysis?.variations?.suggestion||''}));setMessage(`Análise concluída${j.visualImages?` · ${j.visualImages} imagens avaliadas visualmente`:''}.`)}catch(e){console.error('[Super Análise] Gemini falhou',e);const kind=classifyAsyncError(e);setMessage(kind==='timeout'?'A análise de IA excedeu 2 minutos. Tente novamente; o rascunho foi preservado.':String(e?.message||e))}finally{setBusy(false)}}
 
   const aiTerms=arr(analysis?.category?.searchTerms);
   const search=(categoryQuery||aiTerms.join(' ')).toLowerCase().trim();
   const filteredCategories=categories.filter(c=>!search||search.split(/\s+/).some(w=>w.length>2&&c.label.toLowerCase().includes(w))).slice(0,10);
   const liveMargin=currentMargin(draft.price,draft.cost,inferredDeductions);
 
-  if(!report)return <div className={styles.screen}><Sidebar connected={connected} onOpen={openExtension}/><main className={styles.empty}><h1>✦ Super Análise Inteligente</h1><p>Nenhuma análise encontrada. Inicie a coleta pela extensão e finalize em <b>Analisar Tudo</b>.</p></main></div>;
+  if(!report)return <div className={styles.screen}><main className={styles.empty}><h1>✦ Super Análise Inteligente</h1><p>Nenhuma análise encontrada. Inicie uma Super Análise e finalize em <b>Analisar Tudo</b>.</p></main></div>;
 
   const activeBefore=before[tab]??report.score;
   const activeAfter=n(after?.[tab]);
   const improvement=activeAfter!=null&&activeBefore!=null?Math.round(activeAfter-activeBefore):null;
 
   return <div className={styles.screen}>
-    <Sidebar connected={connected} onOpen={openExtension}/>
     <main className={styles.main}>
       <header className={styles.header}>
         <div><h1>✦ Super Análise Inteligente</h1><p>Compare os dados originais com a sugestão da IA e aplique apenas o que fizer sentido.</p></div>
-        <div className={styles.headerActions}><span className={connected?styles.connected:styles.disconnected}><i className={connected?styles.online:styles.offline}/>{connected?'Extensão conectada':'Extensão desconectada'}</span><button type="button" data-gs-super-analysis onClick={openExtension}>↗ Abrir extensão</button></div>
+        <div className={styles.headerActions}><button type="button" data-gs-super-analysis onClick={openExtension}>↗ Abrir Motor Senior</button></div>
       </header>
 
       <section className={styles.productBar}>
         {productImage(p)?<img src={productImage(p)} alt=""/>:<div className={styles.noImage}/>} 
-        <div className={styles.productInfo}><b>{p.title||p.item_name||`Produto ${report.item_id}`}</b><small>ID do anúncio: {report.item_id}</small><small>Categoria: {p.category||'—'}</small></div>
+        <div className={styles.productInfo}><b>{p.title||p.item_name||`Produto ${report.item_id}`}</b><small>ID do anúncio: {report.item_id}</small><small>Categoria: {p.category||missingStatus(p)}</small></div>
         <div className={styles.metrics}>
-          <Metric label="Preço" value={money(basePrice)}/><Metric label="Custo" value={money(baseCost)}/><Metric label="Margem" value={pct(marginNow)} title={marginProof}/>
+          <Metric label="Preço" value={money(basePrice)}/><Metric label="Custo" value={money(baseCost)}/><Metric label="Margem estimada" value={pct(marginNow)} title={marginProof}/>
           <Metric label="Vendas" value={n(metric(report,'sold')??p.sold)?.toLocaleString('pt-BR')||'—'}/><Metric label="Avaliação" value={n(p.rating)!=null?`${n(p.rating).toFixed(1)} ★`:'—'}/>
-          <Metric label="Fotos" value={p.imageCount??images.length??0}/><Metric label="Vídeo" value={p.hasVideo?'Sim':'Não'}/><Metric label="Variações" value={p.variationCount??arr(p.models||p.variations).length??0}/>
+          <Metric label="Fotos" value={countValue(p.imageCount,images,p)}/><Metric label="Vídeo" value={boolValue(p.hasVideo,p)}/><Metric label="Variações" value={countValue(p.variationCount,arr(p.models||p.variations),p)}/>
         </div>
       </section>
 

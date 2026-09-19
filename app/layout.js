@@ -1,8 +1,7 @@
 import "./globals.css";
-import "./sidebar-standard.css";
 import "./motor-senior-theme.css";
-import Image from "next/image";
-import SidebarOrderGuard from "./components/SidebarOrderGuard";
+import "./app-shell.css";
+import AppShell from "./components/AppShell";
 
 const themeBootstrap=`(()=>{try{
   const allowed=new Set(['dark','warm','win11','classic','ubuntu','light']);
@@ -31,29 +30,7 @@ export default function RootLayout({ children }) {
     <html lang="pt-BR" suppressHydrationWarning>
       <body suppressHydrationWarning>
         <script dangerouslySetInnerHTML={{__html:themeBootstrap}} />
-        <SidebarOrderGuard />
-        <div className="shell">
-          <div className="topbar">
-            <div className="brand">
-              <div className="logo-frame">
-                <Image
-                  src="/gestor-senior-logo.jpg"
-                  alt="Logo Gestor Senior"
-                  fill
-                  priority
-                  sizes="74px"
-                />
-              </div>
-              <span>Gestor Senior</span>
-            </div>
-            <nav className="tabs">
-              <a href="/">Dashboard</a>
-              <a href="/produtos">Produtos</a>
-              <a href="/pedidos">Pedidos</a>
-            </nav>
-          </div>
-          {children}
-        </div>
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

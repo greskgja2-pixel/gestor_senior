@@ -1,8 +1,8 @@
 'use client';
 
 import {useEffect,useMemo,useState} from 'react';
-import Link from 'next/link';
 import styles from './page.module.css';
+import {fetchJsonWithTimeout,motorRequest,classifyAsyncError} from '../lib/client-async';
 
 const finite=v=>v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v));
 const num=v=>finite(v)?Number(v):null;
@@ -24,19 +24,6 @@ const statusClass={
   unknown:'statusUnknown'
 };
 const PAGE_SIZE=20;
-function motorRequest(action,payload={},timeoutMs=22000){
-  if(typeof window==='undefined')return Promise.resolve(null);
-  return new Promise(resolve=>{
-    const requestId='gs-'+Date.now()+'-'+Math.random().toString(36).slice(2);
-    let done=false;
-    const finish=v=>{if(done)return;done=true;clearTimeout(timer);window.removeEventListener('message',onMessage);resolve(v)};
-    const onMessage=e=>{if(e.source===window&&e.data?.source==='GS_EXTENSION'&&e.data?.type==='GS_ENGINE_RESPONSE'&&String(e.data?.requestId)===requestId)finish(e.data?.result||null)};
-    const timer=setTimeout(()=>finish(null),timeoutMs);
-    window.addEventListener('message',onMessage);
-    window.postMessage({source:'GS_GESTOR',type:'GS_ENGINE_REQUEST',requestId,action,payload},location.origin);
-  });
-}
-
 function productImage(p){
   const candidates=[
     p?.image_url,p?.imageUrl,p?.cover_image,p?.coverImage,
@@ -44,29 +31,6 @@ function productImage(p){
     p?.image_info?.image_url_list?.[0]
   ];
   return candidates.find(Boolean)||null;
-}
-
-function Sidebar({connected}){
-  return <aside className={styles.sidebar}>
-    <div className={styles.brand}><span>GS</span><div><b>Gestor Sênior</b><small>Shopee Intelligence</small></div></div>
-    <nav>
-      <Link href="/">⌂ <span>Dashboard</span></Link>
-      <Link href="/produtos">▱ <span>Produtos</span></Link>
-      <Link href="/super-analise">▤ <span>Super Análise</span></Link>
-      <Link href="/extensao-shopee-intelligence?section=super-anuncio">▣ <span>Super Anúncio</span></Link>
-      <Link href="/extensao-shopee-intelligence?section=concorrentes">⌘ <span>Concorrentes</span></Link>
-      <Link href="/extensao-shopee-intelligence?section=shopee-ads">◎ <span>Shopee Ads</span></Link>
-      <Link className={styles.sideActive} href="/protecao-roas">◈ <span>Proteção ROAS</span></Link>
-      <Link href="/extensao-shopee-intelligence?section=reanalises">↻ <span>Reanálises</span></Link>
-      <Link href="/extensao-shopee-intelligence?section=prioridades">☆ <span>Prioridades</span></Link>
-      <Link href="/extensao-shopee-intelligence?section=relatorios">▤ <span>Relatórios</span></Link>
-    </nav>
-    <div className={styles.engineCard}>
-      <div><i className={connected?styles.online:styles.offline}/><b>Motor Senior</b></div>
-      <strong>{connected?'Conectado e pronto':'Não detectado'}</strong>
-      <small>Os estados confirmados de Proteção ROAS capturados pelo Motor aparecem nesta página.</small>
-    </div>
-  </aside>
 }
 
 function KpiCard({kind,title,subtitle,row,value,children}){
@@ -88,8 +52,8 @@ function ProtectionBadge({status}){
 }
 
 export default function ProtectionRoasDashboard(){
-  const [connected,setConnected]=useState(false);
-  const [loading,setLoading]=useState(true);
+  const [phase,setPhase]=useState('loading');
+  const [hasResolved,setHasResolved]=useState(false);
   const [error,setError]=useState('');
   const [campaigns,setCampaigns]=useState([]);
   const [protectionStates,setProtectionStates]=useState([]);
@@ -103,35 +67,40 @@ export default function ProtectionRoasDashboard(){
   const [progress,setProgress]=useState({current:0,total:0,name:''});
   const [notice,setNotice]=useState('');
 
-  useEffect(()=>{
-    const onMessage=e=>{if(e.source===window&&e.data?.source==='GS_EXTENSION'&&(e.data?.type==='GS_EXTENSION_READY'||e.data?.type==='GS_EXTENSION_PONG'))setConnected(true);};
-    window.addEventListener('message',onMessage);
-    window.postMessage({source:'GS_GESTOR',type:'GS_EXTENSION_PING'},location.origin);
-    const ping=setInterval(()=>window.postMessage({source:'GS_GESTOR',type:'GS_EXTENSION_PING'},location.origin),1800);
-    const marker=setInterval(()=>{if(document.documentElement?.dataset?.gsExtensionBridge==='ready'||document.querySelector('meta[name="gestor-senior-extension"]'))setConnected(true);},1800);
-    return()=>{clearInterval(ping);clearInterval(marker);window.removeEventListener('message',onMessage);};
-  },[]);
-
   async function load(){
-    setLoading(true);setError('');
+    const refreshing=hasResolved;
+    setPhase(refreshing?'refreshing':'loading');setError('');setNotice('');
+    const motorPromise=motorRequest('syncShopeeAds',{days:30,reason:'open-protecao-roas'},12000)
+      .then(result=>result?.data?.v7||result?.data?.v5||null)
+      .catch(err=>{console.warn('[Proteção ROAS] Motor Senior não respondeu',err);return null});
     try{
-      const motor=await motorRequest('syncShopeeAds',{days:30,reason:'open-protecao-roas'});
-      const [adsR,protectionR,productsR]=await Promise.all([
-        fetch('/api/shopee/ads?days=30',{cache:'no-store'}),
-        fetch('/api/shopee/ads-protection',{cache:'no-store'}),
-        fetch('/api/shopee/products',{cache:'no-store'})
+      const [adsResult,protectionResult,productsResult,motorData]=await Promise.all([
+        fetchJsonWithTimeout('/api/shopee/ads?days=30',{cache:'no-store'},18000).then(value=>({ok:true,value})).catch(error=>({ok:false,error})),
+        fetchJsonWithTimeout('/api/shopee/ads-protection',{cache:'no-store'},15000).then(value=>({ok:true,value})).catch(error=>({ok:false,error})),
+        fetchJsonWithTimeout('/api/shopee/products',{cache:'no-store'},18000).then(value=>({ok:true,value})).catch(error=>({ok:false,error})),
+        motorPromise
       ]);
-      const [ads,protection,productData]=await Promise.all([
-        adsR.json().catch(()=>({})),protectionR.json().catch(()=>({})),productsR.json().catch(()=>({}))
-      ]);
-      if(!protectionR.ok)throw new Error(protection?.error||'Não consegui carregar os estados da Proteção ROAS.');
-      const motorCampaigns=motor?.ok&&motor?.data?.v7&&Array.isArray(motor.data.v7.campaigns)?motor.data.v7.campaigns:null;
-      if(!motorCampaigns&&!adsR.ok)throw new Error(ads?.error||'Não consegui carregar o Shopee Ads.');
-      setCampaigns(motorCampaigns??ads?.v7?.campaigns??ads?.v5?.campaigns??[]);
-      setProtectionStates(protection?.states||[]);
-      setProducts(productsR.ok?(productData?.items||[]):[]);
-    }catch(e){setError(String(e?.message||e));}
-    finally{setLoading(false);}
+      const adsPayload=adsResult.ok?(adsResult.value?.v7||adsResult.value?.v5||null):null;
+      const serverCampaigns=Array.isArray(adsPayload?.campaigns)?adsPayload.campaigns:null;
+      const motorCampaigns=Array.isArray(motorData?.campaigns)?motorData.campaigns:null;
+      const finalCampaigns=(serverCampaigns&&serverCampaigns.length?serverCampaigns:(motorCampaigns??serverCampaigns));
+      if(!Array.isArray(finalCampaigns))throw adsResult.error||new Error('Nenhuma fonte do Shopee Ads retornou campanhas.');
+      setCampaigns(finalCampaigns);
+      setProtectionStates(protectionResult.ok?(protectionResult.value?.states||[]):[]);
+      setProducts(productsResult.ok?(productsResult.value?.items||[]):[]);
+      setHasResolved(true);
+      setPhase(finalCampaigns.length?'success':'empty');
+      const partial=[];
+      if(!protectionResult.ok)partial.push('estado da Proteção ROAS');
+      if(!productsResult.ok)partial.push('dados auxiliares dos produtos');
+      if(!adsResult.ok&&motorCampaigns)partial.push('API de Ads (foi usado o Motor Senior)');
+      if(partial.length)setNotice(`Dados principais carregados, mas houve falha em: ${partial.join(', ')}. Campos dependentes aparecem como não verificados.`);
+    }catch(e){
+      console.error('[Proteção ROAS] carregamento falhou',e);
+      const kind=classifyAsyncError(e);
+      setPhase(kind);
+      setError(kind==='timeout'?'A atualização excedeu o tempo limite. Os dados anteriores foram preservados; tente novamente.':String(e?.message||e));
+    }
   }
 
   useEffect(()=>{load();},[]);
@@ -162,6 +131,9 @@ export default function ProtectionRoasDashboard(){
   const worst=useMemo(()=>rows.filter(r=>num(r.roas)!=null).sort((a,b)=>num(a.roas)-num(b.roas))[0]||null,[rows]);
   const activeProtection=rows.filter(r=>r.protectionStatus==='valid').length;
   const protectionPct=rows.length?Math.round(activeProtection/rows.length*100):0;
+  const busy=phase==='loading'||phase==='refreshing';
+  const stateCoverage=campaigns.length===0||campaigns.every(c=>String(c?.state||'').trim());
+  const dataKnown=hasResolved&&stateCoverage;
 
   const filtered=useMemo(()=>{
     const q=query.trim().toLowerCase();
@@ -210,7 +182,7 @@ export default function ProtectionRoasDashboard(){
       const c=targets[i];
       setProgress({current:i+1,total:targets.length,name:c.name});
       try{
-        const response=await fetch('/api/shopee/ads-action',{
+        const data=await fetchJsonWithTimeout('/api/shopee/ads-action',{
           method:'POST',
           headers:{'Content-Type':'application/json'},
           body:JSON.stringify({
@@ -219,9 +191,8 @@ export default function ProtectionRoasDashboard(){
             mode:c.controlMode==='gms'?'gms':'manual',
             confirmed:true
           })
-        });
-        const data=await response.json().catch(()=>({}));
-        if(!response.ok||data?.ok===false)throw new Error(data?.error||`HTTP ${response.status}`);
+        },20000);
+        if(data?.ok===false)throw new Error(data?.error||'A Shopee recusou a ação.');
         ok++;
       }catch(e){failures.push({id:c.campaignId,name:c.name,error:String(e?.message||e)});}
     }
@@ -234,25 +205,24 @@ export default function ProtectionRoasDashboard(){
   }
 
   return <div className={styles.screen}>
-    <Sidebar connected={connected}/>
     <main className={styles.main}>
       <header className={styles.header}>
         <div><span className={styles.spark}>✦</span><div><h1>Central de Proteção ROAS</h1><p>Monitore campanhas ativas, encontre os extremos de ROAS e gerencie a proteção dos anúncios selecionados.</p></div></div>
-        <div className={styles.headerActions}><span className={connected?styles.connected:styles.disconnected}><i/>{connected?'Motor Senior conectado':'Motor Senior não detectado'}</span><button onClick={load} disabled={loading}>↻ Atualizar dados</button></div>
+        <div className={styles.headerActions}><button onClick={load} disabled={busy}>{busy?'Atualizando…':'↻ Atualizar dados'}</button></div>
       </header>
 
-      {error&&<div className={styles.error}>{error}<button onClick={load}>Tentar novamente</button></div>}
+      {error&&<div className={styles.error}>{error}<button onClick={load} disabled={busy}>Tentar novamente</button></div>}
       {notice&&<div className={styles.notice}>{notice}<button onClick={()=>setNotice('')}>×</button></div>}
 
       <section className={styles.kpis}>
         <KpiCard kind="best" title="Melhor ROAS" subtitle="Anúncio ativo com maior retorno" row={best} value={best?roas(best.roas):'—'}/>
         <KpiCard kind="worst" title="Pior ROAS" subtitle="Anúncio ativo com menor retorno" row={worst} value={worst?roas(worst.roas):'—'}/>
-        <KpiCard kind="active" title="Anúncios Ativos" subtitle="Total em veiculação"><div className={styles.bigNumber}><b>{rows.length}</b><span>anúncios ativos</span><small>Campanhas em andamento encontradas no Shopee Ads.</small></div></KpiCard>
-        <KpiCard kind="protection" title="Proteção ROAS Ativa" subtitle="Estado interno confirmado"><div className={styles.protectionKpi}><div><b>{activeProtection}</b><span>de {rows.length} ativos</span></div><div className={styles.bar}><i style={{width:`${protectionPct}%`}}/></div><small>{protectionPct}% com proteção confirmada como ativa.</small></div></KpiCard>
+        <KpiCard kind="active" title="Anúncios Ativos" subtitle="Total em veiculação"><div className={styles.bigNumber}><b>{dataKnown?rows.length:'—'}</b><span>{dataKnown?'anúncios ativos':'aguardando fonte'}</span><small>{dataKnown?'Campanhas em andamento encontradas no Shopee Ads.':'Nenhum zero é assumido enquanto a fonte/status das campanhas não concluir.'}</small></div></KpiCard>
+        <KpiCard kind="protection" title="Proteção ROAS Ativa" subtitle="Estado interno confirmado"><div className={styles.protectionKpi}><div><b>{dataKnown?activeProtection:'—'}</b><span>{dataKnown?`de ${rows.length} ativos`:'aguardando fonte'}</span></div><div className={styles.bar}><i style={{width:`${dataKnown?protectionPct:0}%`}}/></div><small>{dataKnown?`${protectionPct}% com proteção confirmada como ativa.`:'O valor só aparece depois de uma resposta real.'}</small></div></KpiCard>
       </section>
 
       <section className={styles.panel}>
-        <div className={styles.panelHead}><div><h2>☷ Anúncios ativos</h2><p>Selecione apenas os anúncios desejados e execute a desativação em lote.</p></div><span>{loading?'Carregando…':`${rows.length} campanhas ativas`}</span></div>
+        <div className={styles.panelHead}><div><h2>☷ Anúncios ativos</h2><p>Selecione apenas os anúncios desejados e execute a desativação em lote.</p></div><span>{busy?(phase==='refreshing'?'Atualizando dados…':'Carregando…'):phase==='empty'?'Fonte concluída: nenhuma campanha ativa':dataKnown?`${rows.length} campanhas ativas`:'Dados indisponíveis'}</span></div>
 
         <div className={styles.toolbar}>
           <div className={styles.search}>⌕<input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar por nome, ID da campanha ou produto…"/></div>
@@ -276,7 +246,8 @@ export default function ProtectionRoasDashboard(){
           <table>
             <thead><tr><th><input type="checkbox" checked={allPageSelected} onChange={togglePage} disabled={!selectablePage.length}/></th><th>Anúncio</th><th>Status</th><th>ROAS atual</th><th>ROAS alvo</th><th>Proteção ROAS</th><th>Última verificação</th><th>Ações</th></tr></thead>
             <tbody>
-              {!loading&&paged.length===0&&<tr><td colSpan="8" className={styles.empty}>Nenhum anúncio encontrado com este filtro.</td></tr>}
+              {!busy&&dataKnown&&paged.length===0&&<tr><td colSpan="8" className={styles.empty}>{phase==='empty'?'A fonte respondeu, mas não retornou campanhas ativas.':'Nenhum anúncio encontrado com este filtro.'}</td></tr>}
+              {!busy&&!dataKnown&&<tr><td colSpan="8" className={styles.empty}>Não foi possível confirmar os anúncios ativos. Use “Tentar novamente”.</td></tr>}
               {paged.map(r=><tr key={r.campaignId} className={selectedSet.has(String(r.campaignId))?styles.rowSelected:''}>
                 <td><input type="checkbox" checked={selectedSet.has(String(r.campaignId))} onChange={()=>toggle(r.campaignId)} disabled={!r.canDisable||running} title={r.canDisable?'Selecionar campanha':'Disponível somente quando a Proteção ROAS estiver confirmada como ativa.'}/></td>
                 <td><div className={styles.adCell}>{r.image?<img src={r.image} alt=""/>:<div className={styles.noImage}/>}<div><b>{r.name}</b><small>Campanha {r.campaignId}{r.itemId?` · Produto ${r.itemId}`:''}</small></div></div></td>

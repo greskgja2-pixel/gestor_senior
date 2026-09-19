@@ -1,28 +1,13 @@
 'use client';
 
 import {useEffect,useMemo,useRef,useState} from 'react';
-import Link from 'next/link';
 import styles from './web-audit.module.css';
+import {motorData,classifyAsyncError} from '../lib/client-async';
 
 const n=v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v))?null:Number(v);
 const money=v=>n(v)==null?'—':n(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const pct=v=>n(v)==null?'—':`${n(v).toLocaleString('pt-BR',{maximumFractionDigits:1})}%`;
-const uid=()=>`${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const safe=v=>v===null||v===undefined?'':v;
-
-function engine(action,payload={},ms=30000){
-  return new Promise((resolve,reject)=>{
-    const requestId=uid();
-    const timer=setTimeout(()=>{window.removeEventListener('message',onMessage);reject(new Error('O Motor Senior demorou demais para responder.'));},ms);
-    function onMessage(event){
-      if(event.source!==window||event.data?.source!=='GS_EXTENSION'||event.data?.type!=='GS_ENGINE_RESPONSE'||event.data?.requestId!==requestId)return;
-      clearTimeout(timer);window.removeEventListener('message',onMessage);
-      const r=event.data.result||{};r.ok?resolve(r.data??r):reject(new Error(r.error||'Falha no Motor Senior.'));
-    }
-    window.addEventListener('message',onMessage);
-    window.postMessage({source:'GS_GESTOR',type:'GS_ENGINE_REQUEST',requestId,action,payload},location.origin);
-  });
-}
 
 function Help({children}){return <span className={styles.help} title={children}>?</span>}
 function Step({n:step,current,label}){const done=current>step,active=current===step;return <div className={`${styles.step} ${done?styles.done:''} ${active?styles.active:''}`}><span>{done?'✓':step}</span><small>{label}</small></div>}
@@ -38,16 +23,19 @@ export default function WebAuditFlow({initialUrl=''}){
   const [ads,setAds]=useState({roas:'',targetRoas:'',spend:'',gmv:'',costPerSale:''});
   const [baseCost,setBaseCost]=useState(''),[variationCosts,setVariationCosts]=useState([]);
   const [picker,setPicker]=useState(null),[competitors,setCompetitors]=useState([]),[analyzing,setAnalyzing]=useState(false);
-  const pollRef=useRef(null),autoStartedRef=useRef(false);
+  const [operation,setOperation]=useState({status:'idle',message:''});
+  const pollRef=useRef(null),pickerDeadlineRef=useRef(0),autoStartedRef=useRef(false);
 
   useEffect(()=>{
-    const ready=e=>{if(e.source===window&&e.data?.source==='GS_EXTENSION'&&(e.data?.type==='GS_EXTENSION_READY'||e.data?.type==='GS_EXTENSION_PONG')){setConnected(true);setVersion(e.data.version||'');}};
-    window.addEventListener('message',ready);
-    window.postMessage({source:'GS_GESTOR',type:'GS_EXTENSION_PING'},location.origin);
-    const ping=setInterval(()=>window.postMessage({source:'GS_GESTOR',type:'GS_EXTENSION_PING'},location.origin),1800);
-    const marker=setInterval(()=>{const el=document.querySelector('meta[name="gestor-senior-extension"]');if(el){setConnected(true);setVersion(el.content||'');}},1800);
-    return()=>{clearInterval(ping);clearInterval(marker);clearInterval(pollRef.current);window.removeEventListener('message',ready);};
-  },[]);
+    let detected=false;
+    const markReady=versionValue=>{detected=true;setConnected(true);if(versionValue)setVersion(versionValue)};
+    const ready=e=>{if(e.source===window&&e.data?.source==='GS_EXTENSION'&&(e.data?.type==='GS_EXTENSION_READY'||e.data?.type==='GS_EXTENSION_PONG'))markReady(e.data.version||'')};
+    const inspect=()=>{const meta=document.querySelector('meta[name="gestor-senior-extension"]');if(meta||document.documentElement?.dataset?.gsExtensionBridge==='ready'||document.getElementById('gs-extension-bridge-marker'))markReady(meta?.content||'');window.postMessage({source:'GS_GESTOR',type:'GS_EXTENSION_PING'},location.origin)};
+    window.addEventListener('message',ready);inspect();
+    const ping=setInterval(inspect,1800);
+    const missing=setTimeout(()=>{if(initialUrl&&!detected){setMessage('Motor Senior não detectado. Verifique se a extensão está ativa e tente novamente.');setOperation({status:'error',message:'A extensão não respondeu ao teste de conexão.'})}},8000);
+    return()=>{clearInterval(ping);clearTimeout(missing);clearTimeout(pollRef.current);window.removeEventListener('message',ready)};
+  },[initialUrl]);
 
   useEffect(()=>{if(!initialUrl||!connected||autoStartedRef.current)return;autoStartedRef.current=true;loadProduct(initialUrl);},[connected,initialUrl]);
 
@@ -59,72 +47,106 @@ export default function WebAuditFlow({initialUrl=''}){
 
   async function loadProduct(targetUrl=url){
     const chosen=String(targetUrl||url||'').trim();
-    if(!chosen)return setMessage('Informe o link do anúncio da Shopee.');
-    if(!connected)return setMessage('Motor Senior não detectado. Ative a extensão e recarregue o Gestor.');
-    setUrl(chosen);setLoading(true);setMessage('Motor Senior abrindo o anúncio e coletando os dados reais da Shopee…');
+    if(!chosen){setOperation({status:'empty',message:'Informe o link do anúncio da Shopee.'});return setMessage('Informe o link do anúncio da Shopee.')}
+    if(!connected){setOperation({status:'error',message:'Motor Senior não detectado.'});return setMessage('Motor Senior não detectado. Ative a extensão e tente novamente.')}
+    setUrl(chosen);setLoading(true);setOperation({status:'loading',message:'Coletando dados reais do anúncio…'});setMessage('Motor Senior abrindo o anúncio e coletando os dados reais da Shopee…');
     try{
-      const data=await engine('collectProduct',{url:chosen},45000);
+      const data=await motorData('collectProduct',{url:chosen},35000);
+      if(!data?.product)throw Object.assign(new Error('O Motor Senior respondeu, mas não retornou os dados do anúncio.'),{code:'empty'});
       setBundle(data);
       setProductDraft({price:safe(data.product?.price),sold:safe(data.product?.sold),rating:safe(data.product?.rating),reviewCount:safe(data.product?.reviewCount)});
       setAds({roas:safe(data.ads?.roas),targetRoas:safe(data.ads?.targetRoas),spend:safe(data.ads?.spend),gmv:safe(data.ads?.gmv),costPerSale:safe(data.ads?.costPerSale??data.ads?.cpa)});
       setBaseCost(safe(data.baseCost));
       setVariationCosts((data.variationCosts||[]).map(x=>({...x,cost:safe(x.cost)})));
-      setStep(2);
-      setMessage(data.adsTimedOut?'Anúncio carregado. Os Ads demoraram para responder; os campos permanecem editáveis pelo lápis.':'Anúncio carregado. Confira os dados, custos e Ads antes de continuar.');
-    }catch(e){setMessage(String(e?.message||e));autoStartedRef.current=false;}finally{setLoading(false);}
+      setStep(2);setOperation({status:'success',message:'Anúncio coletado com sucesso.'});
+      setMessage(data.adsTimedOut?'Anúncio carregado. A coleta de Ads expirou; esses campos ficaram como não coletados e permanecem editáveis.':'Anúncio carregado. Confira os dados, custos e Ads antes de continuar.');
+    }catch(e){
+      console.error('[Super Análise] collectProduct falhou',e);
+      const kind=e?.code==='empty'?'empty':classifyAsyncError(e);
+      setOperation({status:kind,message:String(e?.message||e)});
+      setMessage(kind==='timeout'?'A coleta excedeu 35 segundos. Você pode tentar novamente sem perder o produto selecionado.':String(e?.message||e));
+      autoStartedRef.current=false;
+    }finally{setLoading(false);}
   }
 
   async function saveAndContinue(){
     if(needsBase&&n(baseCost)==null)return setMessage('Informe o custo unitário padrão porque ainda existe item sem custo por variação.');
     if(models.length>0&&!allVariationCosts&&n(baseCost)==null)return setMessage('Preencha os custos das variações ou informe o custo padrão.');
-    setLoading(true);setMessage('Salvando custos e preparando a seleção dos concorrentes…');
+    setLoading(true);setOperation({status:'loading',message:'Salvando custos…'});setMessage('Salvando custos e preparando a seleção dos concorrentes…');
     try{
-      await engine('saveCosts',{itemId:p.itemId,models,baseCost:n(baseCost),variationCosts:variationCosts.map(x=>({...x,cost:n(x.cost)}))},30000);
-      setStep(3);setMessage('Agora escolha de 1 até 3 concorrentes. O Motor Senior abrirá a busca normal da Shopee.');
-    }catch(e){setMessage(String(e?.message||e));}finally{setLoading(false);}
+      await motorData('saveCosts',{itemId:p.itemId,models,baseCost:n(baseCost),variationCosts:variationCosts.map(x=>({...x,cost:n(x.cost)}))},25000);
+      setStep(3);setOperation({status:'success',message:'Custos salvos.'});setMessage('Agora escolha de 1 até 3 concorrentes. O Motor Senior abrirá a busca normal da Shopee.');
+    }catch(e){console.error('[Super Análise] saveCosts falhou',e);const kind=classifyAsyncError(e);setOperation({status:kind,message:String(e?.message||e)});setMessage(kind==='timeout'?'O salvamento expirou. Tente novamente.':String(e?.message||e));}finally{setLoading(false);}
+  }
+
+  async function pollPickerResult(requestId){
+    if(Date.now()>pickerDeadlineRef.current){
+      clearTimeout(pollRef.current);setPicker(null);
+      setOperation({status:'timeout',message:'A seleção de concorrentes excedeu 2 minutos.'});
+      setMessage('A busca de concorrentes expirou. Você pode abrir a busca novamente.');
+      return;
+    }
+    try{
+      const r=await motorData('pickerResult',{requestId},8000);
+      if(r?.done){
+        clearTimeout(pollRef.current);setPicker(null);
+        if(r.cancelled){setOperation({status:'empty',message:'Seleção cancelada.'});setMessage('Seleção cancelada. Você pode abrir a busca novamente.');return}
+        const items=(r.items||[]).slice(0,3);setCompetitors(items);
+        if(items.length>=1&&items.length<=3){setStep(4);setOperation({status:'success',message:'Concorrentes coletados.'});setMessage(`${items.length} concorrente(s) coletado(s) em profundidade. Você voltou para a mesma Super Análise; revise e clique em Analisar Tudo.`)}
+        else{setOperation({status:'empty',message:'Nenhum concorrente recebido.'});setMessage('Nenhum concorrente foi recebido. Escolha pelo menos 1 e no máximo 3.')}
+        return;
+      }
+    }catch(e){
+      if(e?.code!=='timeout')console.warn('[Super Análise] consulta temporária do seletor falhou',e);
+    }
+    pollRef.current=setTimeout(()=>pollPickerResult(requestId),1500);
   }
 
   async function openPicker(){
+    clearTimeout(pollRef.current);
+    setOperation({status:'loading',message:'Abrindo busca de concorrentes…'});
     setMessage('Abrindo a busca da Shopee. Escolha de 1 a 3 concorrentes; ao voltar, o Motor Senior fará a coleta profunda antes de fechar a busca.');
     try{
-      const req=await engine('openCompetitorPicker',{title:p.title,itemId:p.itemId},15000);setPicker(req);clearInterval(pollRef.current);
-      pollRef.current=setInterval(async()=>{try{const r=await engine('pickerResult',{requestId:req.requestId},8000);if(!r?.done)return;clearInterval(pollRef.current);setPicker(null);if(r.cancelled)return setMessage('Seleção cancelada. Você pode abrir a busca novamente.');const items=(r.items||[]).slice(0,3);setCompetitors(items);if(items.length>=1&&items.length<=3){setStep(4);setMessage(`${items.length} concorrente(s) coletado(s) em profundidade. Você voltou para a mesma Super Análise; revise e clique em Analisar Tudo.`);}else setMessage('Nenhum concorrente foi recebido. Escolha pelo menos 1 e no máximo 3.');}catch{}},900);
-    }catch(e){setMessage(String(e?.message||e));}
+      const req=await motorData('openCompetitorPicker',{title:p.title,itemId:p.itemId},15000);
+      if(!req?.requestId)throw Object.assign(new Error('O seletor abriu sem um identificador de acompanhamento.'),{code:'empty'});
+      setPicker(req);pickerDeadlineRef.current=Date.now()+120000;
+      pollRef.current=setTimeout(()=>pollPickerResult(req.requestId),800);
+    }catch(e){
+      console.error('[Super Análise] openCompetitorPicker falhou',e);
+      const kind=e?.code==='empty'?'empty':classifyAsyncError(e);
+      setOperation({status:kind,message:String(e?.message||e)});
+      setMessage(kind==='timeout'?'A abertura da busca expirou. Tente novamente.':String(e?.message||e));
+    }
   }
 
   async function reloadPicker(){
     if(!picker)return openPicker();
-    try{await engine('reloadCompetitorPicker',{requestId:picker.requestId},12000);setMessage('Busca recarregada. Aguarde alguns segundos para os botões “Selecionar” aparecerem.');}catch(e){setMessage(String(e?.message||e));}
+    try{await motorData('reloadCompetitorPicker',{requestId:picker.requestId},12000);setOperation({status:'success',message:'Busca recarregada.'});setMessage('Busca recarregada. Aguarde alguns segundos para os botões “Selecionar” aparecerem.');}catch(e){console.error('[Super Análise] reload picker falhou',e);const kind=classifyAsyncError(e);setOperation({status:kind,message:String(e?.message||e)});setMessage(kind==='timeout'?'A recarga da busca expirou. Tente novamente.':String(e?.message||e));}
   }
 
   async function analyzeAll(){
     if(competitors.length<1||competitors.length>3)return setMessage('Selecione de 1 até 3 concorrentes antes de analisar.');
-    setAnalyzing(true);setMessage('Concorrentes já coletados. Motor Senior consolidando anúncio, contexto, Ads, custos, margens, variações, imagens e concorrentes para a análise…');
+    setAnalyzing(true);setOperation({status:'loading',message:'Consolidando a Super Análise…'});setMessage('Concorrentes já coletados. Motor Senior consolidando anúncio, contexto, Ads, custos, margens, variações, imagens e concorrentes para a análise…');
     try{
-      const result=await engine('analyzeAll',{
+      const result=await motorData('analyzeAll',{
         product:{...(bundle.product||{}),...productDraft},models,objective,situation,bottleneck,
         ads:{...(bundle.ads||{}),roas:n(ads.roas),targetRoas:n(ads.targetRoas),spend:n(ads.spend),gmv:n(ads.gmv),costPerSale:n(ads.costPerSale)},
         baseCost:n(baseCost),variationCosts:variationCosts.map(x=>({...x,cost:n(x.cost)})),competitors
       },120000);
-      setMessage('Pacote concluído. Abrindo Original × Sugestão da IA no Gestor…');
+      setOperation({status:'success',message:'Pacote concluído.'});setMessage('Pacote concluído. Abrindo Original × Sugestão da IA no Gestor…');
       const q=result.reportId?`?report_id=${encodeURIComponent(result.reportId)}`:`?item_id=${encodeURIComponent(result.itemId)}`;
       location.href=`/super-analise${q}`;
-    }catch(e){setMessage(String(e?.message||e));setAnalyzing(false);}
+    }catch(e){console.error('[Super Análise] analyzeAll falhou',e);const kind=classifyAsyncError(e);setOperation({status:kind,message:String(e?.message||e)});setMessage(kind==='timeout'?'A análise excedeu 2 minutos. Tente novamente; os dados preenchidos continuam nesta tela.':String(e?.message||e));setAnalyzing(false);}
   }
 
-  function reset(){clearInterval(pollRef.current);autoStartedRef.current=true;setStep(1);setUrl('');setBundle(null);setProductDraft({});setAds({roas:'',targetRoas:'',spend:'',gmv:'',costPerSale:''});setBaseCost('');setVariationCosts([]);setCompetitors([]);setPicker(null);setMessage('');setAnalyzing(false);}
+  function reset(){clearTimeout(pollRef.current);pickerDeadlineRef.current=0;autoStartedRef.current=true;setStep(1);setUrl('');setBundle(null);setProductDraft({});setAds({roas:'',targetRoas:'',spend:'',gmv:'',costPerSale:''});setBaseCost('');setVariationCosts([]);setCompetitors([]);setPicker(null);setMessage('');setAnalyzing(false);setLoading(false);setOperation({status:'idle',message:''});}
 
   return <div className={styles.screen}>
-    <aside className={styles.sidebar}>
-      <div className={styles.brand}><span>GS</span><div><b>Gestor Sênior</b><small>Shopee Intelligence</small></div></div>
-      <nav><Link href="/">⌂ Dashboard</Link><Link href="/produtos">▱ Produtos</Link><Link className={styles.active} href="/super-analise">▤ Super Análise</Link><Link href="/extensao-shopee-intelligence">▣ Super Anúncio</Link><Link href="/extensao-shopee-intelligence#concorrentes">⌘ Concorrentes</Link><Link href="/extensao-shopee-intelligence#shopee-ads">◎ Shopee Ads</Link><Link href="/extensao-shopee-intelligence#reanálises">↻ Reanálises</Link><Link href="/extensao-shopee-intelligence#prioridades">☆ Prioridades</Link><Link href="/extensao-shopee-intelligence#relatorios">▤ Relatórios</Link></nav>
-      <div className={`${styles.engineCard} ${connected?styles.engineOn:styles.engineOff}`}><div><i/><b>Motor Senior</b></div><strong>{connected?`Conectado${version?` · v${version}`:''}`:'Desconectado'}</strong><small>Trabalha em segundo plano. A interface da análise fica no Gestor.</small></div>
-    </aside>
-
     <main className={styles.main}>
       <header className={styles.header}><div><h1>✦ Super Análise</h1><p>Fluxo guiado no Gestor; o Motor Senior apenas coleta e executa tarefas na Shopee.</p></div><button onClick={reset}>Recomeçar</button></header>
       <section className={styles.progress}><Step n={1} current={step} label="Anúncio"/><Step n={2} current={step} label="Contexto, Ads e custos"/><Step n={3} current={step} label="1–3 concorrentes"/><Step n={4} current={step} label="Analisar tudo"/></section>
-      {message&&<div className={styles.message}>{message}</div>}
+      {message&&<div className={styles.message} data-state={operation.status}>{message}</div>}
+      {(operation.status==='error'||operation.status==='timeout'||operation.status==='empty')&&step===1&&url&&<div className={styles.asyncState}><b>{operation.status==='timeout'?'Tempo esgotado':operation.status==='empty'?'Dados não retornados':'Falha na coleta'}</b><span>{operation.message}</span><button type="button" onClick={()=>loadProduct(url)} disabled={loading}>Tentar novamente</button></div>}
 
       {step===1&&<section className={styles.card}><div className={styles.cardHead}><div><span className={styles.num}>1</span><h2>Carregar anúncio</h2></div><Help>Quando você vem de Produtos, o anúncio já chega selecionado. O Motor Senior faz a coleta em segundo plano.</Help></div><p>Se você entrou diretamente nesta página, cole o link do anúncio.</p><div className={styles.row}><input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://shopee.com.br/..."/><button className={styles.primary} disabled={loading||!url.trim()} onClick={()=>loadProduct()}>{loading?'Coletando…':'Carregar anúncio'}</button></div></section>}
 

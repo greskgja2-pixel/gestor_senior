@@ -2,78 +2,64 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
-const read=path=>readFileSync(new URL(`../${path}`,import.meta.url),'utf8');
+const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const layout=read('app/layout.js');
-const css=read('app/sidebar-standard.css');
-const guard=read('app/components/SidebarOrderGuard.js');
-const dashboardShell=read('public/shell-enhancements.js');
-const dashboardCss=read('public/shell-enhancements.css');
+const shell=read('app/components/AppShell.js');
+const css=read('app/app-shell.css');
+const frame=read('app/components/ShopeeLiveFrame.js');
+const routeFiles=[
+  'app/produtos/ProductsDashboard.js',
+  'app/super-analise/WebAuditFlow.js',
+  'app/super-analise/SuperAnaliseInteligente.js',
+  'app/extensao-shopee-intelligence/IntelligenceSections.js',
+  'app/extensao-shopee-intelligence/SuperAnuncioMockup.js',
+  'app/protecao-roas/ProtectionRoasDashboard.js'
+].map(read);
 
-const order=['Dashboard','Produtos','Super Análise','Super Anúncio','Concorrentes','Reanálises','Prioridades','Relatórios','Shopee Ads','Proteção ROAS','Temas','Configurações'];
-function assertOrder(source,name){let last=-1;for(const label of order){const pos=source.indexOf(`label:'${label}'`);assert.ok(pos>last,`${label} saiu da ordem oficial em ${name}`);last=pos;}}
-
-test('layout global carrega o padrao oficial do menu lateral',()=>{
-  assert.match(layout,/import\s+["']\.\/sidebar-standard\.css["']/);
-  assert.match(layout,/SidebarOrderGuard/);
+test('RootLayout usa um unico AppShell compartilhado',()=>{
+  assert.match(layout,/import AppShell from ".\/components\/AppShell"/);
+  assert.match(layout,/<AppShell>\{children\}<\/AppShell>/);
+  assert.doesNotMatch(layout,/SidebarOrderGuard/);
+  assert.doesNotMatch(layout,/className="topbar"/);
 });
 
-test('menu lateral oficial permanece branco e com largura fixa de 218px',()=>{
-  assert.match(css,/--gs-sidebar-width:218px/);
-  assert.match(css,/min-width:var\(--gs-sidebar-width\)!important/);
-  assert.match(css,/max-width:var\(--gs-sidebar-width\)!important/);
-  assert.match(css,/background:#fbfdff!important/);
-  assert.match(css,/border-right:1px solid #e2e9f2!important/);
-  assert.match(css,/font-size:12px!important/);
-  assert.match(css,/background:#e8f2ff!important/);
-  assert.match(css,/color:#1265d8!important/);
-  assert.match(dashboardCss,/grid-template-columns:218px/);
-  assert.match(dashboardCss,/background:#fbfdff!important/);
+test('sidebar desktop tem largura unica de 218px e grid estavel',()=>{
+  assert.match(css,/--sidebar-width:218px/);
+  assert.match(css,/grid-template-columns:var\(--sidebar-width\) minmax\(0,1fr\)/);
+  assert.match(css,/width:var\(--sidebar-width\)/);
+  assert.match(css,/min-width:var\(--sidebar-width\)/);
+  assert.match(css,/max-width:var\(--sidebar-width\)/);
+  assert.match(css,/\*,\*::before,\*::after\{box-sizing:inherit\}/);
 });
 
-test('Super Analise nao pode voltar para sidebar azul ou largura 210/185',()=>{
-  assert.match(css,/web-audit_screen__/);
-  assert.match(css,/page_screen__/);
-  assert.match(css,/grid-template-columns:var\(--gs-sidebar-width\) minmax\(0,1fr\)!important/);
+test('menu canonico contem rotas e grupos exigidos',()=>{
+  for(const label of ['Dashboard','Produtos','Super Análise','Super Anúncio','Concorrentes','Reanálises','Prioridades','Relatórios','Pedidos','Shopee Ads','Proteção ROAS','Temas','Configurações']){
+    assert.ok(shell.includes("label:'"+label+"'"),'item ausente: '+label);
+  }
+  assert.match(shell,/STORAGE_GROUPS/);
+  assert.match(shell,/localStorage\.setItem\(STORAGE_GROUPS/);
+  assert.match(shell,/activeGroup/);
 });
 
-test('conteudo da Super Analise sempre ocupa a segunda coluna quando sidebar e fixa',()=>{
-  assert.match(css,/web-audit_screen__[^}]*>main\[class\*="_main__"\][^{]*\{[^}]*grid-column:2 \/ -1!important/s);
-  assert.match(css,/grid-column:2 \/ -1!important/);
-  assert.match(css,/min-width:0!important/);
+test('componentes de rota nao renderizam outra Sidebar ativa',()=>{
+  for(const source of routeFiles){
+    assert.doesNotMatch(source,/function Sidebar\(/);
+    assert.doesNotMatch(source,/<Sidebar\b/);
+  }
+  assert.match(css,/\.gs-app-main aside\[class\*="_sidebar__"\]\{display:none!important\}/);
 });
 
-test('ordem, icones e rotulos das paginas sao canonicos',()=>{
-  assertOrder(guard,'Next');
-  assertOrder(dashboardShell,'Dashboard');
-  assert.match(guard,/export const GS_MENU_ORDER=/);
-  assert.match(guard,/data\.gsMenuGroup|dataset\.gsMenuGroup/);
-  assert.match(guard,/data\.gsSubmenu|dataset\.gsSubmenu/);
-  assert.match(guard,/label:'Temas'/);
-  assert.match(guard,/label:'Configurações'/);
-  assert.match(guard,/gsMenuIcon/);
-  assert.match(guard,/gsMenuLabel/);
-  assert.match(css,/data-gs-menu-icon/);
-  assert.match(css,/data-gs-menu-label/);
-  assert.match(css,/data-gs-tone/);
-  assert.match(css,/data-gs-system-status/);
-  assert.match(guard,/useLayoutEffect/);
-  assert.match(guard,/Motor Senior/);
-  assert.match(css,/data-gs-active="true"/);
-  assert.match(dashboardShell,/Super Análises — resumo/);
-  assert.match(dashboardShell,/\/api\/extension-intelligence\/reports\?limit=200/);
+test('mobile usa o mesmo drawer do AppShell',()=>{
+  assert.match(css,/@media\(max-width:900px\)/);
+  assert.match(css,/data-drawer="open"/);
+  assert.match(shell,/gs-mobile-bar/);
+  assert.match(shell,/gs-drawer-backdrop/);
 });
 
-
-test('telas modernas nunca ficam escondidas atras da sidebar fixa',()=>{
-  assert.match(css,/div\[class\*="_screen__"\]>main\[class\*="_main__"\]/);
-  assert.match(css,/grid-column:2 \/ -1!important/);
-  assert.match(css,/body:has\(aside\)>\.shell>\.topbar/);
-});
-
-test('estado da loja no menu usa cache confirmado e nao pisca como desconectado',()=>{
-  assert.match(guard,/SHOP_CACHE_KEY/);
-  assert.match(guard,/Verificando loja/);
-  assert.match(guard,/gsStatusSignature/);
-  assert.match(guard,/removeLegacyStatusCards/);
-  assert.match(guard,/Uma falha transitória não transforma/);
+test('Dashboard LIVE fica dentro do AppShell e nao cria uma segunda lateral visivel',()=>{
+  assert.match(frame,/id="gs-hosted-layout"/);
+  assert.match(frame,/\.sidebar\{display:none!important\}/);
+  assert.match(frame,/\.topbar\{display:none!important\}/);
+  assert.doesNotMatch(frame,/position:"fixed",inset:0,width:"100vw"/);
+  assert.match(frame,/VERSION="20260919-02"/);
 });

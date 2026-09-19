@@ -1,6 +1,7 @@
 'use client';
 
 import {useEffect,useRef,useState} from 'react';
+import {fetchJsonWithTimeout,classifyAsyncError} from '../lib/client-async';
 
 export default function AutoGeminiAnalysis({reportId,itemId}){
   const started=useRef(false);
@@ -16,9 +17,7 @@ export default function AutoGeminiAnalysis({reportId,itemId}){
     setProgress(6);
     setMessage('Analisando pela IA. Primeiro tentamos Gemini; se houver limite ou indisponibilidade, a Groq assume automaticamente.');
     try{
-      const response=await fetch('/api/ai/super-analysis',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({report_id:reportId})});
-      const data=await response.json().catch(()=>({}));
-      if(!response.ok)throw new Error(data?.error||`Falha na análise de IA (HTTP ${response.status})`);
+      const data=await fetchJsonWithTimeout('/api/ai/super-analysis',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({report_id:reportId})},120000);
       const used=data?.provider==='groq'?'Groq':'Gemini';
       const targetItem=String(itemId||data?.itemId||'').trim();
       setProvider(used);
@@ -32,9 +31,11 @@ export default function AutoGeminiAnalysis({reportId,itemId}){
         location.href=`/extensao-shopee-intelligence?${q.toString()}`;
       },850);
     }catch(error){
-      setState('error');
+      console.error('[AutoGeminiAnalysis] análise falhou',error);
+      const kind=classifyAsyncError(error);
+      setState(kind==='timeout'?'timeout':'error');
       setProgress(100);
-      setMessage(String(error?.message||error));
+      setMessage(kind==='timeout'?'A análise de IA excedeu 2 minutos. Tente novamente.':String(error?.message||error));
     }
   }
 
@@ -54,7 +55,7 @@ export default function AutoGeminiAnalysis({reportId,itemId}){
   return <div className="gs-ai-progress-overlay" role="status" aria-live="polite">
     <div className="gs-theme-floating-card gs-ai-progress-card" data-state={state}>
       <div className="gs-ai-progress-head">
-        <b className={state==='error'?'gs-theme-error':''}>{state==='error'?'⚠ A análise de IA não concluiu':state==='done'?`✓ ${provider||'IA'} concluiu`:'✦ Analisando pela IA…'}</b>
+        <b className={state==='error'?'gs-theme-error':''}>{state==='error'||state==='timeout'?'⚠ A análise de IA não concluiu':state==='done'?`✓ ${provider||'IA'} concluiu`:'✦ Analisando pela IA…'}</b>
         <strong>{Math.round(progress)}%</strong>
       </div>
       <p className="gs-theme-muted">{message}</p>
@@ -62,7 +63,7 @@ export default function AutoGeminiAnalysis({reportId,itemId}){
         <span style={{width:`${progress}%`}}/>
       </div>
       {state==='loading'&&<small className="gs-theme-muted gs-ai-progress-note">A barra continua avançando enquanto o servidor processa o anúncio e os concorrentes. Pode levar alguns instantes.</small>}
-      {state==='error'&&<button className="gs-theme-control" type="button" onClick={run}>Tentar novamente</button>}
+      {(state==='error'||state==='timeout')&&<button className="gs-theme-control" type="button" onClick={run}>Tentar novamente</button>}
     </div>
   </div>;
 }
