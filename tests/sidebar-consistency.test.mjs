@@ -70,3 +70,12 @@ test('Dashboard LIVE fica dentro do AppShell e nao cria uma segunda lateral visi
   assert.doesNotMatch(frame,/position:"fixed",inset:0,width:"100vw"/);
   assert.match(frame,/VERSION="20260919-02"/);
 });
+
+test('regra que esconde a sidebar antiga do iframe tem especificidade reforcada (>901px)',()=>{
+  // Regressao real: ".sidebar{display:none!important}" sozinho empata em especificidade com a
+  // regra ".sidebar{display:flex!important}" de shell-enhancements.css, que carrega depois e
+  // vence o empate — a sidebar antiga reaparecia em telas >=901px. O seletor precisa ser mais
+  // especifico que um `.sidebar` isolado para vencer sempre, independente da ordem de carregamento.
+  assert.match(frame,/html body \.app \.sidebar\{display:none!important\}/);
+  assert.match(frame,/html body \.app \.topbar\{display:none!important\}/);
+});
