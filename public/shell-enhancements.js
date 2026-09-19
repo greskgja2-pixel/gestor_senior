@@ -6,12 +6,13 @@ const PAGES=[
   {id:'dashboard',page:'home',icon:'⌂',label:'Dashboard',live:true,desc:'Resumo da operação e dos resultados das Super Análises.'},
   {id:'produtos',icon:'▱',label:'Produtos',href:'/produtos',desc:'Escolha o anúncio que será enviado para a Super Análise.'},
   {id:'super-analise',icon:'▤',label:'Super Análise',href:'/super-analise',desc:'Fluxo guiado, Original × IA e Antes × Depois.'},
-  {id:'super-anuncio',icon:'▣',label:'Super Anúncio',href:'/extensao-shopee-intelligence',desc:'Histórico completo dos anúncios já analisados.'},
-  {id:'concorrentes',icon:'⌘',label:'Concorrentes',href:'/extensao-shopee-intelligence#concorrentes',desc:'Concorrentes vinculados, snapshots e rechecagens.'},
-  {id:'shopee-ads',icon:'◎',label:'Shopee Ads',href:'/extensao-shopee-intelligence#shopee-ads',desc:'ROAS, ROAS alvo, GMV, gasto e custo por venda.'},
-  {id:'reanálises',icon:'↻',label:'Reanálises',href:'/extensao-shopee-intelligence#reanálises',desc:'Anúncios que precisam passar por uma nova análise.'},
-  {id:'prioridades',icon:'☆',label:'Prioridades',href:'/extensao-shopee-intelligence#prioridades',desc:'Central de tarefas e ações recomendadas.'},
-  {id:'relatorios',icon:'▤',label:'Relatórios',href:'/extensao-shopee-intelligence#relatorios',desc:'Relatórios consolidados, históricos e comparativos.'}
+  {id:'super-anuncio',icon:'▣',label:'Super Anúncio',href:'/extensao-shopee-intelligence?section=super-anuncio',desc:'Histórico completo dos anúncios já analisados.'},
+  {id:'concorrentes',icon:'⌘',label:'Concorrentes',href:'/extensao-shopee-intelligence?section=concorrentes',desc:'Concorrentes vinculados, snapshots e rechecagens.'},
+  {id:'shopee-ads',icon:'◎',label:'Shopee Ads',href:'/extensao-shopee-intelligence?section=shopee-ads',desc:'ROAS, ROAS alvo, GMV, gasto e custo por venda.'},
+  {id:'protecao-roas',icon:'◈',label:'Proteção ROAS',href:'/protecao-roas',desc:'Status interno e desativação da proteção de ROAS.'},
+  {id:'reanálises',icon:'↻',label:'Reanálises',href:'/extensao-shopee-intelligence?section=reanalises',desc:'Anúncios que precisam passar por uma nova análise.'},
+  {id:'prioridades',icon:'☆',label:'Prioridades',href:'/extensao-shopee-intelligence?section=prioridades',desc:'Central de tarefas e ações recomendadas.'},
+  {id:'relatorios',icon:'▤',label:'Relatórios',href:'/extensao-shopee-intelligence?section=relatorios',desc:'Relatórios consolidados, históricos e comparativos.'}
 ];
 const pageMap=new Map(PAGES.map(x=>[x.id,x]));
 let summaryTimer=null;
@@ -60,7 +61,11 @@ function renderInitial(attempt=0){
   if(attempt<300){setTimeout(()=>renderInitial(attempt+1),100);return false;}
   console.warn('Gestor Senior: dashboard module was not ready after 30s');return false;
 }
-function init(){buildNav();addMobile();renderInitial();}
+function normalizeShellIdentity(){
+  const mark=document.querySelector('.logoMark');if(mark)mark.textContent='GS';
+  document.querySelectorAll('.logo .live').forEach(el=>el.remove());
+}
+function init(){buildNav();normalizeShellIdentity();addMobile();renderInitial();}
 window.addEventListener('gestor-live-modules-ready',()=>renderInitial(0));
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
