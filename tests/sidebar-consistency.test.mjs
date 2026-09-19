@@ -9,7 +9,7 @@ const guard=read('app/components/SidebarOrderGuard.js');
 const dashboardShell=read('public/shell-enhancements.js');
 const dashboardCss=read('public/shell-enhancements.css');
 
-const order=['Dashboard','Produtos','Super Análise','Super Anúncio','Concorrentes','Shopee Ads','Reanálises','Prioridades','Relatórios'];
+const order=['Dashboard','Produtos','Super Análise','Super Anúncio','Concorrentes','Shopee Ads','Proteção ROAS','Reanálises','Prioridades','Relatórios'];
 function assertOrder(source,name){let last=-1;for(const label of order){const pos=source.indexOf(`label:'${label}'`);assert.ok(pos>last,`${label} saiu da ordem oficial em ${name}`);last=pos;}}
 
 test('layout global carrega o padrao oficial do menu lateral',()=>{
@@ -42,7 +42,7 @@ test('conteudo da Super Analise sempre ocupa a segunda coluna quando sidebar e f
   assert.match(css,/min-width:0!important/);
 });
 
-test('ordem, icones e rotulos das nove paginas sao canonicos',()=>{
+test('ordem, icones e rotulos das paginas sao canonicos',()=>{
   assertOrder(guard,'Next');
   assertOrder(dashboardShell,'Dashboard');
   assert.match(guard,/export const GS_MENU_ORDER=/);
