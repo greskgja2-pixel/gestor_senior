@@ -11,6 +11,7 @@ export const GS_MENU_ORDER=[
   {label:'Super Anúncio',icon:'▣',href:'/extensao-shopee-intelligence'},
   {label:'Concorrentes',icon:'⌘',href:'/extensao-shopee-intelligence#concorrentes'},
   {label:'Shopee Ads',icon:'◎',href:'/extensao-shopee-intelligence#shopee-ads'},
+  {label:'Proteção ROAS',icon:'◈',href:'/protecao-roas'},
   {label:'Reanálises',icon:'↻',href:'/extensao-shopee-intelligence#reanálises'},
   {label:'Prioridades',icon:'☆',href:'/extensao-shopee-intelligence#prioridades'},
   {label:'Relatórios',icon:'▤',href:'/extensao-shopee-intelligence#relatorios'}
@@ -28,6 +29,7 @@ function activeLabel(){
   if(path==='/')return'Dashboard';
   if(path.startsWith('/produtos'))return'Produtos';
   if(path.startsWith('/super-analise'))return'Super Análise';
+  if(path.startsWith('/protecao-roas'))return'Proteção ROAS';
   if(path.startsWith('/extensao-shopee-intelligence')){
     if(hash==='#concorrentes')return'Concorrentes';
     if(hash==='#shopee-ads')return'Shopee Ads';
@@ -86,7 +88,7 @@ function normalizeNav(nav){
   const current=[...nav.querySelectorAll(':scope > a')];
   const alreadyCorrect=current.length===desired.length&&desired.every((a,i)=>current[i]===a);
   if(!alreadyCorrect){const fragment=document.createDocumentFragment();desired.forEach(a=>fragment.appendChild(a));nav.appendChild(fragment);}
-  // Cards de status/controles ficam sempre abaixo das 9 páginas e nunca quebram a ordem visual.
+  // Cards de status/controles ficam sempre abaixo das páginas do menu e nunca quebram a ordem visual.
   utility.forEach(el=>nav.appendChild(el));
   nav.dataset.gsMenuReady='true';
 }
