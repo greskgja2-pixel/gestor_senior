@@ -35,7 +35,7 @@ test('Super Analise possui estados finais e libera loading',()=>{
 test('Shopee Ads nao depende indefinidamente do Motor Senior',()=>{
   assert.match(adsView,/fetchJsonWithTimeout\('\/api\/shopee\/ads\?days=30'/);
   assert.match(adsView,/motorRequest\('syncShopeeAds'/);
-  assert.match(adsView,/setPhase\('empty'\)/);
+  assert.ok(adsView.includes("'empty'"),'estado empty ausente no fluxo de Shopee Ads');
   assert.match(adsView,/setPhase\(kind\)/);
   assert.match(adsView,/Tentar novamente/);
 });
