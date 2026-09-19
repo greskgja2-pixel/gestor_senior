@@ -17,9 +17,7 @@ const routes=[
   '/protecao-roas',
   '/extensao-shopee-intelligence?section=reanalises',
   '/extensao-shopee-intelligence?section=prioridades',
-  '/extensao-shopee-intelligence?section=relatorios',
-  '/?section=temas',
-  '/?section=config'
+  '/extensao-shopee-intelligence?section=relatorios'
 ];
 
 test('menu usa rotas reais e nao depende de hash para abrir paginas',()=>{
@@ -48,4 +46,8 @@ test('Protecao ROAS faz parte do mesmo menu canonico',()=>{
   assert.match(roas,/Proteção ROAS/);
   assert.match(guard,/label:'Temas'/);
   assert.match(guard,/label:'Configurações'/);
+  assert.match(guard,/\/?section=temas/);
+  assert.match(guard,/\/?section=config/);
+  assert.match(dashboard,/id:'temas'/);
+  assert.match(dashboard,/id:'config'/);
 });
