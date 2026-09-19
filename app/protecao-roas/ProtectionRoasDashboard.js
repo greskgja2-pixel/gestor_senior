@@ -41,13 +41,13 @@ function Sidebar({connected}){
       <Link href="/">⌂ <span>Dashboard</span></Link>
       <Link href="/produtos">▱ <span>Produtos</span></Link>
       <Link href="/super-analise">▤ <span>Super Análise</span></Link>
-      <Link href="/extensao-shopee-intelligence">▣ <span>Super Anúncio</span></Link>
-      <Link href="/extensao-shopee-intelligence#concorrentes">⌘ <span>Concorrentes</span></Link>
-      <Link href="/extensao-shopee-intelligence#shopee-ads">◎ <span>Shopee Ads</span></Link>
+      <Link href="/extensao-shopee-intelligence?section=super-anuncio">▣ <span>Super Anúncio</span></Link>
+      <Link href="/extensao-shopee-intelligence?section=concorrentes">⌘ <span>Concorrentes</span></Link>
+      <Link href="/extensao-shopee-intelligence?section=shopee-ads">◎ <span>Shopee Ads</span></Link>
       <Link className={styles.sideActive} href="/protecao-roas">◈ <span>Proteção ROAS</span></Link>
-      <Link href="/extensao-shopee-intelligence#reanálises">↻ <span>Reanálises</span></Link>
-      <Link href="/extensao-shopee-intelligence#prioridades">☆ <span>Prioridades</span></Link>
-      <Link href="/extensao-shopee-intelligence#relatorios">▤ <span>Relatórios</span></Link>
+      <Link href="/extensao-shopee-intelligence?section=reanalises">↻ <span>Reanálises</span></Link>
+      <Link href="/extensao-shopee-intelligence?section=prioridades">☆ <span>Prioridades</span></Link>
+      <Link href="/extensao-shopee-intelligence?section=relatorios">▤ <span>Relatórios</span></Link>
     </nav>
     <div className={styles.engineCard}>
       <div><i className={connected?styles.online:styles.offline}/><b>Motor Senior</b></div>
