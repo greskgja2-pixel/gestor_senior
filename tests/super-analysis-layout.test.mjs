@@ -44,7 +44,7 @@ test('fluxo visual da Super Analise continua presente',()=>{
 test('mockup aprovado pertence a pagina Super Anuncio',()=>{
   assert.match(superAnuncioPage,/import\s+SuperAnuncioMockup\s+from\s+['"]\.\/SuperAnuncioMockup['"]/);
   assert.match(superAnuncioPage,/initialItemId=\{initialItemId\}/);
-  assert.match(superAnuncioPage,/initialTab=\{initialTab\}/);
+  assert.match(superAnuncioPage,/initialTab=\\{sectionTab\\}/);
   for(const token of ['Super Anúncio','Anúncio acompanhado','Visão geral','Shopee Ads','Super Análise','Concorrentes','Histórico','Atributos & Variações','Nota geral do anúncio','Retrato atual do anúncio','Comparação com a análise anterior'])assert.ok(superAnuncio.includes(token),`faltando no Super Anuncio: ${token}`);
   assert.match(superAnuncioCss,/\.workspace\{[^}]*grid-template-columns:minmax\(0,1fr\)\s+300px/);
   assert.match(superAnuncioCss,/\.compare\{[^}]*grid-template-columns:minmax\(0,1fr\)\s+46px\s+minmax\(0,1fr\)/);
