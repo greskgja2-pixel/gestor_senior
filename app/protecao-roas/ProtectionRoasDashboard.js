@@ -24,6 +24,18 @@ const statusClass={
   unknown:'statusUnknown'
 };
 const PAGE_SIZE=20;
+function motorRequest(action,payload={},timeoutMs=22000){
+  if(typeof window==='undefined')return Promise.resolve(null);
+  return new Promise(resolve=>{
+    const requestId='gs-'+Date.now()+'-'+Math.random().toString(36).slice(2);
+    let done=false;
+    const finish=v=>{if(done)return;done=true;clearTimeout(timer);window.removeEventListener('message',onMessage);resolve(v)};
+    const onMessage=e=>{if(e.source===window&&e.data?.source==='GS_EXTENSION'&&e.data?.type==='GS_ENGINE_RESPONSE'&&String(e.data?.requestId)===requestId)finish(e.data?.result||null)};
+    const timer=setTimeout(()=>finish(null),timeoutMs);
+    window.addEventListener('message',onMessage);
+    window.postMessage({source:'GS_GESTOR',type:'GS_ENGINE_REQUEST',requestId,action,payload},location.origin);
+  });
+}
 
 function productImage(p){
   const candidates=[
@@ -103,6 +115,7 @@ export default function ProtectionRoasDashboard(){
   async function load(){
     setLoading(true);setError('');
     try{
+      const motor=await motorRequest('syncShopeeAds',{days:30,reason:'open-protecao-roas'});
       const [adsR,protectionR,productsR]=await Promise.all([
         fetch('/api/shopee/ads?days=30',{cache:'no-store'}),
         fetch('/api/shopee/ads-protection',{cache:'no-store'}),
@@ -111,9 +124,10 @@ export default function ProtectionRoasDashboard(){
       const [ads,protection,productData]=await Promise.all([
         adsR.json().catch(()=>({})),protectionR.json().catch(()=>({})),productsR.json().catch(()=>({}))
       ]);
-      if(!adsR.ok)throw new Error(ads?.error||'Não consegui carregar o Shopee Ads.');
       if(!protectionR.ok)throw new Error(protection?.error||'Não consegui carregar os estados da Proteção ROAS.');
-      setCampaigns(ads?.v7?.campaigns||ads?.v5?.campaigns||[]);
+      const motorCampaigns=motor?.ok&&motor?.data?.v7&&Array.isArray(motor.data.v7.campaigns)?motor.data.v7.campaigns:null;
+      if(!motorCampaigns&&!adsR.ok)throw new Error(ads?.error||'Não consegui carregar o Shopee Ads.');
+      setCampaigns(motorCampaigns??ads?.v7?.campaigns??ads?.v5?.campaigns??[]);
       setProtectionStates(protection?.states||[]);
       setProducts(productsR.ok?(productData?.items||[]):[]);
     }catch(e){setError(String(e?.message||e));}
