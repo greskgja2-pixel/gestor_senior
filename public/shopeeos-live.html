@@ -342,4 +342,3 @@ start();
 </script>
 </body>
 </html>
-async function start(){await loadConnection();if(!(state.connection&&state.connection.connected)){showGate();return;}showApp();const results=await Promise.allSettled([loadProducts(false),loadOrders(false),loadProductStatus()]);const labels=['produtos','pedidos','status de produtos'];results.forEach((r,i)=>{if(r.status==='rejected')console.error(labels[i],r.reason);});const gsInitialSection=new URLSearchParams(location.search).get('section')||'';if(gsInitialSection!=='temas'&&gsInitialSection!=='config')render();
