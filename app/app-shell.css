@@ -21,7 +21,7 @@ body{background:var(--gs-shell-bg)!important;background-image:none!important;col
 .gs-logo-mark{width:38px;height:38px;flex:0 0 38px;display:grid;place-items:center;border-radius:11px;background:#07192d;color:#f2cb3f;border:1px solid #e4bd3d;font-size:14px;font-weight:900;box-shadow:0 4px 14px rgba(18,42,72,.08)}
 .gs-sidebar-brand>div{min-width:0}.gs-sidebar-brand b{display:block;color:var(--gs-shell-text);font-size:14px;line-height:1.15}.gs-sidebar-brand small{display:block;color:var(--gs-shell-muted);font-size:10px;margin-top:2px}
 .gs-mobile-close{display:none}
-.gs-nav{display:grid;gap:5px;flex:1 1 auto;min-height:0;overflow:auto;padding-right:2px}
+.gs-nav{display:grid;align-content:start;gap:5px;flex:1 1 auto;min-height:0;overflow:auto;padding-right:2px}
 .gs-nav>a,.gs-nav-parent-link,.gs-nav-submenu>a{display:flex;align-items:center;gap:10px;height:41px;padding:7px 10px;border-radius:10px;color:var(--gs-shell-nav)!important;text-decoration:none!important;font-size:12px;font-weight:700;transition:.15s}
 .gs-nav a:hover{background:var(--gs-shell-soft);color:var(--gs-shell-accent)!important}
 .gs-nav a.is-active{background:var(--gs-shell-active);color:var(--gs-shell-accent)!important;box-shadow:inset 3px 0 0 var(--gs-shell-accent)}
