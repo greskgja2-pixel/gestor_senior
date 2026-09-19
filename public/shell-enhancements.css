@@ -22,3 +22,36 @@
 @media(min-width:1700px){.content{padding-left:30px!important;padding-right:30px!important}.lm-cols{grid-template-columns:minmax(0,1.55fr) minmax(480px,1fr)!important;gap:18px!important}.lm-grid{gap:16px!important}.lm-card-head{padding:12px 15px!important}.lm-chart{height:195px!important}}
 @media(max-width:900px){.shell-menu-btn{display:grid}.sidebar{display:block!important;position:fixed!important;left:-264px!important;top:0!important;bottom:0!important;width:250px!important;z-index:45!important;transition:left .2s ease!important}.sidebar.shell-open{left:0!important}.shell-backdrop.open{display:block}.content{padding:16px}.products{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:620px){.products{grid-template-columns:1fr}.shell-module-card{margin:18px 0;padding:20px}}
+
+/* Hierarquia do menu, ícones coloridos e status sempre visível. */
+.sidebar{display:flex!important;flex-direction:column!important;overflow:hidden!important}
+.nav{flex:1 1 auto!important;min-height:0!important;overflow:auto!important;padding-right:2px}
+.shell-menu-group{display:grid;gap:3px}
+.shell-submenu{display:none;gap:3px;margin:1px 0 4px 17px;padding-left:10px;border-left:1px solid #d9e5f2}
+.shell-menu-group.expanded .shell-submenu{display:grid}
+.nav .shell-page[data-shell-child="true"]{min-height:34px;padding:6px 8px;font-size:11px}
+.nav .shell-page .shell-icon{width:27px!important;height:27px!important;flex:0 0 27px!important;border-radius:8px!important;display:grid!important;place-items:center!important;color:#fff!important;font-size:13px!important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.2)}
+.nav .shell-page[data-shell-child="true"] .shell-icon{width:23px!important;height:23px!important;flex-basis:23px!important;border-radius:7px!important;font-size:11px!important}
+.nav .shell-page[data-shell-tone="violet"] .shell-icon{background:#6d5bd0}
+.nav .shell-page[data-shell-tone="blue"] .shell-icon{background:#2f7de1}
+.nav .shell-page[data-shell-tone="indigo"] .shell-icon{background:#5865d8}
+.nav .shell-page[data-shell-tone="cyan"] .shell-icon{background:#168fb8}
+.nav .shell-page[data-shell-tone="orange"] .shell-icon{background:#e8792a}
+.nav .shell-page[data-shell-tone="purple"] .shell-icon{background:#8955c6}
+.nav .shell-page[data-shell-tone="amber"] .shell-icon{background:#d69a18}
+.nav .shell-page[data-shell-tone="teal"] .shell-icon{background:#15937f}
+.nav .shell-page[data-shell-tone="coral"] .shell-icon{background:#ee5d45}
+.nav .shell-page[data-shell-tone="green"] .shell-icon{background:#2e9b67}
+.nav .shell-page[data-shell-tone="pink"] .shell-icon{background:#d55a9a}
+.nav .shell-page[data-shell-tone="slate"] .shell-icon{background:#60738a}
+.shell-chevron{margin-left:auto;color:#8da0b6;font-size:17px;transition:transform .15s ease}
+.shell-menu-group.expanded>.shell-page .shell-chevron{transform:rotate(90deg)}
+.shell-system-title{margin-top:12px!important}
+[data-shell-system-status]{flex:0 0 auto;display:grid;gap:8px;margin-top:10px;padding:10px;border:1px solid #dbe6f1;border-radius:12px;background:#f8fbff;color:#294664;box-shadow:0 -8px 20px rgba(45,73,105,.05)}
+.shell-status-line{display:flex;align-items:center;gap:8px;min-width:0}
+.shell-status-line>div{display:grid;gap:1px;min-width:0}
+.shell-status-line b{font-size:10px;line-height:1.15}
+.shell-status-line small{font-size:9px;color:#71839a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shell-status-icon{width:23px;height:23px;flex:0 0 23px;border-radius:7px;display:grid;place-items:center;background:#eef2f6;color:#8595a7;font-size:9px}
+.shell-status-icon.ok{background:#e7f8ef;color:#1d9b61}
+[data-shell-system-status] button,[data-shell-system-status] a{display:block;width:100%;border:1px solid #d6e2ef;border-radius:8px;padding:7px 8px;background:#fff;color:#315b86;text-align:center;text-decoration:none;font-size:9px;font-weight:800}
