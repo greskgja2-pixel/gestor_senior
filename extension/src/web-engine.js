@@ -148,9 +148,86 @@ async function analyzeAll(payload={}){
   const saved=await gestorApi.saveAnalysisReport(reportPayload);return{ok:true,reportId:saved?.report?.id||saved?.id||null,itemId:String(p.itemId),score:analysis.score,competitors:deep};
 }
 
+
+async function syncProtectionStates(payload={}){
+  const campaignIds=[...new Set((Array.isArray(payload.campaignIds)?payload.campaignIds:[]).map(Number).filter(Number.isSafeInteger))].filter(x=>x>0);
+  if(!campaignIds.length){
+    const current=await gestorApi.protection().catch(()=>({states:[]}));
+    return{checked:0,synced:0,failed:0,states:Array.isArray(current?.states)?current.states:[]};
+  }
+  let tab=null,created=false;
+  const existing=await chrome.tabs.query({url:['https://seller.shopee.com.br/*']}).catch(()=>[]);
+  tab=existing.find(t=>t?.id)||null;
+  if(!tab){
+    tab=await chrome.tabs.create({url:'https://seller.shopee.com.br/portal/marketing/pas',active:false});
+    created=true;
+  }
+  try{
+    if(!tab?.id)throw new Error('Não consegui abrir o Seller Center para verificar a Proteção ROAS.');
+    await waitTab(tab.id,22000);
+    await wait(700);
+    const injected=await chrome.scripting.executeScript({
+      target:{tabId:tab.id},
+      world:'MAIN',
+      func:async(ids)=>{
+        const rows=[];
+        const pageUrl=new URL(location.href);
+        const api=new URL('/api/pas/v1/rebate/campaign_get/',location.origin);
+        for(const key of ['SPC_CDS','SPC_CDS_VER']){const value=pageUrl.searchParams.get(key);if(value)api.searchParams.set(key,value);}
+        const cookieMap=Object.fromEntries(document.cookie.split(';').map(x=>x.trim()).filter(Boolean).map(x=>{const i=x.indexOf('=');return i>0?[x.slice(0,i),x.slice(i+1)]:[x,''];}));
+        const csrf=cookieMap.csrftoken||cookieMap.CSRF_TOKEN||cookieMap._csrf||'';
+        for(const campaignId of ids){
+          let json=null,statusCode=null,error=null;
+          const attempts=[
+            {headers:{'content-type':'application/json'},body:JSON.stringify({campaign_id:campaignId})},
+            {headers:{'content-type':'application/x-www-form-urlencoded;charset=UTF-8'},body:'campaign_id='+encodeURIComponent(campaignId)}
+          ];
+          for(const attempt of attempts){
+            try{
+              const headers={accept:'application/json, text/plain, */*',...attempt.headers};
+              if(csrf)headers['x-csrftoken']=csrf;
+              const response=await fetch(api.href,{method:'POST',credentials:'include',headers,body:attempt.body});
+              statusCode=response.status;
+              const text=await response.text();
+              try{json=JSON.parse(text)}catch{json=null}
+              const s=String(json?.data?.rebate_campaign_status||'');
+              if(['valid','invalid','unsupported'].includes(s))break;
+            }catch(e){error=String(e?.message||e);}
+          }
+          rows.push({
+            campaignId,
+            status:String(json?.data?.rebate_campaign_status||''),
+            invalidReason:json?.data?.invalid_reason??null,
+            totalAmount:json?.data?.total_amount??null,
+            httpStatus:statusCode,
+            error
+          });
+        }
+        return rows;
+      },
+      args:[campaignIds]
+    });
+    const rows=Array.isArray(injected?.[0]?.result)?injected[0].result:[];
+    let synced=0;
+    for(const row of rows){
+      if(!['valid','invalid','unsupported'].includes(String(row?.status||'')))continue;
+      try{
+        await gestorApi.syncProtection({campaignId:Number(row.campaignId),status:String(row.status),invalidReason:row.invalidReason||null,totalAmount:row.totalAmount??null});
+        synced++;
+      }catch{}
+    }
+    const current=await gestorApi.protection().catch(()=>({states:[]}));
+    return{checked:campaignIds.length,synced,failed:Math.max(0,campaignIds.length-synced),states:Array.isArray(current?.states)?current.states:[],probe:rows};
+  }finally{
+    if(created&&tab?.id)chrome.tabs.remove(tab.id).catch(()=>{});
+  }
+}
+
 async function handleAction(action,payload={}){
   switch(action){
     case'ping':return{ok:true,version:chrome.runtime.getManifest().version};
+    case'syncShopeeAds':return{ok:true,data:await gestorApi.ads(Math.max(1,Math.min(90,Number(payload?.days||30))))};
+    case'syncProtectionStates':return{ok:true,data:await syncProtectionStates(payload||{})};
     case'collectProduct':return{ok:true,data:await collectProduct(payload?.url)};
     case'saveCosts':return{ok:true,data:await saveCosts(payload)};
     case'openCompetitorPicker':return{ok:true,data:await openPicker(payload||{})};
