@@ -85,15 +85,30 @@ export default function ProtectionRoasDashboard(){
       const finalCampaigns=(serverCampaigns&&serverCampaigns.length?serverCampaigns:(motorCampaigns??serverCampaigns));
       if(!Array.isArray(finalCampaigns))throw adsResult.error||new Error('Nenhuma fonte do Shopee Ads retornou campanhas.');
       setCampaigns(finalCampaigns);
-      setProtectionStates(protectionResult.ok?(protectionResult.value?.states||[]):[]);
+      let finalProtectionStates=protectionResult.ok?(protectionResult.value?.states||[]):[];
+      const activeCampaignIds=finalCampaigns.filter(c=>String(c?.state||'').toLowerCase()==='ongoing').map(c=>Number(c.campaignId)).filter(Number.isSafeInteger);
+      let protectionSyncOk=false;
+      if(activeCampaignIds.length){
+        try{
+          const synced=await motorRequest('syncProtectionStates',{campaignIds:activeCampaignIds},35000);
+          const syncedStates=synced?.data?.states||synced?.states;
+          if(Array.isArray(syncedStates)){finalProtectionStates=syncedStates;protectionSyncOk=true;}
+          else{
+            const refreshed=await fetchJsonWithTimeout('/api/shopee/ads-protection',{cache:'no-store'},12000);
+            if(Array.isArray(refreshed?.states)){finalProtectionStates=refreshed.states;protectionSyncOk=true;}
+          }
+        }catch(err){console.warn('[Proteção ROAS] verificação automática pelo Motor não concluiu',err);}
+      }
+      setProtectionStates(finalProtectionStates);
       setProducts(productsResult.ok?(productsResult.value?.items||[]):[]);
       setHasResolved(true);
       setPhase(finalCampaigns.length?'success':'empty');
       const partial=[];
-      if(!protectionResult.ok)partial.push('estado da Proteção ROAS');
+      if(!protectionResult.ok&&!protectionSyncOk)partial.push('estado da Proteção ROAS');
       if(!productsResult.ok)partial.push('dados auxiliares dos produtos');
       if(!adsResult.ok&&motorCampaigns)partial.push('API de Ads (foi usado o Motor Senior)');
-      if(partial.length)setNotice(`Dados principais carregados, mas houve falha em: ${partial.join(', ')}. Campos dependentes aparecem como não verificados.`);
+      if(activeCampaignIds.length&&!protectionSyncOk&&finalProtectionStates.length<activeCampaignIds.length)partial.push('verificação automática da Proteção ROAS pelo Motor Senior');
+      if(partial.length)setNotice(`Dados principais carregados, mas houve falha em: ${[...new Set(partial)].join(', ')}. Campos dependentes aparecem como não verificados.`);
     }catch(e){
       console.error('[Proteção ROAS] carregamento falhou',e);
       const kind=classifyAsyncError(e);
@@ -242,8 +257,8 @@ export default function ProtectionRoasDashboard(){
             <tbody>
               {!busy&&dataKnown&&paged.length===0&&<tr><td colSpan="7" className={styles.empty}>{phase==='empty'?'A fonte respondeu, mas não retornou campanhas ativas.':'Nenhum anúncio encontrado com este filtro.'}</td></tr>}
               {!busy&&!dataKnown&&<tr><td colSpan="7" className={styles.empty}>Não foi possível confirmar os anúncios ativos. Use “Tentar novamente”.</td></tr>}
-              {paged.map(r=><tr key={r.campaignId} className={selectedSet.has(String(r.campaignId))?styles.rowSelected:''} onClick={()=>{if(r.canDisable&&!running)toggle(r.campaignId)}}>
-                <td><input type="checkbox" checked={selectedSet.has(String(r.campaignId))} onChange={()=>toggle(r.campaignId)} onClick={e=>e.stopPropagation()} disabled={!r.canDisable||running} title={r.canDisable?'Selecionar campanha':'Campanha já desativada ou sem suporte para esta ação.'}/></td>
+              {paged.map(r=><tr key={r.campaignId} className={selectedSet.has(String(r.campaignId))?styles.rowSelected:''}>
+                <td><input type="checkbox" checked={selectedSet.has(String(r.campaignId))} onChange={e=>{e.stopPropagation();toggle(r.campaignId)}} onClick={e=>e.stopPropagation()} disabled={!r.canDisable||running} title={r.canDisable?'Selecionar campanha':'Campanha já desativada ou sem suporte para esta ação.'}/></td>
                 <td><div className={styles.adCell}>{r.image?<img src={r.image} alt=""/>:<div className={styles.noImage}/>}<div><b>{r.name}</b><small>Campanha {r.campaignId}{r.itemId?` · Produto ${r.itemId}`:''}</small></div></div></td>
                 <td><span className={styles.live}><i/>Ativo</span></td>
                 <td><b className={num(r.roas)!=null&&num(r.roas)<3?styles.badRoas:styles.goodRoas}>{roas(r.roas)}</b></td>
