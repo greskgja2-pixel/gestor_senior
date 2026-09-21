@@ -146,15 +146,37 @@
 }
 .followBtn svg{width:14px;height:14px}
 .tabs{
-  display:flex;align-items:center;gap:6px;margin-top:12px;padding:4px;
+  display:flex;align-items:center;gap:7px;margin-top:12px;padding:4px;
   border:1px solid #e0e8f2;border-radius:11px;background:#fff;overflow:auto
 }
+.mainTabs,.attributeTabs{display:flex;align-items:center;gap:4px;flex:0 0 auto}
 .tabs button{
   min-height:38px;display:flex;align-items:center;gap:7px;border:0;border-radius:8px;background:transparent;color:#4d6791;
   padding:0 13px;font-size:9px;font-weight:800;white-space:nowrap;cursor:pointer
 }
 .tabs button svg{width:14px;height:14px}
 .tabs button.tabActive{background:#1669e8;color:#fff;box-shadow:0 5px 13px rgba(31,105,225,.2)}
+.tabDivider{width:1px;height:26px;background:#e4ebf3;flex:0 0 1px;margin:0 2px}
+.analysisLabel{
+  min-height:34px;display:flex;align-items:center;gap:6px;flex:0 0 auto;padding:0 5px;
+  color:#5b6f91;font-size:8px;font-weight:900;white-space:nowrap;text-transform:uppercase;letter-spacing:.03em
+}
+.analysisLabel svg{width:13px;height:13px;color:#7957d8}
+.attributeTab{
+  min-height:34px;display:flex;align-items:center;gap:6px;flex:0 0 auto;padding:0 8px;
+  border:1px solid #e1e8f1;border-radius:8px;background:#fbfdff;color:#31547f!important;text-decoration:none!important;
+  font-size:8px;font-weight:800;white-space:nowrap;transition:.15s ease
+}
+.attributeTab:hover{transform:translateY(-1px);border-color:#bfcfe1;background:#f7fbff}
+.attributeTab svg{width:13px;height:13px;color:#6d83a2}
+.attributeTab>b{
+  min-width:23px;height:20px;display:grid;place-items:center;border-radius:999px;padding:0 5px;
+  background:#eef2f6;color:#6f7f93;font-size:8px;line-height:1
+}
+.attributeTab[data-tone="green"]>b{background:#e7f8ef;color:#118154}
+.attributeTab[data-tone="yellow"]>b{background:#fff3cf;color:#9d6a00}
+.attributeTab[data-tone="red"]>b{background:#fee9e9;color:#b54141}
+.attributeTab[data-tone="gray"]>b{background:#eef2f6;color:#7c899b}
 .workspace{display:grid;grid-template-columns:minmax(0,1fr) 318px;gap:14px;margin-top:14px;align-items:start}
 .content{min-width:0}
 .compare{display:grid;grid-template-columns:minmax(0,.92fr) minmax(0,1.28fr);gap:12px}
@@ -323,6 +345,8 @@
   .reasonGrid{grid-template-columns:1fr}
   .bigFacts{grid-template-columns:1fr}
   .tabs button{padding:0 10px}
+  .attributeTab{padding:0 7px}
+  .analysisLabel{padding-left:3px}
   .changeList>div{grid-template-columns:24px 1fr}
   .changeList b,.changeList em{grid-column:2;text-align:left}
 }
