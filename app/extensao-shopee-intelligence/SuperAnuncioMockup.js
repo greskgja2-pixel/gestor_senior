@@ -16,10 +16,17 @@ const imageOf=p=>p?.imageUrl||p?.image_url||p?.imageUrls?.[0]||p?.image?.image_u
 const TABS=[
   ['overview','Visão geral','home'],
   ['ads','Shopee Ads','megaphone'],
-  ['analysis','Super Análise','sparkles'],
   ['competitors','Concorrentes','users'],
-  ['history','Histórico','clock'],
-  ['variations','Atributos & Variações','grid']
+  ['history','Histórico','clock']
+];
+const ATTRIBUTE_BLOCKS=[
+  ['title','Título','file',['título','titulo']],
+  ['description','Descrição','file',['descrição','descricao']],
+  ['images','Imagens','image',['imagem']],
+  ['video','Vídeo','play',['vídeo','video']],
+  ['category','Categoria','tag',['categoria']],
+  ['price','Preço','coins',['preço','preco','concorr']],
+  ['variations','Atributos & Variações','grid',['atributo','varia']]
 ];
 
 function missingKind(obj){
@@ -42,6 +49,19 @@ function deltaPct(cur,prev){
   if(b===0)return a===0?'0,0%':'—';
   const d=((a-b)/Math.abs(b))*100;
   return `${d>0?'+':''}${d.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%`;
+}
+function attributeScore(report,terms){
+  const row=arr(report?.report?.dimensions).find(x=>terms.some(t=>String(x?.name||'').toLowerCase().includes(t)));
+  if(!row)return null;
+  const score=n(row.score),max=n(row.maxScore)||100;
+  if(score==null)return null;
+  return Math.round(Math.max(0,Math.min(100,(score/max)*100)));
+}
+function attributeTone(score){
+  if(score==null)return'gray';
+  if(score>=85)return'green';
+  if(score>=70)return'yellow';
+  return'red';
 }
 
 function Icon({name,className=''}) {
@@ -226,7 +246,14 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
         <Link href="/produtos" className={styles.followBtn}><Icon name="plus"/> Acompanhar outro anúncio</Link>
       </section>
 
-      <div className={styles.tabs}>{TABS.map(([k,label,icon])=><button type="button" key={k} className={tab===k?styles.tabActive:''} onClick={()=>setTab(k)}><Icon name={icon}/>{label}</button>)}</div>
+      <div className={styles.tabs}>
+        <div className={styles.mainTabs}>{TABS.map(([k,label,icon])=><button type="button" key={k} className={tab===k?styles.tabActive:''} onClick={()=>setTab(k)}><Icon name={icon}/>{label}</button>)}</div>
+        <span className={styles.tabDivider} aria-hidden="true"/>
+        <span className={styles.analysisLabel}><Icon name="sparkles"/> Super Análise</span>
+        <div className={styles.attributeTabs}>
+          {ATTRIBUTE_BLOCKS.map(([key,label,icon,terms])=>{const s=attributeScore(r,terms);return <Link key={key} className={styles.attributeTab} data-tone={attributeTone(s)} href={`/super-analise?item_id=${item.itemId}&tab=${key}`} title={`Abrir detalhes de ${label}`}><Icon name={icon}/><span>{label}</span><b>{s==null?'—':s}</b></Link>})}
+        </div>
+      </div>
 
       <div className={styles.workspace}>
         <section className={styles.content}>

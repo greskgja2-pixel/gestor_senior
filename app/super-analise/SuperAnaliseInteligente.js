@@ -30,8 +30,9 @@ function currentMargin(price,cost,deductions=0){const p=n(price),c=n(cost),d=n(d
 
 function Metric({label,value,title}){return <div className={styles.metric} title={title||''}><small>{label}</small><b>{value}</b></div>}
 
-export default function SuperAnaliseInteligente({report,products=[]}){
-  const [tab,setTab]=useState('title');
+export default function SuperAnaliseInteligente({report,products=[],initialTab='title'}){
+  const allowedTabs=useMemo(()=>new Set(TABS.map(([key])=>key)),[]);
+  const [tab,setTab]=useState(allowedTabs.has(initialTab)?initialTab:'title');
   const [analysis,setAnalysis]=useState(report?.report?.ai_analysis||null);
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState('');
@@ -52,6 +53,10 @@ export default function SuperAnaliseInteligente({report,products=[]}){
   const inferredDeductions=basePrice!=null&&baseCost!=null&&baseProfit!=null?Math.max(0,basePrice-baseCost-baseProfit):0;
   const marginNow=n(f.marginPct)??currentMargin(basePrice,baseCost,inferredDeductions);
   const marginProof=basePrice!=null&&baseCost!=null?`Preço ${money(basePrice)} − custo ${money(baseCost)}${inferredDeductions>0?` − taxas/Ads/outros registrados ${money(inferredDeductions)}`:''} = margem ${pct(marginNow)}`:'Margem indisponível: preço ou custo não capturado.';
+
+  useEffect(()=>{
+    if(allowedTabs.has(initialTab))setTab(initialTab);
+  },[initialTab,allowedTabs]);
 
   useEffect(()=>{
     setAnalysis(report?.report?.ai_analysis||null);

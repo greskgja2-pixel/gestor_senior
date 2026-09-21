@@ -8,6 +8,9 @@ const intelligence=read('app/extensao-shopee-intelligence/page.js');
 const sections=read('app/extensao-shopee-intelligence/IntelligenceSections.js');
 const frame=read('app/components/ShopeeLiveFrame.js');
 const live=read('public/live-modules.js');
+const superAd=read('app/extensao-shopee-intelligence/SuperAnuncioMockup.js');
+const superAnalysisPage=read('app/super-analise/page.js');
+const superAnalysis=read('app/super-analise/SuperAnaliseInteligente.js');
 
 const routes=[
   '/produtos','/pedidos','/super-analise',
@@ -48,4 +51,20 @@ test('Dashboard LIVE tem boot finito e retry manual',()=>{
   assert.match(frame,/autoRetryRef\.current<1/);
   assert.match(frame,/setPhase\(error\?\.code==="timeout"\?"timeout":"error"\)/);
   assert.match(frame,/>Tentar novamente<\/button>/);
+});
+
+
+test('Super Anuncio oferece atalhos para os 7 atributos da Super Analise',()=>{
+  for(const tab of ['title','description','images','video','category','price','variations']){
+    assert.ok(superAd.includes(`tab=\${key}`)||superAd.includes("['"+tab+"'"),'atributo ausente: '+tab);
+  }
+  assert.match(superAd,/ATTRIBUTE_BLOCKS/);
+  assert.match(superAd,/attributeScore/);
+});
+
+test('Super Analise abre diretamente no atributo solicitado pela URL',()=>{
+  assert.match(superAnalysisPage,/requestedTab/);
+  assert.match(superAnalysisPage,/initialTab=\{requestedTab\}/);
+  assert.match(superAnalysis,/initialTab='title'/);
+  assert.match(superAnalysis,/allowedTabs\.has\(initialTab\)/);
 });

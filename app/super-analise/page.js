@@ -14,6 +14,7 @@ export default async function SuperAnalisePage({searchParams}){
   const requestedReport=String(params?.report_id||'').trim();
   const requestedItem=String(params?.item_id||'').trim();
   const startUrl=String(params?.start_url||'').trim();
+  const requestedTab=String(params?.tab||'').trim();
 
   // A Super Análise começa no site. O Motor Senior funciona apenas como motor.
   // Quando o usuário vem de "Enviar para Super Análise", start_url inicia a coleta guiada automaticamente.
@@ -49,5 +50,5 @@ export default async function SuperAnalisePage({searchParams}){
   }
 
   const needsGemini=Boolean(selected?.id&&!selected?.report?.ai_analysis);
-  return <>{needsGemini&&<AutoGeminiAnalysis reportId={selected.id} itemId={selected.item_id}/>}<SuperAnaliseInteligente report={selected} products={products} shopName={shop.shop_name||''}/></>;
+  return <>{needsGemini&&<AutoGeminiAnalysis reportId={selected.id} itemId={selected.item_id}/>}<SuperAnaliseInteligente report={selected} products={products} shopName={shop.shop_name||''} initialTab={requestedTab}/></>;
 }
