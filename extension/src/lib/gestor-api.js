@@ -2,7 +2,7 @@ import {computeProfit,DEFAULT_FINANCE} from './profit-engine.js';
 import {buildCompetitorInsights} from './super-anuncio-engine.js';
 
 const DEFAULT_BASE='https://shopeeos-real.vercel.app';
-const EXTENSION_BUILD='0.12.0';
+const EXTENSION_BUILD='0.13.7';
 export async function getSettings(){const {gsSettings={}}=await chrome.storage.local.get('gsSettings');return {gestorBaseUrl:DEFAULT_BASE,...gsSettings};}
 async function request(path,opt={}){const s=await getSettings();const base=String(s.gestorBaseUrl||DEFAULT_BASE).replace(/\/$/,'');const r=await fetch(base+path,{cache:'no-store',headers:{'Content-Type':'application/json',...(opt.headers||{})},...opt});let j={};try{j=await r.json()}catch{}if(!r.ok||j?.error)throw new Error(j?.error||`HTTP ${r.status}`);return j;}
 async function competitors(itemId){return{itemId:String(itemId),query:null,competitors:[],source:'manual-shopee-picker',attempts:[]};}
