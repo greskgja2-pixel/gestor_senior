@@ -24,6 +24,7 @@ const statusClass={
   unknown:'statusUnknown'
 };
 const PAGE_SIZE=20;
+const ADS_WINDOW_DAYS=7;
 function productImage(p){
   const candidates=[
     p?.image_url,p?.imageUrl,p?.cover_image,p?.coverImage,
@@ -69,12 +70,12 @@ export default function ProtectionRoasDashboard(){
   async function load(){
     const refreshing=hasResolved;
     setPhase(refreshing?'refreshing':'loading');setError('');setNotice('');
-    const motorPromise=motorRequest('syncShopeeAds',{days:30,reason:'open-protecao-roas'},12000)
+    const motorPromise=motorRequest('syncShopeeAds',{days:ADS_WINDOW_DAYS,reason:'open-protecao-roas'},12000)
       .then(result=>result?.data?.v7||result?.data?.v5||null)
       .catch(err=>{console.warn('[Proteção ROAS] Motor Senior não respondeu',err);return null});
     try{
       const [adsResult,protectionResult,productsResult,motorData]=await Promise.all([
-        fetchJsonWithTimeout('/api/shopee/ads?days=30',{cache:'no-store'},18000).then(value=>({ok:true,value})).catch(error=>({ok:false,error})),
+        fetchJsonWithTimeout(`/api/shopee/ads?days=${ADS_WINDOW_DAYS}`,{cache:'no-store'},18000).then(value=>({ok:true,value})).catch(error=>({ok:false,error})),
         fetchJsonWithTimeout('/api/shopee/ads-protection',{cache:'no-store'},15000).then(value=>({ok:true,value})).catch(error=>({ok:false,error})),
         fetchJsonWithTimeout('/api/shopee/products',{cache:'no-store'},18000).then(value=>({ok:true,value})).catch(error=>({ok:false,error})),
         motorPromise
@@ -216,7 +217,7 @@ export default function ProtectionRoasDashboard(){
   return <div className={styles.screen}>
     <main className={styles.main}>
       <header className={styles.header}>
-        <div><span className={styles.spark}>✦</span><div><h1>Central de Proteção ROAS</h1><p>Monitore campanhas ativas, encontre os extremos de ROAS e gerencie a proteção dos anúncios selecionados.</p></div></div>
+        <div><span className={styles.spark}>✦</span><div><h1>Central de Proteção ROAS</h1><p>Monitore campanhas ativas, encontre os extremos de ROAS e gerencie a proteção dos anúncios selecionados. ROAS: últimos 7 dias (GMT-3), alinhado ao filtro “Última semana” da Shopee.</p></div></div>
         <div className={styles.headerActions}><button onClick={load} disabled={busy}>{busy?'Atualizando…':'↻ Atualizar dados'}</button></div>
       </header>
 
