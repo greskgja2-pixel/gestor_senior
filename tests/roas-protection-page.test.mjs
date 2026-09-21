@@ -26,7 +26,10 @@ test('selecao em lote permite campanhas ativas ou ainda nao confirmadas',()=>{
   assert.match(view,/mode:c\.controlMode==='gms'\?'gms':'manual'/);
   assert.match(view,/pausar → retomar → pausar → retomar/);
   assert.match(view,/Aguardando confirmação/);
-  assert.match(view,/onClick=\{\(\)=>\{if\(r\.canDisable&&!running\)toggle\(r\.campaignId\)\}\}/);
+  assert.match(view,/syncProtectionStates/);
+  assert.match(view,/campaignIds:activeCampaignIds/);
+  assert.match(view,/onChange=\{e=>\{e\.stopPropagation\(\);toggle\(r\.campaignId\)\}\}/);
+  assert.doesNotMatch(view,/className=\{selectedSet\.has\(String\(r\.campaignId\)\)\?styles\.rowSelected:''\} onClick=/);
 });
 
 test('status de protecao nao vira um conjunto de botoes de acao',()=>{
