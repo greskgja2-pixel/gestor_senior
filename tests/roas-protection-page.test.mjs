@@ -9,7 +9,10 @@ const css=read('app/protecao-roas/page.module.css');
 
 test('Central de Protecao ROAS existe e usa os dados reais do Gestor',()=>{
   assert.match(page,/ProtectionRoasDashboard/);
-  assert.match(view,/\/api\/shopee\/ads\?days=30/);
+  assert.match(view,/ADS_WINDOW_DAYS=7/);
+  assert.match(view,/\/api\/shopee\/ads\?days=\$\{ADS_WINDOW_DAYS\}/);
+  assert.match(view,/syncShopeeAds'.*days:ADS_WINDOW_DAYS/s);
+  assert.match(view,/últimos 7 dias \(GMT-3\)/i);
   assert.match(view,/\/api\/shopee\/ads-protection/);
   assert.match(view,/\/api\/shopee\/products/);
   assert.match(view,/Melhor ROAS/);
@@ -47,4 +50,11 @@ test('layout da Central segue o menu lateral oficial de 218px',()=>{
   assert.match(css,/\.kpis\{display:grid;grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
   assert.match(css,/\.selectionBar/);
   assert.match(css,/\.modalBackdrop/);
+});
+
+
+test('janela semanal de Ads usa o fuso GMT-3 da Shopee',async()=>{
+  const {dateRange}=await import('../lib/shopee-extra.js');
+  const range=dateRange(7,new Date('2026-09-22T01:30:00.000Z'));
+  assert.deepEqual(range,{startDate:'15-09-2026',endDate:'21-09-2026'});
 });
