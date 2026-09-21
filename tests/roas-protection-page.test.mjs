@@ -31,7 +31,7 @@ test('selecao em lote permite campanhas ativas ou ainda nao confirmadas',()=>{
 
 test('status de protecao nao vira um conjunto de botoes de acao',()=>{
   assert.match(view,/className=\{styles\.statusSummary\}/);
-  assert.match(view,/Proteção Ativa/);
+  assert.match(view,/summaryOn}>Ativa/);
   assert.match(view,/Desativada/);
   assert.match(view,/A confirmar/);
   assert.doesNotMatch(view,/<th>Ações<\/th>/);
