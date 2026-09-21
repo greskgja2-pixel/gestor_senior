@@ -60,7 +60,6 @@ export default function ProtectionRoasDashboard(){
   const [products,setProducts]=useState([]);
   const [selected,setSelected]=useState([]);
   const [query,setQuery]=useState('');
-  const [filter,setFilter]=useState('all');
   const [page,setPage]=useState(1);
   const [confirmOpen,setConfirmOpen]=useState(false);
   const [running,setRunning]=useState(false);
@@ -104,7 +103,7 @@ export default function ProtectionRoasDashboard(){
   }
 
   useEffect(()=>{load();},[]);
-  useEffect(()=>{setPage(1);},[query,filter]);
+  useEffect(()=>{setPage(1);},[query]);
 
   const rows=useMemo(()=>{
     const pMap=new Map(products.map(p=>[String(p.item_id??p.itemId),p]));
@@ -121,7 +120,7 @@ export default function ProtectionRoasDashboard(){
           image:productImage(product),
           protectionStatus:statusText[ps]?ps:'unknown',
           protection,
-          canDisable:ps==='valid',
+          canDisable:!['invalid','unsupported'].includes(ps),
           updatedAt:protection?.last_confirmed_at||protection?.last_action_at||protection?.updated_at||null
         };
       });
@@ -138,14 +137,10 @@ export default function ProtectionRoasDashboard(){
   const filtered=useMemo(()=>{
     const q=query.trim().toLowerCase();
     return rows.filter(r=>{
-      if(filter!=='all'){
-        if(filter==='pending'&&!['suspended_assumed','unknown'].includes(r.protectionStatus))return false;
-        if(filter!=='pending'&&r.protectionStatus!==filter)return false;
-      }
       if(!q)return true;
       return [r.name,r.campaignId,r.itemId].some(v=>String(v??'').toLowerCase().includes(q));
     });
-  },[rows,query,filter]);
+  },[rows,query]);
 
   const totalPages=Math.max(1,Math.ceil(filtered.length/PAGE_SIZE));
   const safePage=Math.min(page,totalPages);
@@ -167,9 +162,8 @@ export default function ProtectionRoasDashboard(){
       return [...s];
     });
   }
-  function openFor(rowsToSelect){
-    if(running)return;
-    if(rowsToSelect?.length)setSelected(rowsToSelect.map(r=>String(r.campaignId)));
+  function openFor(){
+    if(running||!selectedRows.length)return;
     setConfirmOpen(true);
   }
 
@@ -226,37 +220,36 @@ export default function ProtectionRoasDashboard(){
 
         <div className={styles.toolbar}>
           <div className={styles.search}>⌕<input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar por nome, ID da campanha ou produto…"/></div>
-          <div className={styles.filters}>
-            <button className={filter==='all'?styles.filterActive:''} onClick={()=>setFilter('all')}>Todos ({rows.length})</button>
-            <button className={filter==='valid'?styles.filterActive:''} onClick={()=>setFilter('valid')}>Proteção Ativa ({activeProtection})</button>
-            <button className={filter==='invalid'?styles.filterActive:''} onClick={()=>setFilter('invalid')}>Desativada ({rows.filter(r=>r.protectionStatus==='invalid').length})</button>
-            <button className={filter==='unsupported'?styles.filterActive:''} onClick={()=>setFilter('unsupported')}>Sem suporte ({rows.filter(r=>r.protectionStatus==='unsupported').length})</button>
-            <button className={filter==='pending'?styles.filterActive:''} onClick={()=>setFilter('pending')}>A confirmar ({rows.filter(r=>['suspended_assumed','unknown'].includes(r.protectionStatus)).length})</button>
+          <div className={styles.statusSummary} aria-label="Resumo do status da Proteção ROAS">
+            <span>Todos <b>{rows.length}</b></span>
+            <span className={styles.summaryOn}>Ativa <b>{activeProtection}</b></span>
+            <span>Desativada <b>{rows.filter(r=>r.protectionStatus==='invalid').length}</b></span>
+            <span>Sem suporte <b>{rows.filter(r=>r.protectionStatus==='unsupported').length}</b></span>
+            <span className={styles.summaryPending}>A confirmar <b>{rows.filter(r=>['suspended_assumed','unknown'].includes(r.protectionStatus)).length}</b></span>
           </div>
         </div>
 
-        {selectedRows.length>0&&<div className={styles.selectionBar}>
-          <div><span>✓</span><b>{selectedRows.length} anúncio{selectedRows.length===1?'':'s'} selecionado{selectedRows.length===1?'':'s'}</b><small>Somente campanhas com Proteção ROAS confirmada como ativa entram na operação.</small></div>
-          <div><button className={styles.danger} disabled={running} onClick={()=>openFor()}>⏻ Desativar Proteção de ROAS dos selecionados</button><button onClick={()=>setSelected([])}>Limpar seleção</button></div>
-        </div>}
+        <div className={styles.selectionBar}>
+          <div><span>{selectedRows.length?'✓':'☐'}</span><b>{selectedRows.length} anúncio{selectedRows.length===1?'':'s'} selecionado{selectedRows.length===1?'':'s'}</b><small>Você pode selecionar campanhas com proteção ativa ou ainda não confirmada. Campanhas já desativadas/sem suporte ficam bloqueadas.</small></div>
+          <button className={styles.danger} disabled={running||!selectedRows.length} onClick={openFor}>⏻ Desativar Proteção de ROAS</button>
+        </div>
 
         {running&&<div className={styles.runBar}><div><b>Processando {progress.current}/{progress.total}</b><span>{progress.name}</span></div><div><i style={{width:`${progress.total?Math.round(progress.current/progress.total*100):0}%`}}/></div><small>Cada campanha passa pela sequência pausar → retomar → pausar → retomar e termina retomada.</small></div>}
 
         <div className={styles.tableWrap}>
           <table>
-            <thead><tr><th><input type="checkbox" checked={allPageSelected} onChange={togglePage} disabled={!selectablePage.length}/></th><th>Anúncio</th><th>Status</th><th>ROAS atual</th><th>ROAS alvo</th><th>Proteção ROAS</th><th>Última verificação</th><th>Ações</th></tr></thead>
+            <thead><tr><th><input type="checkbox" checked={allPageSelected} onChange={togglePage} disabled={!selectablePage.length} title="Selecionar anúncios desta página"/></th><th>Anúncio</th><th>Status</th><th>ROAS atual</th><th>ROAS alvo</th><th>Proteção ROAS</th><th>Última verificação</th></tr></thead>
             <tbody>
-              {!busy&&dataKnown&&paged.length===0&&<tr><td colSpan="8" className={styles.empty}>{phase==='empty'?'A fonte respondeu, mas não retornou campanhas ativas.':'Nenhum anúncio encontrado com este filtro.'}</td></tr>}
-              {!busy&&!dataKnown&&<tr><td colSpan="8" className={styles.empty}>Não foi possível confirmar os anúncios ativos. Use “Tentar novamente”.</td></tr>}
-              {paged.map(r=><tr key={r.campaignId} className={selectedSet.has(String(r.campaignId))?styles.rowSelected:''}>
-                <td><input type="checkbox" checked={selectedSet.has(String(r.campaignId))} onChange={()=>toggle(r.campaignId)} disabled={!r.canDisable||running} title={r.canDisable?'Selecionar campanha':'Disponível somente quando a Proteção ROAS estiver confirmada como ativa.'}/></td>
+              {!busy&&dataKnown&&paged.length===0&&<tr><td colSpan="7" className={styles.empty}>{phase==='empty'?'A fonte respondeu, mas não retornou campanhas ativas.':'Nenhum anúncio encontrado com este filtro.'}</td></tr>}
+              {!busy&&!dataKnown&&<tr><td colSpan="7" className={styles.empty}>Não foi possível confirmar os anúncios ativos. Use “Tentar novamente”.</td></tr>}
+              {paged.map(r=><tr key={r.campaignId} className={selectedSet.has(String(r.campaignId))?styles.rowSelected:''} onClick={()=>{if(r.canDisable&&!running)toggle(r.campaignId)}}>
+                <td><input type="checkbox" checked={selectedSet.has(String(r.campaignId))} onChange={()=>toggle(r.campaignId)} onClick={e=>e.stopPropagation()} disabled={!r.canDisable||running} title={r.canDisable?'Selecionar campanha':'Campanha já desativada ou sem suporte para esta ação.'}/></td>
                 <td><div className={styles.adCell}>{r.image?<img src={r.image} alt=""/>:<div className={styles.noImage}/>}<div><b>{r.name}</b><small>Campanha {r.campaignId}{r.itemId?` · Produto ${r.itemId}`:''}</small></div></div></td>
                 <td><span className={styles.live}><i/>Ativo</span></td>
                 <td><b className={num(r.roas)!=null&&num(r.roas)<3?styles.badRoas:styles.goodRoas}>{roas(r.roas)}</b></td>
                 <td>{roas(r.targetRoas)}</td>
                 <td><ProtectionBadge status={r.protectionStatus}/></td>
                 <td><span className={styles.updated}>{when(r.updatedAt)}</span></td>
-                <td>{r.canDisable?<button className={styles.rowDanger} disabled={running} onClick={()=>openFor([r])}>⏻ Desativar Proteção</button>:<span className={styles.noAction}>{r.protectionStatus==='suspended_assumed'?'Aguardando confirmação':r.protectionStatus==='unknown'?'Verificação necessária':'Sem ação necessária'}</span>}</td>
               </tr>)}
             </tbody>
           </table>
