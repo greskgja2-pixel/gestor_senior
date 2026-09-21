@@ -1,6 +1,6 @@
 'use client';
 
-import {useEffect,useMemo,useState} from 'react';
+import {useEffect,useMemo,useRef,useState} from 'react';
 import Link from 'next/link';
 import styles from './super-anuncio-mockup.module.css';
 import {fetchJsonWithTimeout,classifyAsyncError} from '../lib/client-async';
@@ -13,7 +13,15 @@ const num=v=>n(v)==null?'—':n(v).toLocaleString('pt-BR',{maximumFractionDigits
 const when=v=>{if(!v)return'—';const d=new Date(v);return Number.isNaN(d.getTime())?'—':d.toLocaleString('pt-BR');};
 const metric=(r,k)=>r?.metrics?.[k]??r?.ads_snapshot?.manual?.[k]??r?.ads_snapshot?.[k]??null;
 const imageOf=p=>p?.imageUrl||p?.image_url||p?.imageUrls?.[0]||p?.image?.image_url_list?.[0]||null;
-const TABS=[['overview','Visão geral','▦'],['ads','Shopee Ads','◎'],['analysis','Super Análise','✦'],['competitors','Concorrentes','◉'],['history','Histórico','◷'],['variations','Atributos & Variações','⌘']];
+const TABS=[
+  ['overview','Visão geral','home'],
+  ['ads','Shopee Ads','megaphone'],
+  ['analysis','Super Análise','sparkles'],
+  ['competitors','Concorrentes','users'],
+  ['history','Histórico','clock'],
+  ['variations','Atributos & Variações','grid']
+];
+
 function missingKind(obj){
   const status=String(obj?.collectionStatus||obj?.collection_status||obj?.status||'').toLowerCase();
   if(obj?.collectionError||obj?.collection_error||obj?.error||status==='error')return'Erro de coleta';
@@ -27,17 +35,72 @@ function countText(explicit,rows,context){
   if(Array.isArray(rows)&&rows.length)return rows.length.toLocaleString('pt-BR');
   return missingKind(context);
 }
-function boolText(value,context){return value===true?'✓ Sim':value===false?'Não':missingKind(context)}
+function boolText(value,context){return value===true?'Sim':value===false?'Não':missingKind(context)}
+function deltaPct(cur,prev){
+  const a=n(cur),b=n(prev);
+  if(a==null||b==null)return'—';
+  if(b===0)return a===0?'0,0%':'—';
+  const d=((a-b)/Math.abs(b))*100;
+  return `${d>0?'+':''}${d.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%`;
+}
 
+function Icon({name,className=''}) {
+  const common={viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.8,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true,className};
+  switch(name){
+    case 'home': return <svg {...common}><path d="M3 10.8 12 3l9 7.8"/><path d="M5.5 9.8V21h13V9.8"/><path d="M9.5 21v-6h5v6"/></svg>;
+    case 'search': return <svg {...common}><circle cx="10.8" cy="10.8" r="6.5"/><path d="m16 16 4.3 4.3"/></svg>;
+    case 'bell': return <svg {...common}><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>;
+    case 'chevron': return <svg {...common}><path d="m9 10 3 3 3-3"/></svg>;
+    case 'calendar': return <svg {...common}><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/></svg>;
+    case 'megaphone': return <svg {...common}><path d="m3 11 13-5v12L3 13z"/><path d="M16 9.5c2 0 4-1.2 5-2.5v10c-1-1.3-3-2.5-5-2.5"/><path d="m6 14 1.4 5h3.4l-1.8-6"/></svg>;
+    case 'tag': return <svg {...common}><path d="M20 13 13 20l-9-9V4h7z"/><circle cx="8.5" cy="8.5" r="1.2"/></svg>;
+    case 'coins': return <svg {...common}><ellipse cx="12" cy="6" rx="6.5" ry="3"/><path d="M5.5 6v4c0 1.7 2.9 3 6.5 3s6.5-1.3 6.5-3V6"/><path d="M5.5 10v4c0 1.7 2.9 3 6.5 3s6.5-1.3 6.5-3v-4"/><path d="M5.5 14v4c0 1.7 2.9 3 6.5 3s6.5-1.3 6.5-3v-4"/></svg>;
+    case 'chart': return <svg {...common}><path d="M4 20V9M10 20V4M16 20v-7M22 20H2"/></svg>;
+    case 'cart': return <svg {...common}><path d="M3 4h2l2.2 10h10.7l2.1-7H6"/><circle cx="9" cy="19" r="1.3"/><circle cx="17" cy="19" r="1.3"/></svg>;
+    case 'star': return <svg {...common}><path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6-5.4-2.9-5.4 2.9 1-6-4.4-4.3 6.1-.9z"/></svg>;
+    case 'image': return <svg {...common}><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="9" r="1.6"/><path d="m4 17 5-5 4 4 2-2 5 5"/></svg>;
+    case 'play': return <svg {...common}><circle cx="12" cy="12" r="9"/><path d="m10 8 6 4-6 4z"/></svg>;
+    case 'grid': return <svg {...common}><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg>;
+    case 'bars': return <svg {...common}><path d="M5 20V11M12 20V5M19 20v-8"/></svg>;
+    case 'refresh': return <svg {...common}><path d="M20 7v5h-5"/><path d="M19 12a7 7 0 1 1-1.7-4.6L20 10"/></svg>;
+    case 'trophy': return <svg {...common}><path d="M8 4h8v4c0 4-1.7 6-4 6s-4-2-4-6z"/><path d="M8 6H4v2c0 2 1.4 3.5 4.2 3.8M16 6h4v2c0 2-1.4 3.5-4.2 3.8M12 14v4M8 21h8M9 18h6"/></svg>;
+    case 'sparkles': return <svg {...common}><path d="m12 3 1.3 3.7L17 8l-3.7 1.3L12 13l-1.3-3.7L7 8l3.7-1.3z"/><path d="m18 14 .8 2.2L21 17l-2.2.8L18 20l-.8-2.2L15 17l2.2-.8z"/><path d="m5 14 .7 1.8 1.8.7-1.8.7L5 19l-.7-1.8-1.8-.7 1.8-.7z"/></svg>;
+    case 'users': return <svg {...common}><circle cx="9" cy="8" r="3"/><path d="M3.5 20c.5-4 2.3-6 5.5-6s5 2 5.5 6"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 14.5c3.2-.3 5 1.5 5.5 4.5"/></svg>;
+    case 'clock': return <svg {...common}><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>;
+    case 'lightbulb': return <svg {...common}><path d="M8.5 15.5c-1.6-1.1-2.5-2.9-2.5-5a6 6 0 1 1 12 0c0 2.1-.9 3.9-2.5 5-.8.6-1.1 1-1.2 1.5H9.7c-.1-.5-.4-.9-1.2-1.5"/><path d="M9.5 20h5M10 17v1h4v-1"/></svg>;
+    case 'file': return <svg {...common}><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5M9 12h6M9 16h6"/></svg>;
+    case 'arrowUp': return <svg {...common}><path d="m5 12 7-7 7 7"/><path d="M12 5v14"/></svg>;
+    case 'plus': return <svg {...common}><path d="M12 5v14M5 12h14"/></svg>;
+    default: return <svg {...common}><circle cx="12" cy="12" r="8"/></svg>;
+  }
+}
+
+function ClockBadge(){
+  const [now,setNow]=useState(null);
+  useEffect(()=>{setNow(new Date());const timer=setInterval(()=>setNow(new Date()),60000);return()=>clearInterval(timer)},[]);
+  let dateLabel='Carregando data…',timeLabel='—';
+  if(now){
+    const d=new Intl.DateTimeFormat('pt-BR',{weekday:'short',day:'2-digit',month:'long',year:'numeric',timeZone:'America/Sao_Paulo'}).format(now).replace('.','');
+    dateLabel=d.charAt(0).toUpperCase()+d.slice(1);
+    timeLabel=new Intl.DateTimeFormat('pt-BR',{hour:'2-digit',minute:'2-digit',timeZone:'America/Sao_Paulo'}).format(now);
+  }
+  return <div className={styles.clockBadge}><Icon name="calendar"/><div><b>{dateLabel}</b><small>{timeLabel} • Horário de Brasília</small></div></div>;
+}
 
 function Gauge({score,label}){const s=n(score);const p=Math.max(0,Math.min(100,s??0));return <div className={styles.gaugeWrap}><div className={styles.gauge} style={{'--score':`${p*1.8}deg`}}><div><b>{s==null?'—':Math.round(s)}</b><small>/100</small></div></div><span>{label}</span></div>}
-function Metric({label,value,good,title}){return <div className={styles.metric} title={title||''}><small>{label}</small><b className={good?styles.good:''}>{value}</b></div>}
-export default function SuperAnuncioMockup({items=[],initialItemId='',initialTab='overview'}){
+function Metric({label,value,good,title,icon,tone='blue'}){return <div className={styles.metric} title={title||''}><span className={styles.metricIcon} data-tone={tone}><Icon name={icon}/></span><small>{label}</small><b className={good?styles.good:''}>{value}</b></div>}
+function Fact({label,value,icon,tone='blue'}){return <div className={styles.fact}><span className={styles.factIcon} data-tone={tone}><Icon name={icon}/></span><span className={styles.factText}><small>{label}</small><b>{value}</b></span></div>}
+function PanelTitle({icon,title,subtitle,tone='blue'}){return <div className={styles.panelTitle}><span className={styles.panelIcon} data-tone={tone}><Icon name={icon}/></span><div><h2>{title}</h2>{subtitle&&<p>{subtitle}</p>}</div></div>}
+function Reason({icon,title,children}){return <article><div className={styles.reasonGridTop}><Icon name={icon}/><b>{title}</b></div><p>{children}</p></article>}
+
+export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='',initialTab='overview'}){
   const initialSelected=items.find(x=>String(x.itemId)===String(initialItemId))||items[0]||null;
   const allowedTabs=useMemo(()=>new Set(TABS.map(([key])=>key)),[]);
   const [selectedId,setSelectedId]=useState(initialSelected?.itemId||'');
   const [tab,setTab]=useState(allowedTabs.has(initialTab)?initialTab:'overview');
   const [liveAds,setLiveAds]=useState({phase:'idle',campaign:null,error:''});
+  const [query,setQuery]=useState('');
+  const searchRef=useRef(null);
   const item=useMemo(()=>items.find(x=>String(x.itemId)===String(selectedId))||items[0]||null,[items,selectedId]);
 
   useEffect(()=>{
@@ -45,6 +108,17 @@ export default function SuperAnuncioMockup({items=[],initialItemId='',initialTab
     if(selected)setSelectedId(selected.itemId);
     if(allowedTabs.has(initialTab))setTab(initialTab);
   },[items,initialItemId,initialTab,allowedTabs]);
+
+  useEffect(()=>{
+    const onKey=e=>{
+      if((e.ctrlKey||e.metaKey)&&String(e.key).toLowerCase()==='k'){
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown',onKey);
+    return()=>window.removeEventListener('keydown',onKey);
+  },[]);
 
   async function loadLiveAds(targetItemId){
     if(!targetItemId)return;
@@ -63,6 +137,17 @@ export default function SuperAnuncioMockup({items=[],initialItemId='',initialTab
   }
 
   useEffect(()=>{if(item?.itemId)loadLiveAds(item.itemId)},[item?.itemId]);
+
+  function searchProduct(e){
+    e?.preventDefault?.();
+    const q=query.trim().toLowerCase();
+    if(!q)return;
+    const found=items.find(x=>{
+      const row=x.latest?.product_snapshot||{};
+      return String(row.title||row.item_name||x.itemId||'').toLowerCase().includes(q);
+    });
+    if(found){setSelectedId(found.itemId);setTab('overview')}
+  }
 
   if(!item)return <div className={styles.screen}><main className={styles.empty}><h1>Super Anúncio</h1><p>Nenhum anúncio analisado ainda. Comece em Produtos → Enviar para Super Análise.</p></main></div>;
 
@@ -86,36 +171,173 @@ export default function SuperAnuncioMockup({items=[],initialItemId='',initialTab
   const adsContext=historicalAds||liveCampaign||(liveAds.phase==='error'||liveAds.phase==='timeout'?{collectionError:liveAds.error}:liveAds.phase==='empty'?{collectionStatus:'success'}:null);
   const pickAds=(historyKey,liveKey=historyKey)=>metric(r,historyKey)??liveCampaign?.[liveKey]??null;
   const ads=[['ROAS atual',dataText(pickAds('roas'),num,adsContext)],['ROAS alvo',dataText(pickAds('targetRoas'),num,adsContext)],['Gasto Ads',dataText(pickAds('spend'),money,adsContext)],['GMV',dataText(pickAds('gmv'),money,adsContext)],['Custo por venda',dataText(metric(r,'cpa')??liveCampaign?.costPerOrder??(n(metric(r,'sales'))?n(metric(r,'spend'))/n(metric(r,'sales')):null),money,adsContext)],['CTR',dataText(pickAds('ctr'),pct,adsContext)]];
+  const sku=p.item_sku||p.itemSku||p.sku||null;
+  const statusText=p.status||p.item_status||'';
+  const active=/active|normal|ativo/i.test(String(statusText));
 
   return <div className={styles.screen}>
     <main className={styles.main}>
-      <header className={styles.header}><div className={styles.headerTitle}><span className={styles.spark}>✦</span><div><h1>Super Anúncio</h1><p>Acompanhe o anúncio, histórico, concorrentes, Ads e resultados das Super Análises em um único painel.</p></div></div><div className={styles.headerActions}><Link href={`/super-analise?item_id=${item.itemId}`}>✦ Abrir Super Análise</Link></div></header>
+      <div className={styles.topbar}>
+        <div className={styles.breadcrumb}><Icon name="home"/><span>›</span><b>Super Anúncio</b></div>
+        <div className={styles.topTools}>
+          <form className={styles.searchBox} onSubmit={searchProduct}>
+            <Icon name="search"/>
+            <input ref={searchRef} value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar produtos, anúncios ou concorrentes..." aria-label="Buscar produtos, anúncios ou concorrentes"/>
+            <kbd>Ctrl + K</kbd>
+          </form>
+          <button type="button" className={styles.notify} aria-label="Notificações"><Icon name="bell"/><i/></button>
+          <div className={styles.account}><span className={styles.avatar}>GS</span><div><b>Gestor Sênior</b><small>Minha conta</small></div><Icon name="chevron"/></div>
+        </div>
+      </div>
 
-      <section className={styles.productBar}>{imageOf(p)?<img src={imageOf(p)} alt=""/>:<div className={styles.noImage}/>}<div className={styles.productInfo}><span className={styles.sourceBadge}>🛍 Anúncio acompanhado</span><b>{p.title||p.item_name||`Produto ${item.itemId}`}</b><small>Categoria: {p.category||missingKind(p)}</small><div className={styles.badges}><span>{p.status||p.item_status?`● ${p.status||p.item_status}`:'Status não coletado'}</span><span>Última análise: {when(r.analyzed_at)}</span></div></div><div className={styles.metrics}><Metric label="Preço" value={dataText(price,money,p)}/><Metric label="Custo" value={dataText(cost,money,f)}/><Metric label="Margem estimada" value={dataText(margin,pct,f)} good={margin!=null&&margin>=0}/><Metric label="Vendas" value={dataText(sold,v=>Number(v).toLocaleString('pt-BR'),p)}/><Metric label="Avaliação" value={dataText(rating,v=>`${Number(v).toFixed(1)} ★`,p)} title={reviews!=null?`${reviews.toLocaleString('pt-BR')} avaliações`:missingKind(p)}/><Metric label="Fotos" value={countText(p.imageCount,images,p)}/><Metric label="Vídeo" value={boolText(p.hasVideo,p)}/><Metric label="Variações" value={countText(p.variationCount,variations,p)}/></div></section>
-
-      <section className={styles.selector}><div><small>Anúncio exibido</small><select value={selectedId} onChange={e=>{setSelectedId(e.target.value);setTab('overview')}}>{items.map(x=><option key={x.itemId} value={x.itemId}>{x.latest?.product_snapshot?.title||x.latest?.product_snapshot?.item_name||`Produto ${x.itemId}`}</option>)}</select></div><span>{items.length} anúncio{items.length===1?'':'s'} com histórico</span></section>
-
-      <div className={styles.tabs}>{TABS.map(([k,label,icon])=><button key={k} className={tab===k?styles.tabActive:''} onClick={()=>setTab(k)}><span>{icon}</span>{label}</button>)}</div>
-
-      <div className={styles.workspace}><section className={styles.content}>
-        {tab==='overview'&&<Overview item={item} price={price} prevPrice={prevPrice} sold={sold} prevSold={prevSold} margin={margin} ai={ai}/>} 
-        {tab==='ads'&&<AdsPanel ads={ads} liveAds={liveAds} onRetry={()=>loadLiveAds(item.itemId)} hasHistorical={!!historicalAds}/>} 
-        {tab==='analysis'&&<AnalysisPanel report={r} ai={ai}/>} 
-        {tab==='competitors'&&<CompetitorsPanel competitors={competitors}/>} 
-        {tab==='history'&&<HistoryPanel history={item.history}/>} 
-        {tab==='variations'&&<VariationsPanel variations={variations} costs={arr(p.variationCosts)} product={p}/>} 
-        <BottomCards item={item} competitors={competitors} score={score} afterScore={afterScore}/>
+      <section className={styles.hero}>
+        <div className={styles.heroTitle}><span className={styles.heroIcon}><Icon name="megaphone"/></span><div><h1>Super Anúncio</h1><p>Acompanhe o anúncio, histórico, concorrentes e descubra oportunidades para vender mais na Shopee.</p></div></div>
+        <ClockBadge/>
       </section>
 
-      <aside className={styles.rightbar}><h3>Nota geral do anúncio</h3><div className={styles.gaugePair}><Gauge score={score} label="Atual"/><span>→</span><Gauge score={afterScore} label="Potencial após sugestões"/></div><div className={styles.impact}><b>{gain==null?'Sem projeção nova':`${gain>=0?'+':''}${gain} pontos estimados`}</b><small>Baseado na última Super Análise registrada.</small></div><Link className={styles.primary} href={`/super-analise?item_id=${item.itemId}`}>✦ Ver / refazer Super Análise</Link><button type="button" onClick={()=>setTab('competitors')}>◉ Ver concorrentes</button><button type="button" onClick={()=>setTab('ads')}>◎ Ver Shopee Ads</button><button type="button" onClick={()=>setTab('history')}>◷ Ver histórico completo</button><div className={styles.tip}><b>💡 Visão rápida</b><p>Use esta página para acompanhar a evolução. As mudanças de conteúdo são feitas pela Super Análise.</p></div></aside></div>
+      <section className={styles.productBar}>
+        {imageOf(p)?<img src={imageOf(p)} alt=""/>:<div className={styles.noImage}/>}
+        <div className={styles.productInfo}>
+          <span className={styles.sourceBadge}>Anúncio acompanhado</span>
+          <b>{p.title||p.item_name||`Produto ${item.itemId}`}</b>
+          <small>Categoria: {p.category||missingKind(p)}</small>
+          <div className={styles.productMeta}>
+            <span>Loja: <strong>{shopName||'Loja conectada'}</strong></span>
+            <span>SKU: <strong>{sku||'não coletado'}</strong></span>
+            <span className={styles.statusPill} data-active={active?'true':'false'}>{statusText||'Status não coletado'}</span>
+          </div>
+        </div>
+        <div className={styles.metrics}>
+          <Metric label="Preço" value={dataText(price,money,p)} icon="tag"/>
+          <Metric label="Custo" value={dataText(cost,money,f)} icon="coins" tone="amber"/>
+          <Metric label="Margem estimada" value={dataText(margin,pct,f)} good={margin!=null&&margin>=0} icon="chart" tone="green"/>
+          <Metric label="Vendas" value={dataText(sold,v=>Number(v).toLocaleString('pt-BR'),p)} icon="cart" tone="purple"/>
+          <Metric label="Avaliação" value={dataText(rating,v=>`${Number(v).toFixed(1)} ★`,p)} title={reviews!=null?`${reviews.toLocaleString('pt-BR')} avaliações`:missingKind(p)} icon="star" tone="gold"/>
+          <Metric label="Fotos" value={countText(p.imageCount,images,p)} icon="image"/>
+          <Metric label="Vídeo" value={boolText(p.hasVideo,p)} icon="play" tone="pink"/>
+          <Metric label="Variações" value={countText(p.variationCount,variations,p)} icon="grid" tone="slate"/>
+        </div>
+      </section>
+
+      <section className={styles.selector}>
+        <div className={styles.selectorGroup}>
+          <div className={styles.selectorField}><small>Anúncio atual</small><select value={selectedId} onChange={e=>{setSelectedId(e.target.value);setTab('overview')}}>{items.map(x=><option key={x.itemId} value={x.itemId}>{x.latest?.product_snapshot?.title||x.latest?.product_snapshot?.item_name||`Produto ${x.itemId}`}</option>)}</select></div>
+        </div>
+        <Link href="/produtos" className={styles.followBtn}><Icon name="plus"/> Acompanhar outro anúncio</Link>
+      </section>
+
+      <div className={styles.tabs}>{TABS.map(([k,label,icon])=><button type="button" key={k} className={tab===k?styles.tabActive:''} onClick={()=>setTab(k)}><Icon name={icon}/>{label}</button>)}</div>
+
+      <div className={styles.workspace}>
+        <section className={styles.content}>
+          {tab==='overview'&&<Overview item={item} price={price} prevPrice={prevPrice} sold={sold} prevSold={prevSold} margin={margin} ai={ai}/>}
+          {tab==='ads'&&<AdsPanel ads={ads} liveAds={liveAds} onRetry={()=>loadLiveAds(item.itemId)} hasHistorical={!!historicalAds}/>}
+          {tab==='analysis'&&<AnalysisPanel report={r} ai={ai}/>}
+          {tab==='competitors'&&<CompetitorsPanel competitors={competitors}/>}
+          {tab==='history'&&<HistoryPanel history={item.history}/>}
+          {tab==='variations'&&<VariationsPanel variations={variations} costs={arr(p.variationCosts)} product={p}/>}
+          {tab==='overview'&&<BottomCards item={item} competitors={competitors} score={score} afterScore={afterScore}/>}
+        </section>
+
+        <aside className={styles.rightbar}>
+          <div className={styles.rightbarTitle}><Icon name="trophy"/><h3>Nota geral do anúncio</h3></div>
+          <div className={styles.gaugePair}><Gauge score={score} label="Atual"/><span>→</span><Gauge score={afterScore} label="Potencial após sugestões"/></div>
+          <div className={styles.impact}><div className={styles.impactTop}><Icon name="arrowUp"/><b>{gain==null?'Sem projeção nova':`${gain>=0?'+':''}${gain} pontos estimados`}</b></div><small>Baseado na última Super Análise registrada.</small></div>
+          <Link className={styles.primary} href={`/super-analise?item_id=${item.itemId}`}><Icon name="sparkles"/> Ver / refazer Super Análise</Link>
+          <button type="button" onClick={()=>setTab('competitors')}><Icon name="users"/> Ver concorrentes</button>
+          <button type="button" onClick={()=>setTab('ads')}><Icon name="megaphone"/> Ver Shopee Ads</button>
+          <button type="button" onClick={()=>setTab('history')}><Icon name="clock"/> Ver histórico completo</button>
+          <div className={styles.tip}><div className={styles.tipTitle}><Icon name="lightbulb"/><b>Visão rápida</b></div><p>Use esta página para acompanhar a evolução do anúncio. As mudanças de conteúdo são feitas pela Super Análise.</p></div>
+        </aside>
+      </div>
     </main>
   </div>;
 }
 
-function Overview({item,price,prevPrice,sold,prevSold,margin,ai}){const r=item.latest||{};return <><section className={styles.compare}><article className={styles.panel}><div className={styles.panelHead}><h2>Retrato atual do anúncio</h2><span>Atual</span></div><div className={styles.bigFacts}><div><small>Preço atual</small><b>{money(price)}</b></div><div><small>Vendas acumuladas</small><b>{sold?.toLocaleString('pt-BR')||'—'}</b></div><div><small>Margem</small><b>{pct(margin)}</b></div><div><small>Última coleta</small><b>{when(r.analyzed_at)}</b></div></div></article><div className={styles.arrow}>→<small>evolução</small></div><article className={styles.panel}><div className={styles.panelHead}><h2>Comparação com a análise anterior</h2><span>Histórico</span></div><div className={styles.changeList}><div><span>Preço</span><b>{prevPrice==null?'Primeira coleta':`${money(prevPrice)} → ${money(price)}`}</b></div><div><span>Vendas</span><b>{prevSold==null?'Primeira coleta':`${prevSold.toLocaleString('pt-BR')} → ${sold?.toLocaleString('pt-BR')||'—'}`}</b></div><div><span>Próxima rechecagem</span><b>{when(item.schedule?.next_run_at||r.next_reanalysis_at)}</b></div><div><span>IA</span><b>{ai?.afterScore!=null?'Sugestões disponíveis':'Sem nova projeção'}</b></div></div></article></section><section className={styles.explain}><h2>Resumo do acompanhamento</h2><div className={styles.reasonGrid}><article><b>Preço</b><p>Acompanhe mudanças do seu preço entre as coletas e compare com os concorrentes.</p></article><article><b>Ads</b><p>ROAS, meta, gasto, GMV e custo por venda ficam reunidos na aba Shopee Ads.</p></article><article><b>Concorrentes</b><p>Os concorrentes vinculados preservam snapshots para comparação ao longo do tempo.</p></article><article><b>Super Análise</b><p>As notas e sugestões da IA continuam acessíveis sem apagar análises anteriores.</p></article><article><b>Margem</b><p>Preço e custo registrados são usados para acompanhar a margem do anúncio.</p></article></div></section></>}
-function AdsPanel({ads,liveAds,onRetry,hasHistorical}){const liveState=liveAds?.phase;return <section className={styles.panel}><div className={styles.panelHead}><h2>Shopee Ads</h2><span>{hasHistorical&&liveState==='success'?'Análise salva + complemento atual da Shopee':hasHistorical?'Dados salvos na última análise':liveState==='success'?'Dados atuais da Shopee':'Fonte de Ads'}</span></div><p className={styles.dataLegend}>“Não coletado” = a rodada não trouxe essa fonte. “Não integrado” = fonte sem suporte. “Sem dados” = a fonte respondeu, mas não trouxe o campo. “Erro de coleta” = houve falha registrada.</p>{liveState==='loading'&&<p className={styles.dataLegend}>Consultando a fonte atual do Shopee Ads para complementar campos ausentes…</p>}{(liveState==='error'||liveState==='timeout')&&<div className={styles.dataError}>{liveAds.error}<button type="button" onClick={onRetry}>Tentar novamente</button></div>}<div className={styles.adsGrid}>{ads.map(([k,v])=><div key={k}><small>{k}</small><b>{v}</b></div>)}</div></section>}
-function AnalysisPanel({report,ai}){const dims=arr(report?.report?.dimensions);return <section className={styles.panel}><div className={styles.panelHead}><h2>Última Super Análise</h2><span>{when(report?.analyzed_at)}</span></div><div className={styles.analysisGrid}>{dims.length?dims.map((d,i)=><div key={i}><span>{d.name||`Critério ${i+1}`}</span><b>{n(d.score)==null?'—':`${d.score}/${d.maxScore||100}`}</b></div>):<p className={styles.muted}>Sem notas detalhadas registradas nesta rodada.</p>}</div>{ai?.priorities?.length?<div className={styles.priorityBox}><b>Prioridades detectadas pela IA</b>{ai.priorities.slice(0,5).map((x,i)=><p key={i}>• {x.area||'Melhoria'}: {x.why||x.reason||''}</p>)}</div>:null}</section>}
-function CompetitorsPanel({competitors}){return <section className={styles.panel}><div className={styles.panelHead}><h2>Concorrentes vinculados</h2><span>{competitors.length} de até 3</span></div><div className={styles.competitors}>{competitors.length?competitors.map((c,i)=><article key={i}>{c.imageUrl||arr(c.imageUrls)[0]?<img src={c.imageUrl||arr(c.imageUrls)[0]} alt=""/>:<div className={styles.noComp}/>}<div><b>{c.title||`Concorrente ${i+1}`}</b><small>{dataText(c.price,money,c)} · {dataText(c.sold,v=>Number(v).toLocaleString('pt-BR'),c)} vendidos · {dataText(c.rating,v=>Number(v).toFixed(1)+'★',c)}</small><p>{c.description?String(c.description).slice(0,170):missingKind(c)}</p></div></article>):<p className={styles.muted}>Nenhum concorrente foi coletado/vinculado nesta análise.</p>}</div></section>}
-function HistoryPanel({history=[]}){return <section className={styles.panel}><div className={styles.panelHead}><h2>Histórico completo de análises</h2><span>{history.length} rodada{history.length===1?'':'s'}</span></div><div className={styles.history}>{history.map((r,i)=><article key={r.id||i}><div><b>{when(r.analyzed_at)}</b><small>Relatório {r.id||'—'}</small></div><Gauge score={r.score} label={i===0?'Atual':`Rodada ${history.length-i}`}/><span>{money(metric(r,'price')??r.product_snapshot?.price)}</span></article>)}</div></section>}
-function VariationsPanel({variations=[],costs=[],product={}}){const cm=new Map(costs.map(x=>[String(x.modelId??x.model_id),n(x.cost)]));const explicit=n(product?.variationCount);const emptyText=explicit===0?'0 variações — a coleta registrou explicitamente que o anúncio não possui variações.':`${missingKind(product)}: nenhuma estrutura de variações foi salva nesta rodada.`;return <section className={styles.panel}><div className={styles.panelHead}><h2>Atributos & Variações</h2><span>{variations.length?variations.length:explicit===0?'0':'—'} variações</span></div>{variations.length?<div className={styles.variationTable}><div><b>Variação</b><b>Preço</b><b>Custo</b><b>Estoque</b></div>{variations.map((v,i)=>{const id=String(v.modelId??v.model_id??v.id??i);return <div key={id}><span>{v.name||v.model_name||`Variação ${i+1}`}</span><span>{dataText(v.price??v.currentPrice,money,v)}</span><span>{dataText(v.cost??cm.get(id),money,v)}</span><span>{dataText(v.stock??v.normal_stock,x=>Number(x).toLocaleString('pt-BR'),v)}</span></div>})}</div>:<p className={styles.muted}>{emptyText}</p>}</section>}
-function BottomCards({item,competitors,score,afterScore}){const latest=item.latest||{};const prev=item.previous||{};const price=n(metric(latest,'price')??latest.product_snapshot?.price),old=n(metric(prev,'price')??prev.product_snapshot?.price);return <div className={styles.bottom}><section><h3>◉ Nota e potencial</h3><div className={styles.gaugePair}><Gauge score={score} label="Atual"/><span>→</span><Gauge score={afterScore} label="Com sugestões"/></div></section><section><h3>↻ Mudanças recentes</h3><p>Preço: {old==null?'sem comparação':`${money(old)} → ${money(price)}`}</p><p>Última análise: {when(latest.analyzed_at)}</p><p>Próxima rechecagem: {when(item.schedule?.next_run_at||latest.next_reanalysis_at)}</p></section><section><h3>◉ Monitoramento competitivo</h3><p>{competitors.length} concorrente{competitors.length===1?'':'s'} vinculado{competitors.length===1?'':'s'}.</p><p>Os snapshots preservam preço, vendas e demais dados capturados em cada rodada.</p></section></div>}
+function Overview({item,price,prevPrice,sold,prevSold,margin,ai}){
+  const r=item.latest||{};
+  return <><section className={styles.compare}>
+    <article className={`${styles.panel} ${styles.overviewPanel}`}>
+      <div className={styles.panelHead}><PanelTitle icon="bars" title="Retrato atual do anúncio" subtitle="Principais métricas coletadas no último monitoramento."/><span>Atual</span></div>
+      <div className={styles.bigFacts}>
+        <Fact label="Preço atual" value={money(price)} icon="tag"/>
+        <Fact label="Vendas acumuladas" value={sold?.toLocaleString('pt-BR')||'—'} icon="cart"/>
+        <Fact label="Margem estimada" value={pct(margin)} icon="chart" tone="green"/>
+        <Fact label="Última coleta" value={when(r.analyzed_at)} icon="calendar"/>
+      </div>
+    </article>
+    <article className={`${styles.panel} ${styles.overviewPanel}`}>
+      <div className={styles.panelHead}><PanelTitle icon="refresh" title="Comparação com a análise anterior" subtitle="Veja como o anúncio evoluiu em relação à última análise."/><span>Histórico</span></div>
+      <div className={styles.changeList}>
+        <div><Icon name="tag"/><span>Preço</span><b>{prevPrice==null?'Primeira coleta':`${money(prevPrice)} → ${money(price)}`}</b><em>{deltaPct(price,prevPrice)}</em></div>
+        <div><Icon name="chart"/><span>Vendas</span><b>{prevSold==null?'Primeira coleta':`${prevSold.toLocaleString('pt-BR')} → ${sold?.toLocaleString('pt-BR')||'—'}`}</b><em>{deltaPct(sold,prevSold)}</em></div>
+        <div><Icon name="calendar"/><span>Próxima rechecagem</span><b>{when(item.schedule?.next_run_at||r.next_reanalysis_at)}</b><em> </em></div>
+        <div><Icon name="sparkles"/><span>IA</span><b>{ai?.afterScore!=null?'Sugestões disponíveis':'Sem nova projeção'}</b><em>›</em></div>
+      </div>
+    </article>
+  </section>
+  <section className={styles.explain}>
+    <div className={styles.explainHead}><span className={styles.panelIcon}><Icon name="file"/></span><div><h2>Resumo do acompanhamento</h2><p className={styles.sub}>Visão consolidada das principais informações e recomendações.</p></div></div>
+    <div className={styles.reasonGrid}>
+      <Reason icon="tag" title="Preço">Acompanhe mudanças de preço entre as coletas e compare.</Reason>
+      <Reason icon="megaphone" title="Ads">ROAS, metas, gastos, GMV e custo por venda da Shopee Ads.</Reason>
+      <Reason icon="users" title="Concorrentes">Concorrentes vinculados para comparação ao longo do tempo.</Reason>
+      <Reason icon="sparkles" title="Super Análise">IA identifica oportunidades com base nos dados atuais.</Reason>
+      <Reason icon="chart" title="Margem">Preço e custo registrados são usados para acompanhar a margem.</Reason>
+    </div>
+  </section></>;
+}
+
+function AdsPanel({ads,liveAds,onRetry,hasHistorical}){
+  const liveState=liveAds?.phase;
+  return <section className={styles.panel}>
+    <div className={styles.panelHead}><PanelTitle icon="megaphone" title="Shopee Ads" subtitle="Desempenho e eficiência das campanhas vinculadas."/><span>{hasHistorical&&liveState==='success'?'Histórico + atual':hasHistorical?'Dados salvos':liveState==='success'?'Dados atuais':'Fonte de Ads'}</span></div>
+    <p className={styles.dataLegend}>“Não coletado” = a rodada não trouxe essa fonte. “Não integrado” = fonte sem suporte. “Sem dados” = a fonte respondeu, mas não trouxe o campo. “Erro de coleta” = houve falha registrada.</p>
+    {liveState==='loading'&&<p className={styles.dataLegend}>Consultando a fonte atual do Shopee Ads para complementar campos ausentes…</p>}
+    {(liveState==='error'||liveState==='timeout')&&<div className={styles.dataError}>{liveAds.error}<button type="button" onClick={onRetry}>Tentar novamente</button></div>}
+    <div className={styles.adsGrid}>{ads.map(([k,v])=><div key={k}><small>{k}</small><b>{v}</b></div>)}</div>
+  </section>;
+}
+
+function AnalysisPanel({report,ai}){
+  const dims=arr(report?.report?.dimensions);
+  return <section className={styles.panel}>
+    <div className={styles.panelHead}><PanelTitle icon="sparkles" title="Última Super Análise" subtitle="Critérios, notas e prioridades da rodada atual."/><span>{when(report?.analyzed_at)}</span></div>
+    <div className={styles.analysisGrid}>{dims.length?dims.map((d,i)=><div key={i}><span>{d.name||`Critério ${i+1}`}</span><b>{n(d.score)==null?'—':`${d.score}/${d.maxScore||100}`}</b></div>):<p className={styles.muted}>Sem notas detalhadas registradas nesta rodada.</p>}</div>
+    {ai?.priorities?.length?<div className={styles.priorityBox}><b>Prioridades detectadas pela IA</b>{ai.priorities.slice(0,5).map((x,i)=><p key={i}>• {x.area||'Melhoria'}: {x.why||x.reason||''}</p>)}</div>:null}
+  </section>;
+}
+
+function CompetitorsPanel({competitors}){
+  return <section className={styles.panel}>
+    <div className={styles.panelHead}><PanelTitle icon="users" title="Concorrentes vinculados" subtitle="Compare preço, vendas e sinais competitivos."/><span>{competitors.length} de até 3</span></div>
+    <div className={styles.competitors}>{competitors.length?competitors.map((c,i)=><article key={i}>{c.imageUrl||arr(c.imageUrls)[0]?<img src={c.imageUrl||arr(c.imageUrls)[0]} alt=""/>:<div className={styles.noComp}/>}<div><b>{c.title||`Concorrente ${i+1}`}</b><small>{dataText(c.price,money,c)} · {dataText(c.sold,v=>Number(v).toLocaleString('pt-BR'),c)} vendidos · {dataText(c.rating,v=>Number(v).toFixed(1)+'★',c)}</small><p>{c.description?String(c.description).slice(0,170):missingKind(c)}</p></div></article>):<p className={styles.muted}>Nenhum concorrente foi coletado/vinculado nesta análise.</p>}</div>
+  </section>;
+}
+
+function HistoryPanel({history=[]}){
+  return <section className={styles.panel}>
+    <div className={styles.panelHead}><PanelTitle icon="clock" title="Histórico completo de análises" subtitle="Todas as rodadas preservadas para comparação."/><span>{history.length} rodada{history.length===1?'':'s'}</span></div>
+    <div className={styles.history}>{history.map((r,i)=><article key={r.id||i}><div><b>{when(r.analyzed_at)}</b><small>Relatório {r.id||'—'}</small></div><Gauge score={r.score} label={i===0?'Atual':`Rodada ${history.length-i}`}/><span>{money(metric(r,'price')??r.product_snapshot?.price)}</span></article>)}</div>
+  </section>;
+}
+
+function VariationsPanel({variations=[],costs=[],product={}}){
+  const cm=new Map(costs.map(x=>[String(x.modelId??x.model_id),n(x.cost)]));
+  const explicit=n(product?.variationCount);
+  const emptyText=explicit===0?'0 variações — a coleta registrou explicitamente que o anúncio não possui variações.':`${missingKind(product)}: nenhuma estrutura de variações foi salva nesta rodada.`;
+  return <section className={styles.panel}>
+    <div className={styles.panelHead}><PanelTitle icon="grid" title="Atributos & Variações" subtitle="Preço, custo e estoque por opção do anúncio."/><span>{variations.length?variations.length:explicit===0?'0':'—'} variações</span></div>
+    {variations.length?<div className={styles.variationTable}><div><b>Variação</b><b>Preço</b><b>Custo</b><b>Estoque</b></div>{variations.map((v,i)=>{const id=String(v.modelId??v.model_id??v.id??i);return <div key={id}><span>{v.name||v.model_name||`Variação ${i+1}`}</span><span>{dataText(v.price??v.currentPrice,money,v)}</span><span>{dataText(v.cost??cm.get(id),money,v)}</span><span>{dataText(v.stock??v.normal_stock,x=>Number(x).toLocaleString('pt-BR'),v)}</span></div>})}</div>:<p className={styles.muted}>{emptyText}</p>}
+  </section>;
+}
+
+function BottomCards({item,competitors,score,afterScore}){
+  const latest=item.latest||{},prev=item.previous||{};
+  const price=n(metric(latest,'price')??latest.product_snapshot?.price),old=n(metric(prev,'price')??prev.product_snapshot?.price);
+  return <div className={styles.bottom}>
+    <section><h3><Icon name="bars"/> Nota e potencial</h3><div className={styles.gaugePair}><Gauge score={score} label="Atual"/><span>→</span><Gauge score={afterScore} label="Com sugestões"/></div></section>
+    <section><h3><Icon name="refresh"/> Mudanças recentes</h3><p>Preço: {old==null?'sem comparação':`${money(old)} → ${money(price)}`}</p><p>Última análise: {when(latest.analyzed_at)}</p><p>Próxima rechecagem: {when(item.schedule?.next_run_at||latest.next_reanalysis_at)}</p></section>
+    <section><h3><Icon name="users"/> Monitoramento competitivo</h3><p>{competitors.length} concorrente{competitors.length===1?'':'s'} vinculado{competitors.length===1?'':'s'}.</p><p>Os snapshots apresentam preço, vendas e demais dados capturados em cada coleta.</p></section>
+  </div>;
+}
