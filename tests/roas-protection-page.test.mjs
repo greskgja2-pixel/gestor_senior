@@ -18,14 +18,25 @@ test('Central de Protecao ROAS existe e usa os dados reais do Gestor',()=>{
   assert.match(view,/Proteção ROAS Ativa/);
 });
 
-test('selecao em lote executa somente campanhas confirmadas como protegidas',()=>{
-  assert.match(view,/canDisable:ps==='valid'/);
-  assert.match(view,/Desativar Proteção de ROAS dos selecionados/);
+test('selecao em lote permite campanhas ativas ou ainda nao confirmadas',()=>{
+  assert.match(view,/canDisable:!\['invalid','unsupported'\]\.includes\(ps\)/);
+  assert.match(view,/Desativar Proteção de ROAS/);
   assert.match(view,/action:'protection_reset'/);
   assert.match(view,/confirmed:true/);
   assert.match(view,/mode:c\.controlMode==='gms'\?'gms':'manual'/);
   assert.match(view,/pausar → retomar → pausar → retomar/);
   assert.match(view,/Aguardando confirmação/);
+  assert.match(view,/onClick=\{\(\)=>\{if\(r\.canDisable&&!running\)toggle\(r\.campaignId\)\}\}/);
+});
+
+test('status de protecao nao vira um conjunto de botoes de acao',()=>{
+  assert.match(view,/className=\{styles\.statusSummary\}/);
+  assert.match(view,/Proteção Ativa/);
+  assert.match(view,/Desativada/);
+  assert.match(view,/A confirmar/);
+  assert.doesNotMatch(view,/<th>Ações<\/th>/);
+  assert.doesNotMatch(view,/Desativar Proteção<\/button>/);
+  assert.match(view,/disabled=\{running\|\|!selectedRows\.length\}/);
 });
 
 test('layout da Central segue o menu lateral oficial de 218px',()=>{
