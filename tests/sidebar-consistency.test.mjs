@@ -6,7 +6,6 @@ const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const layout=read('app/layout.js');
 const shell=read('app/components/AppShell.js');
 const css=read('app/app-shell.css');
-const frame=read('app/components/ShopeeLiveFrame.js');
 const routeFiles=[
   'app/produtos/ProductsDashboard.js',
   'app/super-analise/WebAuditFlow.js',
@@ -65,24 +64,7 @@ test('mobile usa o mesmo drawer do AppShell',()=>{
   assert.match(shell,/gs-drawer-backdrop/);
 });
 
-test('Dashboard LIVE fica dentro do AppShell e nao cria uma segunda lateral visivel',()=>{
-  assert.match(frame,/id="gs-hosted-layout"/);
-  assert.match(frame,/\.sidebar\{display:none!important\}/);
-  assert.match(frame,/\.topbar\{display:none!important\}/);
-  assert.doesNotMatch(frame,/position:"fixed",inset:0,width:"100vw"/);
-  assert.match(frame,/VERSION="20260919-02"/);
-});
-
-test('regra que esconde a sidebar antiga do iframe tem especificidade reforcada (>901px)',()=>{
-  // Regressao real: ".sidebar{display:none!important}" sozinho empata em especificidade com a
-  // regra ".sidebar{display:flex!important}" de shell-enhancements.css, que carrega depois e
-  // vence o empate — a sidebar antiga reaparecia em telas >=901px. O seletor precisa ser mais
-  // especifico que um `.sidebar` isolado para vencer sempre, independente da ordem de carregamento.
-  assert.match(frame,/html body \.app \.sidebar\{display:none!important\}/);
-  assert.match(frame,/html body \.app \.topbar\{display:none!important\}/);
-});
-
-test('itens do menu (principais e do submenu) tem a mesma altura de linha',()=>{
+test('Dashboard principal usa apenas o AppShell nativo',()=>{\n  const page=read('app/page.js');\n  assert.doesNotMatch(page,/ShopeeLiveFrame|iframe|shopeeos-live/);\n  assert.match(page,/DashboardNative/);\n});\n\ntest('itens do menu (principais e do submenu) tem a mesma altura de linha',()=>{
   // Pedido do usuario: as linhas de "Produtos"/"Shopee Ads" (itens principais) nao podem ficar
   // mais altas que as linhas dos filhos ("Super Analise", "Protecao ROAS" etc).
   // Regressao real: usar `min-height` igual (37px) nos dois grupos NAO bastava, porque o icone do
