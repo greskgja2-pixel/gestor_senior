@@ -39,11 +39,23 @@ test('intelligence renderiza conteudo real por section',()=>{
   for(const token of ['Concorrentes','Shopee Ads','Reanálises','Prioridades','Relatórios'])assert.ok(sections.includes(token),'secao ausente: '+token);
 });
 
-test('Temas e Configuracoes usam interface nativa e a fonte unica de temas',()=>{\n  assert.match(utility,/const THEMES=/);\n  assert.match(utility,/localStorage\.setItem\('gs_theme'/);\n  assert.ok(shell.includes("href:'/?section=temas'"));\n  assert.ok(shell.includes("href:'/?section=config'"));\n});\n\ntest('Dashboard nao depende mais de iframe legado',()=>{\n  assert.match(home,/DashboardNative/);\n  assert.match(home,/UtilityNative/);\n  assert.doesNotMatch(home,/ShopeeLiveFrame|shopeeos-live|iframe/);\n});\n
+test('Temas e Configuracoes usam interface nativa e a fonte unica de temas',()=>{
+  assert.match(utility,/const THEMES=/);
+  assert.match(utility,/localStorage\.setItem\('gs_theme'/);
+  assert.ok(shell.includes("href:'/?section=temas'"));
+  assert.ok(shell.includes("href:'/?section=config'"));
+});
+
+test('Dashboard nao depende mais de iframe legado',()=>{
+  assert.match(home,/DashboardNative/);
+  assert.match(home,/UtilityNative/);
+  assert.doesNotMatch(home,/ShopeeLiveFrame|shopeeos-live|iframe/);
+});
+
 
 test('Super Anuncio oferece atalhos para os 7 atributos da Super Analise',()=>{
   for(const tab of ['title','description','images','video','category','price','variations']){
-    assert.ok(superAd.includes(`tab=\${key}`)||superAd.includes("['"+tab+"'"),'atributo ausente: '+tab);
+    assert.ok(superAd.includes("'"+tab+"'")||superAd.includes('"'+tab+'"'),'atributo ausente: '+tab);
   }
   assert.match(superAd,/ATTRIBUTE_BLOCKS/);
   assert.match(superAd,/attributeScore/);
