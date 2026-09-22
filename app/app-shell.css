@@ -60,3 +60,9 @@ body{background:var(--gs-shell-bg)!important;background-image:none!important;col
    para uma segunda viewport, parecendo que a lista desapareceu. */
 .gs-app-main .gs-super-analysis-flow{min-height:0!important;height:auto!important;overflow:visible!important}
 .gs-app-main .gs-super-analysis-flow>main{min-height:0!important;height:auto!important;overflow:visible!important}
+
+/* Correção definitiva da composição da Super Análise dentro do AppShell.
+   A regra genérica do shell para main CSS-module tem maior especificidade e
+   mantinha 100vh. Esta regra vem depois e iguala/supera a especificidade. */
+.gs-app-main .gs-super-analysis-flow[class*="_screen__"]{min-height:0!important;height:auto!important;overflow:visible!important}
+.gs-app-main .gs-super-analysis-flow main[class*="_main__"]{min-height:0!important;height:auto!important;overflow:visible!important}
