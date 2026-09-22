@@ -94,3 +94,4 @@ O shell principal, Dashboard, Temas e Configurações são React/Next nativos. O
 **Regra de exclusão:** arquivo/rota/API só pode ser removido depois de provar que não possui consumidor ativo e executar build + smoke test das rotas críticas definidas na Regra 16.
 
 **Estado pós-migração:** frontend legado removido do branch principal; validar sempre o deploy do HEAD antes de considerar a migração concluída.
+
