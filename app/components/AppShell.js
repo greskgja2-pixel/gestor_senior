@@ -7,7 +7,7 @@ import {fetchJsonWithTimeout} from '../lib/client-async';
 
 const MENU=[
   {type:'item',label:'Dashboard',icon:'⌂',tone:'violet',href:'/'},
-  {type:'group',id:'products',label:'Produtos',icon:'▱',tone:'blue',href:'/produtos',children:[
+  {type:'group',id:'products',label:'Produtos',icon:'▱',tone:'blue',href:'/super-analise',children:[
     {label:'Super Análise',icon:'▤',tone:'indigo',href:'/super-analise'},
     {label:'Super Anúncio',icon:'▣',tone:'cyan',href:'/extensao-shopee-intelligence?section=super-anuncio'},
     {label:'Reanálises',icon:'↻',tone:'purple',href:'/extensao-shopee-intelligence?section=reanalises'},
@@ -29,7 +29,7 @@ function routeState(pathname,section){
     if(section==='config')return{label:'Configurações'};
     return{label:'Dashboard'};
   }
-  if(pathname.startsWith('/produtos'))return{label:'Produtos',group:'products'};
+  if(pathname.startsWith('/produtos'))return{label:'Super Análise',group:'products'};
   if(pathname.startsWith('/pedidos'))return{label:'Pedidos'};
   if(pathname.startsWith('/super-analise'))return{label:'Super Análise',group:'products'};
   if(pathname.startsWith('/protecao-roas'))return{label:'Proteção ROAS',group:'ads'};
