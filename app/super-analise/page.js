@@ -1,54 +1,42 @@
 import {getActiveShop} from '../../lib/shop';
+import {getProducts} from '../../lib/products';
 import {supabaseAdmin} from '../../lib/supabase';
-import SuperAnaliseInteligente from './SuperAnaliseInteligente';
-import WebAuditFlow from './WebAuditFlow';
-import AutoGeminiAnalysis from './AutoGeminiAnalysis';
+import {grossMargin} from '../../lib/business-metrics';
+import SuperAnaliseWorkspace from './SuperAnaliseWorkspace';
 
 export const dynamic='force-dynamic';
+
+const finite=v=>v===null||v===undefined||v===''?null:(Number.isFinite(Number(v))?Number(v):null);
+const imageOf=item=>item?.image?.image_url_list?.[0]||item?.image?.image_url||item?.image_url||item?.images?.[0]||null;
+
+async function loadStoreProducts(shop){
+  let products=[],source='cache',syncedAt=null,loadError=null;
+  try{const result=await getProducts(shop);products=result.items||[];source=result.source||'cache';syncedAt=result.syncedAt||null;}catch(e){loadError=String(e?.message||e);}
+  const db=supabaseAdmin();
+  const [{data:costRows},{data:reports}]=await Promise.all([
+    db.from('product_costs').select('item_id,model_id,cost,packaging_cost,updated_at').eq('shop_id',shop.shop_id),
+    db.from('extension_analysis_reports').select('item_id,analyzed_at,finance_snapshot,metrics').eq('shop_id',shop.shop_id).order('analyzed_at',{ascending:false}).limit(2000)
+  ]);
+  const baseCosts=new Map();
+  for(const row of costRows||[])if(Number(row.model_id)===0)baseCosts.set(String(row.item_id),row);
+  const latestReport=new Map();
+  for(const row of reports||[]){const key=String(row.item_id);if(!latestReport.has(key))latestReport.set(key,row);}
+  const items=products.map(it=>{
+    const key=String(it.item_id);
+    const price=finite(it?.price_info?.[0]?.current_price??it?.price_info?.[0]?.original_price);
+    const stock=finite(it?.stock_info_v2?.summary_info?.total_available_stock??it?.stock);
+    const costRow=baseCosts.get(key),baseCost=finite(costRow?.cost),packaging=finite(costRow?.packaging_cost)??0,totalCost=baseCost==null?null:baseCost+packaging;
+    const report=latestReport.get(key),lastMarginPct=finite(report?.finance_snapshot?.marginPct??report?.metrics?.marginPct),lastMarginR=finite(report?.finance_snapshot?.profit??report?.metrics?.marginR);
+    const gross=grossMargin({price,cost:baseCost,packaging});
+    return{itemId:key,title:it.item_name||`Produto ${it.item_id}`,image:imageOf(it),status:it.item_status||'—',price,stock,cost:totalCost,costSource:baseCost!=null?(packaging?'produto + embalagem':'custo cadastrado'):null,marginPct:gross.percent,marginR:gross.amount,marginSource:gross.source,hasModel:Boolean(it.has_model),lastAnalysisMarginPct:lastMarginPct,lastAnalysisMarginR:lastMarginR,lastAnalysisAt:report?.analyzed_at||null};
+  });
+  return{items,source,syncedAt,loadError};
+}
 
 export default async function SuperAnalisePage({searchParams}){
   const params=await Promise.resolve(searchParams||{});
   const shop=await getActiveShop();
   if(!shop)return <main style={{padding:40,fontFamily:'system-ui'}}>Nenhuma loja Shopee conectada.</main>;
-
-  const requestedReport=String(params?.report_id||'').trim();
-  const requestedItem=String(params?.item_id||'').trim();
-  const startUrl=String(params?.start_url||'').trim();
-  const requestedTab=String(params?.tab||'').trim();
-
-  // A Super Análise começa no site. O Motor Senior funciona apenas como motor.
-  // Quando o usuário vem de "Enviar para Super Análise", start_url inicia a coleta guiada automaticamente.
-  if(!requestedReport&&!requestedItem)return <WebAuditFlow initialUrl={startUrl}/>;
-
-  const db=supabaseAdmin();
-  const {data:reports,error}=await db.from('extension_analysis_reports')
-    .select('id,item_id,analyzed_at,next_reanalysis_at,extension_version,source,objective,situation,bottleneck,score,product_snapshot,ads_snapshot,finance_snapshot,competitors,report,suggestions,metrics,created_at')
-    .eq('shop_id',shop.shop_id)
-    .order('analyzed_at',{ascending:false})
-    .limit(100);
-
-  if(error)return <main style={{padding:40,fontFamily:'system-ui'}}>Erro carregando análises: {error.message}</main>;
-
-  const selected=(reports||[]).find(r=>requestedReport&&String(r.id)===requestedReport)
-    ||(reports||[]).find(r=>requestedItem&&String(r.item_id)===requestedItem)
-    ||null;
-
-  const products=[];
-  const seen=new Set();
-  for(const r of reports||[]){
-    const id=String(r.item_id);
-    if(seen.has(id))continue;
-    seen.add(id);
-    products.push({
-      itemId:id,
-      reportId:r.id,
-      title:r.product_snapshot?.title||r.product_snapshot?.item_name||`Produto ${id}`,
-      score:r.score,
-      analyzedAt:r.analyzed_at,
-      imageUrl:r.product_snapshot?.imageUrl||r.product_snapshot?.image_url||r.product_snapshot?.imageUrls?.[0]||null
-    });
-  }
-
-  const needsGemini=Boolean(selected?.id&&!selected?.report?.ai_analysis);
-  return <>{needsGemini&&<AutoGeminiAnalysis reportId={selected.id} itemId={selected.item_id}/>}<SuperAnaliseInteligente report={selected} products={products} shopName={shop.shop_name||''} initialTab={requestedTab}/></>;
+  const store=await loadStoreProducts(shop);
+  return <SuperAnaliseWorkspace shopId={shop.shop_id} params={params} store={store}/>;
 }
