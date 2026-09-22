@@ -1,50 +1,7 @@
-import {getActiveShop} from '../../lib/shop';
-import {getProducts} from '../../lib/products';
-import {supabaseAdmin} from '../../lib/supabase';
-import ProductsDashboard from './ProductsDashboard';
-import {grossMargin} from '../../lib/business-metrics';
+import {redirect} from 'next/navigation';
 
 export const dynamic='force-dynamic';
 
-const finite=v=>v===null||v===undefined||v===''?null:(Number.isFinite(Number(v))?Number(v):null);
-const imageOf=item=>item?.image?.image_url_list?.[0]||item?.image?.image_url||item?.image_url||item?.images?.[0]||null;
-
-export default async function ProdutosPage(){
-  const shop=await getActiveShop();
-  if(!shop)return <main style={{padding:40,fontFamily:'system-ui'}}>Nenhuma loja Shopee conectada.</main>;
-
-  let products=[],source='cache',syncedAt=null,loadError=null;
-  try{const result=await getProducts(shop);products=result.items||[];source=result.source||'cache';syncedAt=result.syncedAt||null;}catch(e){loadError=String(e?.message||e);}
-
-  const db=supabaseAdmin();
-  const [{data:costRows},{data:reports}]=await Promise.all([
-    db.from('product_costs').select('item_id,model_id,cost,packaging_cost,updated_at').eq('shop_id',shop.shop_id),
-    db.from('extension_analysis_reports').select('item_id,analyzed_at,finance_snapshot,metrics').eq('shop_id',shop.shop_id).order('analyzed_at',{ascending:false}).limit(2000)
-  ]);
-  const baseCosts=new Map();
-  for(const row of costRows||[])if(Number(row.model_id)===0)baseCosts.set(String(row.item_id),row);
-  const latestReport=new Map();
-  for(const row of reports||[]){const key=String(row.item_id);if(!latestReport.has(key))latestReport.set(key,row);}
-
-  const items=products.map(it=>{
-    const key=String(it.item_id);
-    const price=finite(it?.price_info?.[0]?.current_price??it?.price_info?.[0]?.original_price);
-    const stock=finite(it?.stock_info_v2?.summary_info?.total_available_stock??it?.stock);
-    const costRow=baseCosts.get(key),baseCost=finite(costRow?.cost),packaging=finite(costRow?.packaging_cost)??0,totalCost=baseCost==null?null:baseCost+packaging;
-    const report=latestReport.get(key),lastMarginPct=finite(report?.finance_snapshot?.marginPct??report?.metrics?.marginPct),lastMarginR=finite(report?.finance_snapshot?.profit??report?.metrics?.marginR);
-
-    // REGRA: margem exibida como atual precisa usar preço atual válido + custo atual válido.
-    // Nunca reaproveitar a margem de uma análise antiga como se ainda fosse a margem corrente.
-    const gross=grossMargin({price,cost:baseCost,packaging});
-    const marginPct=gross.percent,marginR=gross.amount,marginSource=gross.source;
-
-    return{
-      itemId:key,title:it.item_name||`Produto ${it.item_id}`,image:imageOf(it),status:it.item_status||'—',price,stock,
-      cost:totalCost,costSource:baseCost!=null?(packaging?'produto + embalagem':'custo cadastrado'):null,
-      marginPct,marginR,marginSource,hasModel:Boolean(it.has_model),
-      lastAnalysisMarginPct:lastMarginPct,lastAnalysisMarginR:lastMarginR,lastAnalysisAt:report?.analyzed_at||null
-    };
-  });
-
-  return <ProductsDashboard items={items} source={source} syncedAt={syncedAt} shopId={shop.shop_id} loadError={loadError}/>;
+export default function ProdutosPage(){
+  redirect('/super-analise');
 }
