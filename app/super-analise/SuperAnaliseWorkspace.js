@@ -7,9 +7,12 @@ import ProductsDashboard from '../produtos/ProductsDashboard';
 export default async function SuperAnaliseWorkspace({shopId,params,store}){
   const requestedReport=String(params?.report_id||'').trim();
   const requestedItem=String(params?.item_id||'').trim();
+  const startItem=String(params?.start_item_id||'').trim();
   const startUrl=String(params?.start_url||'').trim();
   const requestedTab=String(params?.tab||'').trim();
 
+  // start_item_id/start_url apenas preenchem o fluxo de nova auditoria; não representam
+  // uma análise histórica selecionada. A lista da loja deve continuar visível.
   if(!requestedReport&&!requestedItem)return <>
     <WebAuditFlow initialUrl={startUrl}/>
     <ProductsDashboard embedded items={store.items} source={store.source} syncedAt={store.syncedAt} shopId={shopId} loadError={store.loadError}/>
