@@ -4,6 +4,7 @@ import {readFileSync,existsSync} from 'node:fs';
 
 const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const page=read('app/super-analise/page.js');
+const workspace=read('app/super-analise/SuperAnaliseWorkspace.js');
 const view=read('app/super-analise/SuperAnaliseInteligente.js');
 const flow=read('app/super-analise/WebAuditFlow.js');
 const products=read('app/produtos/ProductsDashboard.js');
@@ -13,8 +14,10 @@ const superAnuncio=read('app/extensao-shopee-intelligence/SuperAnuncioMockup.js'
 const appShell=read('app/components/AppShell.js');
 
 test('Super Analise usa a interface reconstruida dentro do AppShell',()=>{
-  assert.match(page,/SuperAnaliseInteligente/);
-  assert.match(page,/WebAuditFlow/);
+  assert.match(page,/SuperAnaliseWorkspace/);
+  assert.match(workspace,/SuperAnaliseInteligente/);
+  assert.match(workspace,/WebAuditFlow/);
+  assert.match(workspace,/ProductsDashboard/);
   assert.match(appShell,/label:'Super Análise'/);
   assert.doesNotMatch(flow,/function Sidebar\(/);
   assert.doesNotMatch(view,/function Sidebar\(/);
@@ -42,7 +45,7 @@ test('envio de Produtos inicia coleta guiada na mesma rota',()=>{
   assert.match(products,/start_url:shopeeUrl/);
   assert.match(sendButton,/router\.push/);
   assert.match(sendButton,/\/super-analise\?/);
-  assert.match(page,/initialUrl=\{startUrl\}/);
+  assert.match(workspace,/initialUrl=\{startUrl\}/);
 });
 
 test('IA automatica tem timeout, progresso e retry',()=>{
