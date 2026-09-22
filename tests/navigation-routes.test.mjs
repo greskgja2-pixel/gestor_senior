@@ -10,10 +10,11 @@ const utility=read('app/UtilityNative.js');
 const home=read('app/page.js');
 const superAd=read('app/extensao-shopee-intelligence/SuperAnuncioMockup.js');
 const superAnalysisPage=read('app/super-analise/page.js');
+const superWorkspace=read('app/super-analise/SuperAnaliseWorkspace.js');
 const superAnalysis=read('app/super-analise/SuperAnaliseInteligente.js');
 
 const routes=[
-  '/produtos','/super-analise',
+  '/super-analise',
   '/extensao-shopee-intelligence?section=super-anuncio',
   '/extensao-shopee-intelligence?section=reanalises',
   '/extensao-shopee-intelligence?section=prioridades',
@@ -49,8 +50,8 @@ test('Super Anuncio oferece atalhos para os 7 atributos da Super Analise',()=>{
 });
 
 test('Super Analise abre diretamente no atributo solicitado pela URL',()=>{
-  assert.match(superAnalysisPage,/requestedTab/);
-  assert.match(superAnalysisPage,/initialTab=\{requestedTab\}/);
+  assert.match(superWorkspace,/requestedTab/);
+  assert.match(superWorkspace,/initialTab=\{requestedTab\}/);
   assert.match(superAnalysis,/initialTab='title'/);
   assert.match(superAnalysis,/allowedTabs\.has\(initialTab\)/);
 });
