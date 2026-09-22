@@ -141,7 +141,7 @@ export default function WebAuditFlow({initialUrl=''}){
 
   function reset(){clearTimeout(pollRef.current);pickerDeadlineRef.current=0;autoStartedRef.current=true;setStep(1);setUrl('');setBundle(null);setProductDraft({});setAds({roas:'',targetRoas:'',spend:'',gmv:'',costPerSale:''});setBaseCost('');setVariationCosts([]);setCompetitors([]);setPicker(null);setMessage('');setAnalyzing(false);setLoading(false);setOperation({status:'idle',message:''});}
 
-  return <div className={styles.screen}>
+  return <div className={`${styles.screen} gs-super-analysis-flow`}>
     <main className={styles.main}>
       <header className={styles.header}><div><h1>✦ Super Análise</h1><p>Fluxo guiado no Gestor; o Motor Senior apenas coleta e executa tarefas na Shopee.</p></div><button onClick={reset}>Recomeçar</button></header>
       <section className={styles.progress}><Step n={1} current={step} label="Anúncio"/><Step n={2} current={step} label="Contexto, Ads e custos"/><Step n={3} current={step} label="1–3 concorrentes"/><Step n={4} current={step} label="Analisar tudo"/></section>
