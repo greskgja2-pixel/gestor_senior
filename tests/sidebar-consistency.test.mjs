@@ -32,9 +32,10 @@ test('sidebar desktop tem largura unica de 218px e grid estavel',()=>{
 });
 
 test('menu canonico contem rotas e grupos exigidos',()=>{
-  for(const label of ['Dashboard','Produtos','Super Análise','Super Anúncio','Reanálises','Prioridades','Relatórios','Shopee Ads','Proteção ROAS','Temas','Configurações']){
+  for(const label of ['Dashboard','Super Análise','Super Anúncio','Reanálises','Prioridades','Relatórios','Shopee Ads','Proteção ROAS','Temas','Configurações']){
     assert.ok(shell.includes("label:'"+label+"'"),'item ausente: '+label);
   }
+  assert.doesNotMatch(shell,/label:'Produtos'.*href:/);
   assert.doesNotMatch(shell,/label:'Concorrentes'.*href:/);
   assert.doesNotMatch(shell,/label:'Pedidos'.*href:/);
 });
