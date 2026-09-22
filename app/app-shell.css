@@ -54,3 +54,9 @@ body{background:var(--gs-shell-bg)!important;background-image:none!important;col
   .gs-drawer-backdrop{display:block;position:fixed;inset:0;border:0;background:rgba(12,28,45,.38);z-index:2100}
   .gs-page{padding:12px}
 }
+
+/* Super Análise é conteúdo da página, não uma tela fullscreen.
+   Sem esta exceção o antigo min-height:100vh empurra "Produtos da loja"
+   para uma segunda viewport, parecendo que a lista desapareceu. */
+.gs-app-main .gs-super-analysis-flow{min-height:0!important;height:auto!important;overflow:visible!important}
+.gs-app-main .gs-super-analysis-flow>main{min-height:0!important;height:auto!important;overflow:visible!important}
