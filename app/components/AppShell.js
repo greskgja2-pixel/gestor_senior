@@ -10,12 +10,10 @@ const MENU=[
   {type:'group',id:'products',label:'Produtos',icon:'▱',tone:'blue',href:'/produtos',children:[
     {label:'Super Análise',icon:'▤',tone:'indigo',href:'/super-analise'},
     {label:'Super Anúncio',icon:'▣',tone:'cyan',href:'/extensao-shopee-intelligence?section=super-anuncio'},
-    {label:'Concorrentes',icon:'⌘',tone:'orange',href:'/extensao-shopee-intelligence?section=concorrentes'},
     {label:'Reanálises',icon:'↻',tone:'purple',href:'/extensao-shopee-intelligence?section=reanalises'},
     {label:'Prioridades',icon:'☆',tone:'amber',href:'/extensao-shopee-intelligence?section=prioridades'},
     {label:'Relatórios',icon:'▤',tone:'teal',href:'/extensao-shopee-intelligence?section=relatorios'}
   ]},
-  {type:'item',label:'Pedidos',icon:'▥',tone:'slate',href:'/pedidos'},
   {type:'group',id:'ads',label:'Shopee Ads',icon:'◎',tone:'coral',href:'/extensao-shopee-intelligence?section=shopee-ads',children:[
     {label:'Proteção ROAS',icon:'◈',tone:'green',href:'/protecao-roas'}
   ]},
