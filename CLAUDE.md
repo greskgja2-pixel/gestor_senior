@@ -85,3 +85,10 @@ Nunca inventar/estimar dado onde a fonte não está funcionando ou não está co
 **Regra obrigatória depois do deploy:** `READY` sozinho NÃO é validação. Confirmar no deployment da Vercel que `meta.githubCommitSha` corresponde ao HEAD esperado e executar smoke test das rotas críticas: `/`, `/produtos`, `/super-analise`, `/extensao-shopee-intelligence?section=super-anuncio`, `?section=reanalises`, `?section=prioridades`, `?section=relatorios`, `?section=shopee-ads` e `/protecao-roas`. Cada rota deve responder e renderizar conteúdo principal; menu lateral visível não conta como página funcionando.
 **Proteção de escopo:** mudanças de Dashboard/menu não podem remover, substituir ou recriar a implementação interna dessas rotas. Para retirar um item do menu, remova somente a entrada de navegação; preserve a rota e seus componentes. Antes de alterar arquivo compartilhado (`layout.js`, `AppShell.js`, `app-shell.css`, helpers de API), verificar impacto nas rotas críticas acima.
 **Proibição:** Work/Claude/ChatGPT nunca deve executar deploy de um workspace desatualizado. Primeiro sincronizar com `origin/main`; se não puder provar que está atualizado, não publicar.
+
+
+## 17. ARQUITETURA NATIVA — legado removido em 21/09/2026
+O shell principal, Dashboard, Temas e Configurações são React/Next nativos. O antigo `ShopeeLiveFrame`, `public/shopeeos-live.html` e os scripts/CSS de enhancement/restoration foram removidos após retirada das dependências de navegação.
+**Regra:** não recriar iframe, HTML monolítico, injeção runtime de scripts/CSS ou patches `*-enhancements`/ `*-fix` para implementar novas telas. Novas funções devem entrar como componentes/rotas Next e compartilhar regras em `lib/` ou APIs normalizadas.
+**Regra de métrica:** cálculo compartilhado deve ter uma única implementação. Ads e finanças usam módulos de negócio compartilhados; ausência de fonte continua `null`/indisponível, nunca zero inventado.
+**Regra de exclusão:** arquivo/rota/API só pode ser removido depois de provar que não possui consumidor ativo e executar build + smoke test das rotas críticas definidas na Regra 16.
