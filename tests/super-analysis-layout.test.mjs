@@ -62,3 +62,5 @@ test('Super Anuncio explica dados ausentes sem inventar zero',()=>{
   assert.match(superAnuncio,/0 variações — a coleta registrou explicitamente/);
   assert.doesNotMatch(superAnuncio,/Status:.*Ativo/);
 });
+
+test('lista de produtos permanece abaixo do fluxo da Super Analise',()=>{ assert.match(workspace,/ProductsDashboard embedded/); assert.match(workspace,/!requestedReport&&!requestedItem/); });
