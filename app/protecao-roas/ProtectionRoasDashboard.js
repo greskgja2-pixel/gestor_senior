@@ -24,7 +24,31 @@ const statusClass={
   unknown:'statusUnknown'
 };
 const PAGE_SIZE=20;
-const ADS_WINDOW_DAYS=7;
+const PERIOD_STORAGE='gs-roas-period-v1';
+const PERIOD_OPTIONS=[
+  ['1','Hoje'],
+  ['7','7 dias'],
+  ['14','14 dias'],
+  ['30','30 dias'],
+  ['custom','Personalizado']
+];
+function zonedIsoDate(date=new Date()){
+  const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date);
+  const read=type=>parts.find(p=>p.type===type)?.value||'';
+  return `${read('year')}-${read('month')}-${read('day')}`;
+}
+function shiftIsoDate(iso,delta){
+  const [y,m,d]=String(iso).split('-').map(Number);
+  const date=new Date(Date.UTC(y,m-1,d,12));
+  date.setUTCDate(date.getUTCDate()+delta);
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth()+1).padStart(2,'0')}-${String(date.getUTCDate()).padStart(2,'0')}`;
+}
+function customDays(start,end){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(String(start))||!/^\d{4}-\d{2}-\d{2}$/.test(String(end)))return null;
+  const a=new Date(`${start}T12:00:00.000Z`),b=new Date(`${end}T12:00:00.000Z`);
+  if(Number.isNaN(a.getTime())||Number.isNaN(b.getTime())||b<a)return null;
+  return Math.floor((b-a)/86400000)+1;
+}
 function productImage(p){
   const candidates=[
     p?.image_url,p?.imageUrl,p?.cover_image,p?.coverImage,
@@ -66,16 +90,33 @@ export default function ProtectionRoasDashboard(){
   const [running,setRunning]=useState(false);
   const [progress,setProgress]=useState({current:0,total:0,name:''});
   const [notice,setNotice]=useState('');
+  const today=useMemo(()=>zonedIsoDate(),[]);
+  const [period,setPeriod]=useState('7');
+  const [customStart,setCustomStart]=useState(()=>shiftIsoDate(zonedIsoDate(),-6));
+  const [customEnd,setCustomEnd]=useState(()=>zonedIsoDate());
 
-  async function load(){
+  async function load(overrides={}){
+    const selectedPeriod=String(overrides.period??period);
+    const selectedStart=String(overrides.customStart??customStart);
+    const selectedEnd=String(overrides.customEnd??customEnd);
+    const rangeDays=selectedPeriod==='custom'?customDays(selectedStart,selectedEnd):Number(selectedPeriod);
+    if(!rangeDays||rangeDays<1||rangeDays>90){
+      setError('Escolha um período válido entre 1 e 90 dias.');
+      return;
+    }
+    const queryString=selectedPeriod==='custom'
+      ?`start_date=${encodeURIComponent(selectedStart)}&end_date=${encodeURIComponent(selectedEnd)}`
+      :`days=${rangeDays}`;
     const refreshing=hasResolved;
     setPhase(refreshing?'refreshing':'loading');setError('');setNotice('');
-    const motorPromise=motorRequest('syncShopeeAds',{days:ADS_WINDOW_DAYS,reason:'open-protecao-roas'},12000)
-      .then(result=>result?.data?.v7||result?.data?.v5||null)
-      .catch(err=>{console.warn('[Proteção ROAS] Motor Senior não respondeu',err);return null});
+    const motorPromise=selectedPeriod==='custom'
+      ?Promise.resolve(null)
+      :motorRequest('syncShopeeAds',{days:rangeDays,reason:'open-protecao-roas'},12000)
+        .then(result=>result?.data?.v7||result?.data?.v5||null)
+        .catch(err=>{console.warn('[Proteção ROAS] Motor Senior não respondeu',err);return null});
     try{
       const [adsResult,protectionResult,productsResult,motorData]=await Promise.all([
-        fetchJsonWithTimeout(`/api/shopee/ads?days=${ADS_WINDOW_DAYS}`,{cache:'no-store'},18000).then(value=>({ok:true,value})).catch(error=>({ok:false,error})),
+        fetchJsonWithTimeout(`/api/shopee/ads?${queryString}`,{cache:'no-store'},18000).then(value=>({ok:true,value})).catch(error=>({ok:false,error})),
         fetchJsonWithTimeout('/api/shopee/ads-protection',{cache:'no-store'},15000).then(value=>({ok:true,value})).catch(error=>({ok:false,error})),
         fetchJsonWithTimeout('/api/shopee/products',{cache:'no-store'},18000).then(value=>({ok:true,value})).catch(error=>({ok:false,error})),
         motorPromise
@@ -118,8 +159,32 @@ export default function ProtectionRoasDashboard(){
     }
   }
 
-  useEffect(()=>{load();},[]);
+  useEffect(()=>{
+    let saved={period:'7',customStart:shiftIsoDate(today,-6),customEnd:today};
+    try{
+      const raw=JSON.parse(localStorage.getItem(PERIOD_STORAGE)||'null');
+      if(raw&&PERIOD_OPTIONS.some(([value])=>value===String(raw.period)))saved={...saved,...raw};
+    }catch{}
+    setPeriod(String(saved.period));
+    setCustomStart(String(saved.customStart||shiftIsoDate(today,-6)));
+    setCustomEnd(String(saved.customEnd||today));
+    load({period:String(saved.period),customStart:String(saved.customStart||shiftIsoDate(today,-6)),customEnd:String(saved.customEnd||today)});
+  },[]);
   useEffect(()=>{setPage(1);},[query]);
+
+  function savePeriod(nextPeriod,nextStart=customStart,nextEnd=customEnd){
+    try{localStorage.setItem(PERIOD_STORAGE,JSON.stringify({period:nextPeriod,customStart:nextStart,customEnd:nextEnd}))}catch{}
+  }
+  function changePeriod(next){
+    setPeriod(next);savePeriod(next);
+    if(next!=='custom')load({period:next});
+  }
+  function applyCustomPeriod(){
+    const days=customDays(customStart,customEnd);
+    if(!days||days>90){setError('O período personalizado deve ter entre 1 e 90 dias.');return;}
+    savePeriod('custom',customStart,customEnd);
+    load({period:'custom',customStart,customEnd});
+  }
 
   const rows=useMemo(()=>{
     const pMap=new Map(products.map(p=>[String(p.item_id??p.itemId),p]));
@@ -214,11 +279,29 @@ export default function ProtectionRoasDashboard(){
     else setNotice(`${ok} campanha(s) processada(s). O Gestor agora mostra “Aguardando confirmação” até receber o estado interno confirmado da Shopee.`);
   }
 
+  const periodLabel=period==='custom'
+    ?`${customStart.split('-').reverse().join('/')} até ${customEnd.split('-').reverse().join('/')}`
+    :period==='1'?'Hoje':`Últimos ${period} dias`;
+
   return <div className={styles.screen}>
     <main className={styles.main}>
       <header className={styles.header}>
-        <div><span className={styles.spark}>✦</span><div><h1>Central de Proteção ROAS</h1><p>Monitore campanhas ativas, encontre os extremos de ROAS e gerencie a proteção dos anúncios selecionados. ROAS: últimos 7 dias (GMT-3), alinhado ao filtro “Última semana” da Shopee.</p></div></div>
-        <div className={styles.headerActions}><button onClick={load} disabled={busy}>{busy?'Atualizando…':'↻ Atualizar dados'}</button></div>
+        <div><span className={styles.spark}>✦</span><div><h1>Central de Proteção ROAS</h1><p>Monitore campanhas ativas, encontre os extremos de ROAS e gerencie a proteção dos anúncios selecionados. ROAS: <b>{periodLabel}</b> (GMT-3).</p></div></div>
+        <div className={styles.headerActions}>
+          <div className={styles.periodPicker}>
+            <label htmlFor="roas-period">Período do ROAS</label>
+            <select id="roas-period" value={period} onChange={e=>changePeriod(e.target.value)} disabled={busy}>
+              {PERIOD_OPTIONS.map(([value,label])=><option key={value} value={value}>{label}</option>)}
+            </select>
+          </div>
+          {period==='custom'&&<div className={styles.customPeriod}>
+            <input type="date" value={customStart} max={customEnd||today} onChange={e=>setCustomStart(e.target.value)} disabled={busy}/>
+            <span>até</span>
+            <input type="date" value={customEnd} min={customStart} max={today} onChange={e=>setCustomEnd(e.target.value)} disabled={busy}/>
+            <button type="button" onClick={applyCustomPeriod} disabled={busy}>Aplicar</button>
+          </div>}
+          <button onClick={()=>load()} disabled={busy}>{busy?'Atualizando…':'↻ Atualizar dados'}</button>
+        </div>
       </header>
 
       {error&&<div className={styles.error}>{error}<button onClick={load} disabled={busy}>Tentar novamente</button></div>}

@@ -13,9 +13,8 @@ const superAnalysisPage=read('app/super-analise/page.js');
 const superAnalysis=read('app/super-analise/SuperAnaliseInteligente.js');
 
 const routes=[
-  '/produtos','/pedidos','/super-analise',
+  '/produtos','/super-analise',
   '/extensao-shopee-intelligence?section=super-anuncio',
-  '/extensao-shopee-intelligence?section=concorrentes',
   '/extensao-shopee-intelligence?section=reanalises',
   '/extensao-shopee-intelligence?section=prioridades',
   '/extensao-shopee-intelligence?section=relatorios',
@@ -67,4 +66,10 @@ test('Super Analise abre diretamente no atributo solicitado pela URL',()=>{
   assert.match(superAnalysisPage,/initialTab=\{requestedTab\}/);
   assert.match(superAnalysis,/initialTab='title'/);
   assert.match(superAnalysis,/allowedTabs\.has\(initialTab\)/);
+});
+
+
+test('menu lateral nao exibe Concorrentes nem Pedidos',()=>{
+  assert.doesNotMatch(shell,/href:'\/pedidos'/);
+  assert.doesNotMatch(shell,/href:'\/extensao-shopee-intelligence\?section=concorrentes'/);
 });
