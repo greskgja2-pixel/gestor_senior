@@ -13,7 +13,7 @@ const marginProof=item=>valid(item?.price)&&valid(item?.cost)&&valid(item?.margi
   ?`Preço ${money(item.price)} − custo ${money(item.cost)} = ${money(Number(item.price)-Number(item.cost))}. Margem exibida: ${pct(item.marginPct)}. Quando houver taxas/Ads no relatório, a Super Análise mostra a conta completa.`
   :'Margem indisponível: falta preço ou custo válido.';
 
-export default function ProductsDashboard({items=[],source='cache',syncedAt=null,shopId=null,loadError=null}){
+export default function ProductsDashboard({items=[],source='cache',syncedAt=null,shopId=null,loadError=null,embedded=false}){
   const router=useRouter();
   const [query,setQuery]=useState('');
   const [pageSize,setPageSize]=useState(25);
@@ -61,19 +61,19 @@ export default function ProductsDashboard({items=[],source='cache',syncedAt=null
   }
 
   const from=filtered.length?start+1:0,to=Math.min(start+pageSize,filtered.length);
-  return <div className={shell.shell}>
-    <main className={shell.page}>
-      <header className={shell.top}>
+  return <div className={embedded?'':shell.shell}>
+    <main className={embedded?styles.embeddedPage:shell.page}>
+      {!embedded&&<header className={shell.top}>
         <div className={shell.brand}><div className={shell.logo}>▱</div><div><h1>Produtos</h1><p>Escolha o anúncio que seguirá para a Super Análise guiada</p></div></div>
         <div className={shell.topTools}><label className={shell.search}>⌕<input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar por nome, ID ou status..."/></label><button className={styles.refreshButton} type="button" onClick={refresh} disabled={refreshing}>{refreshing?'Atualizando…':'↻ Atualizar da Shopee'}</button></div>
-      </header>
+      </header>}
 
-      <section className={styles.summaryRow}>
+      {!embedded&&<section className={styles.summaryRow}>
         <div><small>Produtos</small><b>{items.length}</b></div><div><small>Com preço</small><b>{items.filter(x=>x.price!=null).length}</b></div><div><small>Com custo</small><b>{items.filter(x=>x.cost!=null).length}</b></div><div><small>Com margem</small><b>{items.filter(x=>x.marginPct!=null).length}</b></div>
-      </section>
+      </section>}
 
       <section className={styles.card}>
-        <div className={styles.cardHead}><div><h2>Produtos da loja</h2><p>{source==='cache'&&syncedAt?`Servido do cache · sincronizado em ${new Date(syncedAt).toLocaleString('pt-BR')}`:'Dados buscados da Shopee'} · {filtered.length} resultado(s)</p></div><div className={styles.controls}><label>Ordenar<select value={sort} onChange={e=>setSort(e.target.value)}><option value="name">Nome</option><option value="price-asc">Menor preço</option><option value="price-desc">Maior preço</option><option value="stock-desc">Maior estoque</option><option value="margin-desc">Maior margem</option></select></label><label>Por página<select value={pageSize} onChange={e=>setPageSize(Number(e.target.value))}><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select></label></div></div>
+        <div className={styles.cardHead}><div><h2>Produtos da loja</h2><p>{source==='cache'&&syncedAt?`Servido do cache · sincronizado em ${new Date(syncedAt).toLocaleString('pt-BR')}`:'Dados buscados da Shopee'} · {filtered.length} resultado(s)</p></div><div className={styles.controls}>{embedded&&<label className={styles.inlineSearch}>Buscar<input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Nome, ID ou status..."/></label>}<button className={styles.refreshButton} type="button" onClick={refresh} disabled={refreshing}>{refreshing?'Atualizando…':'↻ Atualizar da Shopee'}</button><label>Ordenar<select value={sort} onChange={e=>setSort(e.target.value)}><option value="name">Nome</option><option value="price-asc">Menor preço</option><option value="price-desc">Maior preço</option><option value="stock-desc">Maior estoque</option><option value="margin-desc">Maior margem</option></select></label><label>Por página<select value={pageSize} onChange={e=>setPageSize(Number(e.target.value))}><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select></label></div></div>
         {refreshError&&<div className={styles.error}>{refreshError} <button type="button" onClick={refresh}>Tentar novamente</button></div>}
         {refreshState==='success'&&!refreshError&&<div className={styles.success}>Dados atualizados com sucesso.</div>}
         {loadError&&<div className={styles.error}>{loadError}</div>}
