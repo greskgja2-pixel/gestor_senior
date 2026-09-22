@@ -13,10 +13,14 @@ async function loadStoreProducts(shop){
   let products=[],source='cache',syncedAt=null,loadError=null;
   try{const result=await getProducts(shop);products=result.items||[];source=result.source||'cache';syncedAt=result.syncedAt||null;}catch(e){loadError=String(e?.message||e);}
   const db=supabaseAdmin();
-  const [{data:costRows},{data:reports}]=await Promise.all([
+  const [{data:costRows,error:costError},{data:reports,error:reportsError}]=await Promise.all([
     db.from('product_costs').select('item_id,model_id,cost,packaging_cost,updated_at').eq('shop_id',shop.shop_id),
     db.from('extension_analysis_reports').select('item_id,analyzed_at,finance_snapshot,metrics').eq('shop_id',shop.shop_id).order('analyzed_at',{ascending:false}).limit(2000)
   ]);
+  // Custos/relatórios enriquecem a lista, mas uma falha auxiliar não pode esconder
+  // os produtos reais já carregados da Shopee/cache.
+  const auxErrors=[costError?.message,reportsError?.message].filter(Boolean);
+  if(auxErrors.length)loadError=loadError||`Dados auxiliares indisponíveis: ${auxErrors.join(' · ')}`;
   const baseCosts=new Map();
   for(const row of costRows||[])if(Number(row.model_id)===0)baseCosts.set(String(row.item_id),row);
   const latestReport=new Map();
