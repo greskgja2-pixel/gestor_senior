@@ -8,12 +8,10 @@ import {fetchJsonWithTimeout} from '../lib/client-async';
 const MENU=[
   {type:'item',label:'Dashboard',icon:'⌂',tone:'violet',href:'/'},
   {type:'item',label:'Super Análise',icon:'▤',tone:'indigo',href:'/super-analise'},
-  {type:'group',id:'products',label:'Gestão de Anúncios',icon:'▱',tone:'blue',href:'/extensao-shopee-intelligence?section=super-anuncio',children:[
-    {label:'Super Anúncio',icon:'▣',tone:'cyan',href:'/extensao-shopee-intelligence?section=super-anuncio'},
-    {label:'Reanálises',icon:'↻',tone:'purple',href:'/extensao-shopee-intelligence?section=reanalises'},
-    {label:'Prioridades',icon:'☆',tone:'amber',href:'/extensao-shopee-intelligence?section=prioridades'},
-    {label:'Relatórios',icon:'▤',tone:'teal',href:'/extensao-shopee-intelligence?section=relatorios'}
-  ]},
+  {type:'item',label:'Super Anúncio',icon:'▣',tone:'cyan',href:'/extensao-shopee-intelligence?section=super-anuncio'},
+  {type:'item',label:'Reanálises',icon:'↻',tone:'purple',href:'/extensao-shopee-intelligence?section=reanalises'},
+  {type:'item',label:'Prioridades',icon:'☆',tone:'amber',href:'/extensao-shopee-intelligence?section=prioridades'},
+  {type:'item',label:'Relatórios',icon:'▤',tone:'teal',href:'/extensao-shopee-intelligence?section=relatorios'},
   {type:'group',id:'ads',label:'Shopee Ads',icon:'◎',tone:'coral',href:'/extensao-shopee-intelligence?section=shopee-ads',children:[
     {label:'Proteção ROAS',icon:'◈',tone:'green',href:'/protecao-roas'}
   ]},
