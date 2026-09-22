@@ -48,7 +48,13 @@ test('Protecao ROAS nao mostra zero antes de confirmar fonte',()=>{
   assert.match(roas,/disabled=\{busy\}/);
 });
 
-test('Dashboard nativo preserva ausencia de fonte sem transformar em zero',()=>{\n  assert.match(dashboard,/Promise\.allSettled/);\n  assert.match(dashboard,/\?'Sem dados'/);\n  assert.match(dashboard,/Sem dados suficientes/);\n  assert.match(dashboard,/não coletado|nao coletado|indisponível|indisponivel/);\n});\n
+test('Dashboard nativo preserva ausencia de fonte sem transformar em zero',()=>{
+  assert.match(dashboard,/Promise\.allSettled/);
+  assert.match(dashboard,/\?'Sem dados'/);
+  assert.match(dashboard,/Sem dados suficientes/);
+  assert.match(dashboard,/não coletado|nao coletado|indisponível|indisponivel/);
+});
+
 test('API Ads preserva campanhas reais mesmo sem performance e usa null para metrica ausente',()=>{
   assert.match(adsApi,/normalizeCampaigns\(campaignDaily,settings,campaigns\)/);
   assert.match(adsApi,/a\[key\]=seen\[key\]\?totals\[key\]:null/);
