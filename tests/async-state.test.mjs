@@ -8,7 +8,7 @@ const refresh=read('app/components/RefreshButton.js');
 const flow=read('app/super-analise/WebAuditFlow.js');
 const adsView=read('app/extensao-shopee-intelligence/IntelligenceSections.js');
 const roas=read('app/protecao-roas/ProtectionRoasDashboard.js');
-const live=read('public/live-modules.js');
+const dashboard=read('app/DashboardNative.js');
 const adsApi=read('app/api/shopee/ads/route.js');
 
 test('helper compartilhado encerra fetch e Motor Senior por timeout',()=>{
@@ -48,13 +48,7 @@ test('Protecao ROAS nao mostra zero antes de confirmar fonte',()=>{
   assert.match(roas,/disabled=\{busy\}/);
 });
 
-test('Dashboard LIVE tem timeout de API e nao formata null como zero',()=>{
-  assert.match(live,/AbortController/);
-  assert.match(live,/return seen\?total:null/);
-  assert.match(live,/finite\(n\).*'sem dados'/);
-  assert.match(live,/roas=spend!=null&&spend>0&&gmv!=null\?gmv\/spend:null/);
-});
-
+test('Dashboard nativo preserva ausencia de fonte sem transformar em zero',()=>{\n  assert.match(dashboard,/Promise\.allSettled/);\n  assert.match(dashboard,/\?'Sem dados'/);\n  assert.match(dashboard,/Sem dados suficientes/);\n  assert.match(dashboard,/não coletado|nao coletado|indisponível|indisponivel/);\n});\n
 test('API Ads preserva campanhas reais mesmo sem performance e usa null para metrica ausente',()=>{
   assert.match(adsApi,/normalizeCampaigns\(campaignDaily,settings,campaigns\)/);
   assert.match(adsApi,/a\[key\]=seen\[key\]\?totals\[key\]:null/);
