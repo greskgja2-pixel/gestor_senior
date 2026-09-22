@@ -6,8 +6,8 @@ const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const shell=read('app/components/AppShell.js');
 const intelligence=read('app/extensao-shopee-intelligence/page.js');
 const sections=read('app/extensao-shopee-intelligence/IntelligenceSections.js');
-const frame=read('app/components/ShopeeLiveFrame.js');
-const live=read('public/live-modules.js');
+const utility=read('app/UtilityNative.js');
+const home=read('app/page.js');
 const superAd=read('app/extensao-shopee-intelligence/SuperAnuncioMockup.js');
 const superAnalysisPage=read('app/super-analise/page.js');
 const superAnalysis=read('app/super-analise/SuperAnaliseInteligente.js');
@@ -38,20 +38,7 @@ test('intelligence renderiza conteudo real por section',()=>{
   for(const token of ['Concorrentes','Shopee Ads','Reanálises','Prioridades','Relatórios'])assert.ok(sections.includes(token),'secao ausente: '+token);
 });
 
-test('Temas e Configuracoes continuam usando a fonte unica de temas',()=>{
-  assert.match(live,/const GS_THEMES=/);
-  assert.match(live,/window\.parent\.postMessage\(\{source:'GS_GESTOR_THEME'/);
-  assert.ok(shell.includes("href:'/?section=temas'"));
-  assert.ok(shell.includes("href:'/?section=config'"));
-});
-
-test('Dashboard LIVE tem boot finito e retry manual',()=>{
-  assert.match(frame,/withBootTimeout/);
-  assert.match(frame,/autoRetryRef\.current<1/);
-  assert.match(frame,/setPhase\(error\?\.code==="timeout"\?"timeout":"error"\)/);
-  assert.match(frame,/>Tentar novamente<\/button>/);
-});
-
+test('Temas e Configuracoes usam interface nativa e a fonte unica de temas',()=>{\n  assert.match(utility,/const THEMES=/);\n  assert.match(utility,/localStorage\.setItem\('gs_theme'/);\n  assert.ok(shell.includes("href:'/?section=temas'"));\n  assert.ok(shell.includes("href:'/?section=config'"));\n});\n\ntest('Dashboard nao depende mais de iframe legado',()=>{\n  assert.match(home,/DashboardNative/);\n  assert.match(home,/UtilityNative/);\n  assert.doesNotMatch(home,/ShopeeLiveFrame|shopeeos-live|iframe/);\n});\n
 
 test('Super Anuncio oferece atalhos para os 7 atributos da Super Analise',()=>{
   for(const tab of ['title','description','images','video','category','price','variations']){
