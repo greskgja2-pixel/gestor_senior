@@ -2,6 +2,7 @@ import {getActiveShop} from '../../lib/shop';
 import {getProducts} from '../../lib/products';
 import {supabaseAdmin} from '../../lib/supabase';
 import ProductsDashboard from './ProductsDashboard';
+import {grossMargin} from '../../lib/business-metrics';
 
 export const dynamic='force-dynamic';
 
@@ -34,12 +35,8 @@ export default async function ProdutosPage(){
 
     // REGRA: margem exibida como atual precisa usar preço atual válido + custo atual válido.
     // Nunca reaproveitar a margem de uma análise antiga como se ainda fosse a margem corrente.
-    let marginPct=null,marginR=null,marginSource=null;
-    if(price!=null&&price>0&&totalCost!=null){
-      marginR=price-totalCost;
-      marginPct=marginR/price*100;
-      marginSource='bruta · preço atual × custo cadastrado';
-    }
+    const gross=grossMargin({price,cost:baseCost,packaging});
+    const marginPct=gross.percent,marginR=gross.amount,marginSource=gross.source;
 
     return{
       itemId:key,title:it.item_name||`Produto ${it.item_id}`,image:imageOf(it),status:it.item_status||'—',price,stock,
