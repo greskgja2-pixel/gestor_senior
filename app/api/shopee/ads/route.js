@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getActiveShop } from "../../../../lib/shop";
 import { getAdsDaily,getAdsHourly,getAdsCampaignList,getAdsCampaignSettings,getAdsCampaignDaily,safeCapability } from "../../../../lib/shopee-extra";
+import {adsDerivedMetrics} from "../../../../lib/business-metrics";
 
 export const dynamic="force-dynamic";
 export const maxDuration=45;
@@ -45,10 +46,7 @@ function aggregateRows(rows){
   }
   const a={rowCount:Array.isArray(rows)?rows.length:0};
   for(const key of Object.keys(spec))a[key]=seen[key]?totals[key]:null;
-  a.roas=a.spend!=null&&a.spend>0&&a.gmv!=null?a.gmv/a.spend:null;
-  a.ctr=a.impressions!=null&&a.impressions>0&&a.clicks!=null?(a.clicks/a.impressions)*100:null;
-  a.cpc=a.clicks!=null&&a.clicks>0&&a.spend!=null?a.spend/a.clicks:null;
-  a.conversionRate=a.clicks!=null&&a.clicks>0&&a.orders!=null?(a.orders/a.clicks)*100:null;
+  Object.assign(a,adsDerivedMetrics(a));
   a.available=Object.values(seen).some(Boolean);
   return a;
 }
