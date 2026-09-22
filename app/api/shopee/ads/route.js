@@ -159,6 +159,17 @@ function capabilityStatus(cap,hasRows=false){
 function capabilityMessage(cap){
   return cap?.ok?null:(cap?.error||"A fonte não respondeu.");
 }
+function customRangeFromQuery(url){
+  const startDate=String(url.searchParams.get("start_date")||"").trim();
+  const endDate=String(url.searchParams.get("end_date")||"").trim();
+  if(!startDate&&!endDate)return null;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(startDate)||!/^\d{4}-\d{2}-\d{2}$/.test(endDate))throw new Error("Informe data inicial e final válidas.");
+  const start=new Date(`${startDate}T12:00:00.000Z`),end=new Date(`${endDate}T12:00:00.000Z`);
+  if(Number.isNaN(start.getTime())||Number.isNaN(end.getTime())||end<start)throw new Error("O período personalizado de Ads é inválido.");
+  const days=Math.floor((end-start)/86400000)+1;
+  if(days<1||days>90)throw new Error("O período personalizado deve ter entre 1 e 90 dias.");
+  return{startDate,endDate,days};
+}
 
 export async function GET(request){
   let shop;
@@ -169,16 +180,20 @@ export async function GET(request){
   }
   if(!shop)return NextResponse.json({error:"Nenhuma loja autorizada."},{status:400});
 
-  const u=new URL(request.url),days=Math.max(1,Math.min(90,Number(u.searchParams.get("days")||7)));
+  const u=new URL(request.url);
+  let customRange=null;
+  try{customRange=customRangeFromQuery(u);}catch(error){return NextResponse.json({error:String(error?.message||error)},{status:400});}
+  const days=customRange?.days??Math.max(1,Math.min(90,Number(u.searchParams.get("days")||7)));
+  const period=customRange?{startDate:customRange.startDate,endDate:customRange.endDate}:days;
   const [daily,hourly,campaigns]=await Promise.all([
-    safeCapability("daily",()=>getAdsDaily(shop,days)),
+    safeCapability("daily",()=>getAdsDaily(shop,period)),
     safeCapability("hourly",()=>getAdsHourly(shop)),
     safeCapability("campaigns",()=>getAdsCampaignList(shop))
   ]);
   const ids=idsFrom(campaigns);
   const [settings,campaignDaily]=await Promise.all([
     safeCapability("settings",()=>getAdsCampaignSettings(shop,ids)),
-    safeCapability("campaign_daily",()=>getAdsCampaignDaily(shop,ids,days))
+    safeCapability("campaign_daily",()=>getAdsCampaignDaily(shop,ids,period))
   ]);
 
   const dailyRows=daily?.ok?metricRows(payload(daily),[]):[],
@@ -209,7 +224,8 @@ export async function GET(request){
     controls:{enabled:true,actions:["pause","resume","start","stop","change_budget","change_roas_target","protection_reset"],protectionResetExperimental:true}
   };
   return NextResponse.json({
-    days,shopId:String(shop.shop_id),campaignIds:ids,daily,hourly,campaigns,settings,campaignDaily,
+    days,startDate:customRange?.startDate||null,endDate:customRange?.endDate||null,customRange:!!customRange,
+    shopId:String(shop.shop_id),campaignIds:ids,daily,hourly,campaigns,settings,campaignDaily,
     v7,v5:{...v7,source:"Enciclopédia Shopee Seller Center v7 (compat v5)"}
   });
 }
