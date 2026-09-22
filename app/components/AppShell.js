@@ -7,8 +7,8 @@ import {fetchJsonWithTimeout} from '../lib/client-async';
 
 const MENU=[
   {type:'item',label:'Dashboard',icon:'⌂',tone:'violet',href:'/'},
-  {type:'group',id:'products',label:'Produtos',icon:'▱',tone:'blue',href:'/super-analise',children:[
-    {label:'Super Análise',icon:'▤',tone:'indigo',href:'/super-analise'},
+  {type:'item',label:'Super Análise',icon:'▤',tone:'indigo',href:'/super-analise'},
+  {type:'group',id:'products',label:'Gestão de Anúncios',icon:'▱',tone:'blue',href:'/extensao-shopee-intelligence?section=super-anuncio',children:[
     {label:'Super Anúncio',icon:'▣',tone:'cyan',href:'/extensao-shopee-intelligence?section=super-anuncio'},
     {label:'Reanálises',icon:'↻',tone:'purple',href:'/extensao-shopee-intelligence?section=reanalises'},
     {label:'Prioridades',icon:'☆',tone:'amber',href:'/extensao-shopee-intelligence?section=prioridades'},
