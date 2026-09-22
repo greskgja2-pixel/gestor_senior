@@ -8,6 +8,8 @@ const finite=v=>v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v));
 const num=v=>finite(v)?Number(v):null;
 const money=v=>num(v)==null?'—':num(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const roas=v=>num(v)==null?'—':num(v).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:2});
+const integer=v=>num(v)==null?'—':Math.round(num(v)).toLocaleString('pt-BR');
+const percent=v=>num(v)==null?'—':`${num(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}%`;
 const when=v=>{if(!v)return'Nunca verificado';const d=new Date(v);return Number.isNaN(d.getTime())?'—':d.toLocaleString('pt-BR');};
 const statusText={
   valid:'Ativa',
@@ -337,15 +339,22 @@ export default function ProtectionRoasDashboard(){
 
         <div className={styles.tableWrap}>
           <table>
-            <thead><tr><th><input type="checkbox" checked={allPageSelected} onChange={togglePage} disabled={!selectablePage.length} title="Selecionar anúncios desta página"/></th><th>Anúncio</th><th>Status</th><th>ROAS atual</th><th>ROAS alvo</th><th>Proteção ROAS</th><th>Última verificação</th></tr></thead>
+            <thead><tr><th><input type="checkbox" checked={allPageSelected} onChange={togglePage} disabled={!selectablePage.length} title="Selecionar anúncios desta página"/></th><th>Anúncio</th><th>Status</th><th>Investimento</th><th>Vendas</th><th>ROAS atual</th><th>Impressões</th><th>CTR</th><th>Adicionar ao carrinho</th><th>Porcentagem de adições ao carrinho</th><th>Custo por Conversão</th><th>ROAS alvo</th><th>Proteção ROAS</th><th>Última verificação</th></tr></thead>
             <tbody>
-              {!busy&&dataKnown&&paged.length===0&&<tr><td colSpan="7" className={styles.empty}>{phase==='empty'?'A fonte respondeu, mas não retornou campanhas ativas.':'Nenhum anúncio encontrado com este filtro.'}</td></tr>}
-              {!busy&&!dataKnown&&<tr><td colSpan="7" className={styles.empty}>Não foi possível confirmar os anúncios ativos. Use “Tentar novamente”.</td></tr>}
+              {!busy&&dataKnown&&paged.length===0&&<tr><td colSpan="15" className={styles.empty}>{phase==='empty'?'A fonte respondeu, mas não retornou campanhas ativas.':'Nenhum anúncio encontrado com este filtro.'}</td></tr>}
+              {!busy&&!dataKnown&&<tr><td colSpan="15" className={styles.empty}>Não foi possível confirmar os anúncios ativos. Use “Tentar novamente”.</td></tr>}
               {paged.map(r=><tr key={r.campaignId} className={selectedSet.has(String(r.campaignId))?styles.rowSelected:''}>
                 <td><input type="checkbox" checked={selectedSet.has(String(r.campaignId))} onChange={e=>{e.stopPropagation();toggle(r.campaignId)}} onClick={e=>e.stopPropagation()} disabled={!r.canDisable||running} title={r.canDisable?'Selecionar campanha':'Campanha já desativada ou sem suporte para esta ação.'}/></td>
                 <td><div className={styles.adCell}>{r.image?<img src={r.image} alt=""/>:<div className={styles.noImage}/>}<div><b>{r.name}</b><small>Campanha {r.campaignId}{r.itemId?` · Produto ${r.itemId}`:''}</small></div></div></td>
                 <td><span className={styles.live}><i/>Ativo</span></td>
+                <td>{money(r.spend)}</td>
+                <td>{money(r.gmv)}</td>
                 <td><b className={num(r.roas)!=null&&num(r.roas)<3?styles.badRoas:styles.goodRoas}>{roas(r.roas)}</b></td>
+                <td>{integer(r.impressions)}</td>
+                <td>{percent(r.ctr)}</td>
+                <td>{integer(r.cartAdds)}</td>
+                <td>{percent(r.cartRate)}</td>
+                <td>{money(r.costPerOrder)}</td>
                 <td>{roas(r.targetRoas)}</td>
                 <td><ProtectionBadge status={r.protectionStatus}/></td>
                 <td><span className={styles.updated}>{when(r.updatedAt)}</span></td>
