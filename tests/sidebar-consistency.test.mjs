@@ -64,7 +64,13 @@ test('mobile usa o mesmo drawer do AppShell',()=>{
   assert.match(shell,/gs-drawer-backdrop/);
 });
 
-test('Dashboard principal usa apenas o AppShell nativo',()=>{\n  const page=read('app/page.js');\n  assert.doesNotMatch(page,/ShopeeLiveFrame|iframe|shopeeos-live/);\n  assert.match(page,/DashboardNative/);\n});\n\ntest('itens do menu (principais e do submenu) tem a mesma altura de linha',()=>{
+test('Dashboard principal usa apenas o AppShell nativo',()=>{
+  const page=read('app/page.js');
+  assert.doesNotMatch(page,/ShopeeLiveFrame|iframe|shopeeos-live/);
+  assert.match(page,/DashboardNative/);
+});
+
+test('itens do menu (principais e do submenu) tem a mesma altura de linha',()=>{
   // Pedido do usuario: as linhas de "Produtos"/"Shopee Ads" (itens principais) nao podem ficar
   // mais altas que as linhas dos filhos ("Super Analise", "Protecao ROAS" etc).
   // Regressao real: usar `min-height` igual (37px) nos dois grupos NAO bastava, porque o icone do
