@@ -92,3 +92,5 @@ O shell principal, Dashboard, Temas e Configurações são React/Next nativos. O
 **Regra:** não recriar iframe, HTML monolítico, injeção runtime de scripts/CSS ou patches `*-enhancements`/ `*-fix` para implementar novas telas. Novas funções devem entrar como componentes/rotas Next e compartilhar regras em `lib/` ou APIs normalizadas.
 **Regra de métrica:** cálculo compartilhado deve ter uma única implementação. Ads e finanças usam módulos de negócio compartilhados; ausência de fonte continua `null`/indisponível, nunca zero inventado.
 **Regra de exclusão:** arquivo/rota/API só pode ser removido depois de provar que não possui consumidor ativo e executar build + smoke test das rotas críticas definidas na Regra 16.
+
+**Estado pós-migração:** frontend legado removido do branch principal; validar sempre o deploy do HEAD antes de considerar a migração concluída.
