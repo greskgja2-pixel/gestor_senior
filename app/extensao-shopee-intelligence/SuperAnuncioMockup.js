@@ -91,6 +91,7 @@ function Icon({name,className=''}) {
     case 'file': return <svg {...common}><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5M9 12h6M9 16h6"/></svg>;
     case 'arrowUp': return <svg {...common}><path d="m5 12 7-7 7 7"/><path d="M12 5v14"/></svg>;
     case 'plus': return <svg {...common}><path d="M12 5v14M5 12h14"/></svg>;
+    case 'trash': return <svg {...common}><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg>;
     default: return <svg {...common}><circle cx="12" cy="12" r="8"/></svg>;
   }
 }
@@ -120,6 +121,8 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
   const [tab,setTab]=useState(allowedTabs.has(initialTab)?initialTab:'overview');
   const [liveAds,setLiveAds]=useState({phase:'idle',campaign:null,error:''});
   const [query,setQuery]=useState('');
+  const [deleting,setDeleting]=useState(false);
+  const [deleteError,setDeleteError]=useState('');
   const searchRef=useRef(null);
   const item=useMemo(()=>items.find(x=>String(x.itemId)===String(selectedId))||items[0]||null,[items,selectedId]);
 
@@ -157,6 +160,23 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
   }
 
   useEffect(()=>{if(item?.itemId)loadLiveAds(item.itemId)},[item?.itemId]);
+
+  async function deleteAnalysis(){
+    if(!item?.itemId||deleting)return;
+    const title=item.latest?.product_snapshot?.title||item.latest?.product_snapshot?.item_name||`Produto ${item.itemId}`;
+    const ok=window.confirm(`Excluir todas as análises e o agendamento salvos de "${title}"? Esta ação não pode ser desfeita.`);
+    if(!ok)return;
+    setDeleting(true);setDeleteError('');
+    try{
+      await fetchJsonWithTimeout('/api/extension-intelligence/reports',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({item_id:item.itemId}),cache:'no-store'},15000);
+      location.href='/extensao-shopee-intelligence?section=super-anuncio';
+    }catch(error){
+      console.error('[Super Anúncio] exclusão falhou',error);
+      const kind=classifyAsyncError(error);
+      setDeleteError(kind==='timeout'?'A exclusão demorou demais. Tente novamente.':String(error?.message||error));
+      setDeleting(false);
+    }
+  }
 
   function searchProduct(e){
     e?.preventDefault?.();
@@ -243,8 +263,12 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
         <div className={styles.selectorGroup}>
           <div className={styles.selectorField}><small>Anúncio atual</small><select value={selectedId} onChange={e=>{setSelectedId(e.target.value);setTab('overview')}}>{items.map(x=><option key={x.itemId} value={x.itemId}>{x.latest?.product_snapshot?.title||x.latest?.product_snapshot?.item_name||`Produto ${x.itemId}`}</option>)}</select></div>
         </div>
-        <Link href="/produtos" className={styles.followBtn}><Icon name="plus"/> Acompanhar outro anúncio</Link>
+        <div className={styles.selectorActions}>
+          <Link href="/produtos" className={styles.followBtn}><Icon name="plus"/> Acompanhar outro anúncio</Link>
+          <button type="button" className={styles.deleteBtn} onClick={deleteAnalysis} disabled={deleting}><Icon name="trash"/>{deleting?'Excluindo…':'Excluir análises'}</button>
+        </div>
       </section>
+      {deleteError&&<div className={styles.deleteError}>{deleteError}</div>}
 
       <div className={styles.tabs}>
         <div className={styles.mainTabs}>{TABS.map(([k,label,icon])=><button type="button" key={k} className={tab===k?styles.tabActive:''} onClick={()=>setTab(k)}><Icon name={icon}/>{label}</button>)}</div>
