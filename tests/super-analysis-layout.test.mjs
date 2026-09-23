@@ -25,7 +25,7 @@ test('Super Analise usa a interface reconstruida dentro do AppShell',()=>{
 });
 
 test('fluxo guiado preserva etapas e campos principais',()=>{
-  for(const token of ['Objetivo, situação e gargalo','Shopee Ads — dados atuais','Custos e margens','Selecione de 1 até 3 concorrentes','Recarregar botões','Analisar Tudo'])assert.ok(flow.includes(token),'faltando: '+token);
+  for(const token of ['Objetivo, situação e gargalo','Shopee Ads — últimos 7 dias','Custos e margens','Selecione de 1 até 3 concorrentes','Recarregar botões','Analisar Tudo'])assert.ok(flow.includes(token),'faltando: '+token);
   for(const token of ['Qtd. avaliações','GMV R$','Custo por venda R$','Custo unitário padrão R$','Custos por variação'])assert.ok(flow.includes(token),'faltando: '+token);
 });
 
@@ -64,3 +64,13 @@ test('Super Anuncio explica dados ausentes sem inventar zero',()=>{
 });
 
 test('lista de produtos permanece abaixo do fluxo da Super Analise',()=>{ assert.match(workspace,/ProductsDashboard embedded/); assert.match(workspace,/!requestedReport&&!requestedItem/); });
+
+
+test('Super Analise formata avaliacao e mostra formula resumida da margem',()=>{
+  assert.match(flow,/ratingText/);
+  assert.match(flow,/ratingDraft/);
+  assert.match(flow,/20% Shopee/);
+  assert.match(flow,/taxa fixa/);
+  assert.match(flow,/Margem estimada/);
+  assert.doesNotMatch(flow,/passe o mouse para conferir a conta/);
+});
