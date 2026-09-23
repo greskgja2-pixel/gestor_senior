@@ -57,8 +57,19 @@ function parsedSearchSold(c){
   return Number.isFinite(base)?Math.round(base*(m[2]?1000:1)):null;
 }
 function imageCandidates(obj){
-  const all=[obj?.imageUrl,obj?.image_url,...arr(obj?.imageUrls),...arr(obj?.images),...arr(obj?.image?.image_url_list)].filter(Boolean);
-  return [...new Set(all)].filter(u=>!/\.svg(?:\?|$)/i.test(String(u))&&!/productdetailspage\/.*\.svg/i.test(String(u)));
+  const fields=[
+    obj?.imageUrl,obj?.image_url,obj?.thumbnail,obj?.thumbnailUrl,obj?.thumbnail_url,obj?.cover,obj?.coverUrl,obj?.cover_url,
+    ...arr(obj?.imageUrls),...arr(obj?.image_urls),...arr(obj?.images),...arr(obj?.image?.image_url_list),...arr(obj?.media?.images)
+  ];
+  const normalized=fields.map(value=>{
+    const raw=typeof value==='string'?value:(value?.url||value?.image_url||value?.imageUrl||value?.src||value?.image_id||value?.imageId||'');
+    const s=String(raw||'').trim();
+    if(!s)return'';
+    if(/^https?:\/\//i.test(s))return s;
+    if(/^[A-Za-z0-9_-]{16,}$/.test(s))return `https://down-br.img.susercontent.com/file/${s}`;
+    return'';
+  }).filter(Boolean);
+  return [...new Set(normalized)].filter(u=>!/\.svg(?:\?|$)/i.test(String(u))&&!/productdetailspage\/.*\.svg/i.test(String(u)));
 }
 
 function SmartImage({urls,alt='',onZoom,className=''}) {
@@ -75,13 +86,15 @@ function SmartImage({urls,alt='',onZoom,className=''}) {
 
 function ActionsPanel({canUndo,canRedo,dirtyCount,onUndo,onRedo,onRestore,onSave,saving,saveDisabled=false,message}) {
   return <aside className={styles.actionPanel}>
-    <h3>Ações desta aba</h3>
-    <button type="button" onClick={onUndo} disabled={!canUndo}>↶ Desfazer</button>
-    <button type="button" onClick={onRedo} disabled={!canRedo}>↷ Refazer</button>
-    <button type="button" onClick={onRestore}>⟳ Restaurar original</button>
-    <button type="button" className={styles.saveShopee} onClick={onSave} disabled={saveDisabled||dirtyCount===0||saving}>{saving?'Salvando…':'⇧ Salvar na Shopee'}</button>
-    <small className={dirtyCount?styles.pending:styles.noPending}>● {dirtyCount} alteração{dirtyCount===1?'':'ões'} pendente{dirtyCount===1?'':'s'}</small>
-    <p>O botão salvar só fica disponível quando houver alteração real nesta aba.</p>
+    <div className={styles.actionButtons}>
+      <button type="button" onClick={onUndo} disabled={!canUndo}>↶ Desfazer</button>
+      <button type="button" onClick={onRedo} disabled={!canRedo}>↷ Refazer</button>
+      <button type="button" onClick={onRestore}>⟳ Restaurar original</button>
+    </div>
+    <div className={styles.actionState}>
+      <small className={dirtyCount?styles.pending:styles.noPending}>● {dirtyCount?`${dirtyCount} alteração${dirtyCount===1?'':'ões'} não salva${dirtyCount===1?'':'s'}`:'Nenhuma alteração pendente'}</small>
+      <button type="button" className={styles.saveShopee} onClick={onSave} disabled={saveDisabled||dirtyCount===0||saving}>{saving?'Salvando…':'▣ Salvar alterações'}</button>
+    </div>
     {message&&<div className={styles.message}>{message}</div>}
   </aside>
 }
@@ -125,6 +138,10 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
   const inferredDeductions=basePrice!=null&&baseCost!=null&&baseProfit!=null?Math.max(0,basePrice-baseCost-baseProfit):0;
   const marginNow=n(f.marginPct)??currentMargin(basePrice,baseCost,inferredDeductions);
   const marginProof=basePrice!=null&&baseCost!=null?`Preço ${money(basePrice)} − custo ${money(baseCost)}${inferredDeductions>0?` − taxas/Ads/outros registrados ${money(inferredDeductions)}`:''} = margem ${pct(marginNow)}`:'Margem indisponível: preço ou custo não capturado.';
+  const overallBefore=n(report?.score);
+  const overallSuggested=n(analysis?.afterScore);
+  const overallAfter=overallSuggested==null?overallBefore:(overallBefore==null?overallSuggested:Math.max(overallBefore,overallSuggested));
+  const overallDelta=overallBefore!=null&&overallAfter!=null?Math.round(overallAfter-overallBefore):null;
 
   useEffect(()=>{if(allowedTabs.has(initialTab))setTab(initialTab)},[initialTab,allowedTabs]);
 
@@ -232,7 +249,8 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
   const dominantCategory=[...categoryCounts.entries()].sort((a,b)=>b[1]-a[1])[0]||null;
   const dominantRow=dominantCategory?compCategoryRows.find(x=>String(x.label).trim()===dominantCategory[0]):null;
   const currentCategory=String(p.category||'').trim();
-  const categoryAligned=dominantCategory&&currentCategory&&dominantCategory[0].toLowerCase()===currentCategory.toLowerCase();
+  const categoryLeaf=value=>String(value||'').split(/>|\/|→/).map(x=>x.trim()).filter(Boolean).pop()?.toLowerCase()||'';
+  const categoryAligned=Boolean(dominantCategory&&currentCategory&&categoryLeaf(dominantCategory[0])===categoryLeaf(currentCategory));
 
   const liveMargin=currentMargin(draft.price,draft.cost,inferredDeductions);
   const selectedSlot=slots.find(x=>String(x.timeslot_id)===String(flash.timeslotId));
@@ -251,7 +269,7 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
   return <div className={styles.screen}>
     <ZoomModal src={zoomSrc} onClose={()=>setZoomSrc('')}/>
     <main className={styles.main}>
-      <header className={styles.header}><div><h1>✦ Super Análise Inteligente</h1><p>Compare os dados originais com a sugestão da IA e aplique apenas o que fizer sentido.</p></div><div className={styles.headerActions}><button type="button" data-gs-super-analysis onClick={openExtension}>↗ Abrir Motor Senior</button></div></header>
+      <header className={styles.header}><div className={styles.titleBlock}><div className={styles.titleRow}><h1>✦ Super Análise Inteligente</h1><div className={styles.scoreChip} title="Nota geral estimada do anúncio"><b>{overallBefore==null?'—':Math.round(overallBefore)}</b><span>→</span><b className={styles.scoreAfter}>{overallAfter==null?'—':Math.round(overallAfter)}</b><em>{overallDelta==null?'':overallDelta>0?`+${overallDelta} pontos`:'sem perda'}</em><small>Nota geral do anúncio</small></div></div><p>Compare os dados originais com a sugestão da IA e aplique apenas o que fizer sentido.</p></div><div className={styles.headerActions}><button type="button" data-gs-super-analysis onClick={openExtension}>↗ Abrir Motor Senior</button></div></header>
       <section className={styles.productBar}>
         {productImage(p)?<img src={productImage(p)} alt=""/>:<div className={styles.noImage}/>}
         <div className={styles.productInfo}><b>{p.title||p.item_name||`Produto ${report.item_id}`}</b><small>ID do anúncio: {report.item_id}</small><small>Categoria: {p.category||missingStatus(p)}</small></div>
@@ -289,7 +307,7 @@ function ImagesSection({gallery,competitors,plan,onPlan,before,after,blocked,set
         <div className={styles.panelHead}><h2>Imagens atuais do anúncio</h2><span>{gallery.length} imagens</span></div>
         <div className={styles.imageToolbar}>
           <button type="button" onClick={()=>gallery.forEach((x,i)=>downloadImage(x.url,i))}>⇩ Baixar imagens</button>
-          <button type="button" onClick={()=>uploadRef.current?.click()}>⇧ Enviar imagem</button>
+          <button type="button" onClick={()=>uploadRef.current?.click()}>⇧ Substituir / adicionar imagem</button>
           <input ref={uploadRef} hidden type="file" accept="image/jpeg,image/png" multiple onChange={e=>onUploadFiles(e.target.files||[])}/>
         </div>
         <div className={styles.imageInfo}>ⓘ Você pode baixar, editar no computador, enviar novamente e só depois salvar na Shopee.</div>
@@ -306,7 +324,7 @@ function CategoryComparison({current,competitors,dominant,aligned,onApply,select
   return <>
     <section className={styles.categoryCompare}>
       <article className={styles.panel}><div className={styles.panelHead}><h2>Categoria atual do anúncio</h2><span className={aligned?styles.okChip:styles.warnChip}>● {aligned?'Alinhada':'Não alinhada'}</span></div><div className={styles.textBox}>{current}</div><div className={styles.imageInfo}>{dominant?aligned?'Sua categoria é a mesma predominante entre os concorrentes analisados.':'Sua categoria atual é diferente da mais usada pelos concorrentes analisados.':'Os concorrentes não trouxeram categoria suficiente para comparar.'}</div></article>
-      <article className={styles.panel}><div className={styles.panelHead}><h2>Categorias dos concorrentes</h2><span>{competitors.length} concorrentes</span></div><div className={styles.categoryCompetitors}>{competitors.map(({c,i,label})=><div key={i}><SmartImage urls={imageCandidates(c)} alt="" onZoom={setZoomSrc}/><div>{competitorUrl(c)?<a href={competitorUrl(c)} target="_blank" rel="noreferrer">{c.title||`Concorrente ${i+1}`} ↗</a>:<b>{c.title||`Concorrente ${i+1}`}</b>}<small>{label||'Categoria não coletada'}</small></div><span><small>Preço</small><b>{money(c.price)}</b></span><span><small>Vendidos</small><b>{n(c.sold)?.toLocaleString('pt-BR')||'—'}</b></span></div>)}</div>{dominant&&<div className={styles.dominantStrip}>{dominant[1]} de {competitors.length} concorrentes usam “{dominant[0]}”.</div>}</article>
+      <article className={styles.panel}><div className={styles.panelHead}><h2>Categorias dos concorrentes</h2><span>{competitors.length} concorrentes</span></div><div className={styles.categoryCompetitors}>{competitors.map(({c,i,label})=><div key={i}><SmartImage urls={imageCandidates(c)} alt="" onZoom={setZoomSrc}/><div>{competitorUrl(c)?<a href={competitorUrl(c)} target="_blank" rel="noreferrer">{c.title||`Concorrente ${i+1}`} ↗</a>:<b>{c.title||`Concorrente ${i+1}`}</b>}<small>{label||'Categoria não coletada'}</small></div><span><small>Preço</small><b>{money(parsedSearchPrice(c))}</b></span><span><small>Vendidos</small><b>{n(parsedSearchSold(c))?.toLocaleString('pt-BR')||'—'}</b></span></div>)}</div>{dominant&&<div className={styles.dominantStrip}>{dominant[1]} de {competitors.length} concorrentes usam “{dominant[0]}”.</div>}</article>
     </section>
     <section className={styles.categoryConclusion}><h2>Comparação de categoria</h2>{!dominant?<p>Não há dados suficientes para recomendar mudança de categoria.</p>:aligned?<div className={styles.goodConclusion}><b>✓ Você já usa a categoria predominante.</b><p>A IA não sugere alteração de categoria porque seus dados estão alinhados com a maioria dos concorrentes coletados.</p></div>:<div className={styles.goodConclusion}><b>Comparação indica uma categoria predominante entre concorrentes.</b><p>Sua categoria atual é “{current}”; a mais recorrente nos concorrentes coletados é “{dominant[0]}”. A decisão continua com você.</p><button type="button" className={styles.primary} onClick={onApply}>Aplicar categoria predominante ao rascunho</button></div>}</section>
   </>
@@ -320,7 +338,7 @@ function PriceSection({price,cost,setPrice,setCost,margin,deductions,competitors
       <article className={styles.panel}><div className={styles.panelHead}><h2>✦ Estratégia de preço e concorrência</h2><span>✎ Editável</span></div>{blocked?<div className={styles.preserveBox}>A alteração sugerida reduziria a nota estimada. O preço atual foi preservado.</div>:<textarea rows={9} value={plan} onChange={e=>onPlan(e.target.value)} placeholder="A IA não encontrou uma mudança necessária no preço."/>}<div className={styles.applyLine}><Gauge score={after} label={blocked?'Preservado':'Depois'}/></div></article>
     </section>
     <section className={styles.flashCard}><div className={styles.panelHead}><h2>⚡ Oferta Relâmpago real</h2><span>Horários oficiais da Shopee</span></div><p>Escolha um dos horários disponibilizados pela Shopee. A oferta só será criada quando você clicar no botão abaixo.</p><div className={styles.flashGrid}><label>Horário<select value={flash.timeslotId} onChange={e=>setFlash(x=>({...x,timeslotId:e.target.value}))}><option value="">Selecione</option>{slots.map(s=><option key={s.timeslot_id} value={s.timeslot_id}>{new Date(Number(s.start_time)*1000).toLocaleString('pt-BR')} → {new Date(Number(s.end_time)*1000).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</option>)}</select></label><label>Preço promocional<input type="number" step="0.01" value={flash.promoPrice} onChange={e=>setFlash(x=>({...x,promoPrice:e.target.value}))}/></label><label>Estoque reservado<input type="number" min="1" value={flash.stock} onChange={e=>setFlash(x=>({...x,stock:e.target.value}))}/></label><label>Limite por comprador<input type="number" min="0" value={flash.purchaseLimit} onChange={e=>setFlash(x=>({...x,purchaseLimit:e.target.value}))}/></label><div><small>Margem projetada</small><b>{pct(promoMargin)}</b></div></div>{selectedSlot&&<small className={styles.slotHint}>Início {new Date(Number(selectedSlot.start_time)*1000).toLocaleString('pt-BR')} · término {new Date(Number(selectedSlot.end_time)*1000).toLocaleString('pt-BR')}</small>}{slotError&&<div className={styles.message}>{slotError}</div>}<button type="button" className={styles.primary} onClick={createFlash} disabled={flashBusy||!flash.timeslotId}>{flashBusy?'Criando…':'⚡ Criar Oferta Relâmpago na Shopee'}</button>{flashMessage&&<div className={styles.message}>{flashMessage}</div>}</section>
-    <section className={styles.competitorsVisual}><h2>{competitors.length} concorrentes selecionados</h2><div className={styles.competitorGrid}>{competitors.map((c,i)=><article key={i}><SmartImage urls={imageCandidates(c)} alt="" onZoom={setZoomSrc}/><div><small>Concorrente {i+1}</small>{competitorUrl(c)?<a href={competitorUrl(c)} target="_blank" rel="noreferrer">{c.title||`Concorrente ${i+1}`} ↗</a>:<b>{c.title||`Concorrente ${i+1}`}</b>}<span>Preço <strong>{money(c.price)}</strong></span><span>Vendidos <strong>{n(c.sold)?.toLocaleString('pt-BR')||'—'}</strong></span></div></article>)}</div></section>
+    <section className={styles.competitorsVisual}><h2>{competitors.length} concorrentes selecionados</h2><div className={styles.competitorGrid}>{competitors.map((c,i)=><article key={i}><SmartImage urls={imageCandidates(c)} alt="" onZoom={setZoomSrc}/><div><small>Concorrente {i+1}</small>{competitorUrl(c)?<a href={competitorUrl(c)} target="_blank" rel="noreferrer">{c.title||`Concorrente ${i+1}`} ↗</a>:<b>{c.title||`Concorrente ${i+1}`}</b>}<span>Preço <strong>{money(parsedSearchPrice(c))}</strong></span><span>Vendidos <strong>{n(parsedSearchSold(c))?.toLocaleString('pt-BR')||'—'}</strong></span></div></article>)}</div></section>
   </>
 }
 
