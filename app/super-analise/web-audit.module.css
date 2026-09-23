@@ -4,3 +4,7 @@
 .asyncState b{font-size:10px}.asyncState span{font-size:9px;flex:1 1 280px}.asyncState button{border:1px solid #d7b4b4;background:#fff;color:#8f3d3d;border-radius:8px;padding:7px 9px;font-size:9px;font-weight:800;cursor:pointer}
 .message[data-state="timeout"],.message[data-state="error"]{background:#fff3f3;border-color:#efd0d0;color:#934343}
 .message[data-state="success"]{background:#effaf4;border-color:#cee9dc;color:#237350}
+
+.cardHead>.titleStack{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
+.cardHead>.titleStack>small{font-size:8px;font-weight:600;color:#74859b}
+.marginRows small{line-height:1.45}
