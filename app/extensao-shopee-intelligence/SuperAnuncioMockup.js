@@ -13,6 +13,10 @@ const num=v=>n(v)==null?'—':n(v).toLocaleString('pt-BR',{maximumFractionDigits
 const when=v=>{if(!v)return'—';const d=new Date(v);return Number.isNaN(d.getTime())?'—':d.toLocaleString('pt-BR');};
 const metric=(r,k)=>r?.metrics?.[k]??r?.ads_snapshot?.manual?.[k]??r?.ads_snapshot?.[k]??null;
 const imageOf=p=>p?.imageUrl||p?.image_url||p?.imageUrls?.[0]||p?.image?.image_url_list?.[0]||null;
+const competitorUrl=c=>c?.url||c?.link||c?.productUrl||c?.product_url||(c?.shopId&&c?.itemId?`https://shopee.com.br/product/${c.shopId}/${c.itemId}`:c?.shop_id&&c?.item_id?`https://shopee.com.br/product/${c.shop_id}/${c.item_id}`:null);
+const competitorPrice=c=>{if(n(c?.price)!=null)return n(c.price);const m=String(c?.searchText||'').match(/R\$\s*\n?\s*([0-9.]+,[0-9]{2})/i);return m?Number(m[1].replace(/\./g,'').replace(',','.')):null};
+const competitorSold=c=>{if(n(c?.sold)!=null)return n(c.sold);const m=String(c?.searchText||'').match(/([0-9]+(?:[.,][0-9]+)?)\s*(mil)?\+?\s*Vendido/i);if(!m)return null;const base=Number(m[1].replace(',','.'));return Number.isFinite(base)?Math.round(base*(m[2]?1000:1)):null};
+const imageCandidates=obj=>{const fields=[obj?.imageUrl,obj?.image_url,obj?.thumbnail,obj?.thumbnailUrl,obj?.cover,...arr(obj?.imageUrls),...arr(obj?.image_urls),...arr(obj?.images),...arr(obj?.image?.image_url_list)];return [...new Set(fields.map(v=>typeof v==='string'?v:(v?.url||v?.image_url||v?.src||'')).map(v=>String(v||'').trim()).filter(Boolean).map(v=>/^https?:\/\//i.test(v)?v:(/^[A-Za-z0-9_-]{16,}$/.test(v)?`https://down-br.img.susercontent.com/file/${v}`:'')).filter(Boolean))]};
 const TABS=[
   ['overview','Visão geral','home'],
   ['ads','Shopee Ads','megaphone'],
@@ -109,6 +113,7 @@ function ClockBadge(){
 }
 
 function Gauge({score,label}){const s=n(score);const p=Math.max(0,Math.min(100,s??0));return <div className={styles.gaugeWrap}><div className={styles.gauge} style={{'--score':`${p*1.8}deg`}}><div><b>{s==null?'—':Math.round(s)}</b><small>/100</small></div></div><span>{label}</span></div>}
+function ZoomModal({src,onClose}){if(!src)return null;return <div className={styles.zoomModal} role="dialog" aria-modal="true" onClick={onClose}><button type="button" onClick={onClose}>×</button><img src={src} alt="Visualização ampliada" onClick={e=>e.stopPropagation()}/></div>}
 function Metric({label,value,good,title,icon,tone='blue'}){return <div className={styles.metric} title={title||''}><span className={styles.metricIcon} data-tone={tone}><Icon name={icon}/></span><small>{label}</small><b className={good?styles.good:''}>{value}</b></div>}
 function Fact({label,value,icon,tone='blue'}){return <div className={styles.fact}><span className={styles.factIcon} data-tone={tone}><Icon name={icon}/></span><span className={styles.factText}><small>{label}</small><b>{value}</b></span></div>}
 function PanelTitle({icon,title,subtitle,tone='blue'}){return <div className={styles.panelTitle}><span className={styles.panelIcon} data-tone={tone}><Icon name={icon}/></span><div><h2>{title}</h2>{subtitle&&<p>{subtitle}</p>}</div></div>}
@@ -123,6 +128,7 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
   const [query,setQuery]=useState('');
   const [deleting,setDeleting]=useState(false);
   const [deleteError,setDeleteError]=useState('');
+  const [zoomSrc,setZoomSrc]=useState('');
   const searchRef=useRef(null);
   const item=useMemo(()=>items.find(x=>String(x.itemId)===String(selectedId))||items[0]||null,[items,selectedId]);
 
@@ -203,7 +209,8 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
   const competitors=arr(r.competitors).slice(0,3);
   const score=n(r.score);
   const afterScore=n(ai.afterScore);
-  const gain=score!=null&&afterScore!=null?Math.round(afterScore-score):null;
+  const safeAfterScore=afterScore==null?score:(score==null?afterScore:Math.max(score,afterScore));
+  const gain=score!=null&&safeAfterScore!=null?Math.round(safeAfterScore-score):null;
   const prevPrice=n(metric(prev,'price')??prev?.product_snapshot?.price);
   const prevSold=n(metric(prev,'sold')??prev?.product_snapshot?.sold);
   const historicalAds=r.ads_snapshot&&Object.keys(r.ads_snapshot).length?r.ads_snapshot:null;
@@ -216,6 +223,7 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
   const active=/active|normal|ativo/i.test(String(statusText));
 
   return <div className={styles.screen}>
+    <ZoomModal src={zoomSrc} onClose={()=>setZoomSrc('')}/>
     <main className={styles.main}>
       <div className={styles.topbar}>
         <div className={styles.breadcrumb}><Icon name="home"/><span>›</span><b>Super Anúncio</b></div>
@@ -231,12 +239,12 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
       </div>
 
       <section className={styles.hero}>
-        <div className={styles.heroTitle}><span className={styles.heroIcon}><Icon name="megaphone"/></span><div><h1>Super Anúncio</h1><p>Acompanhe o anúncio, histórico, concorrentes e descubra oportunidades para vender mais na Shopee.</p></div></div>
+        <div className={styles.heroTitle}><span className={styles.heroIcon}><Icon name="megaphone"/></span><div><div className={styles.heroHeading}><h1>Super Anúncio</h1><div className={styles.scoreCompact}><b>{score==null?'—':Math.round(score)}</b><span>→</span><b>{safeAfterScore==null?'—':Math.round(safeAfterScore)}</b><em>{gain==null?'Sem projeção':gain>0?`+${gain} pts`:'sem perda'}</em><small>Nota geral</small></div></div><p>Acompanhe o anúncio, histórico, concorrentes e descubra oportunidades para vender mais na Shopee.</p></div></div>
         <ClockBadge/>
       </section>
 
       <section className={styles.productBar}>
-        {imageOf(p)?<img src={imageOf(p)} alt=""/>:<div className={styles.noImage}/>}
+        {imageOf(p)?<button type="button" className={styles.productImageButton} onClick={()=>setZoomSrc(imageOf(p))} title="Ampliar imagem"><img src={imageOf(p)} alt=""/><span>⌕</span></button>:<div className={styles.noImage}/>}
         <div className={styles.productInfo}>
           <span className={styles.sourceBadge}>Anúncio acompanhado</span>
           <b>{p.title||p.item_name||`Produto ${item.itemId}`}</b>
@@ -279,27 +287,28 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
         </div>
       </div>
 
+      <div className={styles.quickActions}>
+        <span><Icon name="sparkles"/> Editar anúncio</span>
+        <Link href={`/super-analise?item_id=${item.itemId}&tab=title`}>Título</Link>
+        <Link href={`/super-analise?item_id=${item.itemId}&tab=description`}>Descrição</Link>
+        <Link href={`/super-analise?item_id=${item.itemId}&tab=images`}>Imagens</Link>
+        <Link href={`/super-analise?item_id=${item.itemId}&tab=category`}>Categoria</Link>
+        <Link className={styles.quickPrimary} href={`/super-analise?item_id=${item.itemId}&tab=price`}>Preço & Oferta Relâmpago</Link>
+        <small>As alterações são salvas por área; quando a sugestão reduzir a nota, o conteúdo atual é preservado.</small>
+      </div>
+
       <div className={styles.workspace}>
         <section className={styles.content}>
           {tab==='overview'&&<Overview item={item} price={price} prevPrice={prevPrice} sold={sold} prevSold={prevSold} margin={margin} ai={ai}/>}
           {tab==='ads'&&<AdsPanel ads={ads} liveAds={liveAds} onRetry={()=>loadLiveAds(item.itemId)} hasHistorical={!!historicalAds}/>}
           {tab==='analysis'&&<AnalysisPanel report={r} ai={ai}/>}
-          {tab==='competitors'&&<CompetitorsPanel competitors={competitors}/>}
+          {tab==='competitors'&&<CompetitorsPanel competitors={competitors} collectedAt={r.analyzed_at} onZoom={setZoomSrc}/>}
           {tab==='history'&&<HistoryPanel history={item.history}/>}
           {tab==='variations'&&<VariationsPanel variations={variations} costs={arr(p.variationCosts)} product={p}/>}
-          {tab==='overview'&&<BottomCards item={item} competitors={competitors} score={score} afterScore={afterScore}/>}
+          {tab==='overview'&&<BottomCards item={item} competitors={competitors} score={score} afterScore={safeAfterScore}/>}
         </section>
 
-        <aside className={styles.rightbar}>
-          <div className={styles.rightbarTitle}><Icon name="trophy"/><h3>Nota geral do anúncio</h3></div>
-          <div className={styles.gaugePair}><Gauge score={score} label="Atual"/><span>→</span><Gauge score={afterScore} label="Potencial após sugestões"/></div>
-          <div className={styles.impact}><div className={styles.impactTop}><Icon name="arrowUp"/><b>{gain==null?'Sem projeção nova':`${gain>=0?'+':''}${gain} pontos estimados`}</b></div><small>Baseado na última Super Análise registrada.</small></div>
-          <Link className={styles.primary} href={`/super-analise?item_id=${item.itemId}`}><Icon name="sparkles"/> Ver / refazer Super Análise</Link>
-          <button type="button" onClick={()=>setTab('competitors')}><Icon name="users"/> Ver concorrentes</button>
-          <button type="button" onClick={()=>setTab('ads')}><Icon name="megaphone"/> Ver Shopee Ads</button>
-          <button type="button" onClick={()=>setTab('history')}><Icon name="clock"/> Ver histórico completo</button>
-          <div className={styles.tip}><div className={styles.tipTitle}><Icon name="lightbulb"/><b>Visão rápida</b></div><p>Use esta página para acompanhar a evolução do anúncio. As mudanças de conteúdo são feitas pela Super Análise.</p></div>
-        </aside>
+
       </div>
     </main>
   </div>;
@@ -359,10 +368,16 @@ function AnalysisPanel({report,ai}){
   </section>;
 }
 
-function CompetitorsPanel({competitors}){
+function CompetitorsPanel({competitors,collectedAt,onZoom}){
   return <section className={styles.panel}>
-    <div className={styles.panelHead}><PanelTitle icon="users" title="Concorrentes vinculados" subtitle="Compare preço, vendas e sinais competitivos."/><span>{competitors.length} de até 3</span></div>
-    <div className={styles.competitors}>{competitors.length?competitors.map((c,i)=><article key={i}>{c.imageUrl||arr(c.imageUrls)[0]?<img src={c.imageUrl||arr(c.imageUrls)[0]} alt=""/>:<div className={styles.noComp}/>}<div><b>{c.title||`Concorrente ${i+1}`}</b><small>{dataText(c.price,money,c)} · {dataText(c.sold,v=>Number(v).toLocaleString('pt-BR'),c)} vendidos · {dataText(c.rating,v=>Number(v).toFixed(1)+'★',c)}</small><p>{c.description?String(c.description).slice(0,170):missingKind(c)}</p></div></article>):<p className={styles.muted}>Nenhum concorrente foi coletado/vinculado nesta análise.</p>}</div>
+    <div className={styles.panelHead}><PanelTitle icon="users" title="Concorrentes vinculados" subtitle="Compare imagem, preço, vendas e abra o anúncio real."/><span>{competitors.length} de até 3</span></div>
+    <div className={styles.competitors}>{competitors.length?competitors.map((c,i)=>{
+      const urls=imageCandidates(c),url=competitorUrl(c),price=competitorPrice(c),sold=competitorSold(c);
+      return <article key={i}>
+        {urls[0]?<button type="button" className={styles.compImageButton} onClick={()=>onZoom?.(urls[0])} title="Ampliar imagem"><img src={urls[0]} alt=""/><span>⌕</span></button>:<div className={styles.noComp}>Imagem não coletada</div>}
+        <div>{url?<a className={styles.compTitle} href={url} target="_blank" rel="noreferrer">{c.title||`Concorrente ${i+1}`} ↗</a>:<b>{c.title||`Concorrente ${i+1}`}</b>}<small><strong>{money(price)}</strong> · <strong>{sold==null?'—':sold.toLocaleString('pt-BR')}</strong> vendidos · {dataText(c.rating,v=>Number(v).toFixed(1)+'★',c)}</small><small>Coleta: {when(c.collectedAt||c.collected_at||collectedAt)}</small><p>{c.description?String(c.description).slice(0,170):missingKind(c)}</p></div>
+      </article>
+    }):<p className={styles.muted}>Nenhum concorrente foi coletado/vinculado nesta análise.</p>}</div>
   </section>;
 }
 
