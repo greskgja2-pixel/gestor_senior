@@ -8,6 +8,22 @@ const n=v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v))?null:Num
 const money=v=>n(v)==null?'—':n(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const pct=v=>n(v)==null?'—':`${n(v).toLocaleString('pt-BR',{maximumFractionDigits:1})}%`;
 const safe=v=>v===null||v===undefined?'':v;
+const idFromUrl=value=>{try{const m=String(value||'').match(/\/product\/(\d+)\/(\d+)/);return m?{shopId:m[1],itemId:m[2]}:null}catch{return null}};
+async function validatePublicProduct(targetUrl,product){
+  const ids=idFromUrl(targetUrl); if(!ids?.itemId)return product;
+  try{
+    const res=await fetch(`/api/shopee/product-public?shop_id=${encodeURIComponent(ids.shopId)}&item_ids=${encodeURIComponent(ids.itemId)}`,{cache:'no-store'});
+    const json=await res.json(); const real=json?.results?.find(x=>x?.ok);
+    if(!res.ok||!real)return product;
+    return {...product,
+      price:real.price??product?.price,
+      sold:real.historicalSold??product?.sold,
+      rating:real.rating??product?.rating,
+      reviewCount:real.reviewCount??product?.reviewCount,
+      stock:real.stock??product?.stock,
+      validationSource:'shopee_public_api'};
+  }catch(e){console.warn('[Super Análise] validação pública indisponível',e);return product;}
+}
 
 function Help({children}){return <span className={styles.help} title={children}>?</span>}
 function Step({n:step,current,label}){const done=current>step,active=current===step;return <div className={`${styles.step} ${done?styles.done:''} ${active?styles.active:''}`}><span>{done?'✓':step}</span><small>{label}</small></div>}
@@ -53,8 +69,10 @@ export default function WebAuditFlow({initialUrl=''}){
     try{
       const data=await motorData('collectProduct',{url:chosen},35000);
       if(!data?.product)throw Object.assign(new Error('O Motor Senior respondeu, mas não retornou os dados do anúncio.'),{code:'empty'});
-      setBundle(data);
-      setProductDraft({price:safe(data.product?.price),sold:safe(data.product?.sold),rating:safe(data.product?.rating),reviewCount:safe(data.product?.reviewCount)});
+      const validatedProduct=await validatePublicProduct(chosen,data.product);
+      const validatedData={...data,product:validatedProduct};
+      setBundle(validatedData);
+      setProductDraft({price:safe(validatedProduct?.price),sold:safe(validatedProduct?.sold),rating:safe(validatedProduct?.rating),reviewCount:safe(validatedProduct?.reviewCount)});
       setAds({roas:safe(data.ads?.roas),targetRoas:safe(data.ads?.targetRoas),spend:safe(data.ads?.spend),gmv:safe(data.ads?.gmv),costPerSale:safe(data.ads?.costPerSale??data.ads?.cpa)});
       setBaseCost(safe(data.baseCost));
       setVariationCosts((data.variationCosts||[]).map(x=>({...x,cost:safe(x.cost)})));
