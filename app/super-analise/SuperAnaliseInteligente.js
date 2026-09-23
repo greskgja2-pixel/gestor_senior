@@ -124,6 +124,11 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
   const [flash,setFlash]=useState({timeslotId:'',promoPrice:'',stock:'',purchaseLimit:'0'});
   const [flashBusy,setFlashBusy]=useState(false);
   const [flashMessage,setFlashMessage]=useState('');
+  const [flashDays,setFlashDays]=useState(30);
+  const [flashInsight,setFlashInsight]=useState({phase:'idle',recommendation:null,recommendedSlots:[],error:''});
+  const [automation,setAutomation]=useState({enabled:false,useBestTime:true,minGapHours:'20'});
+  const [automationBusy,setAutomationBusy]=useState(false);
+  const [automationMessage,setAutomationMessage]=useState('');
   const uploadRef=useRef(null);
 
   const p=report?.product_snapshot||{};
@@ -161,13 +166,38 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
     setFlash(x=>({...x,promoPrice:basePrice?String(basePrice):'',stock:String(p.stock??'')}));
   },[report?.id]);
 
+  async function loadFlashMeta(days=flashDays){
+    if(!report?.item_id)return;
+    setFlashInsight(x=>({...x,phase:'loading',error:''}));
+    try{
+      const j=await fetchJsonWithTimeout('/api/shopee/flash-sale?item_id='+encodeURIComponent(report.item_id)+'&days='+Number(days),{cache:'no-store'},25000);
+      const next=arr(j?.slots),recommended=arr(j?.recommendedSlots);
+      setSlots(next);setSlotError('');
+      setFlashInsight({phase:'success',recommendation:j?.recommendation||null,recommendedSlots:recommended,error:''});
+      const preferred=recommended[0]?.timeslot_id||next[0]?.timeslot_id;
+      if(preferred)setFlash(x=>x.timeslotId?x:{...x,timeslotId:String(preferred)});
+    }catch(e){
+      const msg=String(e?.message||e);setSlotError(msg);setFlashInsight({phase:'error',recommendation:null,recommendedSlots:[],error:msg});
+    }
+  }
+
+  async function loadFlashAutomation(){
+    if(!report?.item_id)return;
+    try{
+      const j=await fetchJsonWithTimeout('/api/shopee/flash-sale/automation?item_id='+encodeURIComponent(report.item_id),{cache:'no-store'},12000);
+      const a=j?.automation;
+      if(!a)return;
+      setAutomation({enabled:!!a.enabled,useBestTime:a.use_best_time!==false,minGapHours:String(a.min_gap_hours||20)});
+      if([7,30,60,90].includes(Number(a.lookback_days)))setFlashDays(Number(a.lookback_days));
+      setFlash(x=>({...x,promoPrice:String(a.promo_price??x.promoPrice),stock:String(a.stock??x.stock),purchaseLimit:String(a.purchase_limit??x.purchaseLimit)}));
+    }catch(e){console.warn('[Oferta Relâmpago] configuração de automação indisponível',e)}
+  }
+
   useEffect(()=>{
-    if(tab!=='price'||slots.length)return;
-    fetchJsonWithTimeout('/api/shopee/flash-sale',{cache:'no-store'},20000).then(j=>{
-      const next=arr(j?.slots);setSlots(next);setSlotError('');
-      if(next[0]?.timeslot_id)setFlash(x=>({...x,timeslotId:String(next[0].timeslot_id)}));
-    }).catch(e=>setSlotError(String(e?.message||e)));
-  },[tab,slots.length]);
+    if(tab!=='price')return;
+    loadFlashMeta(flashDays);
+    loadFlashAutomation();
+  },[tab,report?.item_id]);
 
   function stateNow(){return{draft:{...draft},gallery:gallery.map(x=>({...x})),chosenCategory:String(chosenCategory||'')}}
   function pushHistory(){const current=stateNow();setHistory(h=>({past:[...h.past,current].slice(-80),future:[]}))}
@@ -264,6 +294,33 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
     }catch(e){setFlashMessage(String(e?.message||e))}finally{setFlashBusy(false)}
   }
 
+  function useRecommendedSlot(){
+    const slot=flashInsight.recommendedSlots?.[0];
+    if(!slot?.timeslot_id){setFlashMessage('Ainda não há um horário recomendado disponível para aplicar.');return}
+    setFlash(x=>({...x,timeslotId:String(slot.timeslot_id)}));
+    setFlashMessage('Horário oficial mais compatível com o histórico de vendas selecionado.');
+  }
+
+  async function saveFlashAutomation(nextEnabled=automation.enabled){
+    if(!(Number(flash.promoPrice)>0)||!(Number(flash.stock)>0)){
+      setAutomationMessage('Defina preço promocional e estoque antes de ativar a automação.');return;
+    }
+    setAutomationBusy(true);setAutomationMessage('');
+    try{
+      const j=await fetchJsonWithTimeout('/api/shopee/flash-sale/automation',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          item_id:report.item_id,enabled:!!nextEnabled,promo_price:Number(flash.promoPrice),
+          stock:Number(flash.stock),purchase_limit:Number(flash.purchaseLimit||0),
+          lookback_days:Number(flashDays),use_best_time:automation.useBestTime!==false,
+          min_gap_hours:Number(automation.minGapHours||20)
+        })
+      },20000);
+      setAutomation({enabled:!!j?.automation?.enabled,useBestTime:j?.automation?.use_best_time!==false,minGapHours:String(j?.automation?.min_gap_hours||20)});
+      setAutomationMessage(j?.automation?.enabled?'Automação ativa. O Gestor criará novas ofertas em segundo plano quando não houver uma oferta ativa para este produto.':'Automação desativada.');
+    }catch(e){setAutomationMessage(String(e?.message||e))}finally{setAutomationBusy(false)}
+  }
+
   if(!report)return <div className={styles.screen}><main className={styles.empty}><h1>✦ Super Análise Inteligente</h1><p>Nenhuma análise encontrada.</p></main></div>;
 
   return <div className={styles.screen}>
@@ -284,7 +341,7 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
           {tab==='images'&&<ImagesSection gallery={gallery} competitors={competitors} plan={suggestionImproves?draft.imagePlan:''} onPlan={v=>setField('imagePlan',v)} before={activeBefore} after={guardedAfter} blocked={!suggestionImproves} setZoomSrc={setZoomSrc} downloadImage={downloadImage} removeImage={removeImage} moveImage={moveImage} uploadRef={uploadRef} onUploadFiles={onUploadFiles}/>}
           {tab==='video'&&<PlanSection title="Vídeo" original={p.hasVideo?'O anúncio possui vídeo.':'O anúncio não possui vídeo.'} plan={suggestionImproves?draft.videoPlan:''} onPlan={v=>setField('videoPlan',v)} before={activeBefore} after={guardedAfter} blocked={!suggestionImproves}/>}
           {tab==='category'&&<CategoryComparison current={currentCategory||'—'} competitors={compCategoryRows} dominant={dominantCategory} aligned={categoryAligned} onApply={()=>{if(dominantRow?.id)mutate(()=>setChosenCategory(String(dominantRow.id)));else setMessage('A categoria predominante foi identificada, mas o ID oficial não foi coletado. Nenhuma alteração será enviada sem um ID real da Shopee.')}} selected={chosenCategory} setZoomSrc={setZoomSrc}/>}
-          {tab==='price'&&<PriceSection price={draft.price} cost={draft.cost} setPrice={v=>setField('price',v)} setCost={v=>setField('cost',v)} margin={liveMargin} deductions={inferredDeductions} competitors={competitors} plan={suggestionImproves?draft.pricePlan:''} onPlan={v=>setField('pricePlan',v)} before={activeBefore} after={guardedAfter} blocked={!suggestionImproves} setZoomSrc={setZoomSrc} slots={slots} slotError={slotError} flash={flash} setFlash={setFlash} selectedSlot={selectedSlot} createFlash={createFlash} flashBusy={flashBusy} flashMessage={flashMessage}/>}
+          {tab==='price'&&<PriceSection price={draft.price} cost={draft.cost} setPrice={v=>setField('price',v)} setCost={v=>setField('cost',v)} margin={liveMargin} deductions={inferredDeductions} competitors={competitors} plan={suggestionImproves?draft.pricePlan:''} onPlan={v=>setField('pricePlan',v)} before={activeBefore} after={guardedAfter} blocked={!suggestionImproves} setZoomSrc={setZoomSrc} slots={slots} slotError={slotError} flash={flash} setFlash={setFlash} selectedSlot={selectedSlot} createFlash={createFlash} flashBusy={flashBusy} flashMessage={flashMessage} flashDays={flashDays} setFlashDays={setFlashDays} flashInsight={flashInsight} reloadFlash={()=>loadFlashMeta(flashDays)} useRecommendedSlot={useRecommendedSlot} automation={automation} setAutomation={setAutomation} saveFlashAutomation={saveFlashAutomation} automationBusy={automationBusy} automationMessage={automationMessage}/>}
           {tab==='variations'&&<VariationsSection product={p} plan={suggestionImproves?draft.variationsPlan:''} onPlan={v=>setField('variationsPlan',v)} before={activeBefore} after={guardedAfter} blocked={!suggestionImproves}/>}
           {tab!=='category'&&<><WhyBlock analysis={analysis} tab={tab}/><BottomSummary tab={tab} before={activeBefore} after={guardedAfter} analysis={analysis} blocked={!suggestionImproves}/></>}
         </section>
@@ -330,15 +387,49 @@ function CategoryComparison({current,competitors,dominant,aligned,onApply,select
   </>
 }
 
-function PriceSection({price,cost,setPrice,setCost,margin,deductions,competitors,plan,onPlan,before,after,blocked,setZoomSrc,slots,slotError,flash,setFlash,selectedSlot,createFlash,flashBusy,flashMessage}){
+
+function PriceSection({price,cost,setPrice,setCost,margin,deductions,competitors,plan,onPlan,before,after,blocked,setZoomSrc,slots,slotError,flash,setFlash,selectedSlot,createFlash,flashBusy,flashMessage,flashDays,setFlashDays,flashInsight,reloadFlash,useRecommendedSlot,automation,setAutomation,saveFlashAutomation,automationBusy,automationMessage}){
   const promoMargin=currentMargin(flash.promoPrice,cost,deductions);
+  const rec=flashInsight?.recommendation;
+  const dayNames=['domingo','segunda-feira','terça-feira','quarta-feira','quinta-feira','sexta-feira','sábado'];
+  const confidence={high:'alta',medium:'média',low:'baixa',insufficient:'dados insuficientes'}[rec?.confidence]||'—';
   return <>
     <section className={styles.priceTopGrid}>
       <article className={styles.panel}><div className={styles.panelHead}><h2>Preço e margem atuais</h2><span>✎ Editável</span></div><div className={styles.priceGrid}><label>Preço<input type="number" step="0.01" value={price} onChange={e=>setPrice(e.target.value)}/></label><label>Custo<input type="number" step="0.01" value={cost} onChange={e=>setCost(e.target.value)}/></label><div><small>Margem recalculada</small><b>{pct(margin)}</b></div></div><div className={styles.formula}>Conta resumida: preço de venda {money(price)} − 20% Shopee − R$ 4,00 de taxa fixa − custo {money(cost)} = margem estimada. <small>Taxas exibidas são a regra de cálculo configurada no Gestor.</small></div><div className={styles.scoreFloat}><Gauge score={before} label="Atual"/></div></article>
       <article className={styles.panel}><div className={styles.panelHead}><h2>✦ Estratégia de preço e concorrência</h2><span>✎ Editável</span></div>{blocked?<div className={styles.preserveBox}>A alteração sugerida reduziria a nota estimada. O preço atual foi preservado.</div>:<textarea rows={9} value={plan} onChange={e=>onPlan(e.target.value)} placeholder="A IA não encontrou uma mudança necessária no preço."/>}<div className={styles.applyLine}><Gauge score={after} label={blocked?'Preservado':'Depois'}/></div></article>
     </section>
-    <section className={styles.flashCard}><div className={styles.panelHead}><h2>⚡ Oferta Relâmpago real</h2><span>Horários oficiais da Shopee</span></div><p>Escolha um dos horários disponibilizados pela Shopee. A oferta só será criada quando você clicar no botão abaixo.</p><div className={styles.flashGrid}><label>Horário<select value={flash.timeslotId} onChange={e=>setFlash(x=>({...x,timeslotId:e.target.value}))}><option value="">Selecione</option>{slots.map(s=><option key={s.timeslot_id} value={s.timeslot_id}>{new Date(Number(s.start_time)*1000).toLocaleString('pt-BR')} → {new Date(Number(s.end_time)*1000).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</option>)}</select></label><label>Preço promocional<input type="number" step="0.01" value={flash.promoPrice} onChange={e=>setFlash(x=>({...x,promoPrice:e.target.value}))}/></label><label>Estoque reservado<input type="number" min="1" value={flash.stock} onChange={e=>setFlash(x=>({...x,stock:e.target.value}))}/></label><label>Limite por comprador<input type="number" min="0" value={flash.purchaseLimit} onChange={e=>setFlash(x=>({...x,purchaseLimit:e.target.value}))}/></label><div><small>Margem projetada</small><b>{pct(promoMargin)}</b></div></div>{selectedSlot&&<small className={styles.slotHint}>Início {new Date(Number(selectedSlot.start_time)*1000).toLocaleString('pt-BR')} · término {new Date(Number(selectedSlot.end_time)*1000).toLocaleString('pt-BR')}</small>}{slotError&&<div className={styles.message}>{slotError}</div>}<button type="button" className={styles.primary} onClick={createFlash} disabled={flashBusy||!flash.timeslotId}>{flashBusy?'Criando…':'⚡ Criar Oferta Relâmpago na Shopee'}</button>{flashMessage&&<div className={styles.message}>{flashMessage}</div>}</section>
-    <section className={styles.competitorsVisual}><h2>{competitors.length} concorrentes selecionados</h2><div className={styles.competitorGrid}>{competitors.map((c,i)=><article key={i}><SmartImage urls={imageCandidates(c)} alt="" onZoom={setZoomSrc}/><div><small>Concorrente {i+1}</small>{competitorUrl(c)?<a href={competitorUrl(c)} target="_blank" rel="noreferrer">{c.title||`Concorrente ${i+1}`} ↗</a>:<b>{c.title||`Concorrente ${i+1}`}</b>}<span>Preço <strong>{money(parsedSearchPrice(c))}</strong></span><span>Vendidos <strong>{n(parsedSearchSold(c))?.toLocaleString('pt-BR')||'—'}</strong></span></div></article>)}</div></section>
+    <section className={styles.flashCard}>
+      <div className={styles.panelHead}><h2>⚡ Oferta Relâmpago real</h2><span>Horários oficiais da Shopee</span></div>
+      <p>Escolha um horário oficial ou use a recomendação baseada no histórico real de vendas do produto. A oferta só é criada quando você confirma.</p>
+      <div className={styles.flashRecommendation}>
+        <div className={styles.flashRecommendationMain}>
+          <b>💡 Melhor horário sugerido</b>
+          {flashInsight?.phase==='loading'?<span>Analisando vendas…</span>:rec?.bestWindowLabel?<><strong>{rec.bestWindowLabel}</strong><span>{rec.bestWeekday!=null?('Melhor dia: '+dayNames[rec.bestWeekday]+' · '):''}{rec.units} unidade{rec.units===1?'':'s'} vendida{rec.units===1?'':'s'} em {rec.days} dias · confiança {confidence}.</span></>:<span>Ainda não há vendas suficientes neste período para indicar uma janela confiável.</span>}
+        </div>
+        <label>Histórico<select value={flashDays} onChange={e=>setFlashDays(Number(e.target.value))}><option value="7">7 dias</option><option value="30">30 dias</option><option value="60">60 dias</option><option value="90">90 dias</option></select></label>
+        <button type="button" onClick={reloadFlash} disabled={flashInsight?.phase==='loading'}>↻ Atualizar análise</button>
+        <button type="button" className={styles.recommendButton} onClick={useRecommendedSlot} disabled={!flashInsight?.recommendedSlots?.length}>✓ Usar melhor horário</button>
+      </div>
+      <small className={styles.recommendNote}>O Gestor usa as vendas reais do produto na loja. Quando a Shopee disponibiliza uma janela de 24 horas, a recomendação ajuda principalmente a escolher o melhor dia; em janelas menores, também considera o horário de pico.</small>
+      <div className={styles.flashGrid}><label>Horário<select value={flash.timeslotId} onChange={e=>setFlash(x=>({...x,timeslotId:e.target.value}))}><option value="">Selecione</option>{slots.map(s=><option key={s.timeslot_id} value={s.timeslot_id}>{new Date(Number(s.start_time)*1000).toLocaleString('pt-BR')} → {new Date(Number(s.end_time)*1000).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</option>)}</select></label><label>Preço promocional<input type="number" step="0.01" value={flash.promoPrice} onChange={e=>setFlash(x=>({...x,promoPrice:e.target.value}))}/></label><label>Estoque reservado<input type="number" min="1" value={flash.stock} onChange={e=>setFlash(x=>({...x,stock:e.target.value}))}/></label><label>Limite por comprador<input type="number" min="0" value={flash.purchaseLimit} onChange={e=>setFlash(x=>({...x,purchaseLimit:e.target.value}))}/></label><div><small>Margem projetada</small><b>{pct(promoMargin)}</b></div></div>
+      {selectedSlot&&<small className={styles.slotHint}>Início {new Date(Number(selectedSlot.start_time)*1000).toLocaleString('pt-BR')} · término {new Date(Number(selectedSlot.end_time)*1000).toLocaleString('pt-BR')}</small>}
+      {slotError&&<div className={styles.message}>{slotError}</div>}
+      <button type="button" className={styles.primary} onClick={createFlash} disabled={flashBusy||!flash.timeslotId}>{flashBusy?'Criando…':'⚡ Criar Oferta Relâmpago na Shopee'}</button>
+      {flashMessage&&<div className={styles.message}>{flashMessage}</div>}
+      <div className={styles.flashAutomation}>
+        <div className={styles.flashAutomationHead}><div><b>🤖 Automatizar Ofertas Relâmpago</b><span>Opcional. O Gestor verifica em segundo plano e cria uma nova oferta quando este produto estiver sem oferta ativa.</span></div><label className={styles.switchLine}><input type="checkbox" checked={automation.enabled} onChange={e=>setAutomation(x=>({...x,enabled:e.target.checked}))}/><span>{automation.enabled?'Ativada':'Desativada'}</span></label></div>
+        <div className={styles.autoGrid}>
+          <label><input type="checkbox" checked={automation.useBestTime} onChange={e=>setAutomation(x=>({...x,useBestTime:e.target.checked}))}/> Usar melhor horário automaticamente</label>
+          <label>Intervalo mínimo entre ofertas<select value={automation.minGapHours} onChange={e=>setAutomation(x=>({...x,minGapHours:e.target.value}))}><option value="12">12 horas</option><option value="20">20 horas</option><option value="24">24 horas</option><option value="48">48 horas</option><option value="72">72 horas</option></select></label>
+          <div><small>Preço automático</small><b>{money(flash.promoPrice)}</b><span>Usa o preço promocional definido acima.</span></div>
+          <div><small>Estoque automático</small><b>{n(flash.stock)?.toLocaleString('pt-BR')||'—'}</b><span>Usa o estoque reservado definido acima.</span></div>
+        </div>
+        <button type="button" className={automation.enabled?styles.primary:styles.secondaryAction} onClick={()=>saveFlashAutomation(automation.enabled)} disabled={automationBusy}>{automationBusy?'Salvando…':automation.enabled?'Salvar / ativar automação':'Salvar automação desativada'}</button>
+        {automationMessage&&<div className={styles.message}>{automationMessage}</div>}
+        <small className={styles.recommendNote}>A automação não muda o preço sozinha: ela usa o preço, estoque e limite definidos por você. O histórico serve apenas para escolher a melhor janela oficial disponível.</small>
+      </div>
+    </section>
+    <section className={styles.competitorsVisual}><h2>{competitors.length} concorrentes selecionados</h2><div className={styles.competitorGrid}>{competitors.map((c,i)=><article key={i}><SmartImage urls={imageCandidates(c)} alt="" onZoom={setZoomSrc}/><div><small>Concorrente {i+1}</small>{competitorUrl(c)?<a href={competitorUrl(c)} target="_blank" rel="noreferrer">{c.title||('Concorrente '+(i+1))} ↗</a>:<b>{c.title||('Concorrente '+(i+1))}</b>}<span>Preço <strong>{money(parsedSearchPrice(c))}</strong></span><span>Vendidos <strong>{n(parsedSearchSold(c))?.toLocaleString('pt-BR')||'—'}</strong></span></div></article>)}</div></section>
   </>
 }
 
