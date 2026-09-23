@@ -49,26 +49,29 @@ function routeState(pathname,section){
 function Icon({item}){return <span className="gs-nav-icon" data-tone={item.tone}>{item.icon}</span>}
 
 function AppSidebar({active,onNavigate,onCloseMobile}){
-  const [extension,setExtension]=useState('checking');
+  const [extension,setExtension]=useState({status:'checking',version:''});
   const [shop,setShop]=useState({status:'checking',connected:null,paused:false,shopId:null,shopName:null,error:''});
   const [busy,setBusy]=useState(false);
 
   useEffect(()=>{
     let alive=true;
-    const ready=()=>alive&&setExtension('connected');
+    const ready=versionValue=>alive&&setExtension(prev=>({status:'connected',version:String(versionValue||prev.version||'').trim()}));
     const onMessage=e=>{
-      if(e.source===window&&e.data?.source==='GS_EXTENSION'&&(e.data?.type==='GS_EXTENSION_READY'||e.data?.type==='GS_EXTENSION_PONG'))ready();
+      if(e.source===window&&e.data?.source==='GS_EXTENSION'&&(e.data?.type==='GS_EXTENSION_READY'||e.data?.type==='GS_EXTENSION_PONG'))ready(e.data.version||'');
     };
+    const onReadyEvent=e=>ready(e?.detail?.version||'');
     const inspect=()=>{
-      if(document.documentElement?.dataset?.gsExtensionBridge==='ready'||document.getElementById('gs-extension-bridge-marker')||document.querySelector('meta[name="gestor-senior-extension"]'))ready();
+      const meta=document.querySelector('meta[name="gestor-senior-extension"]');
+      const detected=document.documentElement?.dataset?.gsExtensionBridge==='ready'||document.getElementById('gs-extension-bridge-marker')||meta;
+      if(detected)ready(meta?.content&&meta.content!=='ready'?meta.content:'');
       window.postMessage({source:'GS_GESTOR',type:'GS_EXTENSION_PING'},location.origin);
     };
     window.addEventListener('message',onMessage);
-    window.addEventListener('gs-extension-ready',ready);
+    window.addEventListener('gs-extension-ready',onReadyEvent);
     inspect();
     const ping=setInterval(inspect,1800);
-    const missing=setTimeout(()=>alive&&setExtension(x=>x==='checking'?'missing':x),6500);
-    return()=>{alive=false;clearInterval(ping);clearTimeout(missing);window.removeEventListener('message',onMessage);window.removeEventListener('gs-extension-ready',ready)};
+    const missing=setTimeout(()=>alive&&setExtension(prev=>prev.status==='checking'?{...prev,status:'missing'}:prev),6500);
+    return()=>{alive=false;clearInterval(ping);clearTimeout(missing);window.removeEventListener('message',onMessage);window.removeEventListener('gs-extension-ready',onReadyEvent)};
   },[]);
 
   async function refreshShop(){
@@ -115,6 +118,8 @@ function AppSidebar({active,onNavigate,onCloseMobile}){
     }finally{setBusy(false)}
   }
 
+  const extensionVersion=extension.version?`${/^v/i.test(extension.version)?'':'v'}${extension.version}`:'';
+
   const shopText=shop.connected===true
     ?(shop.shopName||(`Loja #${shop.shopId||'conectada'}`))
     :shop.connected===false
@@ -149,7 +154,7 @@ function AppSidebar({active,onNavigate,onCloseMobile}){
     </nav>
 
     <div className="gs-sidebar-status">
-      <div className="gs-status-row"><i data-ok={extension==='connected'?'true':'false'}/><div><b>Motor Senior</b><small>{extension==='checking'?'Verificando extensão…':extension==='connected'?'Extensão conectada':'Extensão não detectada'}</small></div></div>
+      <div className="gs-status-row"><i data-ok={extension.status==='connected'?'true':'false'}/><div><b>Motor Senior</b><small>{extension.status==='checking'?'Verificando extensão…':extension.status==='connected'?`Extensão conectada${extensionVersion?` · ${extensionVersion}`:''}`:'Extensão não detectada'}</small></div></div>
       <div className="gs-status-row"><i data-ok={shop.connected===true?'true':'false'}/><div><b>Loja Shopee</b><small>{shopText}</small></div></div>
       {shop.error&&<div className="gs-status-error">{shop.error}</div>}
       <button type="button" onClick={shopAction} disabled={busy||shop.status==='checking'}>
