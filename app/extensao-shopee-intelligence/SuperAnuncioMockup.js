@@ -11,6 +11,7 @@ const money=v=>n(v)==null?'—':n(v).toLocaleString('pt-BR',{style:'currency',cu
 const pct=v=>n(v)==null?'—':`${n(v).toLocaleString('pt-BR',{maximumFractionDigits:1})}%`;
 const num=v=>n(v)==null?'—':n(v).toLocaleString('pt-BR',{maximumFractionDigits:2});
 const when=v=>{if(!v)return'—';const d=new Date(v);return Number.isNaN(d.getTime())?'—':d.toLocaleString('pt-BR');};
+const flashWhen=v=>{const x=n(v);if(x==null)return'—';const d=new Date(x<1e12?x*1000:x);return Number.isNaN(d.getTime())?'—':d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});};
 const metric=(r,k)=>r?.metrics?.[k]??r?.ads_snapshot?.manual?.[k]??r?.ads_snapshot?.[k]??null;
 const imageOf=p=>p?.imageUrl||p?.image_url||p?.imageUrls?.[0]||p?.image?.image_url_list?.[0]||null;
 const competitorUrl=c=>c?.url||c?.link||c?.productUrl||c?.product_url||(c?.shopId&&c?.itemId?`https://shopee.com.br/product/${c.shopId}/${c.itemId}`:c?.shop_id&&c?.item_id?`https://shopee.com.br/product/${c.shop_id}/${c.item_id}`:null);
@@ -125,6 +126,7 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
   const [selectedId,setSelectedId]=useState(initialSelected?.itemId||'');
   const [tab,setTab]=useState(allowedTabs.has(initialTab)?initialTab:'overview');
   const [liveAds,setLiveAds]=useState({phase:'idle',campaign:null,error:''});
+  const [flashSales,setFlashSales]=useState({phase:'idle',offers:[],error:''});
   const [query,setQuery]=useState('');
   const [deleting,setDeleting]=useState(false);
   const [deleteError,setDeleteError]=useState('');
@@ -165,7 +167,21 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
     }
   }
 
-  useEffect(()=>{if(item?.itemId)loadLiveAds(item.itemId)},[item?.itemId]);
+  async function loadFlashSales(targetItemId){
+    if(!targetItemId)return;
+    setFlashSales({phase:'loading',offers:[],error:''});
+    try{
+      const data=await fetchJsonWithTimeout('/api/shopee/flash-sale?item_id='+encodeURIComponent(targetItemId),{cache:'no-store'},20000);
+      const offers=arr(data?.activeOffers);
+      setFlashSales({phase:offers.length?'success':'empty',offers,error:''});
+    }catch(error){
+      console.error('[Super Anúncio] Ofertas Relâmpago falharam',error);
+      const kind=classifyAsyncError(error);
+      setFlashSales({phase:kind,offers:[],error:kind==='timeout'?'A consulta das Ofertas Relâmpago expirou.':String(error?.message||error)});
+    }
+  }
+
+  useEffect(()=>{if(item?.itemId){loadLiveAds(item.itemId);loadFlashSales(item.itemId)}},[item?.itemId]);
 
   async function deleteAnalysis(){
     if(!item?.itemId||deleting)return;
@@ -299,7 +315,7 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
 
       <div className={styles.workspace}>
         <section className={styles.content}>
-          {tab==='overview'&&<Overview item={item} price={price} prevPrice={prevPrice} sold={sold} prevSold={prevSold} margin={margin} ai={ai}/>}
+          {tab==='overview'&&<Overview item={item} price={price} prevPrice={prevPrice} sold={sold} prevSold={prevSold} margin={margin} ai={ai} flashSales={flashSales} onReloadFlash={()=>loadFlashSales(item.itemId)}/>}
           {tab==='ads'&&<AdsPanel ads={ads} liveAds={liveAds} onRetry={()=>loadLiveAds(item.itemId)} hasHistorical={!!historicalAds}/>}
           {tab==='analysis'&&<AnalysisPanel report={r} ai={ai}/>}
           {tab==='competitors'&&<CompetitorsPanel competitors={competitors} collectedAt={r.analyzed_at} onZoom={setZoomSrc}/>}
@@ -314,7 +330,7 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
   </div>;
 }
 
-function Overview({item,price,prevPrice,sold,prevSold,margin,ai}){
+function Overview({item,price,prevPrice,sold,prevSold,margin,ai,flashSales,onReloadFlash}){
   const r=item.latest||{};
   return <><section className={styles.compare}>
     <article className={`${styles.panel} ${styles.overviewPanel}`}>
@@ -336,6 +352,7 @@ function Overview({item,price,prevPrice,sold,prevSold,margin,ai}){
       </div>
     </article>
   </section>
+  <FlashSaleCard state={flashSales} itemId={item.itemId} onReload={onReloadFlash}/>
   <section className={styles.explain}>
     <div className={styles.explainHead}><span className={styles.panelIcon}><Icon name="file"/></span><div><h2>Resumo do acompanhamento</h2><p className={styles.sub}>Visão consolidada das principais informações e recomendações.</p></div></div>
     <div className={styles.reasonGrid}>
@@ -348,6 +365,31 @@ function Overview({item,price,prevPrice,sold,prevSold,margin,ai}){
   </section></>;
 }
 
+function FlashSaleCard({state,itemId,onReload}){
+  const offers=arr(state?.offers);
+  const loading=state?.phase==='loading';
+  const failed=state?.phase==='error'||state?.phase==='timeout';
+  return <section className={styles.flashActiveCard}>
+    <div className={styles.flashActiveHead}>
+      <div><span className={styles.flashBolt}>⚡</span><div><h2>Ofertas Relâmpago ativas</h2><p>Promoções em andamento na Shopee para este produto.</p></div></div>
+      <div className={styles.flashHeadActions}><span data-live={offers.length?'true':'false'}>{offers.length?(offers.length+' ativa'+(offers.length===1?'':'s')):'Nenhuma ativa'}</span><button type="button" onClick={onReload} disabled={loading}>↻ {loading?'Atualizando…':'Atualizar'}</button></div>
+    </div>
+    {failed?<div className={styles.flashError}>{state.error||'Não foi possível consultar as ofertas.'}<button type="button" onClick={onReload}>Tentar novamente</button></div>:null}
+    {!failed&&loading?<div className={styles.flashEmpty}>Consultando Ofertas Relâmpago ativas na Shopee…</div>:null}
+    {!failed&&!loading&&!offers.length?<div className={styles.flashEmpty}>Este produto não possui Oferta Relâmpago ativa neste momento. <Link href={'/super-analise?item_id='+itemId+'&tab=price'}>Criar oferta ↗</Link></div>:null}
+    {!failed&&!loading&&offers.length?<div className={styles.flashOfferList}>{offers.map((offer,i)=>{
+      const priceMin=n(offer.price),priceMax=n(offer.max_price),stock=n(offer.stock);
+      const priceText=priceMin==null?'Não informado':priceMax!=null&&priceMax!==priceMin?(money(priceMin)+' a '+money(priceMax)):money(priceMin);
+      return <article key={offer.flash_sale_id||i}>
+        <div className={styles.flashLive}><i/> ATIVA AGORA</div>
+        <div className={styles.flashField}><small>Período</small><b>{flashWhen(offer.start_time)}</b><span>até {flashWhen(offer.end_time)}</span></div>
+        <div className={styles.flashField}><small>Preço da oferta</small><b>{priceText}</b>{offer.variation_count>1&&<span>{offer.variation_count} variações</span>}</div>
+        <div className={styles.flashField}><small>Estoque da oferta</small><b>{stock==null?'—':stock.toLocaleString('pt-BR')}</b><span>unidades disponíveis na oferta</span></div>
+        <Link href={'/super-analise?item_id='+itemId+'&tab=price'}>Ver preço e oferta ↗</Link>
+      </article>
+    })}</div>:null}
+  </section>;
+}
 function AdsPanel({ads,liveAds,onRetry,hasHistorical}){
   const liveState=liveAds?.phase;
   return <section className={styles.panel}>
