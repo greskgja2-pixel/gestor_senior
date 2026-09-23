@@ -87,3 +87,47 @@
   .actionPanel button{flex:1 1 auto}
   .actionPanel .saveShopee{width:100%}
 }
+
+
+/* GS_FLASH_RECOMMENDATION_AUTOMATION_2026_09_23 */
+.flashRecommendation{display:grid;grid-template-columns:minmax(260px,1.5fr) 130px auto auto;gap:8px;align-items:end;margin:10px 0 6px;padding:10px;border:1px solid #dce8f4;border-radius:9px;background:#f8fbff}
+.flashRecommendationMain{display:flex;flex-direction:column;gap:3px;min-width:0}
+.flashRecommendationMain>b{font-size:9px;color:#1b4e8d}
+.flashRecommendationMain>strong{font-size:17px;color:#163b70;line-height:1.1}
+.flashRecommendationMain>span{font-size:8px;color:#687d96;line-height:1.4}
+.flashRecommendation label{display:flex;flex-direction:column;gap:4px;font-size:7px;font-weight:800;color:#647991}
+.flashRecommendation select{height:31px;border:1px solid #d6e2ef;border-radius:7px;background:#fff;color:#29496f;padding:0 8px;font-size:8px}
+.flashRecommendation button{height:31px;border:1px solid #d5e1ee;border-radius:7px;background:#fff;color:#24578f;font-size:8px;font-weight:900;cursor:pointer;padding:0 10px;white-space:nowrap}
+.flashRecommendation button:disabled{opacity:.45;cursor:not-allowed}
+.flashRecommendation .recommendButton{background:#eaf8f1;border-color:#b9e4ce;color:#137d4d}
+.recommendNote{display:block;margin:6px 0 9px;color:#71839a;font-size:7px;line-height:1.45}
+
+.flashAutomation{margin-top:12px;padding:11px;border:1px solid #dfe8f2;border-radius:10px;background:#fbfdff}
+.flashAutomationHead{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.flashAutomationHead>div{display:flex;flex-direction:column;gap:3px}
+.flashAutomationHead b{font-size:10px;color:#183a6d}
+.flashAutomationHead span{font-size:8px;color:#6e8199}
+.switchLine{display:flex;align-items:center;gap:6px;padding:6px 9px;border:1px solid #d8e4ef;border-radius:999px;background:#fff;white-space:nowrap}
+.switchLine input{accent-color:#1769e8}
+.switchLine span{font-size:8px!important;font-weight:900;color:#285584!important}
+.autoGrid{display:grid;grid-template-columns:1.3fr 1fr 1fr 1fr;gap:7px;margin:9px 0}
+.autoGrid>label,.autoGrid>div{min-height:56px;padding:8px;border:1px solid #e1e9f1;border-radius:8px;background:#fff;color:#647991;font-size:8px}
+.autoGrid>label:first-child{display:flex;align-items:center;gap:7px;font-weight:800}
+.autoGrid>label:first-child input{accent-color:#1769e8}
+.autoGrid select{width:100%;margin-top:5px;height:29px;border:1px solid #d7e2ee;border-radius:6px;background:#fff;color:#29496f;font-size:8px;padding:0 7px}
+.autoGrid small,.autoGrid b,.autoGrid span{display:block}
+.autoGrid small{font-size:7px;color:#74869d}
+.autoGrid b{margin-top:3px;font-size:12px;color:#163665}
+.autoGrid span{margin-top:2px;font-size:7px;color:#7a8b9e}
+.secondaryAction{display:inline-flex;align-items:center;justify-content:center;border:1px solid #d5e1ee;border-radius:7px;padding:9px 12px;background:#fff;color:#24578f;font-size:9px;font-weight:900;cursor:pointer}
+
+@media(max-width:1100px){
+  .flashRecommendation{grid-template-columns:1fr 130px}
+  .flashRecommendation button{width:100%}
+  .autoGrid{grid-template-columns:1fr 1fr}
+}
+@media(max-width:620px){
+  .flashRecommendation{grid-template-columns:1fr}
+  .autoGrid{grid-template-columns:1fr}
+  .flashAutomationHead{align-items:flex-start;flex-direction:column}
+}
