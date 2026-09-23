@@ -78,18 +78,45 @@ export async function GET(request){
 
     const listRaw=await getShopFlashSaleList({shopId:shop.shop_id,accessToken:shop.access_token,type:2,offset:0,limit:100});
     const sales=Array.isArray(listRaw?.response?.flash_sale_list)?listRaw.response.flash_sale_list:[];
-    const enabled=sales.filter(x=>Number(x?.status)===1&&Number(x?.type)===2).slice(0,20);
-    const activeOffers=[];
-    for(const sale of enabled){
+    const candidates=sales
+      .filter(x=>Number(x?.type)===2&&Number(x?.end_time||0)>now-60)
+      .sort((a,b)=>Number(a?.start_time||0)-Number(b?.start_time||0))
+      .slice(0,40);
+
+    const activeOffers=[],scheduledOffers=[];
+    for(const sale of candidates){
       try{
         const itemsRaw=await getShopFlashSaleItems({shopId:shop.shop_id,accessToken:shop.access_token,flashSaleId:sale.flash_sale_id,offset:0,limit:100});
         const offer=normalizeOfferItem(itemId,sale,itemsRaw);
-        if(offer)activeOffers.push(offer);
+        if(!offer)continue;
+        const start=Number(offer.start_time||0),endTime=Number(offer.end_time||0);
+        if(start<=now&&endTime>now)activeOffers.push(offer);
+        else if(start>now)scheduledOffers.push(offer);
       }catch(error){
         console.warn('[flash-sale] falha lendo itens da oferta',sale?.flash_sale_id,error);
       }
     }
-    return NextResponse.json({ok:true,slots,activeOffers,recommendation,recommendedSlots});
+
+    const db=supabaseAdmin();
+    let automation=null;
+    try{
+      const result=await db.from('flash_sale_automations').select('enabled,next_run_at,last_run_at,last_status,last_error,last_flash_sale_id,promo_price,stock,purchase_limit,lookback_days,use_best_time,min_gap_hours').eq('shop_id',shop.shop_id).eq('item_id',itemId).maybeSingle();
+      if(!result.error)automation=result.data||null;
+    }catch(error){
+      console.warn('[flash-sale] falha lendo automação',error);
+    }
+
+    const allCoverage=[...activeOffers,...scheduledOffers].map(x=>Number(x?.end_time||0)).filter(Boolean);
+    const coverageUntil=allCoverage.length?Math.max(...allCoverage):null;
+    const nextScheduled=scheduledOffers[0]||null;
+    return NextResponse.json({
+      ok:true,slots,activeOffers,scheduledOffers,recommendation,recommendedSlots,automation,
+      planning:{
+        coverage_until:coverageUntil,
+        next_scheduled_start:nextScheduled?.start_time||null,
+        needs_attention:!scheduledOffers.length&&!automation?.enabled
+      }
+    });
   }catch(error){
     return NextResponse.json({error:String(error?.message||error)},{status:502});
   }
