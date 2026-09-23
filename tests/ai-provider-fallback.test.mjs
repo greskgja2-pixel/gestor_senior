@@ -23,9 +23,9 @@ test('fallback Groq preserva analise visual em lotes de no maximo cinco imagens'
   assert.match(route,/data:image\/jpeg|data:\$\{mime\};base64/);
 });
 
-test('interface informa troca automatica de provedor sem travar a pagina',()=>{
-  assert.match(auto,/se houver limite ou indisponibilidade, a Groq assume automaticamente/i);
-  assert.match(auto,/Gemini indisponível/);
-  assert.match(auto,/A análise de IA não concluiu/);
+test('interface oculta provedores e usa apenas IA para o usuario',()=>{
+  assert.match(auto,/Analisando pela I\.A\./i);
+  assert.match(auto,/A análise de I\.A\. não concluiu/i);
   assert.match(auto,/Tentar novamente/);
+  assert.doesNotMatch(auto,/Primeiro tentamos Gemini|Groq assume|Gemini indisponível/);
 });
