@@ -30,9 +30,36 @@ function scoreMap(report){return Object.fromEntries(Object.entries(SCORE_TERMS).
 function currentMargin(price,cost,deductions=0){const p=n(price),c=n(cost),d=n(deductions)??0;if(p==null||p<=0||c==null)return null;return ((p-c-d)/p)*100}
 function Metric({label,value,title}){return <div className={styles.metric} title={title||''}><small>{label}</small><b>{value}</b></div>}
 function competitorUrl(c){return c?.url||c?.productUrl||c?.product_url||(c?.shopId&&c?.itemId?`https://shopee.com.br/product/${c.shopId}/${c.itemId}`:c?.shop_id&&c?.item_id?`https://shopee.com.br/product/${c.shop_id}/${c.item_id}`:null)}
-function competitorCategory(c){return c?.categoryPath||c?.category_path||c?.category||c?.categoryName||c?.category_name||null}
+function competitorCategory(c){
+  const direct=c?.categoryPath||c?.category_path||c?.category||c?.categoryName||c?.category_name;
+  if(direct)return String(direct).trim();
+  const text=String(c?.description||'');
+  const m=text.match(/CategoriaShopee(.+?)(?:Estoque|País de Origem|Envio de|Descrição do produto)/i);
+  if(!m?.[1])return null;
+  const raw=m[1].trim();
+  const known=['Casa e Construção','Artigos de Festa','Cenários e Banners','Papelaria e Festa','Decoração de Festa','Brinquedos e Hobbies','Figuras de Ação'];
+  const found=known.filter(x=>raw.includes(x));
+  return found.length?found.join(' > '):raw.slice(0,140);
+}
 function competitorCategoryId(c){return c?.categoryId??c?.category_id??null}
-function imageCandidates(obj){return [obj?.imageUrl,obj?.image_url,...arr(obj?.imageUrls),...arr(obj?.images),...arr(obj?.image?.image_url_list)].filter(Boolean)}
+function parsedSearchPrice(c){
+  if(n(c?.price)!=null)return n(c.price);
+  const s=String(c?.searchText||'');
+  const m=s.match(/R\$\s*\n?\s*([0-9.]+,[0-9]{2})/i);
+  return m?Number(m[1].replace(/\./g,'').replace(',','.')):null;
+}
+function parsedSearchSold(c){
+  if(n(c?.sold)!=null)return n(c.sold);
+  const s=String(c?.searchText||'');
+  const m=s.match(/([0-9]+(?:[.,][0-9]+)?)\s*(mil)?\+?\s*Vendido/i);
+  if(!m)return null;
+  const base=Number(m[1].replace(',','.'));
+  return Number.isFinite(base)?Math.round(base*(m[2]?1000:1)):null;
+}
+function imageCandidates(obj){
+  const all=[obj?.imageUrl,obj?.image_url,...arr(obj?.imageUrls),...arr(obj?.images),...arr(obj?.image?.image_url_list)].filter(Boolean);
+  return [...new Set(all)].filter(u=>!/\.svg(?:\?|$)/i.test(String(u))&&!/productdetailspage\/.*\.svg/i.test(String(u)));
+}
 
 function SmartImage({urls,alt='',onZoom,className=''}) {
   const list=useMemo(()=>arr(urls).filter(Boolean),[urls]);
@@ -271,7 +298,7 @@ function ImagesSection({gallery,competitors,plan,onPlan,before,after,blocked,set
       </article>
       <article className={styles.panel}><div className={styles.panelHead}><h2>✦ Recomendações visuais da IA</h2><span>✎ Editável</span></div>{blocked?<div className={styles.preserveBox}>As imagens atuais obtiveram nota igual ou melhor. Nenhuma alteração visual é sugerida.</div>:<textarea rows={12} value={plan} onChange={e=>onPlan(e.target.value)} placeholder="A IA não encontrou uma mudança visual necessária."/>}<div className={styles.applyLine}><button className={styles.primary} disabled={!plan||blocked}>✓ Aplicar plano de imagens</button><Gauge score={after} label={blocked?'Preservado':'Depois'}/></div></article>
     </section>
-    <section className={styles.competitorsVisual}><h2>Comparação visual com os concorrentes</h2><div className={styles.competitorGrid}>{competitors.map((c,i)=><article key={i}><SmartImage urls={imageCandidates(c)} alt="" onZoom={setZoomSrc}/><div><small>Concorrente {i+1}</small>{competitorUrl(c)?<a href={competitorUrl(c)} target="_blank" rel="noreferrer">{c.title||`Concorrente ${i+1}`} ↗</a>:<b>{c.title||`Concorrente ${i+1}`}</b>}<span>Preço <strong>{money(c.price)}</strong></span><span>Vendidos <strong>{n(c.sold)?.toLocaleString('pt-BR')||missingStatus(c)}</strong></span></div></article>)}</div></section>
+    <section className={styles.competitorsVisual}><h2>Comparação visual com os concorrentes</h2><div className={styles.competitorGrid}>{competitors.map((c,i)=><article key={i}><SmartImage urls={imageCandidates(c)} alt="" onZoom={setZoomSrc}/><div><small>Concorrente {i+1}</small>{competitorUrl(c)?<a href={competitorUrl(c)} target="_blank" rel="noreferrer">{c.title||`Concorrente ${i+1}`} ↗</a>:<b>{c.title||`Concorrente ${i+1}`}</b>}<span>Preço <strong>{money(parsedSearchPrice(c))}</strong></span><span>Vendidos <strong>{n(parsedSearchSold(c))?.toLocaleString('pt-BR')||missingStatus(c)}</strong></span></div></article>)}</div></section>
   </>
 }
 
