@@ -47,6 +47,12 @@ export async function POST(request){
     const current=base?.response?.item_list?.find(x=>Number(x?.item_id)===itemId);
     if(!current)return NextResponse.json({error:'O anúncio não pertence à loja conectada ou não está acessível pela Shopee.'},{status:404});
 
+    if(price!=null&&current?.has_model){
+      return NextResponse.json({
+        error:'Este anúncio possui variações. O preço precisa ser alterado por variação; nenhuma alteração foi enviada para evitar uma atualização parcial do anúncio.'
+      },{status:409});
+    }
+
     const applied=[];
     if(Object.keys(itemFields).length){
       await updateItem({shopId:shop.shop_id,accessToken:shop.access_token,itemId,fields:itemFields});
@@ -55,12 +61,6 @@ export async function POST(request){
       if(itemFields.category_id!==undefined)applied.push('categoryId');
     }
     if(price!=null){
-      if(current?.has_model){
-        return NextResponse.json({
-          error:'Este anúncio possui variações. O preço precisa ser alterado por variação; o Gestor não enviou uma alteração parcial que poderia sobrescrever preços incorretamente.',
-          applied
-        },{status:409});
-      }
       await updateItemPrice({shopId:shop.shop_id,accessToken:shop.access_token,itemId,priceList:[{model_id:0,original_price:price}]});
       applied.push('price');
     }
