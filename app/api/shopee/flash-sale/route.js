@@ -1,6 +1,6 @@
 import {NextResponse} from 'next/server';
 import {getActiveShop} from '../../../../lib/shop';
-import {getItemBaseInfo,getFlashSaleTimeSlots,createShopFlashSale,addShopFlashSaleItems,updateShopFlashSale} from '../../../../lib/shopee';
+import {getItemBaseInfo,getFlashSaleTimeSlots,getShopFlashSaleList,getShopFlashSaleItems,createShopFlashSale,addShopFlashSaleItems,updateShopFlashSale} from '../../../../lib/shopee';
 
 export const dynamic='force-dynamic';
 export const runtime='nodejs';
@@ -9,15 +9,74 @@ export const maxDuration=30;
 const int=v=>Number.isSafeInteger(Number(v))?Number(v):null;
 const num=v=>Number.isFinite(Number(v))?Number(v):null;
 
-export async function GET(){
+function pickNumber(...values){
+  for(const value of values){const n=Number(value);if(Number.isFinite(n))return n}
+  return null;
+}
+
+function normalizeOfferItem(itemId,sale,raw){
+  const response=raw?.response||{};
+  const infos=Array.isArray(response?.item_info)?response.item_info:[];
+  const models=Array.isArray(response?.models)?response.models:[];
+  const info=infos.find(x=>Number(x?.item_id)===Number(itemId))||null;
+  const itemModels=models.filter(x=>Number(x?.item_id)===Number(itemId)&&Number(x?.status??1)===1);
+  if(!info&&!itemModels.length)return null;
+  if(info&&Number(info?.status??1)!==1&&!itemModels.length)return null;
+
+  const prices=[
+    pickNumber(info?.item_promotion_price,info?.item_input_promo_price,info?.promotion_price_with_tax,info?.input_promotion_price),
+    ...itemModels.map(x=>pickNumber(x?.promotion_price_with_tax,x?.input_promotion_price,x?.input_promo_price))
+  ].filter(v=>v!=null&&v>0);
+  const stocks=[
+    pickNumber(info?.item_promotion_stock,info?.item_stock,info?.campaign_stock,info?.stock),
+    ...itemModels.map(x=>pickNumber(x?.campaign_stock,x?.stock))
+  ].filter(v=>v!=null&&v>=0);
+  return{
+    flash_sale_id:Number(sale?.flash_sale_id),
+    start_time:pickNumber(sale?.start_time),
+    end_time:pickNumber(sale?.end_time),
+    status:pickNumber(sale?.status),
+    type:pickNumber(sale?.type),
+    price:prices.length?Math.min(...prices):null,
+    max_price:prices.length?Math.max(...prices):null,
+    stock:stocks.length?stocks.reduce((sum,v)=>sum+v,0):null,
+    item_name:info?.item_name||null,
+    image:info?.image||null,
+    variation_count:itemModels.length,
+    variations:itemModels.map(x=>({
+      model_id:x?.model_id,
+      model_name:x?.model_name||null,
+      price:pickNumber(x?.promotion_price_with_tax,x?.input_promotion_price,x?.input_promo_price),
+      stock:pickNumber(x?.campaign_stock,x?.stock)
+    }))
+  };
+}
+
+export async function GET(request){
   const shop=await getActiveShop();
   if(!shop)return NextResponse.json({error:'Nenhuma loja Shopee conectada.'},{status:400});
   const now=Math.floor(Date.now()/1000)+60;
   const end=now+7*24*3600;
+  const itemId=int(new URL(request.url).searchParams.get('item_id'));
   try{
     const raw=await getFlashSaleTimeSlots({shopId:shop.shop_id,accessToken:shop.access_token,startTime:now,endTime:end});
     const slots=Array.isArray(raw?.response)?raw.response:[];
-    return NextResponse.json({ok:true,slots});
+    if(!itemId)return NextResponse.json({ok:true,slots});
+
+    const listRaw=await getShopFlashSaleList({shopId:shop.shop_id,accessToken:shop.access_token,type:2,offset:0,limit:100});
+    const sales=Array.isArray(listRaw?.response?.flash_sale_list)?listRaw.response.flash_sale_list:[];
+    const enabled=sales.filter(x=>Number(x?.status)===1&&Number(x?.type)===2).slice(0,20);
+    const activeOffers=[];
+    for(const sale of enabled){
+      try{
+        const itemsRaw=await getShopFlashSaleItems({shopId:shop.shop_id,accessToken:shop.access_token,flashSaleId:sale.flash_sale_id,offset:0,limit:100});
+        const offer=normalizeOfferItem(itemId,sale,itemsRaw);
+        if(offer)activeOffers.push(offer);
+      }catch(error){
+        console.warn('[flash-sale] falha lendo itens da oferta',sale?.flash_sale_id,error);
+      }
+    }
+    return NextResponse.json({ok:true,slots,activeOffers});
   }catch(error){
     return NextResponse.json({error:String(error?.message||error)},{status:502});
   }
