@@ -19,6 +19,7 @@ export async function POST(request){
 
   const requested=body?.changes&&typeof body.changes==='object'?body.changes:{};
   const itemFields={};
+  let imagePlan=null;
   if(Object.prototype.hasOwnProperty.call(requested,'title')){
     const value=text(requested.title,120);
     if(!value)return NextResponse.json({error:'O título não pode ficar vazio.'},{status:400});
@@ -29,6 +30,12 @@ export async function POST(request){
     if(!value)return NextResponse.json({error:'A descrição não pode ficar vazia.'},{status:400});
     itemFields.description=value;
   }
+  if(Object.prototype.hasOwnProperty.call(requested,'images')){
+    if(!Array.isArray(requested.images)||requested.images.length<1||requested.images.length>9){
+      return NextResponse.json({error:'A galeria precisa ter de 1 a 9 imagens.'},{status:400});
+    }
+    imagePlan=requested.images;
+  }
   if(Object.prototype.hasOwnProperty.call(requested,'categoryId')){
     const categoryId=positiveInt(requested.categoryId);
     if(!categoryId)return NextResponse.json({error:'Categoria Shopee inválida.'},{status:400});
@@ -38,7 +45,7 @@ export async function POST(request){
   if(Object.prototype.hasOwnProperty.call(requested,'price')&&!(price>0)){
     return NextResponse.json({error:'O preço precisa ser maior que zero.'},{status:400});
   }
-  if(!Object.keys(itemFields).length&&price==null){
+  if(!Object.keys(itemFields).length&&price==null&&!imagePlan){
     return NextResponse.json({error:'Nenhuma alteração real para salvar.'},{status:400});
   }
 
@@ -46,6 +53,24 @@ export async function POST(request){
     const base=await getItemBaseInfo({shopId:shop.shop_id,accessToken:shop.access_token,itemIdList:[itemId]});
     const current=base?.response?.item_list?.find(x=>Number(x?.item_id)===itemId);
     if(!current)return NextResponse.json({error:'O anúncio não pertence à loja conectada ou não está acessível pela Shopee.'},{status:404});
+
+    if(imagePlan){
+      const currentIds=current?.image?.image_id_list||current?.image_id_list||[];
+      const resolved=[];
+      for(const entry of imagePlan){
+        if(entry&&entry.source==='uploaded'&&String(entry.image_id||'').trim()){
+          resolved.push(String(entry.image_id));
+          continue;
+        }
+        const idx=Number(entry?.index);
+        if(entry&&entry.source==='existing'&&Number.isInteger(idx)&&idx>=0&&currentIds[idx]){
+          resolved.push(String(currentIds[idx]));
+          continue;
+        }
+        return NextResponse.json({error:'Não foi possível relacionar uma das imagens atuais com a galeria da Shopee. Recarregue a análise e tente novamente.'},{status:409});
+      }
+      itemFields.image={image_id_list:resolved};
+    }
 
     if(price!=null&&current?.has_model){
       return NextResponse.json({
@@ -59,6 +84,7 @@ export async function POST(request){
       if(itemFields.item_name!==undefined)applied.push('title');
       if(itemFields.description!==undefined)applied.push('description');
       if(itemFields.category_id!==undefined)applied.push('categoryId');
+      if(itemFields.image!==undefined)applied.push('images');
     }
     if(price!=null){
       await updateItemPrice({shopId:shop.shop_id,accessToken:shop.access_token,itemId,priceList:[{model_id:0,original_price:price}]});
