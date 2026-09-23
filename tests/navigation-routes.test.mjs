@@ -73,3 +73,18 @@ test('menu lateral nao exibe Concorrentes nem Pedidos',()=>{
   assert.doesNotMatch(shell,/href:'\/pedidos'/);
   assert.doesNotMatch(shell,/href:'\/extensao-shopee-intelligence\?section=concorrentes'/);
 });
+
+
+test('Super Anuncio permite excluir todas as analises do anuncio atual',()=>{
+  assert.match(superAd,/deleteAnalysis/);
+  assert.match(superAd,/\/api\/extension-intelligence\/reports/);
+  assert.match(superAd,/method:'DELETE'/);
+  assert.match(superAd,/Excluir análises/);
+});
+
+test('sidebar exibe a versao real informada pela extensao conectada',()=>{
+  assert.match(shell,/e\.data\.version/);
+  assert.match(shell,/meta\?\.content/);
+  assert.match(shell,/extensionVersion/);
+  assert.match(shell,/Extensão conectada/);
+});
