@@ -126,7 +126,7 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
   const [selectedId,setSelectedId]=useState(initialSelected?.itemId||'');
   const [tab,setTab]=useState(allowedTabs.has(initialTab)?initialTab:'overview');
   const [liveAds,setLiveAds]=useState({phase:'idle',campaign:null,error:''});
-  const [flashSales,setFlashSales]=useState({phase:'idle',offers:[],error:''});
+  const [flashSales,setFlashSales]=useState({phase:'idle',offers:[],scheduled:[],automation:null,planning:null,error:''});
   const [query,setQuery]=useState('');
   const [deleting,setDeleting]=useState(false);
   const [deleteError,setDeleteError]=useState('');
@@ -169,15 +169,18 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
 
   async function loadFlashSales(targetItemId){
     if(!targetItemId)return;
-    setFlashSales({phase:'loading',offers:[],error:''});
+    setFlashSales({phase:'loading',offers:[],scheduled:[],automation:null,planning:null,error:''});
     try{
-      const data=await fetchJsonWithTimeout('/api/shopee/flash-sale?item_id='+encodeURIComponent(targetItemId),{cache:'no-store'},20000);
-      const offers=arr(data?.activeOffers);
-      setFlashSales({phase:offers.length?'success':'empty',offers,error:''});
+      const data=await fetchJsonWithTimeout('/api/shopee/flash-sale?item_id='+encodeURIComponent(targetItemId),{cache:'no-store'},25000);
+      const offers=arr(data?.activeOffers),scheduled=arr(data?.scheduledOffers);
+      setFlashSales({
+        phase:(offers.length||scheduled.length||data?.automation)?'success':'empty',
+        offers,scheduled,automation:data?.automation||null,planning:data?.planning||null,error:''
+      });
     }catch(error){
       console.error('[Super Anúncio] Ofertas Relâmpago falharam',error);
       const kind=classifyAsyncError(error);
-      setFlashSales({phase:kind,offers:[],error:kind==='timeout'?'A consulta das Ofertas Relâmpago expirou.':String(error?.message||error)});
+      setFlashSales({phase:kind,offers:[],scheduled:[],automation:null,planning:null,error:kind==='timeout'?'A consulta das Ofertas Relâmpago expirou.':String(error?.message||error)});
     }
   }
 
@@ -367,29 +370,74 @@ function Overview({item,price,prevPrice,sold,prevSold,margin,ai,flashSales,onRel
 
 function FlashSaleCard({state,itemId,onReload}){
   const offers=arr(state?.offers);
+  const scheduled=arr(state?.scheduled);
+  const automation=state?.automation||null;
+  const planning=state?.planning||null;
   const loading=state?.phase==='loading';
   const failed=state?.phase==='error'||state?.phase==='timeout';
+  const total=offers.length+scheduled.length;
+  const coverage=n(planning?.coverage_until);
+  const activeEnd=offers.length?Math.max(...offers.map(x=>n(x?.end_time)||0)):null;
+  const automationEnabled=automation?.enabled===true;
+
+  let attentionTitle='Sem oferta futura agendada';
+  let attentionText='Este produto precisa de atenção: vale programar a próxima Oferta Relâmpago.';
+  let attentionTone='warn';
+  if(automationEnabled){
+    attentionTitle='Automação cuidando das próximas ofertas';
+    attentionText=automation?.next_run_at?('Próxima verificação automática: '+when(automation.next_run_at)+'.'):'A automação está ativa e fará a próxima verificação em segundo plano.';
+    attentionTone='auto';
+  }else if(scheduled.length&&coverage){
+    attentionTitle='Cobertura futura já programada';
+    attentionText='Você já possui Oferta Relâmpago agendada até '+flashWhen(coverage)+'. Depois dessa data, programe a próxima.';
+    attentionTone='ok';
+  }else if(offers.length&&activeEnd){
+    attentionTitle='Oferta ativa, mas sem próxima agendada';
+    attentionText='A oferta atual termina em '+flashWhen(activeEnd)+'. Programe a próxima antes desse horário.';
+    attentionTone='warn';
+  }
+
+  const renderOffer=(offer,i,kind)=>{
+    const priceMin=n(offer.price),priceMax=n(offer.max_price),stock=n(offer.stock);
+    const priceText=priceMin==null?'Não informado':priceMax!=null&&priceMax!==priceMin?(money(priceMin)+' a '+money(priceMax)):money(priceMin);
+    return <article key={(kind||'offer')+'-'+(offer.flash_sale_id||i)} className={kind==='scheduled'?styles.flashScheduledRow:''}>
+      <div className={kind==='scheduled'?styles.flashScheduled:styles.flashLive}><i/>{kind==='scheduled'?' AGENDADA':' ATIVA AGORA'}</div>
+      <div className={styles.flashField}><small>Período</small><b>{flashWhen(offer.start_time)}</b><span>até {flashWhen(offer.end_time)}</span></div>
+      <div className={styles.flashField}><small>Preço da oferta</small><b>{priceText}</b>{offer.variation_count>1&&<span>{offer.variation_count} variações</span>}</div>
+      <div className={styles.flashField}><small>Estoque da oferta</small><b>{stock==null?'—':stock.toLocaleString('pt-BR')}</b><span>unidades disponíveis na oferta</span></div>
+      <Link href={'/super-analise?item_id='+itemId+'&tab=price'}>Ver preço e oferta ↗</Link>
+    </article>;
+  };
+
   return <section className={styles.flashActiveCard}>
     <div className={styles.flashActiveHead}>
-      <div><span className={styles.flashBolt}>⚡</span><div><h2>Ofertas Relâmpago ativas</h2><p>Promoções em andamento na Shopee para este produto.</p></div></div>
-      <div className={styles.flashHeadActions}><span data-live={offers.length?'true':'false'}>{offers.length?(offers.length+' ativa'+(offers.length===1?'':'s')):'Nenhuma ativa'}</span><button type="button" onClick={onReload} disabled={loading}>↻ {loading?'Atualizando…':'Atualizar'}</button></div>
+      <div><span className={styles.flashBolt}>⚡</span><div><h2>Ofertas Relâmpago do produto</h2><p>Veja o que está ativo, o que já está agendado e quando será preciso se preocupar novamente.</p></div></div>
+      <div className={styles.flashHeadActions}><span data-live={total?'true':'false'}>{offers.length} ativa{offers.length===1?'':'s'} · {scheduled.length} futura{scheduled.length===1?'':'s'}</span><button type="button" onClick={onReload} disabled={loading}>↻ {loading?'Atualizando…':'Atualizar'}</button></div>
     </div>
+
+    <div className={styles.flashAttention} data-tone={attentionTone}>
+      <span>{attentionTone==='ok'?'✓':attentionTone==='auto'?'🤖':'!'}</span>
+      <div><b>{attentionTitle}</b><p>{attentionText}</p></div>
+      {!automationEnabled&&<Link href={'/super-analise?item_id='+itemId+'&tab=price'}>{scheduled.length?'Planejar próxima':'Agendar agora'} ↗</Link>}
+    </div>
+
     {failed?<div className={styles.flashError}>{state.error||'Não foi possível consultar as ofertas.'}<button type="button" onClick={onReload}>Tentar novamente</button></div>:null}
-    {!failed&&loading?<div className={styles.flashEmpty}>Consultando Ofertas Relâmpago ativas na Shopee…</div>:null}
-    {!failed&&!loading&&!offers.length?<div className={styles.flashEmpty}>Este produto não possui Oferta Relâmpago ativa neste momento. <Link href={'/super-analise?item_id='+itemId+'&tab=price'}>Criar oferta ↗</Link></div>:null}
-    {!failed&&!loading&&offers.length?<div className={styles.flashOfferList}>{offers.map((offer,i)=>{
-      const priceMin=n(offer.price),priceMax=n(offer.max_price),stock=n(offer.stock);
-      const priceText=priceMin==null?'Não informado':priceMax!=null&&priceMax!==priceMin?(money(priceMin)+' a '+money(priceMax)):money(priceMin);
-      return <article key={offer.flash_sale_id||i}>
-        <div className={styles.flashLive}><i/> ATIVA AGORA</div>
-        <div className={styles.flashField}><small>Período</small><b>{flashWhen(offer.start_time)}</b><span>até {flashWhen(offer.end_time)}</span></div>
-        <div className={styles.flashField}><small>Preço da oferta</small><b>{priceText}</b>{offer.variation_count>1&&<span>{offer.variation_count} variações</span>}</div>
-        <div className={styles.flashField}><small>Estoque da oferta</small><b>{stock==null?'—':stock.toLocaleString('pt-BR')}</b><span>unidades disponíveis na oferta</span></div>
-        <Link href={'/super-analise?item_id='+itemId+'&tab=price'}>Ver preço e oferta ↗</Link>
-      </article>
-    })}</div>:null}
+    {!failed&&loading?<div className={styles.flashEmpty}>Consultando Ofertas Relâmpago do produto na Shopee…</div>:null}
+
+    {!failed&&!loading&&offers.length?<><div className={styles.flashSectionTitle}><b>Ativa agora</b><span>{offers.length}</span></div><div className={styles.flashOfferList}>{offers.map((offer,i)=>renderOffer(offer,i,'active'))}</div></>:null}
+
+    {!failed&&!loading&&scheduled.length?<><div className={styles.flashSectionTitle}><b>Próximas ofertas agendadas</b><span>{scheduled.length}</span></div><div className={styles.flashOfferList}>{scheduled.map((offer,i)=>renderOffer(offer,i,'scheduled'))}</div></>:null}
+
+    {!failed&&!loading&&!offers.length&&!scheduled.length?<div className={styles.flashEmpty}>Nenhuma Oferta Relâmpago ativa ou futura foi encontrada para este produto. <Link href={'/super-analise?item_id='+itemId+'&tab=price'}>Criar oferta ↗</Link></div>:null}
+
+    {!failed&&!loading&&automation?<div className={styles.flashAutomationSummary}>
+      <b>🤖 Automação {automationEnabled?'ativa':'desativada'}</b>
+      <span>Preço configurado: {money(automation.promo_price)} · estoque: {n(automation.stock)?.toLocaleString('pt-BR')||'—'} · intervalo mínimo: {n(automation.min_gap_hours)||'—'}h</span>
+      {automationEnabled&&automation.next_run_at&&<span>Próxima checagem: {when(automation.next_run_at)}</span>}
+    </div>:null}
   </section>;
 }
+
 function AdsPanel({ads,liveAds,onRetry,hasHistorical}){
   const liveState=liveAds?.phase;
   return <section className={styles.panel}>
