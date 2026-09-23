@@ -1,6 +1,8 @@
 import {NextResponse} from 'next/server';
 import {getActiveShop} from '../../../../lib/shop';
 import {getItemBaseInfo,getFlashSaleTimeSlots,getShopFlashSaleList,getShopFlashSaleItems,createShopFlashSale,addShopFlashSaleItems,updateShopFlashSale} from '../../../../lib/shopee';
+import {supabaseAdmin} from '../../../../lib/supabase';
+import {analyzeItemSalesHistory,rankFlashSaleSlots,formatHourRange} from '../../../../lib/flash-sale-intelligence';
 
 export const dynamic='force-dynamic';
 export const runtime='nodejs';
@@ -57,11 +59,22 @@ export async function GET(request){
   if(!shop)return NextResponse.json({error:'Nenhuma loja Shopee conectada.'},{status:400});
   const now=Math.floor(Date.now()/1000)+60;
   const end=now+7*24*3600;
-  const itemId=int(new URL(request.url).searchParams.get('item_id'));
+  const url=new URL(request.url);
+  const itemId=int(url.searchParams.get('item_id'));
+  const recommendationDays=[7,30,60,90].includes(Number(url.searchParams.get('days')))?Number(url.searchParams.get('days')):30;
   try{
     const raw=await getFlashSaleTimeSlots({shopId:shop.shop_id,accessToken:shop.access_token,startTime:now,endTime:end});
     const slots=Array.isArray(raw?.response)?raw.response:[];
     if(!itemId)return NextResponse.json({ok:true,slots});
+
+    let recommendation=null,recommendedSlots=[];
+    try{
+      recommendation=await analyzeItemSalesHistory(supabaseAdmin(),{shopId:shop.shop_id,itemId,days:recommendationDays});
+      recommendedSlots=rankFlashSaleSlots(slots,recommendation).slice(0,3);
+      recommendation={...recommendation,bestWindowLabel:formatHourRange(recommendation.bestWindow)};
+    }catch(error){
+      console.warn('[flash-sale] falha calculando melhor horário',error);
+    }
 
     const listRaw=await getShopFlashSaleList({shopId:shop.shop_id,accessToken:shop.access_token,type:2,offset:0,limit:100});
     const sales=Array.isArray(listRaw?.response?.flash_sale_list)?listRaw.response.flash_sale_list:[];
@@ -76,7 +89,7 @@ export async function GET(request){
         console.warn('[flash-sale] falha lendo itens da oferta',sale?.flash_sale_id,error);
       }
     }
-    return NextResponse.json({ok:true,slots,activeOffers});
+    return NextResponse.json({ok:true,slots,activeOffers,recommendation,recommendedSlots});
   }catch(error){
     return NextResponse.json({error:String(error?.message||error)},{status:502});
   }
