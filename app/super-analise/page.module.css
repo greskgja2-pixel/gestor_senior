@@ -49,3 +49,41 @@
 @media(max-width:1250px){.tabWorkspace{grid-template-columns:minmax(0,1fr) 205px}.competitorGrid{grid-template-columns:1fr}.flashGrid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:980px){.tabWorkspace{grid-template-columns:1fr}.actionPanel{position:static}.imageTopGrid,.priceTopGrid,.categoryCompare{grid-template-columns:1fr}.galleryEdit{grid-template-columns:repeat(3,1fr)}.competitorGrid{grid-template-columns:1fr}.flashGrid{grid-template-columns:1fr 1fr}}
 @media(max-width:560px){.galleryEdit{grid-template-columns:repeat(2,1fr)}.flashGrid{grid-template-columns:1fr}.categoryCompetitors>div{grid-template-columns:50px 1fr}.categoryCompetitors>div>span{grid-column:auto}}
+
+
+/* GS_APPROVED_SUPER_ANALYSIS_2026_09_23 */
+.titleBlock{display:flex;flex-direction:column;gap:3px}
+.titleRow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.scoreChip{display:grid;grid-template-columns:auto auto auto auto;grid-template-rows:auto auto;align-items:center;column-gap:6px;row-gap:0;padding:5px 10px;border:1px solid #d8e5f2;border-radius:999px;background:#fff;box-shadow:0 2px 8px rgba(28,58,96,.04);white-space:nowrap}
+.scoreChip>b{font-size:13px;color:#203a66}
+.scoreChip>span{font-size:10px;color:#88a0bc;font-weight:900}
+.scoreChip .scoreAfter{color:#16864f}
+.scoreChip>em{font-style:normal;font-size:8px;font-weight:900;color:#16864f}
+.scoreChip>small{grid-column:1/-1;text-align:center;font-size:6px;color:#7a899d;margin-top:-1px}
+.tabWorkspace{display:block;margin-top:9px}
+.tabContent{width:100%;min-width:0}
+.actionPanel{position:static;margin-top:8px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;background:#fff;border:1px solid #dde7f2;border-radius:11px;padding:10px 12px}
+.actionPanel h3{display:none}
+.actionButtons{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.actionState{display:flex;align-items:center;justify-content:flex-end;gap:10px;min-width:0}
+.actionPanel button{display:inline-flex;align-items:center;justify-content:center;width:auto;margin:0;padding:9px 11px;border-radius:7px;border:1px solid #d6e0ec;background:#fff;color:#235799;font-size:9px;font-weight:800;cursor:pointer}
+.actionPanel button:disabled{opacity:.42;cursor:not-allowed}
+.actionPanel .saveShopee{background:#1769e8;color:#fff;border-color:#1769e8;min-width:132px}
+.actionPanel>p{display:none}
+.actionPanel small{display:block;margin:0;font-size:8px;font-weight:800;white-space:nowrap}
+.actionPanel>.message{grid-column:1/-1;margin-top:0}
+.priceTopGrid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.flashCard{box-shadow:0 2px 8px rgba(28,58,96,.03)}
+.competitorGrid a{text-decoration:underline;text-underline-offset:2px}
+@media(max-width:980px){
+  .titleRow{align-items:flex-start}
+  .scoreChip{margin-top:2px}
+  .actionPanel{grid-template-columns:1fr}
+  .actionState{justify-content:space-between;flex-wrap:wrap}
+}
+@media(max-width:560px){
+  .scoreChip{border-radius:12px}
+  .actionButtons,.actionState{width:100%}
+  .actionPanel button{flex:1 1 auto}
+  .actionPanel .saveShopee{width:100%}
+}
