@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { getActiveShop } from "../../../../lib/shop";
 import { getPublicItemInfo, getShopItemsPublic } from "../../../../lib/shopee-public";
+import { getItemBaseInfo } from "../../../../lib/shopee";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 45;
@@ -18,6 +19,14 @@ export async function GET(request) {
   if (!shop && !requestedShopId) return NextResponse.json({ error: "Nenhuma loja autorizada." }, { status: 400 });
   const shopId = requestedShopId || String(shop.shop_id);
 
+  let partnerMap = new Map();
+  if (shop && String(shop.shop_id) === String(shopId)) {
+    try {
+      const detail = await getItemBaseInfo({ shopId: shop.shop_id, accessToken: shop.access_token, itemIdList: itemIds });
+      for (const item of (detail?.response?.item_list || [])) partnerMap.set(String(item.item_id), item);
+    } catch { /* Partner API não fornece todos os campos de vitrine; segue para as demais fontes. */ }
+  }
+
   let shopMap = null;
   let shopMapError = null;
   try { shopMap = await getShopItemsPublic(shopId); }
@@ -25,6 +34,10 @@ export async function GET(request) {
 
   const results = [];
   for (const itemId of itemIds) {
+    const partner = partnerMap.get(String(itemId));
+    const partnerRating = partner?.item_rating?.rating_star ?? partner?.rating_star ?? null;
+    const partnerCounts = partner?.item_rating?.rating_count ?? partner?.rating_count ?? null;
+    const partnerReviewCount = Array.isArray(partnerCounts) ? partnerCounts[0] : partnerCounts;
     const fromShop = shopMap && shopMap.get(String(itemId));
     if (fromShop) {
       let merged = { ...fromShop };
@@ -34,13 +47,17 @@ export async function GET(request) {
         try { merged = { ...merged, ...(await getPublicItemInfo(shopId, itemId)) }; }
         catch { /* mantém os dados válidos já obtidos da listagem */ }
       }
-      results.push({ item_id: itemId, ok: true, ...merged });
+      results.push({ item_id: itemId, ok: true, ...merged, rating: merged.rating ?? partnerRating, reviewCount: merged.reviewCount ?? partnerReviewCount, partnerValidated: Boolean(partner) });
       continue;
     }
     try {
       const info = await getPublicItemInfo(shopId, itemId);
-      results.push({ item_id: itemId, ok: true, ...info });
+      results.push({ item_id: itemId, ok: true, ...info, rating: info.rating ?? partnerRating, reviewCount: info.reviewCount ?? partnerReviewCount, partnerValidated: Boolean(partner) });
     } catch (err) {
+      if (partner && (partnerRating != null || partnerReviewCount != null)) {
+        results.push({ item_id: itemId, ok: true, rating: partnerRating, reviewCount: partnerReviewCount, partnerValidated: true });
+        continue;
+      }
       const detail = String(err.message || err);
       results.push({ item_id: itemId, ok: false, error: shopMapError ? `Listagem da loja falhou (${shopMapError}). Consulta individual: ${detail}` : detail });
     }
