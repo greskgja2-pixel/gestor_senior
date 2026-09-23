@@ -350,3 +350,16 @@
   .changeList>div{grid-template-columns:24px 1fr}
   .changeList b,.changeList em{grid-column:2;text-align:left}
 }
+
+.selectorActions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.deleteBtn{
+  height:36px;display:inline-flex;align-items:center;gap:7px;padding:0 13px;
+  border:1px solid #efb9b9;border-radius:9px;background:#fff6f6;color:#b83d3d;
+  font-size:9px;font-weight:800;cursor:pointer;box-shadow:0 4px 12px rgba(122,42,42,.035)
+}
+.deleteBtn svg{width:14px;height:14px}
+.deleteBtn:hover{background:#ffeded;border-color:#e99a9a}
+.deleteBtn:disabled{opacity:.55;cursor:wait}
+.deleteError{margin:9px 0 0;padding:8px 10px;border:1px solid #efc9c9;border-radius:8px;background:#fff4f4;color:#a13f3f;font-size:8px}
+@media(max-width:900px){.selectorActions{width:100%;justify-content:flex-end}}
+@media(max-width:560px){.selectorActions{display:grid;grid-template-columns:1fr}.selectorActions .followBtn,.selectorActions .deleteBtn{width:100%;justify-content:center;margin-top:0}}
