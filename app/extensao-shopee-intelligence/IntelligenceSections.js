@@ -1,6 +1,7 @@
 'use client';
 
 import {useEffect,useMemo,useState} from 'react';
+import {createPortal} from 'react-dom';
 import Link from 'next/link';
 import styles from './intelligence-sections.module.css';
 import ReminderButton from '../components/ReminderButton';
@@ -89,16 +90,35 @@ function competitorImage(c){
   const score=u=>{let score=0;if(/down-br\.img\.susercontent\.com\/file\//i.test(u))score+=4;if(/\/br-11134207-/i.test(u))score+=10;if(/@resize_w/i.test(u))score+=2;if(/_tn(?:\?|$)/i.test(u))score-=6;if(/_cover(?:\?|$)/i.test(u))score-=7;return score};
   return rows.map((u,i)=>({u,i,score:score(u)})).sort((a,b)=>b.score-a.score||a.i-b.i)[0]?.u||null;
 }
-function competitorMediaCount(c){
-  const nested=c?.item_basic||c?.item||c?.product||{};
-  const rows=[...arr(c?.imageUrls),...arr(c?.image_urls),...arr(c?.images),...arr(nested?.imageUrls),...arr(nested?.image_urls),...arr(nested?.images)].filter(Boolean);
-  const valid=rows.filter(v=>!/productdetailspage|avatar|profile|logo|\.svg(?:\?|$)/i.test(String(typeof v==='string'?v:(v?.url||v?.src||v?.image_url||''))));
-  return Math.max(1,valid.length);
-}
-function CompetitorThumb({src,title,count=1}){
+function CompetitorThumb({src,title}){
   const [failed,setFailed]=useState(false);
+  const [zoom,setZoom]=useState(false);
   useEffect(()=>setFailed(false),[src]);
-  return <>{!src||failed?<div className={styles.noImage}>▧</div>:<img src={src} alt={title||'Imagem do concorrente'} loading="lazy" onError={()=>setFailed(true)}/>} {count>1&&<span className={styles.radarExactMediaCount}>+{Math.min(99,count-1)}</span>}</>;
+  useEffect(()=>{
+    if(!zoom)return;
+    const onKey=e=>{if(e.key==='Escape')setZoom(false)};
+    window.addEventListener('keydown',onKey);
+    const previous=document.body.style.overflow;
+    document.body.style.overflow='hidden';
+    return()=>{window.removeEventListener('keydown',onKey);document.body.style.overflow=previous};
+  },[zoom]);
+  const canZoom=!!src&&!failed;
+  return <>
+    {!canZoom
+      ?<div className={styles.noImage}>▧</div>
+      :<>
+        <img src={src} alt={title||'Imagem do concorrente'} loading="lazy" onError={()=>setFailed(true)}/>
+        <button type="button" className={styles.radarExactZoomButton} aria-label="Ampliar imagem do concorrente" title="Ampliar imagem" onClick={()=>setZoom(true)}>⌕</button>
+      </>}
+    {zoom&&canZoom&&typeof document!=='undefined'&&createPortal(
+      <div className={styles.radarExactLightbox} role="dialog" aria-modal="true" aria-label="Imagem ampliada do concorrente" onClick={()=>setZoom(false)}>
+        <button type="button" className={styles.radarExactLightboxClose} aria-label="Fechar imagem ampliada" onClick={()=>setZoom(false)}>×</button>
+        <img src={src} alt={title||'Imagem ampliada do concorrente'} onClick={e=>e.stopPropagation()}/>
+        <small>{title||'Imagem do concorrente'}</small>
+      </div>,
+      document.body
+    )}
+  </>;
 }
 
 function relativeTime(value){
@@ -629,7 +649,7 @@ function Competitors({items}){
           const priceHref='/super-analise?item_id='+r.ownerItemId+'&tab=price';
           return <article className={styles.radarExactCard} data-tone={priority.tone} data-signal={signal} key={r.key}>
             <section className={styles.radarExactIdentity}>
-              <div className={styles.radarExactThumb}><CompetitorThumb src={r.image} title={r.title} count={competitorMediaCount(r.raw)}/></div>
+              <div className={styles.radarExactThumb}><CompetitorThumb src={r.image} title={r.title}/></div>
               <div>{r.link?<a className={styles.radarExactTitle} href={r.link} target="_blank" rel="noreferrer">{r.title}</a>:<b className={styles.radarExactTitle}>{r.title}</b>}<span>Vinculado ao seu anúncio:</span><Link href={ownerHref}>{r.owner}</Link><em>Concorrente Direto</em></div>
             </section>
 
