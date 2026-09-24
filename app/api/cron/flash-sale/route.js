@@ -6,6 +6,7 @@ import {
   createShopFlashSale,addShopFlashSaleItems,updateShopFlashSale
 } from '../../../../lib/shopee';
 import {analyzeItemSalesHistory,rankFlashSaleSlots} from '../../../../lib/flash-sale-intelligence';
+import {sendTaskNotification} from '../../../../lib/notifications';
 
 export const dynamic='force-dynamic';
 export const runtime='nodejs';
@@ -109,6 +110,25 @@ export async function GET(request){
 
   const shop=await getActiveShop();
   if(!shop)return NextResponse.json({ok:true,processed:[],note:'Nenhuma loja ativa.'});
+
+  // Envia e-mails de término mesmo que o usuário não abra o Gestor.
+  try{
+    const nowIso=new Date().toISOString();
+    const {data:due}=await db.from('gs_tasks').select('*')
+      .eq('shop_id',shop.shop_id)
+      .eq('task_type','flash_sale')
+      .eq('source','flash-sale-expiry')
+      .eq('status','open')
+      .lte('due_at',nowIso)
+      .is('last_notified_at',null)
+      .limit(20);
+    for(const task of due||[]){
+      if(task?.metadata?.notify_email===true){
+        try{await sendTaskNotification({db,shopId:shop.shop_id,task,allowWhatsApp:false})}
+        catch(error){console.warn('[cron flash-sale] falha notificando término',String(error?.message||error))}
+      }
+    }
+  }catch(error){console.warn('[cron flash-sale] falha lendo alertas de término',String(error?.message||error))}
 
   const {data,error}=await db.from('flash_sale_automations').select('*')
     .eq('shop_id',shop.shop_id).eq('enabled',true)
