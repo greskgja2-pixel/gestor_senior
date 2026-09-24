@@ -13,16 +13,17 @@ function financeCalc({price,cost,finance={},metrics={},ads={}}){
   const sale=num(price),productCost=num(cost);
   if(!(sale>0)||productCost==null||productCost<0)return null;
   const commissionRate=num(finance.commissionRate)??0.20;
-  const fixedFee=num(finance.fixedFee)??4;
+  const fixedFee=num(finance.fixedFee)??4.5;
   const packagingCost=num(finance.packagingCost)??0;
   const taxRate=num(finance.taxRate)??0;
   const otherCost=num(finance.otherCost)??0;
   const adsCostPerSale=Math.max(0,num(metrics.cpa??ads.costPerOrder??finance.adsCostPerSale)??0);
+  const includeAdsInMargin=finance.includeAdsInMargin===true;
   const commission=sale*commissionRate;
   const tax=sale*taxRate;
-  const profit=sale-commission-tax-fixedFee-packagingCost-otherCost-adsCostPerSale-productCost;
+  const profit=sale-commission-tax-fixedFee-packagingCost-otherCost-(includeAdsInMargin?adsCostPerSale:0)-productCost;
   const marginPct=profit/sale*100;
-  return {sale,productCost,commissionRate,commission,fixedFee,packagingCost,taxRate,tax,otherCost,adsCostPerSale,profit,marginPct};
+  return {sale,productCost,commissionRate,commission,fixedFee,packagingCost,taxRate,tax,otherCost,adsCostPerSale,includeAdsInMargin,profit,marginPct};
 }
 
 function proofLine(name,calc){
@@ -30,7 +31,7 @@ function proofLine(name,calc){
   if(calc.packagingCost>0)parts.push(`embalagem ${money(calc.packagingCost)}`);
   if(calc.tax>0)parts.push(`impostos ${money(calc.tax)}`);
   if(calc.otherCost>0)parts.push(`outros ${money(calc.otherCost)}`);
-  if(calc.adsCostPerSale>0)parts.push(`Ads/venda ${money(calc.adsCostPerSale)}`);
+  if(calc.includeAdsInMargin&&calc.adsCostPerSale>0)parts.push(`Ads/venda ${money(calc.adsCostPerSale)}`);
   const equation=`${parts[0]} - ${parts.slice(1).join(' - ')} = lucro ${money(calc.profit)}`;
   return `${name?`${name}: `:''}${equation} · margem ${pct(calc.marginPct)}`;
 }
