@@ -8,3 +8,35 @@
 .cardHead>.titleStack{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
 .cardHead>.titleStack>small{font-size:8px;font-weight:600;color:#74859b}
 .marginRows small{line-height:1.45}
+
+
+/* GS_WEB_AUDIT_COMPETITOR_RICH_2026_09_24 */
+.productTitleLink{display:inline-block;color:#155ec3;font-size:11px;font-weight:900;line-height:1.35;text-decoration:none}
+.productTitleLink:hover{text-decoration:underline;text-underline-offset:2px}
+.competitorsRich{display:grid;gap:9px;margin-top:12px}
+.competitorRichCard{display:grid;grid-template-columns:92px minmax(210px,1.4fr) minmax(170px,.9fr) minmax(170px,.9fr) 135px;gap:10px;align-items:stretch;padding:10px;border:1px solid #dbe6f0;border-radius:11px;background:#fbfdff}
+.competitorMedia{position:relative;width:92px;height:92px;border-radius:9px;background:#eef3f8;overflow:hidden}
+.competitorMedia img,.competitorMedia .noImg{width:92px;height:92px;object-fit:cover;border:0;border-radius:9px}
+.competitorMedia button{position:absolute;right:5px;bottom:5px;width:27px;height:27px;border:1px solid #ffffffbb;border-radius:8px;background:#17334fe8;color:#fff;font-size:15px;font-weight:900;cursor:pointer}
+.competitorIdentity{display:flex;flex-direction:column;gap:4px;min-width:0}
+.competitorIdentity>small{font-size:7px;color:#7e8fa2}
+.competitorIdentity>a,.competitorIdentity>b{color:#1262c9;font-size:9px;font-weight:900;line-height:1.35;text-decoration:none}
+.competitorIdentity>a:hover{text-decoration:underline}
+.competitorIdentity>span{display:flex;gap:5px;color:#718297;font-size:7.5px}
+.competitorIdentity>span b{color:#2b4c72}
+.competitorStoreLine{display:flex;align-items:center;gap:5px;min-width:0;margin:2px 0;color:#6f8298;font-size:7.5px}
+.competitorStoreLine a{color:#1768cf;font-size:8px;font-weight:900;text-decoration:none}
+.competitorStoreLine em{color:#97a3b0;font-size:7px;font-style:normal}
+.competitorNumbers,.competitorSearchInfo{display:grid;align-content:start;gap:8px}
+.competitorNumbers>div,.competitorSearchInfo>div{display:grid;gap:2px}
+.competitorNumbers small,.competitorSearchInfo small{font-size:7px;color:#7c8da1}
+.competitorNumbers b,.competitorSearchInfo b{font-size:10px;color:#1d416d;line-height:1.25}
+.competitorNumbers b em{display:inline-block;margin-left:6px;color:#12a15c;font-size:9px;font-style:normal}
+.competitorActions{display:grid;gap:6px;align-content:start}
+.competitorActions button,.competitorActions a{min-height:31px;display:flex;align-items:center;justify-content:center;border:1px solid #cbdbea;border-radius:7px;background:#fff;color:#245d9b;font-size:8px;font-weight:900;text-decoration:none;cursor:pointer;text-align:center}
+.competitorActions button:last-child{border-color:#e6b3b8;background:#fff7f8;color:#bf4350}
+.competitorZoom{position:fixed;inset:0;z-index:2147483640;display:grid;place-items:center;padding:28px;background:rgba(5,16,30,.88);backdrop-filter:blur(5px)}
+.competitorZoom img{max-width:92vw;max-height:88vh;object-fit:contain;border-radius:12px;background:#fff;box-shadow:0 20px 70px rgba(0,0,0,.42)}
+.competitorZoom>button{position:fixed;right:22px;top:18px;width:42px;height:42px;border:1px solid #ffffff66;border-radius:50%;background:#ffffff18;color:#fff;font-size:27px;cursor:pointer}
+@media(max-width:1180px){.competitorRichCard{grid-template-columns:92px 1fr 1fr}.competitorActions{grid-column:2/-1;grid-template-columns:repeat(3,1fr)}}
+@media(max-width:760px){.competitorRichCard{grid-template-columns:82px 1fr}.competitorNumbers,.competitorSearchInfo,.competitorActions{grid-column:1/-1}.competitorActions{grid-template-columns:1fr}.competitorMedia,.competitorMedia img,.competitorMedia .noImg{width:82px;height:82px}}
