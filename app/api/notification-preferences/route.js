@@ -1,6 +1,6 @@
 import {NextResponse} from 'next/server';
-import {getActiveShop} from '../../../../lib/shop';
-import {supabaseAdmin} from '../../../../lib/supabase';
+import {getActiveShop} from '../../../lib/shop';
+import {supabaseAdmin} from '../../../lib/supabase';
 
 export const dynamic='force-dynamic';
 export const runtime='nodejs';
