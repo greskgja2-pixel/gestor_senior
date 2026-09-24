@@ -32,6 +32,10 @@ function fallbackSold(c){
   const base=Number(m[1].replace(',','.'));
   return Number.isFinite(base)?Math.round(base*(m[2]?1000:1)):null;
 }
+function defaultSearchKeyword(title){
+  const stop=new Set(['kit','para','com','sem','de','da','do','das','dos','e','em','um','uma','o','a','os','as','personalizado','personalizada','novo','nova','oficial']);
+  return String(title||'').toLowerCase().replace(/[^a-z0-9áàâãéèêíïóôõöúçñ\s-]/gi,' ').split(/\s+/).filter(Boolean).filter(x=>!stop.has(x)).slice(0,7).join(' ').trim();
+}
 function addDays(iso,days){
   const base=iso?new Date(iso):new Date();
   const ms=Number.isNaN(base.getTime())?Date.now():base.getTime();
@@ -39,13 +43,13 @@ function addDays(iso,days){
 }
 async function syncWatches(db,shopId){
   const {data:reports,error}=await db.from('extension_analysis_reports')
-    .select('id,item_id,analyzed_at,competitors')
+    .select('id,item_id,analyzed_at,competitors,product_snapshot')
     .eq('shop_id',shopId).order('analyzed_at',{ascending:false}).limit(1000);
   if(error)throw new Error(error.message);
   const latest=new Map();
   for(const r of reports||[]){if(!latest.has(String(r.item_id)))latest.set(String(r.item_id),r)}
   const {data:existing,error:existingError}=await db.from('gs_competitor_watches')
-    .select('id,owner_item_id,competitor_item_id,frequency_days,next_check_at,last_check_at,enabled')
+    .select('id,owner_item_id,competitor_item_id,frequency_days,next_check_at,last_check_at,enabled,settings')
     .eq('shop_id',shopId);
   if(existingError)throw new Error(existingError.message);
   const byKey=new Map((existing||[]).map(x=>[`${x.owner_item_id}:${x.competitor_item_id}`,x]));
@@ -53,10 +57,15 @@ async function syncWatches(db,shopId){
     for(const c of arr(r.competitors).slice(0,3)){
       const ids=idsFromCompetitor(c); if(!ids.shopId||!ids.itemId)continue;
       const key=`${r.item_id}:${ids.itemId}`,old=byKey.get(key),freq=old?.frequency_days||7;
+      const ownerTitle=r?.product_snapshot?.title||r?.product_snapshot?.item_name||'';
+      const existingSettings=old?.settings&&typeof old.settings==='object'?old.settings:{};
+      const derivedKeyword=defaultSearchKeyword(ownerTitle);
       const row={
         shop_id:shopId,owner_item_id:r.item_id,competitor_shop_id:ids.shopId,competitor_item_id:ids.itemId,
         competitor_url:ids.url,competitor_title:text(c?.title,400),enabled:old?.enabled===false?false:true,
-        source_report_id:r.id,updated_at:new Date().toISOString()
+        source_report_id:r.id,
+        settings:{...existingSettings,search_keyword:text(existingSettings.search_keyword,300)||derivedKeyword||null,search_max_pages:Math.max(1,Math.min(5,Math.round(finite(existingSettings.search_max_pages)||3)))},
+        updated_at:new Date().toISOString()
       };
       if(!old)row.next_check_at=addDays(r.analyzed_at,freq);
       const {data:saved,error:upsertError}=await db.from('gs_competitor_watches').upsert(row,{onConflict:'shop_id,owner_item_id,competitor_item_id'}).select('*').single();
@@ -119,6 +128,20 @@ async function snapshotBundles(db,watchIds){
     }
     map.set(watchId,{latest,previous,history,change});
   }
+  return map;
+}
+async function visibilityBundles(db,watchIds){
+  if(!watchIds.length)return new Map();
+  const {data,error}=await db.from('gs_competitor_visibility_snapshots').select('*').in('watch_id',watchIds).order('searched_at',{ascending:false});
+  if(error)throw new Error(error.message);
+  const grouped=new Map();
+  for(const row of data||[]){
+    if(!grouped.has(row.watch_id))grouped.set(row.watch_id,[]);
+    const rows=grouped.get(row.watch_id);
+    if(rows.length<12)rows.push(row);
+  }
+  const map=new Map();
+  for(const [watchId,history] of grouped)map.set(watchId,{latest:history[0]||null,history});
   return map;
 }
 async function createChangeTask(db,shopId,watch,previous,current){
@@ -202,12 +225,13 @@ export async function GET(request){
     if(due)q=q.lte('next_check_at',new Date().toISOString());
     if(owner)q=q.eq('owner_item_id',owner);
     const {data,error}=await q;if(error)throw new Error(error.message);
-    const rows=data||[],bundles=await snapshotBundles(db,rows.map(x=>x.id));
+    const watchIds=(data||[]).map(x=>x.id),[bundles,visibility]=await Promise.all([snapshotBundles(db,watchIds),visibilityBundles(db,watchIds)]);
+    const rows=data||[];
     return NextResponse.json({
       ok:true,
       watches:rows.map(w=>{
-        const bundle=bundles.get(w.id)||{};
-        return {...w,latest_snapshot:bundle.latest||null,previous_snapshot:bundle.previous||null,snapshot_history:bundle.history||[],latest_change:bundle.change||null};
+        const bundle=bundles.get(w.id)||{},search=visibility.get(w.id)||{};
+        return {...w,latest_snapshot:bundle.latest||null,previous_snapshot:bundle.previous||null,snapshot_history:bundle.history||[],latest_change:bundle.change||null,latest_visibility:search.latest||null,visibility_history:search.history||[]};
       }),
       due_count:due?rows.length:rows.filter(w=>new Date(w.next_check_at).getTime()<=Date.now()).length
     });
@@ -220,6 +244,9 @@ export async function PATCH(request){
   let body={};try{body=await request.json()}catch{return NextResponse.json({error:'JSON inválido.'},{status:400})}
   const id=text(body?.id,100),freq=finite(body?.frequency_days),action=text(body?.action,40),lastError=text(body?.last_error,1000);
   if(!id)return NextResponse.json({error:'Monitoramento inválido.'},{status:400});
+  const db=supabaseAdmin();
+  const {data:current,error:currentError}=await db.from('gs_competitor_watches').select('settings').eq('shop_id',shop.shop_id).eq('id',id).maybeSingle();
+  if(currentError)return NextResponse.json({error:currentError.message},{status:500});
   const patch={updated_at:new Date().toISOString()};
   if(action==='due_now'){patch.next_check_at=new Date().toISOString();patch.last_error=null;}
   if(action==='record_error'){patch.last_status='error';patch.last_error=lastError||'Falha na coleta pelo Motor Senior.';}
@@ -229,8 +256,14 @@ export async function PATCH(request){
     if(body?.reset_next===true)patch.next_check_at=addDays(new Date().toISOString(),Math.round(freq));
   }
   if(typeof body?.enabled==='boolean')patch.enabled=body.enabled;
+  if(body?.search_keyword!==undefined||body?.search_max_pages!==undefined){
+    const settings=current?.settings&&typeof current.settings==='object'?current.settings:{};
+    const keyword=body?.search_keyword!==undefined?text(body.search_keyword,300):text(settings.search_keyword,300);
+    const maxPages=body?.search_max_pages!==undefined?finite(body.search_max_pages):finite(settings.search_max_pages);
+    patch.settings={...settings,search_keyword:keyword||null,search_max_pages:Math.max(1,Math.min(5,Math.round(maxPages||3)))};
+  }
   if(Object.keys(patch).length===1)return NextResponse.json({error:'Nenhuma alteração informada.'},{status:400});
-  const {data,error}=await supabaseAdmin().from('gs_competitor_watches').update(patch).eq('shop_id',shop.shop_id).eq('id',id).select('*').maybeSingle();
+  const {data,error}=await db.from('gs_competitor_watches').update(patch).eq('shop_id',shop.shop_id).eq('id',id).select('*').maybeSingle();
   if(error)return NextResponse.json({error:error.message},{status:500});
   return NextResponse.json({ok:true,watch:data});
 }
