@@ -13,7 +13,7 @@ const num=v=>n(v)==null?'—':n(v).toLocaleString('pt-BR',{maximumFractionDigits
 const when=v=>{if(!v)return'—';const d=new Date(v);return Number.isNaN(d.getTime())?'—':d.toLocaleString('pt-BR')};
 const metric=(r,k)=>r?.metrics?.[k]??r?.ads_snapshot?.manual?.[k]??r?.ads_snapshot?.[k]??null;
 const titles={
-  concorrentes:['Concorrentes','Acompanhe os concorrentes vinculados aos anúncios já analisados.','⌘'],
+  concorrentes:['Concorrentes','Acompanhe preço, vendas e mudanças dos concorrentes vinculados aos anúncios já analisados.','⌘'],
   'shopee-ads':['Shopee Ads','Veja campanhas, ROAS, meta, investimento e resultados sem sair do Gestor.','◎'],
   reanalises:['Reanálises','Confira quais anúncios estão vencidos ou próximos de uma nova análise.','↻'],
   prioridades:['Prioridades','Centralize os anúncios e melhorias que merecem atenção primeiro.','☆'],
@@ -47,8 +47,65 @@ function competitorImage(c){
   return rows.map((u,i)=>({u,i,s:score(u)})).sort((a,b)=>b.s-a.s||a.i-b.i)[0]?.u||null;
 }
 
+function relativeTime(value){
+  if(!value)return'';
+  const d=new Date(value),diff=Date.now()-d.getTime();
+  if(Number.isNaN(d.getTime()))return'';
+  const abs=Math.max(0,diff),min=Math.floor(abs/60000),hours=Math.floor(abs/3600000),days=Math.floor(abs/86400000);
+  if(min<2)return'agora';
+  if(min<60)return min+' min atrás';
+  if(hours<24)return hours+'h atrás';
+  return days+' dia'+(days===1?'':'s')+' atrás';
+}
+function dueInfo(value){
+  if(!value)return{due:false,label:'Sem data'};
+  const ts=new Date(value).getTime();
+  if(!Number.isFinite(ts))return{due:false,label:'Sem data'};
+  const days=Math.ceil((ts-Date.now())/86400000);
+  if(days<0)return{due:true,label:'Vencida há '+Math.abs(days)+' dia'+(Math.abs(days)===1?'':'s')};
+  if(days===0)return{due:true,label:'Vence hoje'};
+  return{due:false,label:'em '+days+' dia'+(days===1?'':'s')};
+}
+function MiniTrend({values=[],bars=false,tone='blue'}){
+  const clean=values.map(n).filter(v=>v!=null);
+  if(!clean.length)return <div className={styles.radarSparkEmpty}>Sem histórico</div>;
+  if(bars){
+    const max=Math.max(...clean,1);
+    return <div className={styles.radarBars} data-tone={tone}>{clean.slice(-14).map((v,i)=><i key={i} style={{height:Math.max(10,(v/max)*100)+'%'}}/>)}</div>;
+  }
+  const data=clean.slice(-14),min=Math.min(...data),max=Math.max(...data),span=max-min||1;
+  const points=data.map((v,i)=>`${data.length===1?50:(i/(data.length-1))*100},${88-((v-min)/span)*70}`).join(' ');
+  return <svg className={styles.radarLine} data-tone={tone} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline points={points}/></svg>;
+}
+function competitorPriority(row){
+  const due=dueInfo(row.watch?.next_check_at).due;
+  const pricePct=n(row.change?.price_change_pct),velocity=n(row.change?.sold_velocity_change_pct);
+  if(due&&pricePct!=null&&pricePct<0)return{rank:0,label:'Alta urgência',tone:'urgent'};
+  if(pricePct!=null&&pricePct<0)return{rank:1,label:'Atenção',tone:'attention'};
+  if(velocity!=null&&velocity>=50)return{rank:1,label:'Atenção',tone:'attention'};
+  if(pricePct!=null&&pricePct>0)return{rank:2,label:'Oportunidade',tone:'opportunity'};
+  if(row.price==null&&row.sold==null)return{rank:4,label:'Sem dados',tone:'nodata'};
+  return{rank:3,label:'Estável',tone:'stable'};
+}
+function mainSignal(row){
+  const pricePct=n(row.change?.price_change_pct),velocity=n(row.change?.sold_velocity_change_pct);
+  if(pricePct!=null&&pricePct<-.1)return'down';
+  if(pricePct!=null&&pricePct>.1)return'up';
+  if(velocity!=null&&velocity>=25)return'accelerating';
+  if(dueInfo(row.watch?.next_check_at).due)return'due';
+  return'stable';
+}
+
 function Competitors({items}){
   const [monitor,setMonitor]=useState({phase:'loading',watches:[],error:''});
+  const [query,setQuery]=useState('');
+  const [status,setStatus]=useState('all');
+  const [sort,setSort]=useState('priority');
+  const [period,setPeriod]=useState('7');
+  const [openHistory,setOpenHistory]=useState('');
+  const [openMenu,setOpenMenu]=useState('');
+  const [bulkPhase,setBulkPhase]=useState('idle');
+
   async function loadMonitor(){
     setMonitor(x=>({...x,phase:'loading',error:''}));
     try{
@@ -57,20 +114,30 @@ function Competitors({items}){
     }catch(e){setMonitor({phase:'error',watches:[],error:String(e?.message||e)})}
   }
   useEffect(()=>{loadMonitor()},[]);
+  useEffect(()=>{
+    const close=()=>setOpenMenu('');
+    window.addEventListener('click',close);
+    return()=>window.removeEventListener('click',close);
+  },[]);
+
   const watchMap=useMemo(()=>new Map(arr(monitor.watches).map(w=>[`${w.owner_item_id}:${w.competitor_item_id}`,w])),[monitor.watches]);
+
   const rows=useMemo(()=>items.flatMap(item=>arr(item.latest?.competitors).slice(0,3).map((comp,i)=>{
     const compItem=String(comp?.itemId??comp?.item_id??comp?.id??'');
     const watch=watchMap.get(`${item.itemId}:${compItem}`)||null;
     const snap=watch?.latest_snapshot||null;
+    const ownerSnapshot=item.latest?.product_snapshot||{};
     return{
-      ownerItemId:item.itemId,
-      owner:item.latest?.product_snapshot?.title||item.latest?.product_snapshot?.item_name||`Produto ${item.itemId}`,
+      key:`${item.itemId}:${compItem||i}`,ownerItemId:item.itemId,
+      owner:ownerSnapshot.title||ownerSnapshot.item_name||`Produto ${item.itemId}`,
+      ownerCategory:ownerSnapshot.category||ownerSnapshot.category_name||'',
       competitorItemId:compItem,title:snap?.title||comp.title||`Concorrente ${i+1}`,
       price:n(snap?.price)??competitorPrice(comp),sold:n(snap?.sold)??competitorSold(comp),rating:n(snap?.rating)??n(comp.rating),raw:comp,
       image:snap?.image_url||competitorImage(comp),link:comp.link||comp.url||watch?.competitor_url||null,
-      collected:snap?.collected_at||item.latest?.analyzed_at,watch,change:watch?.latest_change||null,history:arr(watch?.snapshot_history),confidence:snap?.confidence||null
+      collected:snap?.collected_at||item.latest?.analyzed_at,watch,change:watch?.latest_change||null,
+      history:arr(watch?.snapshot_history),confidence:snap?.confidence||null
     };
-  })),[items,watchMap]);
+  }).filter(r=>monitor.phase!=='success'||!!r.watch)),[items,watchMap,monitor.phase]);
 
   async function updateWatch(watch,patch){
     if(!watch?.id)return;
@@ -80,36 +147,179 @@ function Competitors({items}){
     }catch(e){setMonitor(x=>({...x,phase:'error',error:String(e?.message||e)}))}
   }
 
-  if(!rows.length)return <Empty text="Nenhum concorrente foi coletado/vinculado ainda. Faça uma Super Análise e selecione de 1 a 3 concorrentes."/>;
-  return <>
-    <section className={styles.monitorSummary}>
-      <div><b>Radar de concorrentes</b><p>Quando o Motor Senior estiver conectado, o Gestor rechecа automaticamente os concorrentes vencidos usando a sessão normal do navegador.</p></div>
-      <span>{monitor.phase==='loading'?'Carregando…':`${arr(monitor.watches).filter(w=>new Date(w.next_check_at).getTime()<=Date.now()).length} aguardando rechecagem`}</span>
+  async function recheckAll(){
+    const targets=rows.map(r=>r.watch).filter(Boolean);
+    if(!targets.length)return;
+    setBulkPhase('loading');
+    try{
+      await Promise.all(targets.map(w=>fetchJsonWithTimeout('/api/competitor-monitor',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:w.id,action:'due_now'})},12000)));
+      await loadMonitor();
+      setBulkPhase('success');
+      setTimeout(()=>setBulkPhase('idle'),2400);
+    }catch(e){
+      setBulkPhase('error');
+      setMonitor(x=>({...x,error:String(e?.message||e)}));
+    }
+  }
+
+  async function removeWatch(row){
+    if(!row.watch?.id)return;
+    const ok=window.confirm(`Remover “${row.title}” do Radar de concorrentes? O histórico já coletado será preservado.`);
+    if(!ok)return;
+    setOpenMenu('');
+    await updateWatch(row.watch,{enabled:false});
+  }
+
+  const counts=useMemo(()=>{
+    const down=rows.filter(r=>n(r.change?.price_change_pct)!=null&&n(r.change.price_change_pct)<-.1).length;
+    const up=rows.filter(r=>n(r.change?.price_change_pct)!=null&&n(r.change.price_change_pct)>.1).length;
+    const accelerating=rows.filter(r=>n(r.change?.sold_velocity_change_pct)!=null&&n(r.change.sold_velocity_change_pct)>=25).length;
+    const due=rows.filter(r=>dueInfo(r.watch?.next_check_at).due).length;
+    return{down,up,accelerating,due,total:rows.length};
+  },[rows]);
+
+  const filtered=useMemo(()=>{
+    const q=query.trim().toLowerCase();
+    const matchesStatus=r=>{
+      const signal=mainSignal(r);
+      if(status==='all')return true;
+      if(status==='down')return signal==='down';
+      if(status==='up')return signal==='up';
+      if(status==='accelerating')return n(r.change?.sold_velocity_change_pct)!=null&&n(r.change.sold_velocity_change_pct)>=25;
+      if(status==='due')return dueInfo(r.watch?.next_check_at).due;
+      if(status==='nodata')return r.price==null&&r.sold==null;
+      return true;
+    };
+    const list=rows.filter(r=>(!q||[r.title,r.owner,r.competitorItemId,r.ownerItemId].some(v=>String(v||'').toLowerCase().includes(q)))&&matchesStatus(r));
+    return [...list].sort((a,b)=>{
+      if(sort==='price')return Math.abs(n(b.change?.price_change_pct)||0)-Math.abs(n(a.change?.price_change_pct)||0);
+      if(sort==='sales')return (n(b.change?.sold_delta)||0)-(n(a.change?.sold_delta)||0);
+      if(sort==='collected')return new Date(b.collected||0)-new Date(a.collected||0);
+      if(sort==='recheck')return new Date(a.watch?.next_check_at||8640000000000000)-new Date(b.watch?.next_check_at||8640000000000000);
+      return competitorPriority(a).rank-competitorPriority(b).rank;
+    });
+  },[rows,query,status,sort]);
+
+  const alerts=useMemo(()=>{
+    const out=[];
+    for(const r of rows){
+      const pricePct=n(r.change?.price_change_pct),priceDelta=n(r.change?.price_change),soldDelta=n(r.change?.sold_delta);
+      if(pricePct!=null&&Math.abs(pricePct)>=.1)out.push({
+        key:r.key+':price',tone:pricePct<0?'down':'up',image:r.image,at:r.collected,
+        text:`${r.title} ${pricePct<0?'reduziu':'aumentou'} ${priceDelta==null?Math.abs(pricePct).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%':money(Math.abs(priceDelta))+' ('+(pricePct>0?'+':'')+pricePct.toLocaleString('pt-BR',{maximumFractionDigits:1})+'%)'}`
+      });
+      if(soldDelta!=null&&soldDelta>0)out.push({key:r.key+':sales',tone:'sales',image:r.image,at:r.collected,text:`${r.title} vendeu +${soldDelta.toLocaleString('pt-BR')} desde a última coleta`});
+      if(!r.image)out.push({key:r.key+':image',tone:'image',image:null,at:r.collected,text:`${r.title} está sem imagem confiável`});
+    }
+    if(counts.due)out.push({key:'due',tone:'due',image:null,at:null,text:`${counts.due} concorrente${counts.due===1?' está':'s estão'} com rechecagem vencida`});
+    return out.sort((a,b)=>new Date(b.at||Date.now())-new Date(a.at||Date.now())).slice(0,6);
+  },[rows,counts.due]);
+
+  const distribution=useMemo(()=>{
+    const bucket={down:0,up:0,accelerating:0,due:0,stable:0};
+    rows.forEach(r=>{bucket[mainSignal(r)]++});
+    return bucket;
+  },[rows]);
+
+  const donut=useMemo(()=>{
+    const total=Math.max(1,rows.length),parts=[
+      ['#27b36a',distribution.down],['#ef5360',distribution.up],['#2d77e5',distribution.accelerating],['#f2a323',distribution.due],['#b7c4d4',distribution.stable]
+    ];
+    let cursor=0;const stops=[];
+    parts.forEach(([color,count])=>{const from=cursor;cursor+=(count/total)*360;stops.push(`${color} ${from}deg ${cursor}deg`)});
+    if(cursor<360)stops.push(`#e7edf5 ${cursor}deg 360deg`);
+    return`conic-gradient(${stops.join(',')})`;
+  },[distribution,rows.length]);
+
+  if(monitor.phase==='loading'&&!rows.length)return <Empty text="Carregando Radar de concorrentes…"/>;
+  if(!rows.length&&monitor.phase!=='error')return <Empty text="Nenhum concorrente monitorado. Faça uma Super Análise e selecione de 1 a 3 concorrentes."/>;
+  return <div className={styles.radarPage}>
+    <section className={styles.radarKpis}>
+      <article data-tone="down"><span>↓</span><div><b>{counts.down}</b><strong>com queda de preço</strong><small>{counts.total?((counts.down/counts.total)*100).toFixed(1).replace('.',','):'0'}% do total</small></div></article>
+      <article data-tone="up"><span>↑</span><div><b>{counts.up}</b><strong>com alta de preço</strong><small>{counts.total?((counts.up/counts.total)*100).toFixed(1).replace('.',','):'0'}% do total</small></div></article>
+      <article data-tone="sales"><span>▥</span><div><b>{counts.accelerating}</b><strong>com vendas acelerando</strong><small>{counts.total?((counts.accelerating/counts.total)*100).toFixed(1).replace('.',','):'0'}% do total</small></div></article>
+      <article data-tone="due"><span>◷</span><div><b>{counts.due}</b><strong>rechecagens vencidas</strong><small>{counts.total?((counts.due/counts.total)*100).toFixed(1).replace('.',','):'0'}% do total</small></div></article>
+      <article data-tone="total"><span>♟</span><div><b>{counts.total}</b><strong>concorrentes monitorados</strong><small>100% do total</small></div></article>
     </section>
+
+    <section className={styles.radarFilters}>
+      <label className={styles.radarSearch}><span>⌕</span><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar concorrente, anúncio ou ID..."/></label>
+      <label><small>Status</small><select value={status} onChange={e=>setStatus(e.target.value)}><option value="all">Todos</option><option value="down">Queda de preço</option><option value="up">Alta de preço</option><option value="accelerating">Vendas acelerando</option><option value="due">Rechecagem vencida</option><option value="nodata">Sem dados</option></select></label>
+      <label><small>Ordenar por</small><select value={sort} onChange={e=>setSort(e.target.value)}><option value="priority">Maior prioridade</option><option value="price">Maior variação de preço</option><option value="sales">Mais vendas desde a coleta</option><option value="collected">Última coleta</option><option value="recheck">Próxima rechecagem</option></select></label>
+      <label><small>Período</small><select value={period} onChange={e=>setPeriod(e.target.value)}><option value="7">Últimos 7 dias</option><option value="14">Últimos 14 dias</option><option value="30">Últimos 30 dias</option><option value="all">Todo histórico</option></select></label>
+      <button type="button" className={styles.radarRefresh} onClick={recheckAll} disabled={bulkPhase==='loading'}>↻ {bulkPhase==='loading'?'Solicitando…':bulkPhase==='success'?'Rechecagem solicitada':'Atualizar / Rechecar agora'}</button>
+    </section>
+
     {monitor.phase==='error'&&<div className={styles.error}>{monitor.error}<button onClick={loadMonitor}>Tentar novamente</button></div>}
-    <div className={styles.gridCards}>{rows.map((r,i)=><article className={styles.competitor} key={`${r.ownerItemId}:${r.competitorItemId||i}`}>
-      {r.image?<img src={r.image} alt=""/>:<div className={styles.noImage}/>}
-      <div>
-        <small>Vinculado a: {r.owner}</small><b>{r.title}</b>
-        <p>{dataText(r.price,money,r.raw)} · {dataText(r.sold,v=>Number(v).toLocaleString('pt-BR'),r.raw)} vendidos · {dataText(r.rating,v=>Number(v).toFixed(1)+'★',r.raw)}</p>
-        {r.change&&<div className={styles.deltaLine}>
-          {n(r.change.price_change_pct)!=null&&Math.abs(n(r.change.price_change_pct))>=0.1&&<span className={n(r.change.price_change_pct)<0?styles.deltaDown:styles.deltaUp}>Preço {n(r.change.price_change_pct)<0?'↓':'↑'} {Math.abs(n(r.change.price_change_pct)).toLocaleString('pt-BR',{maximumFractionDigits:1})}%</span>}
-          {n(r.change.sold_delta)!=null&&<span className={styles.deltaNeutral}>{n(r.change.sold_delta)>=0?'+':''}{n(r.change.sold_delta).toLocaleString('pt-BR')} vendas{n(r.change.sold_per_day)!=null?' · '+n(r.change.sold_per_day).toLocaleString('pt-BR',{maximumFractionDigits:1})+'/dia':''}</span>}
-          {n(r.change.rating_change)!=null&&Math.abs(n(r.change.rating_change))>=0.01&&<span className={styles.deltaNeutral}>Nota {n(r.change.rating_change)>0?'+':''}{n(r.change.rating_change).toLocaleString('pt-BR',{maximumFractionDigits:2})}</span>}
-          {n(r.change.sold_velocity_change_pct)!=null&&Math.abs(n(r.change.sold_velocity_change_pct))>=25&&<span className={n(r.change.sold_velocity_change_pct)>0?styles.deltaUp:styles.deltaDown}>Ritmo {n(r.change.sold_velocity_change_pct)>0?'↑':'↓'} {Math.abs(n(r.change.sold_velocity_change_pct)).toLocaleString('pt-BR',{maximumFractionDigits:0})}%</span>}
-        </div>}
-        <span>Última coleta: {when(r.collected)}{r.history.length?' · '+r.history.length+' coleta'+(r.history.length===1?'':'s')+' no histórico':''}{r.confidence==='fallback'?' · baseline aproximado':''}</span>
-        {r.watch?<div className={styles.monitorControls}>
-          <label>Rechecar a cada <select value={r.watch.frequency_days||7} onChange={e=>updateWatch(r.watch,{frequency_days:Number(e.target.value),reset_next:true})}><option value="2">2 dias</option><option value="3">3 dias</option><option value="7">7 dias</option><option value="14">14 dias</option><option value="30">30 dias</option></select></label>
-          <small>Próxima: {when(r.watch.next_check_at)}</small>
-          {r.watch.last_status==='error'&&r.watch.last_error&&<small className={styles.monitorError}>Falha anterior: {r.watch.last_error}</small>}
-          <button type="button" onClick={()=>updateWatch(r.watch,{action:'due_now'})}>↻ Atualizar na próxima passagem da extensão</button>
-        </div>:<small>Monitoramento sendo preparado…</small>}
-        {r.history.length>1&&<details className={styles.historyDetails}><summary>Ver histórico ({r.history.length})</summary><div className={styles.historyRows}>{r.history.map((h,idx)=>{const older=r.history[idx+1];const soldNow=n(h?.sold),soldBefore=n(older?.sold),priceNow=n(h?.price),priceBefore=n(older?.price);const soldDelta=soldNow!=null&&soldBefore!=null?soldNow-soldBefore:null;const priceChanged=priceNow!=null&&priceBefore!=null&&Math.abs(priceNow-priceBefore)>=0.01;return <div key={h.id||h.collected_at||idx}><span>{when(h.collected_at)}</span><b>{priceNow==null?'Preço sem dados':money(priceNow)}</b><small>{soldNow==null?'Vendas sem dados':soldNow.toLocaleString('pt-BR')+' vendidos'}{soldDelta!=null&&idx<r.history.length-1?' · '+(soldDelta>=0?'+':'')+soldDelta.toLocaleString('pt-BR')+' desde a coleta anterior':''}{priceChanged?' · preço alterado':''}</small></div>})}</div></details>}
-        {r.link&&<a href={r.link} target="_blank" rel="noreferrer">Abrir anúncio ↗</a>}
-      </div>
-    </article>)}</div>
-  </>;
+
+    <div className={styles.radarColumns}>
+      <section className={styles.radarListArea}>
+        <div className={styles.radarListHead}><b>{filtered.length} concorrente{filtered.length===1?'':'s'} encontrado{filtered.length===1?'':'s'}</b><div><span>Legenda rápida:</span><i data-tone="down"/> Queda de preço <i data-tone="up"/> Alta de preço <i data-tone="sales"/> Vendas acelerando <i data-tone="due"/> Rechecagem vencida</div></div>
+        <div className={styles.radarList}>{filtered.map((r,index)=>{
+          const priority=competitorPriority(r),due=dueInfo(r.watch?.next_check_at),pricePct=n(r.change?.price_change_pct),priceDelta=n(r.change?.price_change),soldDelta=n(r.change?.sold_delta),salesRate=n(r.change?.sold_per_day),velocity=n(r.change?.sold_velocity_change_pct);
+          const previousPrice=n(r.change?.price_before);
+          const cutoff=period==='all'?0:Date.now()-Number(period)*86400000;
+          const hist=r.history.filter(h=>!cutoff||new Date(h.collected_at).getTime()>=cutoff).slice().reverse();
+          const priceSeries=hist.map(h=>n(h.price)).filter(v=>v!=null);
+          const salesSeries=hist.map(h=>n(h.sold)).filter(v=>v!=null);
+          const primary=priority.rank<=1&&pricePct!=null&&pricePct<0;
+          const ownerHref=`/extensao-shopee-intelligence?section=super-anuncio&item_id=${r.ownerItemId}`;
+          const priceHref=`/super-analise?item_id=${r.ownerItemId}&tab=price`;
+          return <article className={styles.radarCard} data-tone={priority.tone} key={r.key}>
+            <div className={styles.radarIdentity}>
+              <div className={styles.radarThumb}>{due.due&&<em>VENCIDA</em>}{r.image?<img src={r.image} alt=""/>:<div className={styles.noImage}>▧</div>}</div>
+              <div><b className={styles.radarTitle}>{r.title}</b><span>Vinculado ao seu anúncio:</span><Link href={ownerHref}>{r.owner}</Link>{r.ownerCategory&&<small>{r.ownerCategory}</small>}</div>
+            </div>
+            <div className={styles.radarMetric}>
+              <span>Preço atual</span><b>{dataText(r.price,money,r.raw)}</b>{previousPrice!=null&&<small>Era {money(previousPrice)}</small>}
+              {pricePct!=null&&Math.abs(pricePct)>=.1&&<em data-tone={pricePct<0?'down':'up'}>{pricePct<0?'↓':'↑'} {priceDelta==null?Math.abs(pricePct).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%':(priceDelta>0?'+':'-')+money(Math.abs(priceDelta))}<small>{pricePct>0?'+':''}{pricePct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</small></em>}
+              <div className={styles.radarMini}><span>Tendência de preço</span><MiniTrend values={priceSeries} tone={pricePct<0?'green':pricePct>0?'red':'slate'}/></div>
+            </div>
+            <div className={styles.radarMetric}>
+              <span>Vendas acumuladas</span><b>{dataText(r.sold,v=>Number(v).toLocaleString('pt-BR'),r.raw)}</b>{soldDelta!=null&&<em data-tone="sales">▲ {soldDelta>=0?'+':''}{soldDelta.toLocaleString('pt-BR')}<small>desde a última coleta</small></em>}
+              <div className={styles.radarMini}><span>Tendência de vendas</span><MiniTrend values={salesSeries} bars tone="blue"/></div>
+            </div>
+            <div className={styles.radarVelocity}>
+              <span>Ritmo de vendas</span><div className={styles.radarVelocityBars}>{[.35,.52,.7,.88,1].map((x,i)=><i key={i} style={{height:(velocity!=null&&velocity>=25?x:Math.max(.25,x-.28))*100+'%'}}/>)}</div><b>{velocity!=null&&velocity>=25?'Acelerando':'Estável'}</b>{salesRate!=null&&<small>{salesRate.toLocaleString('pt-BR',{maximumFractionDigits:1})}/dia</small>}
+            </div>
+            <div className={styles.radarActions}>
+              <span className={styles.radarStatus} data-tone={priority.tone}>{priority.tone==='urgent'?'⚠ ':priority.tone==='opportunity'?'★ ':''}{priority.label}</span>
+              <small>Última coleta: {when(r.collected)}</small><small className={due.due?styles.radarDue:''}>Rechecagem: {due.label}</small>
+              {r.watch&&<label>Rechecar a cada <select value={r.watch.frequency_days||7} onChange={e=>updateWatch(r.watch,{frequency_days:Number(e.target.value),reset_next:true})}><option value="2">2 dias</option><option value="3">3 dias</option><option value="7">7 dias</option><option value="14">14 dias</option><option value="30">30 dias</option></select></label>}
+              {primary?<Link className={styles.radarPrimary} href={priceHref}>✎ Editar preço do meu anúncio</Link>:<Link className={styles.radarOwn} href={ownerHref}>↗ Ir para meu anúncio</Link>}
+              {primary&&<small className={styles.radarHelper}>Acessa seu anúncio vinculado para editar preço, imagens ou título.</small>}
+              <div className={styles.radarButtonRow}>
+                <button type="button" onClick={()=>setOpenHistory(openHistory===r.key?'':r.key)}>◷ Ver histórico</button>
+                {r.link&&<a href={r.link} target="_blank" rel="noreferrer">↗ Abrir anúncio</a>}
+                <div className={styles.radarMenuWrap}>
+                  <button type="button" className={styles.radarDots} onClick={e=>{e.stopPropagation();setOpenMenu(openMenu===r.key?'':r.key)}}>⋮</button>
+                  {openMenu===r.key&&<div className={styles.radarMenu} onClick={e=>e.stopPropagation()}>
+                    <Link href={ownerHref}><b>↗ Ir para meu anúncio</b><small>Acessa o seu anúncio vinculado</small></Link>
+                    <Link href={priceHref}><b>✎ Editar preço</b><small>Abre seu anúncio para editar o preço</small></Link>
+                    <Link href={ownerHref}><b>ϟ Ver no Super Anúncio</b><small>Analisar com Super Anúncio</small></Link>
+                    <button type="button" onClick={()=>removeWatch(r)}><b>♲ Remover da lista</b><small>Preserva o histórico já coletado</small></button>
+                  </div>}
+                </div>
+              </div>
+              {r.watch?.last_status==='error'&&r.watch.last_error&&<small className={styles.monitorError}>Falha anterior: {r.watch.last_error}</small>}
+            </div>
+            {openHistory===r.key&&<div className={styles.radarHistory}><div className={styles.radarHistoryHead}><b>Histórico de coletas</b><span>{r.history.length} registro{r.history.length===1?'':'s'}</span></div>{r.history.length?<div className={styles.radarHistoryGrid}>{r.history.map((h,idx)=>{const older=r.history[idx+1],sd=n(h.sold)!=null&&n(older?.sold)!=null?n(h.sold)-n(older.sold):null,pd=n(h.price)!=null&&n(older?.price)!=null?n(h.price)-n(older.price):null;return <div key={h.id||h.collected_at||idx}><span>{when(h.collected_at)}</span><b>{money(h.price)}</b><small>{n(h.sold)==null?'Vendas sem dados':n(h.sold).toLocaleString('pt-BR')+' vendidos'}{sd!=null?' · '+(sd>=0?'+':'')+sd.toLocaleString('pt-BR')+' vendas':''}{pd!=null&&Math.abs(pd)>=.01?' · preço '+(pd>0?'subiu':'caiu')+' '+money(Math.abs(pd)):''}</small></div>})}</div>:<span>Sem histórico anterior.</span>}</div>}
+          </article>
+        })}</div>
+      </section>
+
+      <aside className={styles.radarAside}>
+        <section className={styles.radarSideCard}><div className={styles.radarSideTitle}><b>🔔 Alertas do radar competitivo</b><span>{alerts.length}</span></div><div className={styles.radarAlerts}>{alerts.length?alerts.map(a=><article key={a.key} data-tone={a.tone}>{a.image?<img src={a.image} alt=""/>:<i>{a.tone==='due'?'◷':a.tone==='image'?'▧':a.tone==='sales'?'▥':a.tone==='down'?'↓':'↑'}</i>}<b>{a.text}</b><small>{a.at?relativeTime(a.at):'agora'}</small></article>):<p>Nenhuma mudança importante detectada.</p>}</div></section>
+        <section className={styles.radarSideCard}><div className={styles.radarSideTitle}><b>♧ Distribuição dos concorrentes</b></div><div className={styles.radarDistribution}><div className={styles.radarDonut} style={{background:donut}}><span><b>{rows.length}</b>Total</span></div><div>{[['down','Queda de preço',distribution.down],['up','Alta de preço',distribution.up],['sales','Vendas acelerando',distribution.accelerating],['due','Rechecagem vencida',distribution.due],['stable','Estáveis',distribution.stable]].map(([tone,label,value])=><p key={tone}><i data-tone={tone}/><span>{value} {label.toLowerCase()} {rows.length?'('+(value/rows.length*100).toFixed(1).replace('.',',')+'%)':''}</span></p>)}</div></div></section>
+        <section className={styles.radarSideCard}><div className={styles.radarSideTitle}><b>💡 Dicas e insights</b></div><div className={styles.radarInsights}>
+          {counts.down>0&&<p><i>1</i><span><b>{counts.down} concorrente{counts.down===1?' reduziu':'s reduziram'} o preço.</b> Avalie seu preço e sua margem antes de reagir.</span></p>}
+          {counts.accelerating>0&&<p><i>2</i><span><b>{counts.accelerating} concorrente{counts.accelerating===1?' está':'s estão'} vendendo mais rápido.</b> Pode ser um bom momento para revisar anúncio, oferta e Ads.</span></p>}
+          {counts.due>0&&<p><i>3</i><span><b>{counts.due} rechecagem{counts.due===1?' está':' estão'} vencida{counts.due===1?'':'s'}.</b> Atualize os dados para não perder mudanças importantes.</span></p>}
+          {!counts.down&&!counts.accelerating&&!counts.due&&<p><i>✓</i><span><b>Nenhum sinal urgente agora.</b> Continue acompanhando as próximas coletas.</span></p>}
+        </div></section>
+      </aside>
+    </div>
+  </div>;
 }
 function Ads(){
   const [data,setData]=useState(null),[phase,setPhase]=useState('loading'),[error,setError]=useState(''),[syncSource,setSyncSource]=useState('');
