@@ -245,19 +245,35 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
     setBaseline({draft:nextDraft,gallery:nextGallery,chosenCategory:categoryId});
     setHistory({past:[],future:[]});setMessage('');
     setFlash(x=>({...x,promoPrice:basePrice?String(basePrice):'',stock:String(p.stock??'')}));
-    setFlashVariationOpen(false);setFlashVariationDraft({});setFlashModels([]);
+    setFlashVariationOpen(false);setFlashVariationDraft({});setFlashModels([]);setFlashConfirmOpen(false);const today=localYmd(new Date());setFlashPeriod({start:today,end:addLocalDays(today,7)});
   },[report?.id]);
 
-  async function loadFlashMeta(days=flashDays){
+  async function loadFlashMeta(days=flashDays,period=flashPeriod){
     if(!report?.item_id)return;
     setFlashInsight(x=>({...x,phase:'loading',error:''}));
     try{
-      const j=await fetchJsonWithTimeout('/api/shopee/flash-sale?item_id='+encodeURIComponent(report.item_id)+'&days='+Number(days),{cache:'no-store'},25000);
+      const q=new URLSearchParams({item_id:String(report.item_id),days:String(Number(days)||30)});
+      if(period?.start)q.set('start_date',period.start);
+      if(period?.end)q.set('end_date',period.end);
+      const j=await fetchJsonWithTimeout('/api/shopee/flash-sale?'+q.toString(),{cache:'no-store'},30000);
       const next=arr(j?.slots),recommended=arr(j?.recommendedSlots),models=arr(j?.productModels);
       setSlots(next);setSlotError('');setFlashModels(models);
       setFlashInsight({phase:'success',recommendation:j?.recommendation||null,recommendedSlots:recommended,error:j?.productModelError||''});
-      const preferred=recommended[0]?.timeslot_id||next[0]?.timeslot_id;
-      if(preferred)setFlash(x=>x.timeslotId?x:{...x,timeslotId:String(preferred)});
+      if(models.length){
+        setFlashVariationDraft(current=>{
+          const nextDraft={...current};
+          for(const model of models){
+            const id=String(model.model_id);
+            const available=n(model.available_stock);
+            const row=nextDraft[id]||{};
+            nextDraft[id]={
+              promoPrice:row.promoPrice??(Number(flash.promoPrice)>0?String(flash.promoPrice):String(model.current_price??'')),
+              stock:row.stock??String(available??'')
+            };
+          }
+          return nextDraft;
+        });
+      }
     }catch(e){
       const msg=String(e?.message||e);setSlotError(msg);setFlashInsight({phase:'error',recommendation:null,recommendedSlots:[],error:msg});
     }
@@ -277,8 +293,7 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
 
   useEffect(()=>{
     if(tab!=='price')return;
-    loadFlashMeta(flashDays);
-    loadFlashAutomation();
+    loadFlashMeta(flashDays,flashPeriod);
   },[tab,report?.item_id]);
 
   function stateNow(){return{draft:{...draft},gallery:gallery.map(x=>({...x})),chosenCategory:String(chosenCategory||'')}}
