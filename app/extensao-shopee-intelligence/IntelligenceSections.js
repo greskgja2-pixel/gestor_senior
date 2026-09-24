@@ -92,6 +92,31 @@ function preferredFromObject(value,depth=0){
   }
   return null;
 }
+function locationFromObject(value,depth=0){
+  if(!value||typeof value!=='object'||depth>5)return'';
+  const directKeys=['shop_location','seller_location','shop_location_name','shopLocation','sellerLocation','shop_city','seller_city','state','state_name'];
+  for(const key of directKeys){
+    const v=value?.[key];
+    if(v!==null&&v!==undefined&&v!==''){
+      const state=stateFromText(v);
+      if(state)return state;
+      if(typeof v==='string'&&v.trim())return v.trim();
+    }
+  }
+  for(const [key,v] of Object.entries(value)){
+    if(v==null)continue;
+    const keyText=normalizeLooseText(key);
+    if(typeof v==='string'&&/(location|localizacao|cidade|city|estado|state|address|endereco)/.test(keyText)){
+      const state=stateFromText(v);
+      if(state)return state;
+    }
+    if(typeof v==='object'){
+      const nested=locationFromObject(v,depth+1);
+      if(nested)return nested;
+    }
+  }
+  return'';
+}
 function competitorMonthlySold(comp,snap,history=[]){
   const raw=snap?.raw&&typeof snap.raw==='object'?snap.raw:{};
   return n(raw?.monthlySold??raw?.monthly_sold??raw?.sold_30d??historyRawValue(history,['monthlySold','monthly_sold','sold_30d'])??comp?.monthlySold??comp?.monthly_sold??comp?.sold_30d);
@@ -220,7 +245,7 @@ function searchMarketData(row){
   const monthlySold=n(b?.monthly_sold??b?.sold_30d);
   const preferred=/\bindicado\b|vendedor\s+indicado/i.test(searchText)?true:preferredFromObject(row);
   const locationRaw=b?.shop_location??b?.location??b?.shop_location_name??b?.seller_location??row?.shop_location??row?.location??row?.seller_location??null;
-  const location=stateFromText(locationRaw)||stateFromText(searchText)||stateFromText(row?.description??b?.description);
+  const location=stateFromText(locationRaw)||locationFromObject(row)||stateFromText(searchText)||stateFromText(row?.description??b?.description);
   return{
     price,originalPrice,sold,monthlySold,preferred,
     location:location||null,
@@ -548,8 +573,8 @@ function Competitors({items}){
               ratingSource:p?.ratingSource||null,validationSource:p?.validationSource||null,categoryId:p?.categoryId??p?.category_id??null,
               originalPrice:verifiedOriginalPrice,
               monthlySold:p?.monthlySold??p?.monthly_sold??p?.sold30d??p?.sold_30d??null,
-              preferred:explicitBool(p?.preferred,p?.isPreferred,p?.is_preferred_plus_seller,p?.is_preferred_shop),
-              location:p?.location??p?.shopLocation??p?.shop_location??p?.sellerLocation??p?.seller_location??null,
+              preferred:preferredFromObject(p),
+              location:locationFromObject(p)||stateFromText(p?.searchText??p?.description)||null,
               priceVerification:{
                 publicPrice,extensionPrice,
                 publicOriginalPrice,extensionOriginalPrice,
