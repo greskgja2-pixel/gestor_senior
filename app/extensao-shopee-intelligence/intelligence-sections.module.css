@@ -38,7 +38,7 @@
 .radarExact{min-width:0;padding:12px 14px 28px;background:#edf5fb;color:#102b50;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 .radarExact *{box-sizing:border-box}
 
-.radarExactToolbar{display:grid;grid-template-columns:minmax(360px,1.9fr) 128px 180px 145px 235px 34px 34px 34px;gap:10px;align-items:end;margin-bottom:14px}
+.radarExactToolbar{display:grid;grid-template-columns:minmax(300px,4.5fr) minmax(96px,1fr) minmax(145px,1.4fr) minmax(118px,1.1fr) minmax(190px,1.9fr) 34px 34px 34px;gap:10px;align-items:end;margin-bottom:14px}
 .radarExactToolbar>label{display:grid;gap:5px;min-width:0}
 .radarExactToolbar>label>small{font-size:10px;font-weight:700;color:#667d96}
 .radarExactToolbar select,.radarExactSearch,.radarExactRefresh{height:40px;border:1px solid #cddbea;border-radius:8px;background:#fff}
@@ -73,7 +73,7 @@
 .radarExactProgress>small{font-size:9px;line-height:1.5;color:#6f8499;text-align:right}
 @keyframes radarExactSpin{to{transform:rotate(360deg)}}
 
-.radarExactColumns{display:grid;grid-template-columns:minmax(0,1fr) 244px;gap:12px;align-items:start}
+.radarExactColumns{display:grid;grid-template-columns:minmax(0,1fr) 252px;gap:12px;align-items:start}
 .radarExactListArea{min-width:0}
 .radarExactListHead{height:31px;display:flex;align-items:center;justify-content:space-between;gap:12px}
 .radarExactListHead>b{font-size:12px;color:#18385f}
@@ -86,7 +86,7 @@
 .radarExactDistribution i[data-tone="stable"]{background:#b9c5d2}
 .radarExactList{display:grid;gap:10px}
 
-.radarExactCard{display:grid;grid-template-columns:minmax(275px,1.35fr) 155px 150px 232px 202px;grid-template-rows:minmax(142px,auto) auto;gap:12px;padding:12px;background:#fff;border:1px solid #d7e2ed;border-radius:9px;box-shadow:0 1px 3px rgba(27,58,91,.03)}
+.radarExactCard{display:grid;grid-template-columns:minmax(250px,2.12fr) minmax(130px,1fr) minmax(130px,1fr) minmax(200px,1.53fr) minmax(175px,1.28fr);grid-template-rows:minmax(148px,auto) auto;gap:12px;padding:12px;background:#fff;border:1px solid #d7e2ed;border-radius:9px;box-shadow:0 1px 3px rgba(27,58,91,.03)}
 .radarExactCard[data-tone="urgent"],.radarExactCard[data-tone="attention"]{border-color:#e8d2d4}
 .radarExactCard[data-tone="opportunity"]{border-color:#d2e8db}
 
@@ -125,19 +125,19 @@ a.radarExactTitle:hover{text-decoration:underline!important}
 .radarSparkEmpty{font-size:7px;color:#9aa7b4}
 .radarLine{width:100%;height:25px}.radarLine polyline{fill:none;stroke:#2680e9;stroke-width:2;vector-effect:non-scaling-stroke}
 
-.radarExactVisibility{padding:7px 10px;border-left:1px solid #e3eaf2;border-right:1px solid #e3eaf2}
-.radarExactVisibility h4{margin:0 0 5px;color:#193d66;font-size:9px}
+.radarExactVisibility{padding:9px 11px;border:1px solid #dfe8f1;border-radius:8px;background:linear-gradient(180deg,#fbfdff,#f7faff)}
+.radarExactVisibility h4{margin:0 0 6px;color:#193d66;font-size:10px;font-weight:900}
 .radarExactVisibility>div{display:grid;grid-template-columns:1fr auto;align-items:center;gap:8px;min-height:28px;border-top:1px solid #e9eef4}
 .radarExactVisibility>div:first-of-type{border-top:0}
-.radarExactVisibility span{font-size:8px;color:#6b8096}
-.radarExactVisibility b{font-size:9px;color:#173b65;text-align:right}
+.radarExactVisibility span{font-size:9px;color:#6b8096}
+.radarExactVisibility b{font-size:10px;color:#173b65;text-align:right;font-weight:900}
 .radarExactVisibility b[data-ads="detected"]{padding:4px 8px;border-radius:999px;background:#e7f8ee;color:#178d58}
 .radarExactVisibility b[data-ads="not_detected"]{padding:4px 8px;border-radius:999px;background:#eef3f7;color:#60778f}
 .radarExactVisibility b[data-ads="unknown"]{color:#566d85}
-.radarExactVisibility>button{width:100%;height:27px;margin-top:5px;border:1px solid #a9c9ee;border-radius:6px;background:#fff;color:#1265d8;font-size:8px;font-weight:900;cursor:pointer}
+.radarExactVisibility>button{width:100%;height:30px;margin-top:6px;border:1px solid #9ec2eb;border-radius:6px;background:#fff;color:#1265d8;font-size:9px;font-weight:900;cursor:pointer}
 
-.radarExactActions{display:grid;grid-template-rows:repeat(3,38px);gap:6px}
-.radarExactActions a,.radarExactActions button{display:flex;align-items:center;justify-content:center;border:1px solid #0d6cf0;border-radius:7px;background:#fff;color:#0c63d7;font-size:9px;font-weight:900;text-align:center;text-decoration:none}
+.radarExactActions{display:grid;grid-template-rows:repeat(3,39px);gap:6px}
+.radarExactActions a,.radarExactActions button{display:flex;align-items:center;justify-content:center;border:1px solid #0d6cf0;border-radius:7px;background:#fff;color:#0c63d7;font-size:9.5px;font-weight:900;text-align:center;text-decoration:none}
 .radarExactActions a:first-child{background:#0d6cf0;color:#fff}
 .radarExactActions button:disabled{opacity:.5}
 
@@ -152,7 +152,7 @@ a.radarExactTitle:hover{text-decoration:underline!important}
 .radarExactAside{display:grid;gap:10px;position:sticky;top:10px}
 .radarExactSideCard{padding:11px;background:#fff;border:1px solid #d9e3ee;border-radius:9px}
 .radarExactSideCard>header{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.radarExactSideCard>header b{font-size:9px;color:#15395f}
+.radarExactSideCard>header b{font-size:10px;color:#15395f}
 .radarExactSideCard>header span{width:20px;height:20px;display:grid;place-items:center;border-radius:50%;background:#ef3f4d;color:#fff;font-size:8px;font-weight:900}
 
 .radarExactAlerts{margin-top:6px}
@@ -160,24 +160,24 @@ a.radarExactTitle:hover{text-decoration:underline!important}
 .radarExactAlerts article:first-child{border-top:0}
 .radarExactAlerts img,.radarExactAlerts i{width:36px;height:36px;border-radius:8px;object-fit:cover;background:#eef3f7}
 .radarExactAlerts i{display:grid;place-items:center;font-style:normal;color:#6a829a}
-.radarExactAlerts b{font-size:7px;line-height:1.35;color:#29496c}
-.radarExactAlerts small{font-size:6px;color:#8393a5;white-space:nowrap}
+.radarExactAlerts b{font-size:8px;line-height:1.35;color:#29496c}
+.radarExactAlerts small{font-size:7px;color:#8393a5;white-space:nowrap}
 .radarExactAlerts p{font-size:7px;color:#74869a}
 
 .radarExactDistribution{display:grid;grid-template-columns:100px 1fr;gap:8px;align-items:center;margin-top:10px}
 .radarExactDonut{width:98px;height:98px;display:grid;place-items:center;border-radius:50%;position:relative}
 .radarExactDonut:after{content:"";position:absolute;inset:19px;border-radius:50%;background:#fff}
 .radarExactDonut span{position:relative;z-index:2;display:grid;text-align:center}.radarExactDonut b{font-size:18px;color:#183d69}.radarExactDonut small{font-size:7px;color:#728499}
-.radarExactDistribution p{display:flex;align-items:center;gap:5px;margin:5px 0;font-size:6.5px;color:#5f7590}
+.radarExactDistribution p{display:flex;align-items:center;gap:5px;margin:5px 0;font-size:7.5px;color:#5f7590}
 
 .radarExactInsight{display:grid;grid-template-columns:22px 1fr;gap:8px;margin-top:10px;padding:8px;border-radius:7px;background:#eef5fc}
 .radarExactInsight>i{width:20px;height:20px;display:grid;place-items:center;border-radius:50%;background:#1c70db;color:#fff;font-size:8px;font-style:normal;font-weight:900}
-.radarExactInsight p{margin:0}.radarExactInsight b,.radarExactInsight span{display:block}.radarExactInsight b{font-size:7.5px;color:#2c5076}.radarExactInsight span{margin-top:2px;font-size:6.5px;color:#75869a}
+.radarExactInsight p{margin:0}.radarExactInsight b,.radarExactInsight span{display:block}.radarExactInsight b{font-size:8.5px;color:#2c5076}.radarExactInsight span{margin-top:2px;font-size:7.5px;color:#75869a}
 
 @media(max-width:1450px){
-  .radarExactToolbar{grid-template-columns:minmax(280px,1.6fr) 115px 155px 130px 205px 30px 30px 30px;gap:7px}
-  .radarExactColumns{grid-template-columns:minmax(0,1fr) 225px}
-  .radarExactCard{grid-template-columns:minmax(235px,1.25fr) 135px 130px 205px 178px;gap:9px;padding:10px}
+  .radarExactToolbar{grid-template-columns:minmax(250px,4.5fr) minmax(90px,1fr) minmax(125px,1.4fr) minmax(105px,1.1fr) minmax(175px,1.9fr) 30px 30px 30px;gap:7px}
+  .radarExactColumns{grid-template-columns:minmax(0,1fr) 235px}
+  .radarExactCard{grid-template-columns:minmax(220px,2.12fr) minmax(115px,1fr) minmax(115px,1fr) minmax(180px,1.53fr) minmax(160px,1.28fr);gap:9px;padding:10px}
   .radarExactIdentity{grid-template-columns:92px minmax(0,1fr);gap:10px}.radarExactThumb,.radarExactThumb img,.radarExactThumb .noImage{width:92px;height:92px}
   .radarExactTitle{font-size:11px!important}
   .radarExactActions{grid-template-rows:repeat(3,34px)}.radarExactActions a,.radarExactActions button{font-size:8px}
