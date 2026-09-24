@@ -60,3 +60,18 @@ test('coleta de posição usa ação nova e fallback do Motor Senior 0.14',()=>{
   assert.match(ui,/Ads ativo nesta busca/);
   assert.match(ui,/não prova que o vendedor não tenha campanha ativa/);
 });
+
+
+test('radar mostra progresso real durante rechecagem e mantém títulos clicáveis',()=>{
+  assert.match(ui,/Rechecando concorrentes/);
+  assert.match(ui,/bulkProgress/);
+  assert.match(ui,/radarProgressTrack/);
+  assert.match(ui,/className=\{styles\.radarTitle\} href=\{r\.link\}/);
+  assert.match(ui,/CompetitorThumb/);
+});
+
+test('visibilidade principal permanece vertical e legível',()=>{
+  assert.match(css,/GS_RADAR_APPROVED_LAYOUT_2026_09_24/);
+  assert.match(css,/\.radarVisibility\{grid-column:4!important;grid-row:1!important;align-self:stretch;display:flex!important;flex-direction:column!important/);
+  assert.match(css,/\.radarTitle\{[^}]*font-size:14px!important/);
+});
