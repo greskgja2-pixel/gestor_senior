@@ -525,7 +525,7 @@ function Competitors({items}){
           })
         },15000);
         const market=normalized.market||{};
-        const hasMarketData=n(market.price)!=null||n(market.sold)!=null||n(market.monthlySold)!=null||market.preferred!==null||!!market.location;
+        const hasMarketData=n(market.price)!=null||n(market.sold)!=null||n(market.monthlySold)!=null||market.preferred!==null||!!market.location||!!market.shopName||!!market.shopUsername||!!market.shopUrl;
         if(hasMarketData){
           await fetchJsonWithTimeout('/api/competitor-monitor',{
             method:'POST',headers:{'Content-Type':'application/json'},
@@ -565,9 +565,44 @@ function Competitors({items}){
     if(!row?.watch?.id)return;
     setCheckingCompetitor(row.key);
     try{
+      const watch=row.watch;
+      let productWarning='';
+      try{
+        const data=await motorData('collectProduct',{url:watch.competitor_url,reason:'single-competitor-check',expectedItemId:String(watch.competitor_item_id)},45000);
+        const p=data?.product||data;
+        const itemId=String(p?.itemId??p?.item_id??''),shopId=String(p?.shopId??p?.shop_id??'');
+        if(itemId!==String(watch.competitor_item_id)||shopId!==String(watch.competitor_shop_id))throw new Error('A extensão retornou outro anúncio.');
+        const shop=shopIdentityFromObject(p);
+        const preferred=preferredFromObject(p);
+        const location=locationFromObject(p)||stateFromText(p?.searchText??p?.description)||null;
+        const extensionOriginalPrice=n(p?.originalPrice??p?.original_price??p?.priceBeforeDiscount??p?.price_before_discount);
+        await fetchJsonWithTimeout('/api/competitor-monitor',{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({
+            watch_id:watch.id,
+            title:p?.title||p?.item_name||watch.competitor_title,
+            price:null,
+            sold:n(p?.sold??p?.historicalSold??p?.historical_sold),
+            rating:n(p?.rating),stock:n(p?.stock),image_url:competitorImage(p),
+            source:'pdp_get_pc_metadata',confidence:'structured',
+            raw:{
+              originalPrice:extensionOriginalPrice,
+              monthlySold:n(p?.monthlySold??p?.monthly_sold??p?.sold30d??p?.sold_30d),
+              preferred,location,
+              shopName:shop.name||null,shopUsername:shop.username||null,shopUrl:shop.url||null
+            }
+          })
+        },15000);
+      }catch(error){
+        productWarning=String(error?.message||error);
+      }
+
       const result=await collectVisibilityGroup([row],{silent:true});
-      if(result.failed)throw result.error||new Error('A busca não conseguiu atualizar os dados deste concorrente.');
+      if(result.failed&&productWarning)throw result.error||new Error(productWarning);
       await loadMonitor();
+      if(result.failed||productWarning){
+        setMonitor(x=>({...x,phase:'success',error:'Alguns dados foram atualizados; uma das fontes não respondeu completamente.'}));
+      }
     }catch(e){
       setMonitor(x=>({...x,phase:'error',error:'Falha ao checar o concorrente: '+String(e?.message||e)}));
     }finally{setCheckingCompetitor('')}
