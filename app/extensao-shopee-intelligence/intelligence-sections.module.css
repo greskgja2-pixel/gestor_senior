@@ -13,3 +13,10 @@
 .monitorControls small{margin:0!important;font-size:7px!important;color:#8090a3!important}
 .monitorControls button{border:1px solid #d4e1ed;border-radius:7px;background:#fff;color:#245f9f;padding:6px 8px;font-size:7px;font-weight:900;cursor:pointer}
 @media(max-width:650px){.monitorSummary{align-items:flex-start;flex-direction:column}.monitorSummary>span{white-space:normal}}
+
+/* GS_COMPETITOR_DELTAS_2026_09_24 */
+.deltaLine{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin:6px 0}
+.deltaLine span{display:inline-flex!important;align-items:center;border-radius:999px;padding:4px 6px;font-size:7px!important;font-weight:900}
+.deltaDown{background:#fff0f0;color:#bb4242!important}
+.deltaUp{background:#eef9f2;color:#238057!important}
+.deltaNeutral{background:#eef4fb;color:#3e6289!important}
