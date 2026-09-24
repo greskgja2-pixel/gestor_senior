@@ -3,6 +3,7 @@
 import {useEffect,useMemo,useState} from 'react';
 import Link from 'next/link';
 import styles from './intelligence-sections.module.css';
+import ReminderButton from '../components/ReminderButton';
 import {fetchJsonWithTimeout,motorRequest,classifyAsyncError} from '../lib/client-async';
 
 const n=v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v))?null:Number(v);
@@ -89,13 +90,30 @@ function Ads(){
 function Reanalises({items}){
   const rows=items.map(item=>{const s=item.schedule||{};const next=s.next_run_at||item.latest?.next_reanalysis_at;const ts=next?new Date(next).getTime():null;return{...item,next,due:Number.isFinite(ts)&&ts<=Date.now(),title:item.latest?.product_snapshot?.title||item.latest?.product_snapshot?.item_name||s.title||`Produto ${item.itemId}`}}).sort((a,b)=>(b.due?1:0)-(a.due?1:0)||new Date(a.next||8640000000000000)-new Date(b.next||8640000000000000));
   if(!rows.length)return <Empty text="Nenhum anúncio possui histórico de análise ainda."/>;
-  return <section className={styles.panel}><div className={styles.tableWrap}><table><thead><tr><th>Anúncio</th><th>Última análise</th><th>Próxima reanálise</th><th>Status</th><th>Ação</th></tr></thead><tbody>{rows.map(r=><tr key={r.itemId}><td><b>{r.title}</b><small>Produto {r.itemId}</small></td><td>{when(r.latest?.analyzed_at)}</td><td>{when(r.next)}</td><td><span className={r.due?styles.due:styles.live}>{r.due?'Vencida':'Agendada'}</span></td><td><Link className={styles.linkButton} href={`/super-analise?item_id=${r.itemId}`}>{r.due?'Reanalisar agora':'Abrir análise'}</Link></td></tr>)}</tbody></table></div></section>
+  return <section className={styles.panel}><div className={styles.tableWrap}><table><thead><tr><th>Anúncio</th><th>Última análise</th><th>Próxima reanálise</th><th>Status</th><th>Ação</th></tr></thead><tbody>{rows.map(r=><tr key={r.itemId}><td><b>{r.title}</b><small>Produto {r.itemId}</small></td><td>{when(r.latest?.analyzed_at)}</td><td>{when(r.next)}</td><td><span className={r.due?styles.due:styles.live}>{r.due?'Vencida':'Agendada'}</span></td><td><div className={styles.rowActions}><Link className={styles.linkButton} href={`/super-analise?item_id=${r.itemId}`}>{r.due?'Reanalisar agora':'Abrir análise'}</Link><ReminderButton itemId={r.itemId} taskType="reanalysis" priority={r.due?'urgent':'medium'} title="Refazer Super Análise" description={`Refazer a Super Análise de ${r.title}.`} actionUrl={`/super-analise?item_id=${r.itemId}`} label="🔔"/></div></td></tr>)}</tbody></table></div></section>
 }
 
 function Prioridades({items}){
+  const [tasks,setTasks]=useState([]),[taskPhase,setTaskPhase]=useState('loading');
+  async function loadTasks(){
+    setTaskPhase('loading');
+    try{const r=await fetchJsonWithTimeout('/api/tasks',{cache:'no-store'},12000);setTasks(arr(r?.tasks));setTaskPhase('success')}catch{setTaskPhase('error')}
+  }
+  useEffect(()=>{loadTasks()},[]);
+  async function taskAction(id,action,hours){
+    try{await fetchJsonWithTimeout('/api/tasks',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,action,hours})},12000);await loadTasks()}catch{}
+  }
   const rows=items.map(item=>{const r=item.latest||{},ai=r.report?.ai_analysis||{},priorities=arr(ai.priorities);return{itemId:item.itemId,title:r.product_snapshot?.title||r.product_snapshot?.item_name||`Produto ${item.itemId}`,score:n(r.score),priority:priorities[0],analyzed:r.analyzed_at}}).sort((a,b)=>(a.score??999)-(b.score??999));
-  if(!rows.length)return <Empty text="Ainda não há análises suficientes para montar prioridades."/>;
-  return <div className={styles.priorityList}>{rows.map(r=><article key={r.itemId}><div className={styles.score}>{r.score==null?'—':Math.round(r.score)}</div><div><b>{r.title}</b><small>Última análise: {when(r.analyzed)}</small><p>{r.priority?.why||r.priority?.reason||r.priority?.area||'Revisar os pontos com menor nota na Super Análise.'}</p></div><Link href={`/extensao-shopee-intelligence?section=super-anuncio&item_id=${r.itemId}&tab=analysis`}>Ver anúncio</Link></article>)}</div>
+  return <div className={styles.priorityStack}>
+    <section className={styles.panel}>
+      <div className={styles.panelHead}><div><h2>Tarefas e lembretes</h2><p>O que você pediu para lembrar e o que o Gestor marcou como vencido.</p></div><span>{tasks.length} aberta{tasks.length===1?'':'s'}</span></div>
+      {taskPhase==='loading'?<Empty text="Carregando tarefas…"/>:taskPhase==='error'?<Empty text="Não foi possível carregar as tarefas agora." action="Tentar novamente" onAction={loadTasks}/>:tasks.length?<div className={styles.taskList}>{tasks.map(t=><article key={t.id} data-priority={t.priority}><div><b>{t.title}</b><small>{t.due_at?'Prazo: '+when(t.due_at):'Sem prazo definido'} · {t.task_type||'tarefa'}</small><p>{t.description||'Tarefa pendente.'}</p></div><div className={styles.taskActions}>{t.action_url&&<Link href={t.action_url}>Resolver agora</Link>}<button onClick={()=>taskAction(t.id,'snooze',24)}>Amanhã</button><button onClick={()=>taskAction(t.id,'done')}>Concluir</button></div></article>)}</div>:<Empty text="Nenhuma tarefa aberta agora."/>}
+    </section>
+    <section>
+      <div className={styles.sectionCaption}><h2>Prioridades da Super Análise</h2><p>Oportunidades detectadas nas análises dos anúncios.</p></div>
+      {rows.length?<div className={styles.priorityList}>{rows.map(r=><article key={r.itemId}><div className={styles.score}>{r.score==null?'—':Math.round(r.score)}</div><div><b>{r.title}</b><small>Última análise: {when(r.analyzed)}</small><p>{r.priority?.why||r.priority?.reason||r.priority?.area||'Revisar os pontos com menor nota na Super Análise.'}</p></div><Link href={`/extensao-shopee-intelligence?section=super-anuncio&item_id=${r.itemId}&tab=analysis`}>Ver anúncio</Link></article>)}</div>:<Empty text="Ainda não há análises suficientes para montar prioridades."/>}
+    </section>
+  </div>
 }
 
 function Reports({items}){
