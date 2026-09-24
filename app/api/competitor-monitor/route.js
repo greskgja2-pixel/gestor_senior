@@ -110,8 +110,13 @@ async function snapshotBundles(db,watchIds){
   }
   const map=new Map();
   for(const [watchId,history] of grouped){
-    const latest=history[0]||null,previous=history[1]||null;
-    map.set(watchId,{latest,previous,history,change:snapshotChange(previous,latest)});
+    const latest=history[0]||null,previous=history[1]||null,older=history[2]||null;
+    const change=snapshotChange(previous,latest),prior=snapshotChange(older,previous);
+    if(change&&prior&&finite(change.sold_per_day)!=null&&finite(prior.sold_per_day)!=null){
+      change.sold_velocity_before=finite(prior.sold_per_day);
+      change.sold_velocity_change_pct=prior.sold_per_day>0?((change.sold_per_day-prior.sold_per_day)/prior.sold_per_day)*100:null;
+    }
+    map.set(watchId,{latest,previous,history,change});
   }
   return map;
 }
@@ -138,6 +143,27 @@ async function createChangeTask(db,shopId,watch,previous,current){
   };
   const {error}=await db.from('gs_tasks').upsert(task,{onConflict:'shop_id,dedupe_key',ignoreDuplicates:true});
   if(error&&!String(error.message).includes('duplicate'))console.warn('[competitor-monitor] task error',error.message);
+}
+async function createVelocityTask(db,shopId,watch,older,previous,current){
+  const prior=snapshotChange(older,previous),latest=snapshotChange(previous,current);
+  if(!prior||!latest)return;
+  const before=finite(prior.sold_per_day),now=finite(latest.sold_per_day),soldDelta=finite(latest.sold_delta);
+  if(before==null||now==null||soldDelta==null||soldDelta<5||now<2)return;
+  const pct=before>0?((now-before)/before)*100:null;
+  if((pct==null&&now<5)||(pct!=null&&pct<50))return;
+  const pctText=pct==null?'novo ritmo':`${pct.toLocaleString('pt-BR',{maximumFractionDigits:0})}% acima do ritmo anterior`;
+  const description=`${watch.competitor_title||'Concorrente'} acelerou para aproximadamente ${now.toLocaleString('pt-BR',{maximumFractionDigits:1})} venda(s)/dia, ${pctText}. Foram +${soldDelta.toLocaleString('pt-BR')} vendas desde a última coleta.`;
+  const day=new Date(current.collected_at).toISOString().slice(0,10);
+  const task={
+    shop_id:shopId,item_id:watch.owner_item_id,task_type:'competitors',title:'Concorrente acelerou vendas',description,
+    priority:now>=10||(pct!=null&&pct>=100)?'high':'medium',status:'open',due_at:new Date().toISOString(),remind_at:new Date().toISOString(),
+    source:'competitor-monitor',action_url:`/extensao-shopee-intelligence?section=concorrentes&item_id=${watch.owner_item_id}`,
+    dedupe_key:`competitor-velocity:${watch.id}:${day}:${Math.round(now*10)}`,
+    metadata:{watch_id:watch.id,competitor_item_id:watch.competitor_item_id,sold_delta:soldDelta,sold_per_day:now,previous_sold_per_day:before,velocity_change_pct:pct},
+    updated_at:new Date().toISOString()
+  };
+  const {error}=await db.from('gs_tasks').upsert(task,{onConflict:'shop_id,dedupe_key',ignoreDuplicates:true});
+  if(error&&!String(error.message).includes('duplicate'))console.warn('[competitor-monitor] velocity task error',error.message);
 }
 
 export async function GET(request){
@@ -205,16 +231,16 @@ export async function POST(request){
       raw:body?.raw&&typeof body.raw==='object'?body.raw:{}
     };
     if(snapshot.price==null&&snapshot.sold==null&&!snapshot.image_url)return NextResponse.json({error:'A coleta não trouxe preço, vendas nem imagem confiável.'},{status:422});
-    const {data:previousRows,error:prevError}=await db.from('gs_competitor_snapshots').select('*').eq('watch_id',watch.id).order('collected_at',{ascending:false}).limit(1);
+    const {data:previousRows,error:prevError}=await db.from('gs_competitor_snapshots').select('*').eq('watch_id',watch.id).order('collected_at',{ascending:false}).limit(2);
     if(prevError)throw new Error(prevError.message);
-    const previous=previousRows?.[0]||null;
+    const previous=previousRows?.[0]||null,older=previousRows?.[1]||null;
     const {data:inserted,error:insertError}=await db.from('gs_competitor_snapshots').insert(snapshot).select('*').single();
     if(insertError)throw new Error(insertError.message);
     await db.from('gs_competitor_watches').update({
       competitor_title:snapshot.title||watch.competitor_title,last_check_at:collected.toISOString(),
       next_check_at:addDays(collected.toISOString(),watch.frequency_days||7),last_status:'success',last_error:null,updated_at:new Date().toISOString()
     }).eq('id',watch.id).eq('shop_id',shop.shop_id);
-    await createChangeTask(db,shop.shop_id,watch,previous,inserted);
+    await Promise.all([createChangeTask(db,shop.shop_id,watch,previous,inserted),createVelocityTask(db,shop.shop_id,watch,older,previous,inserted)]);
     const prevPrice=finite(previous?.price),price=finite(inserted.price),prevSold=finite(previous?.sold),sold=finite(inserted.sold);
     return NextResponse.json({ok:true,snapshot:inserted,change:{
       price_before:prevPrice,price_now:price,price_change_pct:prevPrice&&price?((price-prevPrice)/prevPrice)*100:null,
