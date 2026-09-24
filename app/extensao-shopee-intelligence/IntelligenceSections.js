@@ -75,22 +75,42 @@ function historyRawValue(history,keys){
   }
   return null;
 }
-function preferredFromObject(value,depth=0){
-  if(!value||typeof value!=='object'||depth>5)return null;
+function preferredSignalsFromObject(value,depth=0,path='root'){
+  const result={trueEvidence:null,falseEvidence:null};
+  if(!value||typeof value!=='object'||depth>6)return result;
   const keys=['is_preferred_plus_seller','is_preferred_shop','is_preferred_seller','isPreferredPlusSeller','isPreferredShop','isPreferredSeller','preferred','preferred_seller'];
-  const direct=explicitBool(...keys.map(k=>value?.[k]));
-  if(direct!==null)return direct;
+  for(const key of keys){
+    if(!Object.prototype.hasOwnProperty.call(value,key))continue;
+    const b=explicitBool(value?.[key]);
+    if(b===true&&!result.trueEvidence)result.trueEvidence=path+'.'+key;
+    if(b===false&&!result.falseEvidence)result.falseEvidence=path+'.'+key;
+  }
   for(const [key,v] of Object.entries(value)){
     if(v==null)continue;
     const keyText=normalizeLooseText(key);
-    const valueText=typeof v==='string'?normalizeLooseText(v):'';
-    if((keyText.includes('badge')||keyText.includes('label')||keyText.includes('seller')||keyText.includes('shop'))&&/preferred|preferido|indicado/.test(valueText))return true;
-    if(typeof v==='object'){
-      const nested=preferredFromObject(v,depth+1);
-      if(nested!==null)return nested;
+    if(typeof v==='string'){
+      const raw=String(v).trim(),valueText=normalizeLooseText(raw);
+      const sellerKey=/(badge|label|tag|seller|shop|store|preferred|prefer)/.test(keyText);
+      const pageTextKey=/(page.?text|visible.?text|dom.?text|body.?text|document.?text|search.?text|content.?text)/.test(keyText);
+      const explicitSellerLabel=/\bvendedor\s+indicado\b|\bpreferred\s+seller\b|\bvendedor\s+preferido\b/.test(valueText);
+      const badgeLabel=sellerKey&&/(^|\W)(indicado|preferred|preferido)(\W|$)/.test(valueText);
+      const isolatedVisibleLabel=pageTextKey&&raw.split(/\r?\n|\|/).map(x=>normalizeLooseText(x.trim())).some(line=>line==='indicado'||line==='vendedor indicado'||line==='preferred seller'||line==='vendedor preferido');
+      if((explicitSellerLabel||badgeLabel||isolatedVisibleLabel)&&!result.trueEvidence)result.trueEvidence=path+'.'+key+':visible-label';
+    }else if(typeof v==='object'){
+      const nested=preferredSignalsFromObject(v,depth+1,path+'.'+key);
+      if(nested.trueEvidence&&!result.trueEvidence)result.trueEvidence=nested.trueEvidence;
+      if(nested.falseEvidence&&!result.falseEvidence)result.falseEvidence=nested.falseEvidence;
     }
   }
-  return null;
+  return result;
+}
+function preferredFromObject(value){
+  const signal=preferredSignalsFromObject(value);
+  return signal.trueEvidence?true:(signal.falseEvidence?false:null);
+}
+function preferredEvidenceFromObject(value){
+  const signal=preferredSignalsFromObject(value);
+  return signal.trueEvidence||signal.falseEvidence||null;
 }
 function locationFromObject(value,depth=0){
   if(!value||typeof value!=='object'||depth>5)return'';
@@ -129,7 +149,11 @@ function competitorPreferred(comp,snap,history=[]){
     comp?.preferred,comp?.is_preferred_plus_seller,comp?.is_preferred_shop
   );
   if(direct!==null)return direct;
-  if(/\bindicado\b|vendedor\s+indicado/i.test(String(comp?.searchText||'')))return true;
+  const searchText=String(comp?.searchText||'');
+  if(searchText){
+    const lines=searchText.split(/\r?\n|\|/).map(x=>normalizeLooseText(x.trim()));
+    if(lines.some(line=>line==='indicado'||line==='vendedor indicado'||line==='preferred seller'))return true;
+  }
   return preferredFromObject(comp);
 }
 function competitorLocation(comp,snap,history=[]){
@@ -572,9 +596,10 @@ function Competitors({items}){
         const p=data?.product||data;
         const itemId=String(p?.itemId??p?.item_id??''),shopId=String(p?.shopId??p?.shop_id??'');
         if(itemId!==String(watch.competitor_item_id)||shopId!==String(watch.competitor_shop_id))throw new Error('A extensão retornou outro anúncio.');
-        const shop=shopIdentityFromObject(p);
-        const preferred=preferredFromObject(p);
-        const location=locationFromObject(p)||stateFromText(p?.searchText??p?.description)||null;
+        const shop=shopIdentityFromObject(data);
+        const preferred=preferredFromObject(data);
+        const preferredEvidence=preferredEvidenceFromObject(data);
+        const location=locationFromObject(data)||stateFromText(p?.searchText??p?.description)||null;
         const extensionOriginalPrice=n(p?.originalPrice??p?.original_price??p?.priceBeforeDiscount??p?.price_before_discount);
         await fetchJsonWithTimeout('/api/competitor-monitor',{
           method:'POST',headers:{'Content-Type':'application/json'},
@@ -588,7 +613,7 @@ function Competitors({items}){
             raw:{
               originalPrice:extensionOriginalPrice,
               monthlySold:n(p?.monthlySold??p?.monthly_sold??p?.sold30d??p?.sold_30d),
-              preferred,location,
+              preferred,preferredEvidence,location,
               shopName:shop.name||null,shopUsername:shop.username||null,shopUrl:shop.url||null
             }
           })
@@ -656,11 +681,12 @@ function Competitors({items}){
               ratingSource:p?.ratingSource||null,validationSource:p?.validationSource||null,categoryId:p?.categoryId??p?.category_id??null,
               originalPrice:verifiedOriginalPrice,
               monthlySold:p?.monthlySold??p?.monthly_sold??p?.sold30d??p?.sold_30d??null,
-              preferred:preferredFromObject(p),
-              location:locationFromObject(p)||stateFromText(p?.searchText??p?.description)||null,
-              shopName:shopIdentityFromObject(p).name||null,
-              shopUsername:shopIdentityFromObject(p).username||null,
-              shopUrl:shopIdentityFromObject(p).url||null,
+              preferred:preferredFromObject(data),
+              preferredEvidence:preferredEvidenceFromObject(data),
+              location:locationFromObject(data)||stateFromText(p?.searchText??p?.description)||null,
+              shopName:shopIdentityFromObject(data).name||null,
+              shopUsername:shopIdentityFromObject(data).username||null,
+              shopUrl:shopIdentityFromObject(data).url||null,
               priceVerification:{
                 publicPrice,extensionPrice,
                 publicOriginalPrice,extensionOriginalPrice,
