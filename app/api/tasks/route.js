@@ -2,6 +2,7 @@ import {NextResponse} from 'next/server';
 import {getActiveShop} from '../../../lib/shop';
 import {supabaseAdmin} from '../../../lib/supabase';
 import {getAdsCampaignList,getAdsCampaignSettings,getAdsCampaignDaily} from '../../../lib/shopee-extra';
+import {sendTaskNotification} from '../../../lib/notifications';
 
 export const dynamic='force-dynamic';
 export const runtime='nodejs';
@@ -10,6 +11,12 @@ const safeText=(v,max=500)=>v==null?null:(String(v).trim().slice(0,max)||null);
 const positiveInt=v=>Number.isSafeInteger(Number(v))&&Number(v)>0?Number(v):null;
 const allowedPriority=new Set(['urgent','high','medium','low']);
 const priorityRank={urgent:0,high:1,medium:2,low:3};
+
+async function notifyTaskByEmail(db,shopId,task){
+  if(!task)return;
+  try{await sendTaskNotification({db,shopId,task,allowWhatsApp:false})}
+  catch(error){console.warn('[tasks] falha ao enviar alerta externo',String(error?.message||error))}
+}
 
 async function closeOpenAutoTasks(db,shopId,taskType,sources){
   const now=new Date().toISOString();
@@ -23,7 +30,7 @@ async function syncReanalysisTasks(db,shopId){
   const now=Date.now(),soon=now+24*3600*1000;
   const [{data:schedules,error:scheduleError},{data:existing,error:taskError}]=await Promise.all([
     db.from('extension_analysis_schedules').select('item_id,title,next_run_at,last_run_at,enabled').eq('shop_id',shopId),
-    db.from('gs_tasks').select('id,item_id,due_at,created_at').eq('shop_id',shopId).eq('source','system').eq('task_type','reanalysis').eq('status','open')
+    db.from('gs_tasks').select('id,item_id,due_at,created_at,metadata,last_notified_at').eq('shop_id',shopId).eq('source','system').eq('task_type','reanalysis').eq('status','open')
   ]);
   if(scheduleError||taskError)return;
   const byItem=new Map((existing||[]).map(x=>[String(x.item_id),x]));
@@ -45,10 +52,17 @@ async function syncReanalysisTasks(db,shopId){
       remind_at:new Date(next).toISOString(),source:'system',
       action_url:`/super-analise?item_id=${s.item_id}`,
       dedupe_key:`reanalysis:${s.item_id}`,
-      metadata:{reason:'analysis_schedule'},updated_at:new Date().toISOString()
+      metadata:{...(current?.metadata||{}),reason:'analysis_schedule'},updated_at:new Date().toISOString()
     };
-    if(current)await db.from('gs_tasks').update(payload).eq('id',current.id).eq('shop_id',shopId);
-    else await db.from('gs_tasks').insert(payload);
+    let saved=null;
+    if(current){
+      const {data}=await db.from('gs_tasks').update(payload).eq('id',current.id).eq('shop_id',shopId).select('*').maybeSingle();
+      saved=data;
+    }else{
+      const {data}=await db.from('gs_tasks').insert(payload).select('*').single();
+      saved=data;
+    }
+    await notifyTaskByEmail(db,shopId,saved);
   }
 }
 
@@ -57,7 +71,7 @@ async function syncCompetitorDueTasks(db,shopId){
   const nowIso=new Date().toISOString();
   const [{data:watches,error:watchError},{data:open,error:taskError}]=await Promise.all([
     db.from('gs_competitor_watches').select('owner_item_id,competitor_item_id,competitor_title,next_check_at').eq('shop_id',shopId).eq('enabled',true).lte('next_check_at',nowIso),
-    db.from('gs_tasks').select('id,item_id,dedupe_key').eq('shop_id',shopId).eq('task_type','competitors').eq('source','system').eq('status','open')
+    db.from('gs_tasks').select('id,item_id,dedupe_key,metadata,last_notified_at').eq('shop_id',shopId).eq('task_type','competitors').eq('source','system').eq('status','open')
   ]);
   if(watchError||taskError)return;
   const groups=new Map();
@@ -76,10 +90,17 @@ async function syncCompetitorDueTasks(db,shopId){
       priority:'high',status:'open',due_at:nowIso,remind_at:nowIso,source:'system',
       action_url:`/extensao-shopee-intelligence?section=concorrentes&item_id=${ownerItemId}`,
       dedupe_key:`competitor-refresh:${ownerItemId}`,
-      metadata:{due_count:rows.length,competitor_item_ids:rows.map(x=>x.competitor_item_id)},updated_at:nowIso
+      metadata:{...(current?.metadata||{}),due_count:rows.length,competitor_item_ids:rows.map(x=>x.competitor_item_id)},updated_at:nowIso
     };
-    if(current)await db.from('gs_tasks').update(payload).eq('id',current.id).eq('shop_id',shopId);
-    else await db.from('gs_tasks').insert(payload);
+    let saved=null;
+    if(current){
+      const {data}=await db.from('gs_tasks').update(payload).eq('id',current.id).eq('shop_id',shopId).select('*').maybeSingle();
+      saved=data;
+    }else{
+      const {data}=await db.from('gs_tasks').insert(payload).select('*').single();
+      saved=data;
+    }
+    await notifyTaskByEmail(db,shopId,saved);
     openMap.delete(ownerItemId);
   }
   for(const stale of openMap.values()){
@@ -159,16 +180,19 @@ async function syncAdsZeroSalesTasks(db,shop){
       const totals=adsTotals(node);
       if(totals.spend==null||totals.orders==null||totals.spend<threshold||totals.orders!==0)continue;
       const m=meta.get(campaignId)||{},spend=totals.spend.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+      const dedupeKey=`ads-zero-sales:${campaignId}:${day}`;
       await db.from('gs_tasks').upsert({
         shop_id:shop.shop_id,item_id:m.itemId||null,task_type:'ads',
         title:'Shopee Ads gastou e não vendeu ontem',
         description:`${m.title||('Campanha '+campaignId)} gastou ${spend} em ${day} e registrou 0 pedidos. Avalie a campanha antes de continuar investindo.`,
         priority:'urgent',status:'open',due_at:new Date().toISOString(),remind_at:new Date().toISOString(),
         source:'ads-daily',action_url:'/extensao-shopee-intelligence?section=shopee-ads',
-        dedupe_key:`ads-zero-sales:${campaignId}:${day}`,
+        dedupe_key:dedupeKey,
         metadata:{campaign_id:campaignId,date:day,spend:totals.spend,orders:0,threshold},
         updated_at:new Date().toISOString()
       },{onConflict:'shop_id,dedupe_key',ignoreDuplicates:true});
+      const {data:saved}=await db.from('gs_tasks').select('*').eq('shop_id',shop.shop_id).eq('dedupe_key',dedupeKey).maybeSingle();
+      await notifyTaskByEmail(db,shop.shop_id,saved);
     }
     await db.from('gs_tasks').insert({shop_id:shop.shop_id,task_type:'system_sync',title:'Sincronização Ads diária',status:'done',source:'system-sync',dedupe_key:marker,metadata:{date:day,campaigns:ids.length,threshold},completed_at:new Date().toISOString(),updated_at:new Date().toISOString()});
   }catch(error){console.warn('[tasks] falha no alerta diário de Ads',String(error?.message||error))}
