@@ -165,10 +165,10 @@
 
 
 /* GS_EMBEDDED_SUPER_ANALYSIS_2026_09_24 */
-.embeddedScreen{position:relative!important;inset:auto!important;z-index:auto!important;min-height:0!important;height:auto!important;background:transparent!important;overflow:visible!important}
-.embeddedMain{width:100%;min-height:0;padding:0;background:transparent}
+.embeddedScreen{display:block;width:100%;min-width:0;max-width:none;position:relative!important;inset:auto!important;z-index:auto!important;min-height:0!important;height:auto!important;background:transparent!important;overflow:visible!important}
+.embeddedMain{display:block;width:100%;min-width:0;max-width:none;min-height:0;padding:0;background:transparent}
 .embeddedScreen .tabWorkspace{margin-top:0}
-.embeddedScreen .tabContent{min-width:0}
+.embeddedScreen .tabWorkspace,.embeddedScreen .tabContent{width:100%;min-width:0;max-width:none}
 .embeddedScreen .actionPanel{margin-top:10px}
 
 /* GS_FLASH_PERIOD_PLANNER_2026_09_24 */
