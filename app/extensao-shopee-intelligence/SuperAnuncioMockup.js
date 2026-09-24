@@ -3,6 +3,7 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
 import Link from 'next/link';
 import styles from './super-anuncio-mockup.module.css';
+import ReminderButton from '../components/ReminderButton';
 import {fetchJsonWithTimeout,classifyAsyncError} from '../lib/client-async';
 
 const n=v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v))?null:Number(v);
@@ -418,7 +419,10 @@ function FlashSaleCard({state,itemId,onReload}){
     <div className={styles.flashAttention} data-tone={attentionTone}>
       <span>{attentionTone==='ok'?'✓':attentionTone==='auto'?'🤖':'!'}</span>
       <div><b>{attentionTitle}</b><p>{attentionText}</p></div>
-      {!automationEnabled&&<Link href={'/super-analise?item_id='+itemId+'&tab=price'}>{scheduled.length?'Planejar próxima':'Agendar agora'} ↗</Link>}
+      <span className={styles.flashAttentionActions}>
+        {!automationEnabled&&<Link href={'/super-analise?item_id='+itemId+'&tab=price'}>{scheduled.length?'Planejar próxima':'Agendar agora'} ↗</Link>}
+        <ReminderButton itemId={itemId} taskType="flash_sale" priority={scheduled.length?'medium':'high'} title="Criar próxima Oferta Relâmpago" description={scheduled.length&&coverage?('Revisar a próxima Oferta Relâmpago deste produto. Cobertura atual até '+flashWhen(coverage)+'.'):'Programar uma nova Oferta Relâmpago para este produto.'} actionUrl={'/super-analise?item_id='+itemId+'&tab=price'} label="🔔 Lembrar depois"/>
+      </span>
     </div>
 
     {failed?<div className={styles.flashError}>{state.error||'Não foi possível consultar as ofertas.'}<button type="button" onClick={onReload}>Tentar novamente</button></div>:null}
