@@ -11,6 +11,7 @@ const MAX_ITEMS = 40;
 export async function GET(request) {
   const url = new URL(request.url);
   const requestedShopId = String(url.searchParams.get("shop_id") || "").trim();
+  const direct = url.searchParams.get("direct") === "1";
   const raw = (url.searchParams.get("item_ids") || "").split(",").map((s) => s.trim()).filter(Boolean);
   const itemIds = [...new Set(raw)].slice(0, MAX_ITEMS).map(Number).filter((n) => Number.isFinite(n) && n > 0);
   if (!itemIds.length) return NextResponse.json({ error: "Informe item_ids." }, { status: 400 });
@@ -29,8 +30,10 @@ export async function GET(request) {
 
   let shopMap = null;
   let shopMapError = null;
-  try { shopMap = await getShopItemsPublic(shopId); }
-  catch (err) { shopMapError = String(err.message || err); }
+  if (!direct) {
+    try { shopMap = await getShopItemsPublic(shopId); }
+    catch (err) { shopMapError = String(err.message || err); }
+  }
 
   const results = [];
   for (const itemId of itemIds) {
