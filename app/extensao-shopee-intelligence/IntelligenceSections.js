@@ -385,18 +385,40 @@ function Competitors({items}){
         const source=String(p?.ratingSource||p?.validationSource||p?.source||data?.source||'').toLowerCase();
         const structured=/pdp_get_pc|structured|api/.test(source)||p?.ratingDebug?.pdpGetPc?.ok===true||p?.rating_debug?.pdp_get_pc?.ok===true||p?.validation?.pdpGetPc?.ok===true;
         if(!structured)throw new Error('A coleta estruturada deste concorrente não foi confirmada.');
+
+        let publicProduct=null;
+        try{
+          const publicData=await fetchJsonWithTimeout('/api/shopee/product-public?direct=1&shop_id='+encodeURIComponent(shopId)+'&item_ids='+encodeURIComponent(itemId),{cache:'no-store'},18000);
+          publicProduct=arr(publicData?.results).find(x=>String(x?.item_id??x?.itemId??'')===itemId&&x?.ok!==false)||null;
+        }catch(error){
+          console.warn('[Concorrentes] validação pública de preço falhou',error);
+        }
+        const extensionPrice=n(p?.currentPrice??p?.price);
+        const publicPrice=n(publicProduct?.price);
+        const verifiedPrice=publicPrice??extensionPrice;
+        const extensionOriginalPrice=n(p?.originalPrice??p?.original_price??p?.priceBeforeDiscount??p?.price_before_discount);
+        const publicOriginalPrice=n(publicProduct?.priceBeforeDiscount??publicProduct?.originalPrice);
+        const verifiedOriginalPrice=publicOriginalPrice??extensionOriginalPrice;
+        const verifiedSold=n(publicProduct?.historicalSold)??n(p?.sold??p?.historicalSold??p?.historical_sold);
+        if(verifiedPrice==null)throw new Error('A coleta não trouxe um preço verificável para este concorrente.');
+
         await fetchJsonWithTimeout('/api/competitor-monitor',{
           method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({
             watch_id:watch.id,title:p?.title||p?.item_name||watch.competitor_title,
-            price:p?.price??p?.currentPrice??null,sold:p?.sold??p?.historicalSold??p?.historical_sold??null,rating:p?.rating??null,stock:p?.stock??null,
-            image_url:competitorImage(p),source:source||'pdp_get_pc_intercepted',confidence:'structured',
+            price:verifiedPrice,sold:verifiedSold,rating:p?.rating??publicProduct?.rating??null,stock:p?.stock??publicProduct?.stock??null,
+            image_url:competitorImage(p),source:publicPrice!=null?'shopee-public-item-verified':(source||'pdp_get_pc_intercepted'),confidence:publicPrice!=null?'verified':'structured',
             raw:{
               ratingSource:p?.ratingSource||null,validationSource:p?.validationSource||null,categoryId:p?.categoryId??p?.category_id??null,
-              originalPrice:p?.originalPrice??p?.original_price??p?.priceBeforeDiscount??p?.price_before_discount??null,
+              originalPrice:verifiedOriginalPrice,
               monthlySold:p?.monthlySold??p?.monthly_sold??p?.sold30d??p?.sold_30d??null,
               preferred:explicitBool(p?.preferred,p?.isPreferred,p?.is_preferred_plus_seller,p?.is_preferred_shop),
-              location:p?.location??p?.shopLocation??p?.shop_location??p?.sellerLocation??p?.seller_location??null
+              location:p?.location??p?.shopLocation??p?.shop_location??p?.sellerLocation??p?.seller_location??null,
+              priceVerification:{
+                publicPrice,extensionPrice,
+                publicOriginalPrice,extensionOriginalPrice,
+                mismatch:publicPrice!=null&&extensionPrice!=null&&Math.abs(publicPrice-extensionPrice)>.009
+              }
             }
           })
         },15000);
