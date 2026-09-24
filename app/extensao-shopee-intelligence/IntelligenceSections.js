@@ -338,6 +338,8 @@ function searchMarketData(row){
 }
 function detectAdsFromSearchRow(row){
   if(!row||typeof row!=='object')return{status:'unknown',evidence:null};
+  if(row?.is_ads===true)return{status:'detected',evidence:row?.ads_evidence||'extension.is_ads=true'};
+  if(row?.is_ads===false)return{status:'not_detected',evidence:row?.ads_evidence||'extension.is_ads=false'};
   const visibleText=String(row?.searchText??row?.item_basic?.searchText??row?.item?.searchText??'');
   if(/(^|\n)\s*Ad\s*(\n|$)/i.test(visibleText))return{status:'detected',evidence:'search-label-ad'};
   const scopes=[row,row?.item_basic,row?.item,row?.ads,row?.ad,row?.tracking_info,row?.tracking].filter(x=>x&&typeof x==='object');
@@ -511,6 +513,8 @@ function Competitors({items}){
       sold:n(snap?.sold)??competitorSold(comp),sold30d:competitorMonthlySold(comp,snap,watch?.snapshot_history),
       preferred:competitorPreferred(comp,snap,watch?.snapshot_history),location:competitorLocation(comp,snap,watch?.snapshot_history),
       store:competitorStore(comp,snap,watch?.snapshot_history,watch),
+      adsFallback:explicitBool(snap?.raw?.ads,historyRawValue(watch?.snapshot_history,['ads'])),
+      adsFallbackEvidence:snap?.raw?.adsEvidence||historyRawValue(watch?.snapshot_history,['adsEvidence'])||null,
       rating:n(snap?.rating)??n(comp.rating),raw:comp,
       image:competitorImage(comp)||competitorImage(snap)||snap?.image_url||null,link:comp.link||comp.url||watch?.competitor_url||null,
       collected:snap?.collected_at||item.latest?.analyzed_at,watch,change:watch?.latest_change||null,
@@ -604,53 +608,77 @@ function Competitors({items}){
     setCheckingCompetitor(row.key);
     try{
       const watch=row.watch;
-      let productWarning='';
+      const keyword=String(watch?.settings?.search_keyword||row.owner||'').trim();
+      let details=null,directError='';
       try{
-        const data=await motorData('collectProduct',{url:watch.competitor_url,reason:'single-competitor-check',expectedItemId:String(watch.competitor_item_id),includeVisibleText:true,detectLabels:['Indicado','Vendedor Indicado','Preferred Seller']},45000);
-        const p=data?.product||data;
-        const itemId=String(p?.itemId??p?.item_id??''),shopId=String(p?.shopId??p?.shop_id??'');
+        details=await motorData('collectCompetitorDetails',{
+          url:watch.competitor_url,
+          expectedItemId:String(watch.competitor_item_id),
+          keyword
+        },65000);
+      }catch(error){
+        directError=String(error?.message||error);
+        if(!/não reconhecida|not recognized|unknown action|collectCompetitorDetails/i.test(directError))console.warn('[Concorrentes] checagem direta falhou',error);
+      }
+
+      if(details){
+        const itemId=String(details?.itemId??details?.item_id??'');
+        const shopId=String(details?.shopId??details?.shop_id??'');
         if(itemId!==String(watch.competitor_item_id)||shopId!==String(watch.competitor_shop_id))throw new Error('A extensão retornou outro anúncio.');
-        let publicProduct=null;
-        try{
-          const publicData=await fetchJsonWithTimeout('/api/shopee/product-public?direct=1&shop_id='+encodeURIComponent(shopId)+'&item_ids='+encodeURIComponent(itemId),{cache:'no-store'},18000);
-          publicProduct=arr(publicData?.results).find(x=>String(x?.item_id??x?.itemId??'')===itemId&&x?.ok!==false)||null;
-        }catch(error){console.warn('[Concorrentes] metadados públicos do vendedor indisponíveis',error)}
-        const extensionShop=shopIdentityFromObject(data);
-        const preferred=explicitBool(publicProduct?.preferred)??preferredFromObject(data);
-        const preferredEvidence=publicProduct?.preferredEvidence||preferredEvidenceFromObject(data);
-        const location=stateFromText(publicProduct?.shopLocation)||locationFromObject(data)||stateFromText(p?.searchText??p?.description)||null;
-        const shop={
-          name:publicProduct?.shopName||extensionShop.name||'',
-          username:publicProduct?.shopUsername||extensionShop.username||'',
-          url:publicProduct?.shopUrl||extensionShop.url||''
-        };
-        const extensionOriginalPrice=n(p?.originalPrice??p?.original_price??p?.priceBeforeDiscount??p?.price_before_discount);
         await fetchJsonWithTimeout('/api/competitor-monitor',{
           method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({
             watch_id:watch.id,
-            title:competitorTitle(publicProduct?.title,p?.title,p?.item_name,watch.competitor_title),
+            title:competitorTitle(details?.title,watch.competitor_title,row.title),
             price:null,
-            sold:n(p?.sold??p?.historicalSold??p?.historical_sold),
-            rating:n(p?.rating),stock:n(p?.stock),image_url:competitorImage(p),
+            sold:n(details?.historicalSold),
+            rating:null,stock:null,image_url:row.image||null,
+            source:'motor-senior-competitor-details',
+            confidence:'observed',
+            raw:{
+              monthlySold:n(details?.monthlySold),
+              preferred:explicitBool(details?.preferred),
+              preferredEvidence:details?.preferredEvidence||null,
+              location:details?.shopLocation||null,
+              shopName:details?.shopName||null,
+              shopUsername:details?.shopUsername||null,
+              shopUrl:details?.shopUrl||null,
+              ads:explicitBool(details?.ads),
+              adsEvidence:details?.adsEvidence||null,
+              diagnostics:details?.diagnostics||null
+            }
+          })
+        },15000);
+      }else{
+        // Compatibilidade temporária com Motor Senior anterior.
+        const data=await motorData('collectProduct',{url:watch.competitor_url,reason:'single-competitor-check',expectedItemId:String(watch.competitor_item_id)},45000);
+        const p=data?.product||data;
+        const itemId=String(p?.itemId??p?.item_id??''),shopId=String(p?.shopId??p?.shop_id??'');
+        if(itemId!==String(watch.competitor_item_id)||shopId!==String(watch.competitor_shop_id))throw new Error('A extensão retornou outro anúncio.');
+        const shop=shopIdentityFromObject(data);
+        await fetchJsonWithTimeout('/api/competitor-monitor',{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({
+            watch_id:watch.id,title:competitorTitle(p?.title,p?.item_name,watch.competitor_title),
+            price:null,sold:n(p?.sold??p?.historicalSold??p?.historical_sold),rating:n(p?.rating),stock:n(p?.stock),image_url:competitorImage(p),
             source:'pdp_get_pc_metadata',confidence:'structured',
             raw:{
-              originalPrice:extensionOriginalPrice,
               monthlySold:n(p?.monthlySold??p?.monthly_sold??p?.sold30d??p?.sold_30d),
-              preferred,preferredEvidence,location,
+              preferred:preferredFromObject(data),preferredEvidence:preferredEvidenceFromObject(data),
+              location:locationFromObject(data)||null,
               shopName:shop.name||null,shopUsername:shop.username||null,shopUrl:shop.url||null
             }
           })
         },15000);
-      }catch(error){
-        productWarning=String(error?.message||error);
       }
 
+      // Mantém rank e dados de busca sincronizados. No 0.14.5, o retorno também inclui is_ads.
       const result=await collectVisibilityGroup([row],{silent:true});
-      if(result.failed&&productWarning)throw result.error||new Error(productWarning);
       await loadMonitor();
-      if(result.failed||productWarning){
-        setMonitor(x=>({...x,phase:'success',error:'Alguns dados foram atualizados; uma das fontes não respondeu completamente.'}));
+      if(result.failed){
+        setMonitor(x=>({...x,phase:'success',error:'Dados do anúncio foram checados, mas a busca de rank não respondeu completamente.'}));
+      }else if(directError&&details==null){
+        setMonitor(x=>({...x,phase:'success',error:'Use o Motor Senior 0.14.5 para a checagem direta completa.'}));
       }
     }catch(e){
       setMonitor(x=>({...x,phase:'error',error:'Falha ao checar o concorrente: '+String(e?.message||e)}));
@@ -898,7 +926,7 @@ function Competitors({items}){
             <section className={styles.radarExactVisibility}>
               <h4><VectorIcon name="search" size={13}/> Visibilidade na busca</h4>
               <div><span>Rank</span><b>{searchPositionLabel(r.visibility?.competitor_position,r.visibility?.competitor_page,r.visibility?.competitor_found,r.visibility?.max_pages||3,r.visibility?.items_per_page||60)}</b></div>
-              <div><span>Ads</span><b data-ads={r.visibility?.competitor_ads_status||'unknown'}>{r.visibility?.competitor_ads_status==='detected'?'Sim':r.visibility?.competitor_ads_status==='not_detected'?'Não':'Não confirmado'}</b></div>
+              <div><span>Ads</span><b data-ads={r.visibility?.competitor_ads_status&&r.visibility.competitor_ads_status!=='unknown'?r.visibility.competitor_ads_status:(r.adsFallback===true?'detected':r.adsFallback===false?'not_detected':'unknown')}>{r.visibility?.competitor_ads_status==='detected'?'Sim':r.visibility?.competitor_ads_status==='not_detected'?'Não':r.adsFallback===true?'Sim':r.adsFallback===false?'Não':'Não confirmado'}</b></div>
               <div><span>Meu anúncio</span><b>{searchPositionLabel(r.visibility?.owner_position,r.visibility?.owner_page,r.visibility?.owner_found,r.visibility?.max_pages||3,r.visibility?.items_per_page||60)}</b></div>
               <button type="button" onClick={()=>setOpenSearchDetails(openSearchDetails===r.key?'':r.key)}>Ver análise da busca →</button>
             </section>
