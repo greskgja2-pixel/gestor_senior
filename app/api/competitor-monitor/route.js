@@ -193,10 +193,11 @@ export async function PATCH(request){
   const shop=await getActiveShop();
   if(!shop)return NextResponse.json({error:'Nenhuma loja Shopee conectada.'},{status:400});
   let body={};try{body=await request.json()}catch{return NextResponse.json({error:'JSON inválido.'},{status:400})}
-  const id=text(body?.id,100),freq=finite(body?.frequency_days),action=text(body?.action,40);
+  const id=text(body?.id,100),freq=finite(body?.frequency_days),action=text(body?.action,40),lastError=text(body?.last_error,1000);
   if(!id)return NextResponse.json({error:'Monitoramento inválido.'},{status:400});
   const patch={updated_at:new Date().toISOString()};
-  if(action==='due_now')patch.next_check_at=new Date().toISOString();
+  if(action==='due_now'){patch.next_check_at=new Date().toISOString();patch.last_error=null;}
+  if(action==='record_error'){patch.last_status='error';patch.last_error=lastError||'Falha na coleta pelo Motor Senior.';}
   if(freq!=null){
     if(freq<1||freq>30)return NextResponse.json({error:'A frequência deve ficar entre 1 e 30 dias.'},{status:400});
     patch.frequency_days=Math.round(freq);
