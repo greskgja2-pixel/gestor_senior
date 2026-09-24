@@ -2,3 +2,14 @@
 
 .empty span{display:block}.empty button{margin-top:10px;border:1px solid #cddbea;background:#fff;color:#1764d2;border-radius:8px;padding:7px 10px;font-size:9px;font-weight:800;cursor:pointer}
 .rowActions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.priorityStack{display:grid;gap:16px}.sectionCaption{margin:0 0 10px}.sectionCaption h2{margin:0;color:#193b68;font-size:15px}.sectionCaption p{margin:3px 0 0;color:#71839a;font-size:9px}.taskList{display:grid;gap:8px}.taskList article{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;padding:12px;border:1px solid #dfe7f0;border-left:4px solid #d5a034;border-radius:10px;background:#fbfdff}.taskList article[data-priority="urgent"]{border-left-color:#d84949;background:#fffafa}.taskList article[data-priority="high"]{border-left-color:#ef8b2c}.taskList b{font-size:10px;color:#193b68}.taskList small{display:block;margin-top:3px;font-size:8px;color:#8090a2}.taskList p{margin:5px 0 0;font-size:8px;color:#60758e}.taskActions{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}.taskActions a,.taskActions button{border:1px solid #d5e1ee;border-radius:7px;background:#fff;color:#24578f;padding:6px 8px;text-decoration:none;font-size:7px;font-weight:900;cursor:pointer}.taskActions a{background:#1769e8;border-color:#1769e8;color:#fff}@media(max-width:650px){.taskList article{grid-template-columns:1fr}.taskActions{justify-content:flex-start}}
+
+/* GS_COMPETITOR_MONITOR_2026_09_23 */
+.monitorSummary{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:12px;padding:13px 14px;border:1px solid #dce7f2;border-radius:11px;background:#f8fbff}
+.monitorSummary b{display:block;color:#1e426e;font-size:12px}.monitorSummary p{margin:4px 0 0;color:#657b94;font-size:9px;line-height:1.45}
+.monitorSummary>span{border-radius:999px;background:#eef4fa;color:#476889;padding:6px 9px;font-size:8px;font-weight:900;white-space:nowrap}
+.monitorControls{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid #edf1f5}
+.monitorControls label{display:flex;align-items:center;gap:5px;font-size:8px;color:#617790}
+.monitorControls select{border:1px solid #d6e2ee;border-radius:7px;background:#fff;color:#254c78;padding:5px 7px;font-size:8px}
+.monitorControls small{margin:0!important;font-size:7px!important;color:#8090a3!important}
+.monitorControls button{border:1px solid #d4e1ed;border-radius:7px;background:#fff;color:#245f9f;padding:6px 8px;font-size:7px;font-weight:900;cursor:pointer}
+@media(max-width:650px){.monitorSummary{align-items:flex-start;flex-direction:column}.monitorSummary>span{white-space:normal}}
