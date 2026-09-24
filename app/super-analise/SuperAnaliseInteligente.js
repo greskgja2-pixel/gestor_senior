@@ -15,6 +15,15 @@ const boolValue=(value,obj)=>value===true?'Sim':value===false?'Não':missingStat
 const metric=(r,k)=>r?.metrics?.[k]??r?.ads_snapshot?.manual?.[k]??r?.ads_snapshot?.[k]??null;
 const productImage=p=>p?.imageUrl||p?.image_url||p?.imageUrls?.[0]||p?.image?.image_url_list?.[0]||null;
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+function flashSlotLabel(slot){
+  const start=new Date(Number(slot?.start_time)*1000),end=new Date(Number(slot?.end_time)*1000);
+  if(Number.isNaN(start.getTime())||Number.isNaN(end.getTime()))return 'Horário oficial';
+  const duration=end-start;
+  const d=v=>v.toLocaleDateString('pt-BR');
+  const hm=v=>v.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  if(Math.abs(duration-86400000)<60000)return `${d(start)} — 24h (${hm(start)} → ${d(end)} ${hm(end)})`;
+  return `${d(start)} ${hm(start)} → ${d(end)} ${hm(end)}`;
+}
 
 const TABS=[
   ['title','Título','T'],['description','Descrição','▤'],['images','Imagens','▧'],['video','Vídeo','▶'],
@@ -411,7 +420,7 @@ function PriceSection({price,cost,setPrice,setCost,margin,deductions,competitors
         <button type="button" className={styles.recommendButton} onClick={useRecommendedSlot} disabled={!flashInsight?.recommendedSlots?.length}>✓ Usar melhor horário</button>
       </div>
       <small className={styles.recommendNote}>O Gestor usa as vendas reais do produto na loja. Quando a Shopee disponibiliza uma janela de 24 horas, a recomendação ajuda principalmente a escolher o melhor dia; em janelas menores, também considera o horário de pico.</small>
-      <div className={styles.flashGrid}><label>Horário<select value={flash.timeslotId} onChange={e=>setFlash(x=>({...x,timeslotId:e.target.value}))}><option value="">Selecione</option>{slots.map(s=><option key={s.timeslot_id} value={s.timeslot_id}>{new Date(Number(s.start_time)*1000).toLocaleString('pt-BR')} → {new Date(Number(s.end_time)*1000).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</option>)}</select></label><label>Preço promocional<input type="number" step="0.01" value={flash.promoPrice} onChange={e=>setFlash(x=>({...x,promoPrice:e.target.value}))}/></label><label>Estoque reservado<input type="number" min="1" value={flash.stock} onChange={e=>setFlash(x=>({...x,stock:e.target.value}))}/></label><label>Limite por comprador<input type="number" min="0" value={flash.purchaseLimit} onChange={e=>setFlash(x=>({...x,purchaseLimit:e.target.value}))}/></label><div><small>Margem projetada</small><b>{pct(promoMargin)}</b></div></div>
+      <div className={styles.flashGrid}><label>Horário<select value={flash.timeslotId} onChange={e=>setFlash(x=>({...x,timeslotId:e.target.value}))}><option value="">Selecione</option>{slots.map(s=><option key={s.timeslot_id} value={s.timeslot_id}>{flashSlotLabel(s)}</option>)}</select></label><label>Preço promocional<input type="number" step="0.01" value={flash.promoPrice} onChange={e=>setFlash(x=>({...x,promoPrice:e.target.value}))}/></label><label>Estoque reservado<input type="number" min="1" value={flash.stock} onChange={e=>setFlash(x=>({...x,stock:e.target.value}))}/></label><label>Limite por comprador<input type="number" min="0" value={flash.purchaseLimit} onChange={e=>setFlash(x=>({...x,purchaseLimit:e.target.value}))}/></label><div><small>Margem projetada</small><b>{pct(promoMargin)}</b></div></div>
       {selectedSlot&&<small className={styles.slotHint}>Início {new Date(Number(selectedSlot.start_time)*1000).toLocaleString('pt-BR')} · término {new Date(Number(selectedSlot.end_time)*1000).toLocaleString('pt-BR')}</small>}
       {slotError&&<div className={styles.message}>{slotError}</div>}
       <button type="button" className={styles.primary} onClick={createFlash} disabled={flashBusy||!flash.timeslotId}>{flashBusy?'Criando…':'⚡ Criar Oferta Relâmpago na Shopee'}</button>
