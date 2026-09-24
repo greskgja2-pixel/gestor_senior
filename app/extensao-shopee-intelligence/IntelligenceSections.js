@@ -245,6 +245,7 @@ function Competitors({items}){
   const [bulkProgress,setBulkProgress]=useState({done:0,total:0,label:''});
   const [openSearchDetails,setOpenSearchDetails]=useState('');
   const [visibilityPhase,setVisibilityPhase]=useState({});
+  const [helpOpen,setHelpOpen]=useState(false);
 
   async function loadMonitor(){
     setMonitor(x=>({...x,phase:'loading',error:''}));
@@ -464,8 +465,18 @@ function Competitors({items}){
       <label><small>Ordenar por</small><select value={sort} onChange={e=>setSort(e.target.value)}><option value="priority">Maior prioridade</option><option value="price">Maior variação de preço</option><option value="sales">Mais vendas</option><option value="collected">Última coleta</option><option value="recheck">Próxima rechecagem</option></select></label>
       <label><small>Período</small><select value={period} onChange={e=>setPeriod(e.target.value)}><option value="7">Últimos 7 dias</option><option value="14">Últimos 14 dias</option><option value="30">Últimos 30 dias</option><option value="all">Todo histórico</option></select></label>
       <button type="button" className={styles.radarExactRefresh} onClick={recheckAll} disabled={bulkPhase==='loading'}>↻ {bulkPhase==='loading'?'Rechecando…':'Atualizar / Rechecar agora'}</button>
-      <button type="button" className={styles.radarExactIcon} aria-label="Ajuda">?</button>
-      <button type="button" className={styles.radarExactIcon} aria-label="Notificações">♟</button>
+      <div className={styles.radarExactHelpWrap}>
+        <button type="button" className={styles.radarExactIcon} aria-label="Ajuda" aria-expanded={helpOpen} onClick={()=>setHelpOpen(v=>!v)}>?</button>
+        {helpOpen&&<div className={styles.radarExactHelpPopover}>
+          <b>Como funciona o Radar</b>
+          <p>Acompanhe preço, vendas, posição na busca e Ads dos concorrentes. Use “Atualizar / Rechecar agora” para coletar dados novos.</p>
+          <Link href="/extensao-shopee-intelligence?section=prioridades">Ver prioridades →</Link>
+        </div>}
+      </div>
+      <Link className={styles.radarExactIcon} href="/extensao-shopee-intelligence?section=prioridades" aria-label="Notificações" title="Abrir notificações e prioridades">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
+        {alerts.length>0&&<span className={styles.radarExactBellBadge}>{Math.min(99,alerts.length)}</span>}
+      </Link>
       <span className={styles.radarExactAvatar}>GS</span>
     </section>
 
