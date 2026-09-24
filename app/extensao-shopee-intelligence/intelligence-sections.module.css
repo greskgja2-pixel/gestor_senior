@@ -109,8 +109,9 @@ a.radarExactTitle:hover{text-decoration:underline!important}
 .radarExactIdentity span{display:block;margin-top:8px;color:#73859a;font-size:8px}
 .radarExactIdentity a:not(.radarExactTitle){display:block;margin-top:3px;color:#1465cc;font-size:9px;font-weight:800;line-height:1.25;text-decoration:none}
 .radarExactIdentity em{display:inline-flex;margin-top:9px;padding:5px 10px;border-radius:999px;background:#e9f3ff;color:#4f7195;font-size:8px;font-style:normal}
-.radarExactStore{display:flex;align-items:center;gap:5px;margin-top:7px;min-width:0;color:#607890;font-size:8px}
-.radarExactStore span{display:inline!important;margin:0!important;color:#788b9e!important;font-size:8px!important}
+.radarExactStore{display:flex;align-items:center;gap:6px;margin-top:7px;min-width:0;color:#607890;font-size:8px}
+.radarExactStoreGlyph{width:24px;height:24px;display:grid!important;place-items:center!important;flex:0 0 24px;margin:0!important;border:1px solid #c9dcf2;border-radius:7px;background:#eaf4ff;color:#1769d8!important}
+.radarExactStore>span:not(.radarExactStoreGlyph){display:inline!important;margin:0!important;color:#788b9e!important;font-size:8px!important}
 .radarExactStore a{display:inline-flex!important;align-items:center;gap:4px;margin:0!important;min-width:0;color:#1766c6!important;font-size:8.5px!important;font-weight:900!important;text-decoration:none!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .radarExactStore a:hover{text-decoration:underline!important}
 .radarExactStore b{color:#234d78;font-size:8.5px}
