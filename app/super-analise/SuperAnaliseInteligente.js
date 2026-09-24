@@ -178,7 +178,60 @@ function FlashConfirmModal({open,period,slotCount,models,variationDraft,flash,no
         <label><input type="checkbox" checked={notify.app} onChange={e=>setNotify(x=>({...x,app:e.target.checked}))}/> Mostrar aviso no Gestor</label>
         <label><input type="checkbox" checked={notify.email} onChange={e=>setNotify(x=>({...x,email:e.target.checked}))}/> Enviar também por e-mail</label>
       </div>
-      <footer><button type="button" className={styles.secondaryAction} onClick={onClose} disabled={busy}>Voltar</button><button type="button" className={styles.primary} onClick={onConfirm} disabled={busy||(!notify.app&&!notify.email)}>{busy?'Criando…':`Criar ${slotCount} oferta${slotCount===1?'':'s'}`}</button></footer>
+      <footer><button type="button" className={styles.secondaryAction} onClick={onClose} disabled={busy}>Voltar</button><button type="button" className={styles.primary} onClick={onConfirm} disabled={busy}>{busy?'Criando…':`Criar ${slotCount} oferta${slotCount===1?'':'s'}`}</button></footer>
+    </section>
+  </div>
+}
+
+function FlashPeriodPicker({value,onChange,onApply,onClose}) {
+  const startDate=value?.start?new Date(value.start+'T12:00:00'):new Date();
+  const initialMonth=new Date(startDate.getFullYear(),startDate.getMonth(),1);
+  const [month,setMonth]=useState(initialMonth);
+  const [draft,setDraft]=useState(value||{start:localYmd(new Date()),end:localYmd(new Date())});
+  useEffect(()=>setDraft(value||{}),[value?.start,value?.end]);
+
+  const monthGrid=base=>{
+    const first=new Date(base.getFullYear(),base.getMonth(),1);
+    const start=new Date(first); start.setDate(first.getDate()-first.getDay());
+    return Array.from({length:42},(_,i)=>{const d=new Date(start);d.setDate(start.getDate()+i);return d});
+  };
+  const nextMonth=new Date(month.getFullYear(),month.getMonth()+1,1);
+  const selectDay=date=>{
+    const ymd=localYmd(date);
+    if(!draft.start||draft.end){
+      const next={start:ymd,end:''};setDraft(next);onChange(next);return;
+    }
+    if(new Date(ymd+'T12:00:00')<new Date(draft.start+'T12:00:00')){
+      const next={start:ymd,end:draft.start};setDraft(next);onChange(next);return;
+    }
+    const next={start:draft.start,end:ymd};setDraft(next);onChange(next);
+  };
+  const inRange=ymd=>draft.start&&draft.end&&ymd>=draft.start&&ymd<=draft.end;
+  const renderMonth=base=><div className={styles.flashCalendarMonth}>
+    <b>{base.toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}</b>
+    <div className={styles.flashWeekdays}>{['D','S','T','Q','Q','S','S'].map((x,i)=><span key={i}>{x}</span>)}</div>
+    <div className={styles.flashDays}>{monthGrid(base).map((date,i)=>{
+      const ymd=localYmd(date),outside=date.getMonth()!==base.getMonth(),selected=ymd===draft.start||ymd===draft.end,range=inRange(ymd);
+      return <button type="button" key={i} data-outside={outside?'true':'false'} data-selected={selected?'true':'false'} data-range={range?'true':'false'} onClick={()=>selectDay(date)}>{date.getDate()}</button>
+    })}</div>
+  </div>;
+  const preset=kind=>{
+    const start=localYmd(new Date());
+    let next={start,end:start};
+    if(kind==='7')next={start,end:addLocalDays(start,6)};
+    else if(kind==='30')next={start,end:addLocalDays(start,29)};
+    else if(kind==='month')next={start,end:endOfLocalMonth(start)};
+    setDraft(next);onChange(next);
+  };
+  return <div className={styles.flashCalendarPopup} role="dialog" aria-modal="true" onClick={onClose}>
+    <section className={styles.flashCalendarDialog} onClick={e=>e.stopPropagation()}>
+      <header><div><b>Selecione o intervalo de tempo</b><span>{draft.start&&draft.end?dateRangeLabel(draft):'Escolha a data inicial e final'}</span></div><button type="button" onClick={onClose}>×</button></header>
+      <div className={styles.flashCalendarNav}><button type="button" onClick={()=>setMonth(m=>new Date(m.getFullYear(),m.getMonth()-1,1))}>‹</button><span/><button type="button" onClick={()=>setMonth(m=>new Date(m.getFullYear(),m.getMonth()+1,1))}>›</button></div>
+      <div className={styles.flashCalendarMonths}>{renderMonth(month)}{renderMonth(nextMonth)}</div>
+      <footer>
+        <div><button type="button" onClick={()=>preset('today')}>Hoje</button><button type="button" onClick={()=>preset('7')}>Futuro 7 dias</button><button type="button" onClick={()=>preset('30')}>Futuro 30 dias</button><button type="button" onClick={()=>preset('month')}>Este mês</button></div>
+        <button type="button" className={styles.primary} disabled={!draft.start||!draft.end} onClick={()=>{onApply(draft);onClose()}}>Usar período</button>
+      </footer>
     </section>
   </div>
 }
@@ -516,7 +569,7 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
           {tab==='images'&&<ImagesSection gallery={gallery} competitors={competitors} plan={suggestionImproves?draft.imagePlan:''} onPlan={v=>setField('imagePlan',v)} before={activeBefore} after={guardedAfter} blocked={!suggestionImproves} setZoomSrc={setZoomSrc} downloadImage={downloadImage} removeImage={removeImage} moveImage={moveImage} uploadRef={uploadRef} onUploadFiles={onUploadFiles}/>}
           {tab==='video'&&<PlanSection title="Vídeo" original={p.hasVideo?'O anúncio possui vídeo.':'O anúncio não possui vídeo.'} plan={suggestionImproves?draft.videoPlan:''} onPlan={v=>setField('videoPlan',v)} before={activeBefore} after={guardedAfter} blocked={!suggestionImproves}/>}
           {tab==='category'&&<CategoryComparison current={currentCategory||'—'} competitors={compCategoryRows} dominant={dominantCategory} aligned={categoryAligned} onApply={()=>{if(dominantRow?.id)mutate(()=>setChosenCategory(String(dominantRow.id)));else setMessage('A categoria predominante foi identificada, mas o ID oficial não foi coletado. Nenhuma alteração será enviada sem um ID real da Shopee.')}} selected={chosenCategory} setZoomSrc={setZoomSrc}/>}
-          {tab==='price'&&<PriceSection price={draft.price} cost={draft.cost} setPrice={v=>setField('price',v)} setCost={v=>setField('cost',v)} margin={liveMargin} competitors={competitors} plan={suggestionImproves?draft.pricePlan:''} onPlan={v=>setField('pricePlan',v)} before={activeBefore} after={guardedAfter} blocked={!suggestionImproves} setZoomSrc={setZoomSrc} slots={slots} selectedSlots={selectedSlots} slotError={slotError} flash={flash} setFlash={setFlash} createFlash={prepareFlashCreation} flashBusy={flashBusy} flashMessage={flashMessage} flashDays={flashDays} setFlashDays={setFlashDays} flashInsight={flashInsight} reloadFlash={()=>loadFlashMeta(flashDays,flashPeriod)} useRecommendedSlot={useRecommendedSlot} flashPeriod={flashPeriod} setFlashPeriod={setFlashPeriod} setFlashPreset={setFlashPreset} models={effectiveFlashModels} variationDraft={flashVariationDraft} setVariationDraft={setFlashVariationDraft} applyFlashPriceToAll={applyFlashPriceToAll}/>}
+          {tab==='price'&&<PriceSection price={draft.price} cost={draft.cost} setPrice={v=>setField('price',v)} setCost={v=>setField('cost',v)} margin={liveMargin} competitors={competitors} plan={suggestionImproves?draft.pricePlan:''} onPlan={v=>setField('pricePlan',v)} before={activeBefore} after={guardedAfter} blocked={!suggestionImproves} setZoomSrc={setZoomSrc} slots={slots} selectedSlots={selectedSlots} slotError={slotError} flash={flash} setFlash={setFlash} createFlash={prepareFlashCreation} flashBusy={flashBusy} flashMessage={flashMessage} flashDays={flashDays} setFlashDays={setFlashDays} flashInsight={flashInsight} reloadFlash={period=>loadFlashMeta(flashDays,period||flashPeriod)} useRecommendedSlot={useRecommendedSlot} flashPeriod={flashPeriod} setFlashPeriod={setFlashPeriod} setFlashPreset={setFlashPreset} models={effectiveFlashModels} variationDraft={flashVariationDraft} setVariationDraft={setFlashVariationDraft} applyFlashPriceToAll={applyFlashPriceToAll}/>}
           {tab==='variations'&&<VariationsSection product={p} plan={suggestionImproves?draft.variationsPlan:''} onPlan={v=>setField('variationsPlan',v)} before={activeBefore} after={guardedAfter} blocked={!suggestionImproves}/>}
           {(tab==='images'||tab==='video')&&<div className={styles.reminderStrip}><span>{tab==='images'?'Quer revisar essas imagens mais tarde?':'Quer voltar depois para adicionar ou atualizar o vídeo?'}</span><ReminderButton itemId={report.item_id} taskType={tab} priority="medium" title={tab==='images'?'Revisar imagens do anúncio':'Adicionar ou atualizar vídeo do anúncio'} description={tab==='images'?'Revisar e melhorar as imagens deste produto.':'Revisar a necessidade de adicionar ou atualizar o vídeo deste produto.'} actionUrl={'/super-analise?item_id='+report.item_id+'&tab='+tab}/></div>}
           {tab!=='category'&&<><WhyBlock analysis={analysis} tab={tab}/><BottomSummary tab={tab} before={activeBefore} after={guardedAfter} analysis={analysis} blocked={!suggestionImproves}/></>}
@@ -565,6 +618,7 @@ function CategoryComparison({current,competitors,dominant,aligned,onApply,select
 
 
 function PriceSection({price,cost,setPrice,setCost,margin,competitors,plan,onPlan,before,after,blocked,setZoomSrc,slots,selectedSlots,slotError,flash,setFlash,createFlash,flashBusy,flashMessage,flashDays,setFlashDays,flashInsight,reloadFlash,useRecommendedSlot,flashPeriod,setFlashPeriod,setFlashPreset,models,variationDraft,setVariationDraft,applyFlashPriceToAll}){
+  const [periodPickerOpen,setPeriodPickerOpen]=useState(false);
   const promoMargin=currentMargin(flash.promoPrice,cost);
   const rec=flashInsight?.recommendation;
   const dayNames=['domingo','segunda-feira','terça-feira','quarta-feira','quinta-feira','sexta-feira','sábado'];
@@ -591,21 +645,17 @@ function PriceSection({price,cost,setPrice,setCost,margin,competitors,plan,onPla
       </div>
 
       <div className={styles.flashPeriodCard}>
-        <div className={styles.flashPeriodHead}><div><b>📅 Período das ofertas</b><span>Selecione a data inicial e final.</span></div><strong>{rangeDays?rangeDays+' dia'+(rangeDays===1?'':'s'):'—'}</strong></div>
-        <div className={styles.flashPeriodInputs}>
-          <label>De<input type="date" value={flashPeriod?.start||''} onChange={e=>setFlashPeriod(x=>({...x,start:e.target.value}))}/></label>
-          <span>até</span>
-          <label>Até<input type="date" value={flashPeriod?.end||''} onChange={e=>setFlashPeriod(x=>({...x,end:e.target.value}))}/></label>
-          <button type="button" onClick={reloadFlash}>Buscar horários oficiais</button>
-        </div>
+        <div className={styles.flashPeriodHead}><div><b>📅 Período das ofertas</b><span>Selecione o intervalo em um calendário.</span></div><strong>{rangeDays?rangeDays+' dia'+(rangeDays===1?'':'s'):'—'}</strong></div>
+        <button type="button" className={styles.flashRangeButton} onClick={()=>setPeriodPickerOpen(true)}><span>{flashPeriod?.start?new Date(flashPeriod.start+'T12:00:00').toLocaleDateString('pt-BR'):'Data inicial'}</span><em>→</em><span>{flashPeriod?.end?new Date(flashPeriod.end+'T12:00:00').toLocaleDateString('pt-BR'):'Data final'}</span><b>▾</b></button>
         <div className={styles.flashPeriodPresets}>
           <button type="button" onClick={()=>setFlashPreset('today')}>Hoje</button>
           <button type="button" onClick={()=>setFlashPreset('7')}>Próximos 7 dias</button>
           <button type="button" onClick={()=>setFlashPreset('30')}>Próximos 30 dias</button>
           <button type="button" onClick={()=>setFlashPreset('month')}>Este mês</button>
         </div>
-        <div className={styles.flashPeriodResult}><b>{selectedSlots.length} horário{selectedSlots.length===1?'':'s'} oficial{selectedSlots.length===1?'':'is'} encontrado{selectedSlots.length===1?'':'s'}</b><span>{selectedSlots.length?selectedSlots.slice(0,3).map(flashSlotLabel).join(' · '):'Escolha o período e clique em buscar horários oficiais.'}</span></div>
+        <div className={styles.flashPeriodResult}><b>{selectedSlots.length} horário{selectedSlots.length===1?'':'s'} oficial{selectedSlots.length===1?'':'is'} encontrado{selectedSlots.length===1?'':'s'}</b><span>{selectedSlots.length?selectedSlots.slice(0,3).map(flashSlotLabel).join(' · '):'Escolha um período para consultar os horários oficiais da Shopee.'}</span><button type="button" onClick={reloadFlash}>↻ Atualizar horários</button></div>
       </div>
+      {periodPickerOpen&&<FlashPeriodPicker value={flashPeriod} onChange={setFlashPeriod} onApply={period=>{setFlashPeriod(period);reloadFlash(period)}} onClose={()=>setPeriodPickerOpen(false)}/>} 
 
       {models.length?<div className={styles.flashVariationInline}>
         <div className={styles.flashVariationInlineHead}><div><b>Preço da oferta por variação</b><span>A Shopee exige um preço válido para cada variação.</span></div><div className={styles.flashApplyAll}><input type="number" min="0.01" step="0.01" placeholder="Preço para todas" value={flash.promoPrice} onChange={e=>setFlash(x=>({...x,promoPrice:e.target.value}))}/><button type="button" onClick={applyFlashPriceToAll}>Aplicar em todas</button></div></div>
