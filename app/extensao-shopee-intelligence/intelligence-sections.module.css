@@ -11,6 +11,7 @@
 .monitorControls label{display:flex;align-items:center;gap:5px;font-size:8px;color:#617790}
 .monitorControls select{border:1px solid #d6e2ee;border-radius:7px;background:#fff;color:#254c78;padding:5px 7px;font-size:8px}
 .monitorControls small{margin:0!important;font-size:7px!important;color:#8090a3!important}
+.monitorControls .monitorError{width:100%;padding:5px 7px;border-radius:7px;background:#fff3f3;color:#ad4444!important;line-height:1.35}
 .monitorControls button{border:1px solid #d4e1ed;border-radius:7px;background:#fff;color:#245f9f;padding:6px 8px;font-size:7px;font-weight:900;cursor:pointer}
 @media(max-width:650px){.monitorSummary{align-items:flex-start;flex-direction:column}.monitorSummary>span{white-space:normal}}
 
