@@ -610,16 +610,26 @@ function Competitors({items}){
         const p=data?.product||data;
         const itemId=String(p?.itemId??p?.item_id??''),shopId=String(p?.shopId??p?.shop_id??'');
         if(itemId!==String(watch.competitor_item_id)||shopId!==String(watch.competitor_shop_id))throw new Error('A extensão retornou outro anúncio.');
-        const shop=shopIdentityFromObject(data);
-        const preferred=preferredFromObject(data);
-        const preferredEvidence=preferredEvidenceFromObject(data);
-        const location=locationFromObject(data)||stateFromText(p?.searchText??p?.description)||null;
+        let publicProduct=null;
+        try{
+          const publicData=await fetchJsonWithTimeout('/api/shopee/product-public?direct=1&shop_id='+encodeURIComponent(shopId)+'&item_ids='+encodeURIComponent(itemId),{cache:'no-store'},18000);
+          publicProduct=arr(publicData?.results).find(x=>String(x?.item_id??x?.itemId??'')===itemId&&x?.ok!==false)||null;
+        }catch(error){console.warn('[Concorrentes] metadados públicos do vendedor indisponíveis',error)}
+        const extensionShop=shopIdentityFromObject(data);
+        const preferred=explicitBool(publicProduct?.preferred)??preferredFromObject(data);
+        const preferredEvidence=publicProduct?.preferredEvidence||preferredEvidenceFromObject(data);
+        const location=stateFromText(publicProduct?.shopLocation)||locationFromObject(data)||stateFromText(p?.searchText??p?.description)||null;
+        const shop={
+          name:publicProduct?.shopName||extensionShop.name||'',
+          username:publicProduct?.shopUsername||extensionShop.username||'',
+          url:publicProduct?.shopUrl||extensionShop.url||''
+        };
         const extensionOriginalPrice=n(p?.originalPrice??p?.original_price??p?.priceBeforeDiscount??p?.price_before_discount);
         await fetchJsonWithTimeout('/api/competitor-monitor',{
           method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({
             watch_id:watch.id,
-            title:competitorTitle(p?.title,p?.item_name,watch.competitor_title),
+            title:competitorTitle(publicProduct?.title,p?.title,p?.item_name,watch.competitor_title),
             price:null,
             sold:n(p?.sold??p?.historicalSold??p?.historical_sold),
             rating:n(p?.rating),stock:n(p?.stock),image_url:competitorImage(p),
@@ -695,12 +705,12 @@ function Competitors({items}){
               ratingSource:p?.ratingSource||null,validationSource:p?.validationSource||null,categoryId:p?.categoryId??p?.category_id??null,
               originalPrice:verifiedOriginalPrice,
               monthlySold:p?.monthlySold??p?.monthly_sold??p?.sold30d??p?.sold_30d??null,
-              preferred:preferredFromObject(data),
-              preferredEvidence:preferredEvidenceFromObject(data),
-              location:locationFromObject(data)||stateFromText(p?.searchText??p?.description)||null,
-              shopName:shopIdentityFromObject(data).name||null,
-              shopUsername:shopIdentityFromObject(data).username||null,
-              shopUrl:shopIdentityFromObject(data).url||null,
+              preferred:explicitBool(publicProduct?.preferred)??preferredFromObject(data),
+              preferredEvidence:publicProduct?.preferredEvidence||preferredEvidenceFromObject(data),
+              location:stateFromText(publicProduct?.shopLocation)||locationFromObject(data)||stateFromText(p?.searchText??p?.description)||null,
+              shopName:publicProduct?.shopName||shopIdentityFromObject(data).name||null,
+              shopUsername:publicProduct?.shopUsername||shopIdentityFromObject(data).username||null,
+              shopUrl:publicProduct?.shopUrl||shopIdentityFromObject(data).url||null,
               priceVerification:{
                 publicPrice,extensionPrice,
                 publicOriginalPrice,extensionOriginalPrice,
