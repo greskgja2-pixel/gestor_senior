@@ -8,7 +8,7 @@ const THEMES=[
 
 export default function UtilityNative({section}){
   const [theme,setTheme]=useState('dark');
-  const [prefs,setPrefs]=useState({display_name:'',email:'',phone:'',task_enabled:true,email_enabled:true,whatsapp_enabled:false,push_enabled:false,categories:{flash_sale:true,reanalysis:true,competitors:true,images:true,video:true,ads:true,other:true}});
+  const [prefs,setPrefs]=useState({display_name:'',email:'',phone:'',task_enabled:true,email_enabled:true,whatsapp_enabled:false,push_enabled:false,ads_zero_sales_spend_threshold:10,categories:{flash_sale:true,reanalysis:true,competitors:true,images:true,video:true,ads:true,other:true}});
   const [prefState,setPrefState]=useState({loading:false,saving:false,message:''});
   useEffect(()=>{try{setTheme(localStorage.getItem('gs_theme')||'dark')}catch{}},[]);
   useEffect(()=>{
@@ -39,6 +39,9 @@ export default function UtilityNative({section}){
         <label>Como quer ser chamado?<input value={prefs.display_name||''} onChange={e=>setPrefs(x=>({...x,display_name:e.target.value}))} placeholder="Seu nome"/></label>
         <label>E-mail dos alertas<input type="email" value={prefs.email||''} onChange={e=>setPrefs(x=>({...x,email:e.target.value}))} placeholder="voce@email.com"/></label>
         <label>Celular / WhatsApp<input value={prefs.phone||''} onChange={e=>setPrefs(x=>({...x,phone:e.target.value}))} placeholder="(13) 99999-9999"/></label>
+      </div>
+      <div className={styles.formGrid}>
+        <label>Alerta de Ads sem venda<input type="number" min="0" step="1" value={prefs.ads_zero_sales_spend_threshold??10} onChange={e=>setPrefs(x=>({...x,ads_zero_sales_spend_threshold:e.target.value}))}/><small>Avise quando um anúncio gastar pelo menos este valor no dia anterior e tiver 0 vendas.</small></label>
       </div>
       <div className={styles.channelGrid}>
         <label><input type="checkbox" checked={prefs.task_enabled!==false} onChange={e=>setPrefs(x=>({...x,task_enabled:e.target.checked}))}/> Tarefas no Gestor</label>
