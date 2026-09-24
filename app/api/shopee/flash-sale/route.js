@@ -6,7 +6,7 @@ import {analyzeItemSalesHistory,rankFlashSaleSlots,formatHourRange} from '../../
 
 export const dynamic='force-dynamic';
 export const runtime='nodejs';
-export const maxDuration=30;
+export const maxDuration=55;
 
 const int=v=>Number.isSafeInteger(Number(v))?Number(v):null;
 const num=v=>Number.isFinite(Number(v))?Number(v):null;
@@ -88,13 +88,18 @@ function normalizeOfferItem(itemId,sale,raw){
 export async function GET(request){
   const shop=await getActiveShop();
   if(!shop)return NextResponse.json({error:'Nenhuma loja Shopee conectada.'},{status:400});
-  const now=Math.floor(Date.now()/1000)+60;
-  const end=now+7*24*3600;
   const url=new URL(request.url);
+  const now=Math.floor(Date.now()/1000)+60;
+  const parseDay=value=>{if(!value)return null;const d=new Date(String(value)+'T00:00:00-03:00');return Number.isNaN(d.getTime())?null:Math.floor(d.getTime()/1000)};
+  const requestedStart=parseDay(url.searchParams.get('start_date'));
+  const requestedEnd=parseDay(url.searchParams.get('end_date'));
+  const start=Math.max(now,requestedStart||now);
+  const maxEnd=start+45*24*3600;
+  const end=Math.min(maxEnd,(requestedEnd?requestedEnd+24*3600-1:start+7*24*3600));
   const itemId=int(url.searchParams.get('item_id'));
   const recommendationDays=[7,30,60,90].includes(Number(url.searchParams.get('days')))?Number(url.searchParams.get('days')):30;
   try{
-    const raw=await getFlashSaleTimeSlots({shopId:shop.shop_id,accessToken:shop.access_token,startTime:now,endTime:end});
+    const raw=await getFlashSaleTimeSlots({shopId:shop.shop_id,accessToken:shop.access_token,startTime:start,endTime:end});
     const slots=Array.isArray(raw?.response)?raw.response:[];
     if(!itemId)return NextResponse.json({ok:true,slots});
 
@@ -173,8 +178,11 @@ export async function POST(request){
   if(!shop)return NextResponse.json({error:'Nenhuma loja Shopee conectada.'},{status:400});
   let body={};try{body=await request.json()}catch{return NextResponse.json({error:'JSON inválido.'},{status:400})}
   const itemId=int(body?.item_id),timeslotId=int(body?.timeslot_id),promo=num(body?.promo_price),stock=int(body?.stock),purchaseLimit=int(body?.purchase_limit??0);
+  const timeslotIds=(Array.isArray(body?.timeslot_ids)?body.timeslot_ids:[timeslotId]).map(int).filter(Boolean);
   const submittedModels=Array.isArray(body?.models)?body.models:[];
-  if(!(itemId>0&&timeslotId>0&&purchaseLimit>=0))return NextResponse.json({error:'Preencha produto, horário e limite de compra corretamente.'},{status:400});
+  const notifyApp=body?.notify_app!==false,notifyEmail=body?.notify_email===true;
+  if(!(itemId>0&&timeslotIds.length>0&&purchaseLimit>=0))return NextResponse.json({error:'Preencha produto, período/horário e limite de compra corretamente.'},{status:400});
+  if(timeslotIds.length>45)return NextResponse.json({error:'Selecione no máximo 45 horários oficiais por criação.'},{status:400});
   try{
     const base=await getItemBaseInfo({shopId:shop.shop_id,accessToken:shop.access_token,itemIdList:[itemId]});
     const current=base?.response?.item_list?.find(x=>Number(x?.item_id)===itemId);
@@ -202,20 +210,62 @@ export async function POST(request){
       flashItem={item_id:itemId,purchase_limit:purchaseLimit,item_input_promo_price:promo,item_stock:stock};
     }
 
-    const created=await createShopFlashSale({shopId:shop.shop_id,accessToken:shop.access_token,timeslotId});
-    const flashSaleId=created?.response?.flash_sale_id;
-    if(!flashSaleId)throw new Error('A Shopee não retornou o ID da Oferta Relâmpago.');
-
-    const added=await addShopFlashSaleItems({
-      shopId:shop.shop_id,accessToken:shop.access_token,flashSaleId,
-      items:[flashItem]
+    const officialRaw=await getFlashSaleTimeSlots({
+      shopId:shop.shop_id,accessToken:shop.access_token,
+      startTime:Math.floor(Date.now()/1000)+30,endTime:Math.floor(Date.now()/1000)+46*24*3600
     });
-    const failed=added?.response?.failed_items||[];
-    if(failed.length){
-      return NextResponse.json({error:failed.map(x=>x.err_msg||x.unqualified_conditions?.map?.(y=>y.unqualified_msg).filter(Boolean).join(', ')||'Produto não elegível').join(' · '),flash_sale_id:flashSaleId},{status:409});
+    const official=Array.isArray(officialRaw?.response)?officialRaw.response:[];
+    const byId=new Map(official.map(slot=>[Number(slot?.timeslot_id),slot]));
+    const invalid=timeslotIds.filter(id=>!byId.has(Number(id)));
+    if(invalid.length)return NextResponse.json({error:'Um ou mais horários escolhidos não estão mais disponíveis na Shopee. Atualize os horários e tente novamente.',invalid_timeslot_ids:invalid},{status:409});
+
+    const createdOffers=[],failures=[];
+    for(const id of timeslotIds){
+      try{
+        const created=await createShopFlashSale({shopId:shop.shop_id,accessToken:shop.access_token,timeslotId:id});
+        const flashSaleId=created?.response?.flash_sale_id;
+        if(!flashSaleId)throw new Error('A Shopee não retornou o ID da Oferta Relâmpago.');
+        const added=await addShopFlashSaleItems({shopId:shop.shop_id,accessToken:shop.access_token,flashSaleId,items:[flashItem]});
+        const failed=added?.response?.failed_items||[];
+        if(failed.length)throw new Error(failed.map(x=>x.err_msg||x.unqualified_conditions?.map?.(y=>y.unqualified_msg).filter(Boolean).join(', ')||'Produto não elegível').join(' · '));
+        await updateShopFlashSale({shopId:shop.shop_id,accessToken:shop.access_token,flashSaleId,status:1});
+        const slot=byId.get(Number(id))||{};
+        createdOffers.push({timeslot_id:Number(id),flash_sale_id:Number(flashSaleId),start_time:num(slot?.start_time),end_time:num(slot?.end_time)});
+      }catch(error){
+        failures.push({timeslot_id:Number(id),error:String(error?.message||error)});
+      }
     }
-    await updateShopFlashSale({shopId:shop.shop_id,accessToken:shop.access_token,flashSaleId,status:1});
-    return NextResponse.json({ok:true,flash_sale_id:flashSaleId});
+    if(!createdOffers.length)return NextResponse.json({error:failures.map(x=>x.error).join(' · ')||'Nenhuma Oferta Relâmpago foi criada.'},{status:409});
+
+    const maxEnd=Math.max(...createdOffers.map(x=>Number(x.end_time)||0));
+    let notificationTask=null;
+    if((notifyApp||notifyEmail)&&maxEnd>0){
+      const db=supabaseAdmin();
+      const dueAt=new Date(maxEnd*1000).toISOString();
+      const task={
+        shop_id:shop.shop_id,item_id:itemId,task_type:'flash_sale',
+        title:'Ofertas Relâmpago encerradas',
+        description:'O período de Ofertas Relâmpago deste produto terminou. Revise os resultados e programe o próximo período.',
+        priority:'medium',status:'open',due_at:dueAt,remind_at:dueAt,source:'flash-sale-expiry',
+        action_url:`/extensao-shopee-intelligence?section=super-anuncio&item_id=${itemId}`,
+        dedupe_key:`flash-expiry:${itemId}:${maxEnd}`,
+        metadata:{notify_app:notifyApp,notify_email:notifyEmail,flash_sale_ids:createdOffers.map(x=>x.flash_sale_id),period_end:dueAt},
+        updated_at:new Date().toISOString()
+      };
+      const saved=await db.from('gs_tasks').upsert(task,{onConflict:'shop_id,dedupe_key'}).select('*').single();
+      if(!saved.error)notificationTask=saved.data;
+    }
+
+    return NextResponse.json({
+      ok:failures.length===0,
+      partial:failures.length>0,
+      created_count:createdOffers.length,
+      failed_count:failures.length,
+      flash_sale_id:createdOffers[0]?.flash_sale_id||null,
+      flash_sale_ids:createdOffers.map(x=>x.flash_sale_id),
+      offers:createdOffers,failures,
+      notification_task:notificationTask
+    },{status:failures.length?207:200});
   }catch(error){
     return NextResponse.json({error:String(error?.message||error)},{status:502});
   }
