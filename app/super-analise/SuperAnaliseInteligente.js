@@ -79,7 +79,17 @@ function imageCandidates(obj){
     if(/^[A-Za-z0-9_-]{16,}$/.test(s))return `https://down-br.img.susercontent.com/file/${s}`;
     return'';
   }).filter(Boolean);
-  return [...new Set(normalized)].filter(u=>!/\.svg(?:\?|$)/i.test(String(u))&&!/productdetailspage\/.*\.svg/i.test(String(u)));
+  const clean=[...new Set(normalized)].filter(u=>!/\.svg(?:\?|$)/i.test(String(u))&&!/productdetailspage\/.*\.svg/i.test(String(u)));
+  const score=u=>{
+    const s=String(u||'');let v=0;
+    if(/down-br\.img\.susercontent\.com\/file\//i.test(s))v+=3;
+    if(/\/br-11134207-/i.test(s))v+=8;
+    if(/_tn(?:\?|$)/i.test(s))v-=5;
+    if(/_cover(?:\?|$)/i.test(s))v-=6;
+    if(/shopee-pcmall-live-sg|productdetailspage/i.test(s))v-=20;
+    return v;
+  };
+  return clean.map((u,i)=>({u,i,s:score(u)})).sort((a,b)=>b.s-a.s||a.i-b.i).map(x=>x.u);
 }
 
 function SmartImage({urls,alt='',onZoom,className=''}) {
