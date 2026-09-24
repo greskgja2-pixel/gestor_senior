@@ -212,6 +212,17 @@ export async function GET(request){
   if(!shop)return NextResponse.json({error:'Nenhuma loja Shopee conectada.'},{status:400});
   const db=supabaseAdmin();
   const url=new URL(request.url);
+
+  // Alertas de término de Oferta Relâmpago: dispara e-mail quando o prazo vence.
+  try{
+    const nowIso=new Date().toISOString();
+    const {data:dueFlash}=await db.from('gs_tasks').select('*')
+      .eq('shop_id',shop.shop_id).eq('task_type','flash_sale').eq('source','flash-sale-expiry').eq('status','open')
+      .lte('due_at',nowIso).is('last_notified_at',null).limit(20);
+    for(const task of dueFlash||[]){
+      if(task?.metadata?.notify_email===true)await notifyTaskByEmail(db,shop.shop_id,task);
+    }
+  }catch(error){console.warn('[tasks] falha enviando alerta de término de Oferta Relâmpago',String(error?.message||error))}
   const briefing=url.searchParams.get('briefing')==='1';
   const {data:prefs}=await db.from('gs_notification_preferences').select('task_enabled,categories').eq('shop_id',shop.shop_id).maybeSingle();
   const taskEnabled=prefs?.task_enabled!==false,categories=prefs?.categories||{};
@@ -229,7 +240,7 @@ export async function GET(request){
   if(itemId)q=q.eq('item_id',itemId);
   const {data,error}=await q;
   if(error)return NextResponse.json({error:error.message},{status:500});
-  let tasks=data||[];
+  let tasks=(data||[]).filter(t=>t?.metadata?.notify_app!==false);
   if(briefing){
     const now=new Date(),end=new Date(now);end.setHours(23,59,59,999);
     tasks=tasks.filter(t=>{
