@@ -45,7 +45,7 @@ async function syncWatches(db,shopId){
   const latest=new Map();
   for(const r of reports||[]){if(!latest.has(String(r.item_id)))latest.set(String(r.item_id),r)}
   const {data:existing,error:existingError}=await db.from('gs_competitor_watches')
-    .select('id,owner_item_id,competitor_item_id,frequency_days,next_check_at,last_check_at')
+    .select('id,owner_item_id,competitor_item_id,frequency_days,next_check_at,last_check_at,enabled')
     .eq('shop_id',shopId);
   if(existingError)throw new Error(existingError.message);
   const byKey=new Map((existing||[]).map(x=>[`${x.owner_item_id}:${x.competitor_item_id}`,x]));
@@ -55,7 +55,7 @@ async function syncWatches(db,shopId){
       const key=`${r.item_id}:${ids.itemId}`,old=byKey.get(key),freq=old?.frequency_days||7;
       const row={
         shop_id:shopId,owner_item_id:r.item_id,competitor_shop_id:ids.shopId,competitor_item_id:ids.itemId,
-        competitor_url:ids.url,competitor_title:text(c?.title,400),enabled:true,
+        competitor_url:ids.url,competitor_title:text(c?.title,400),enabled:old?.enabled===false?false:true,
         source_report_id:r.id,updated_at:new Date().toISOString()
       };
       if(!old)row.next_check_at=addDays(r.analyzed_at,freq);
