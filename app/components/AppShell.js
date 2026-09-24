@@ -135,11 +135,12 @@ function AppSidebar({active,onNavigate,onCloseMobile}){
         }catch(error){
           failed++;
           console.warn('[CompetitorAutoRefresh] concorrente não atualizado',watch?.competitor_item_id,error);
+          try{await fetchJsonWithTimeout('/api/competitor-monitor',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:watch.id,action:'record_error',last_error:String(error?.message||error).slice(0,900)})},8000)}catch{}
         }
         setCompetitorSync({phase:'running',due:watches.length,updated,failed,message:`Atualizados ${updated} · falhas ${failed}`});
         await new Promise(resolve=>setTimeout(resolve,1800));
       }
-      const remaining=Math.max(0,watches.length-updated-failed);
+      const remaining=Math.max(0,watches.length-updated);
       setCompetitorSync({
         phase:failed?'warning':'success',due:watches.length,updated,failed,
         message:failed?`${updated} atualizado(s); ${failed} aguardam nova tentativa.`:`${updated} concorrente(s) atualizado(s) automaticamente.`
