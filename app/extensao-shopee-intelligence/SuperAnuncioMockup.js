@@ -128,6 +128,7 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
   const [tab,setTab]=useState(allowedTabs.has(initialTab)?initialTab:'overview');
   const [liveAds,setLiveAds]=useState({phase:'idle',campaign:null,error:''});
   const [flashSales,setFlashSales]=useState({phase:'idle',offers:[],scheduled:[],automation:null,planning:null,error:''});
+  const [productTasks,setProductTasks]=useState({phase:'idle',rows:[],error:''});
   const [query,setQuery]=useState('');
   const [deleting,setDeleting]=useState(false);
   const [deleteError,setDeleteError]=useState('');
@@ -185,7 +186,27 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
     }
   }
 
-  useEffect(()=>{if(item?.itemId){loadLiveAds(item.itemId);loadFlashSales(item.itemId)}},[item?.itemId]);
+  async function loadProductTasks(targetItemId){
+    if(!targetItemId)return;
+    setProductTasks({phase:'loading',rows:[],error:''});
+    try{
+      const data=await fetchJsonWithTimeout('/api/tasks?item_id='+encodeURIComponent(targetItemId),{cache:'no-store'},12000);
+      const rows=arr(data?.tasks);
+      setProductTasks({phase:rows.length?'success':'empty',rows,error:''});
+    }catch(error){
+      const kind=classifyAsyncError(error);
+      setProductTasks({phase:kind,rows:[],error:kind==='timeout'?'A consulta das próximas ações expirou.':String(error?.message||error)});
+    }
+  }
+
+  async function resolveProductTask(taskId,action='done',hours){
+    try{
+      await fetchJsonWithTimeout('/api/tasks',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:taskId,action,hours})},12000);
+      await loadProductTasks(item?.itemId);
+    }catch(error){console.error('[Super Anúncio] ação de tarefa falhou',error)}
+  }
+
+  useEffect(()=>{if(item?.itemId){loadLiveAds(item.itemId);loadFlashSales(item.itemId);loadProductTasks(item.itemId)}},[item?.itemId]);
 
   async function deleteAnalysis(){
     if(!item?.itemId||deleting)return;
@@ -319,7 +340,7 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
 
       <div className={styles.workspace}>
         <section className={styles.content}>
-          {tab==='overview'&&<Overview item={item} price={price} prevPrice={prevPrice} sold={sold} prevSold={prevSold} margin={margin} ai={ai} flashSales={flashSales} onReloadFlash={()=>loadFlashSales(item.itemId)}/>}
+          {tab==='overview'&&<Overview item={item} price={price} prevPrice={prevPrice} sold={sold} prevSold={prevSold} margin={margin} ai={ai} flashSales={flashSales} productTasks={productTasks} onTaskAction={resolveProductTask} onReloadTasks={()=>loadProductTasks(item.itemId)} onReloadFlash={()=>loadFlashSales(item.itemId)}/>} 
           {tab==='ads'&&<AdsPanel ads={ads} liveAds={liveAds} onRetry={()=>loadLiveAds(item.itemId)} hasHistorical={!!historicalAds}/>}
           {tab==='analysis'&&<AnalysisPanel report={r} ai={ai}/>}
           {tab==='competitors'&&<CompetitorsPanel competitors={competitors} collectedAt={r.analyzed_at} onZoom={setZoomSrc}/>}
@@ -334,7 +355,7 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
   </div>;
 }
 
-function Overview({item,price,prevPrice,sold,prevSold,margin,ai,flashSales,onReloadFlash}){
+function Overview({item,price,prevPrice,sold,prevSold,margin,ai,flashSales,productTasks,onTaskAction,onReloadTasks,onReloadFlash}){
   const r=item.latest||{};
   return <><section className={styles.compare}>
     <article className={`${styles.panel} ${styles.overviewPanel}`}>
@@ -357,6 +378,7 @@ function Overview({item,price,prevPrice,sold,prevSold,margin,ai,flashSales,onRel
     </article>
   </section>
   <FlashSaleCard state={flashSales} itemId={item.itemId} onReload={onReloadFlash}/>
+  <NextActionsCard state={productTasks} itemId={item.itemId} onAction={onTaskAction} onReload={onReloadTasks}/>
   <section className={styles.explain}>
     <div className={styles.explainHead}><span className={styles.panelIcon}><Icon name="file"/></span><div><h2>Resumo do acompanhamento</h2><p className={styles.sub}>Visão consolidada das principais informações e recomendações.</p></div></div>
     <div className={styles.reasonGrid}>
@@ -367,6 +389,26 @@ function Overview({item,price,prevPrice,sold,prevSold,margin,ai,flashSales,onRel
       <Reason icon="chart" title="Margem">Preço e custo registrados são usados para acompanhar a margem.</Reason>
     </div>
   </section></>;
+}
+
+function NextActionsCard({state,itemId,onAction,onReload}){
+  const rows=arr(state?.rows);
+  const loading=state?.phase==='loading';
+  const failed=state?.phase==='error'||state?.phase==='timeout';
+  const priorityLabel={urgent:'Urgente',high:'Alta',medium:'Média',low:'Baixa'};
+  const typeLabel={flash_sale:'Oferta Relâmpago',reanalysis:'Reanálise',competitors:'Concorrentes',images:'Imagens',video:'Vídeo',ads:'Shopee Ads',other:'Tarefa'};
+  const dueText=v=>{if(!v)return'Sem prazo';const d=new Date(v);if(Number.isNaN(d.getTime()))return'Sem prazo';return d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})};
+  return <section className={styles.nextActionsCard}>
+    <div className={styles.nextActionsHead}><div><span>☷</span><div><h2>Próximas ações deste anúncio</h2><p>Lembretes e pendências em ordem de prioridade.</p></div></div><button type="button" onClick={onReload} disabled={loading}>↻ {loading?'Atualizando…':'Atualizar'}</button></div>
+    {failed?<div className={styles.flashError}>{state.error||'Não foi possível carregar as próximas ações.'}<button type="button" onClick={onReload}>Tentar novamente</button></div>:null}
+    {!failed&&loading?<div className={styles.flashEmpty}>Carregando próximas ações…</div>:null}
+    {!failed&&!loading&&!rows.length?<div className={styles.flashEmpty}>Nenhuma pendência aberta para este anúncio agora. <ReminderButton itemId={itemId} taskType="other" title="Revisar anúncio" description="Revisar este anúncio no Gestor Sênior." actionUrl={'/extensao-shopee-intelligence?section=super-anuncio&item_id='+itemId} label="🔔 Criar lembrete"/></div>:null}
+    {!failed&&!loading&&rows.length?<div className={styles.nextActionsList}>{rows.slice(0,6).map(t=><article key={t.id} data-priority={t.priority}>
+      <i/>
+      <div><div className={styles.nextActionMeta}><span>{typeLabel[t.task_type]||'Tarefa'}</span><em>{priorityLabel[t.priority]||'Média'}</em></div><b>{t.title}</b><p>{t.description||'Tarefa pendente.'}</p><small>Prazo: {dueText(t.due_at)}</small></div>
+      <div className={styles.nextActionButtons}>{t.action_url&&<Link href={t.action_url}>Resolver agora</Link>}<button type="button" onClick={()=>onAction?.(t.id,'snooze',24)}>Amanhã</button><button type="button" onClick={()=>onAction?.(t.id,'done')}>Concluir</button></div>
+    </article>)}</div>:null}
+  </section>;
 }
 
 function FlashSaleCard({state,itemId,onReload}){
