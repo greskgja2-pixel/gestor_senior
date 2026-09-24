@@ -45,6 +45,40 @@ async function syncReanalysisTasks(db,shopId){
 }
 
 
+async function syncCompetitorDueTasks(db,shopId){
+  const nowIso=new Date().toISOString();
+  const [{data:watches,error:watchError},{data:open,error:taskError}]=await Promise.all([
+    db.from('gs_competitor_watches').select('owner_item_id,competitor_item_id,competitor_title,next_check_at').eq('shop_id',shopId).eq('enabled',true).lte('next_check_at',nowIso),
+    db.from('gs_tasks').select('id,item_id,dedupe_key').eq('shop_id',shopId).eq('task_type','competitors').eq('source','system').eq('status','open')
+  ]);
+  if(watchError||taskError)return;
+  const groups=new Map();
+  for(const w of watches||[]){
+    const key=String(w.owner_item_id);
+    if(!groups.has(key))groups.set(key,[]);
+    groups.get(key).push(w);
+  }
+  const openMap=new Map((open||[]).map(t=>[String(t.item_id),t]));
+  for(const [ownerItemId,rows] of groups){
+    const current=openMap.get(ownerItemId);
+    const payload={
+      shop_id:shopId,item_id:Number(ownerItemId),task_type:'competitors',
+      title:'Atualizar concorrentes',
+      description:`${rows.length} concorrente${rows.length===1?'':'s'} deste produto ${rows.length===1?'está':'estão'} com a rechecagem vencida. O Motor Senior tentará atualizar automaticamente quando estiver conectado.`,
+      priority:'high',status:'open',due_at:nowIso,remind_at:nowIso,source:'system',
+      action_url:`/extensao-shopee-intelligence?section=concorrentes&item_id=${ownerItemId}`,
+      dedupe_key:`competitor-refresh:${ownerItemId}`,
+      metadata:{due_count:rows.length,competitor_item_ids:rows.map(x=>x.competitor_item_id)},updated_at:nowIso
+    };
+    if(current)await db.from('gs_tasks').update(payload).eq('id',current.id).eq('shop_id',shopId);
+    else await db.from('gs_tasks').insert(payload);
+    openMap.delete(ownerItemId);
+  }
+  for(const stale of openMap.values()){
+    await db.from('gs_tasks').update({status:'done',completed_at:nowIso,updated_at:nowIso}).eq('id',stale.id).eq('shop_id',shopId);
+  }
+}
+
 function spDate(offsetDays=0){
   const d=new Date(Date.now()+offsetDays*86400000);
   const parts=new Intl.DateTimeFormat('en-US',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(d);
@@ -147,7 +181,7 @@ export async function GET(request){
   const db=supabaseAdmin();
   const url=new URL(request.url);
   const briefing=url.searchParams.get('briefing')==='1';
-  await syncReanalysisTasks(db,shop.shop_id);
+  await Promise.all([syncReanalysisTasks(db,shop.shop_id),syncCompetitorDueTasks(db,shop.shop_id)]);
   if(briefing)await syncAdsZeroSalesTasks(db,shop);
   const status=safeText(url.searchParams.get('status'),20)||'open';
   const itemId=positiveInt(url.searchParams.get('item_id'));
