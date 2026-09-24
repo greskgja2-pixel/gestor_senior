@@ -293,7 +293,7 @@ function Competitors({items}){
             owner_found:normalized.owner.found,owner_position:normalized.owner.position,owner_page:normalized.owner.page,
             competitor_ads_status:normalized.ads.status,competitor_ads_evidence:normalized.ads.evidence,
             source:'motor-senior-search',confidence:'observed',
-            raw:{results_count:normalized.rawCount}
+            raw:{results_count:normalized.rawCount,search_order:'relevance',session_observed:true}
           })
         },15000);
         updated++;
@@ -502,7 +502,7 @@ function Competitors({items}){
                 <div><small>Diferença</small><b>{n(r.visibility?.competitor_position)!=null&&n(r.visibility?.owner_position)!=null?(n(r.visibility.owner_position)-n(r.visibility.competitor_position)>0?'+':'')+(n(r.visibility.owner_position)-n(r.visibility.competitor_position)).toLocaleString('pt-BR')+' posições':'—'}</b></div>
                 <div><small>Última leitura</small><b>{r.visibility?.searched_at?when(r.visibility.searched_at):'Ainda não coletado'}</b></div>
               </div>
-              <p className={styles.radarAdsNote}>{r.visibility?.competitor_ads_status==='detected'?'A Shopee exibiu este concorrente como patrocinado nesta busca, então havia Ads ativo para este contexto naquele momento.':r.visibility?.competitor_ads_status==='not_detected'?'Nesta busca o resultado foi identificado como não patrocinado. Isso não prova que o vendedor não tenha campanha ativa para outros termos, posições ou momentos.':'Ainda não há evidência suficiente para afirmar se este anúncio está usando Shopee Ads nesta busca.'}{r.visibility?.competitor_ads_evidence?' Evidência: '+r.visibility.competitor_ads_evidence+'.':''}</p>
+              <p className={styles.radarAdsNote}>{r.visibility?.competitor_ads_status==='detected'?'A Shopee exibiu este concorrente como patrocinado nesta busca, então havia Ads ativo para este contexto naquele momento.':r.visibility?.competitor_ads_status==='not_detected'?'Nesta busca o resultado foi identificado como não patrocinado. Isso não prova que o vendedor não tenha campanha ativa para outros termos, posições ou momentos.':'Ainda não há evidência suficiente para afirmar se este anúncio está usando Shopee Ads nesta busca.'}{r.visibility?.competitor_ads_evidence?' Evidência: '+r.visibility.competitor_ads_evidence+'.':''} A posição é observada na busca por relevância usando a sessão atual da Shopee e pode variar por horário, usuário e contexto.</p>
               {visibilityPhase[String(r.ownerItemId)]==='error'&&<p className={styles.radarVisibilityError}>O Motor Senior atual não conseguiu coletar a posição. A tela preserva o último dado válido e tentará novamente quando o coletor suportar a leitura.</p>}
               {r.visibilityHistory.length>1&&<div className={styles.radarVisibilityHistory}>{r.visibilityHistory.slice(0,8).map(v=><div key={v.id}><span>{when(v.searched_at)}</span><b>Concorrente {n(v.competitor_position)!=null?'#'+n(v.competitor_position):'—'} · Meu anúncio {n(v.owner_position)!=null?'#'+n(v.owner_position):'—'}</b><small>{v.keyword} · Ads: {v.competitor_ads_status==='detected'?'detectado':v.competitor_ads_status==='not_detected'?'não identificado':'sem leitura'}</small></div>)}</div>}
             </div>}
