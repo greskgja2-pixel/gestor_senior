@@ -6,17 +6,22 @@ import styles from './daily-briefing-popup.module.css';
 const when=v=>{if(!v)return'—';const d=new Date(v);return Number.isNaN(d.getTime())?'—':d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})};
 
 export default function DailyBriefingPopup(){
-  const [phase,setPhase]=useState('idle'),[tasks,setTasks]=useState([]),[open,setOpen]=useState(false);
+  const [phase,setPhase]=useState('idle'),[tasks,setTasks]=useState([]),[open,setOpen]=useState(false),[displayName,setDisplayName]=useState('');
   useEffect(()=>{
     let alive=true;
     (async()=>{
       setPhase('loading');
       try{
-        const res=await fetch('/api/tasks?briefing=1',{cache:'no-store'});
-        const json=await res.json();
-        if(!res.ok)throw new Error(json?.error||'Falha ao carregar prioridades.');
+        const [taskRes,prefRes]=await Promise.all([
+          fetch('/api/tasks?briefing=1',{cache:'no-store'}),
+          fetch('/api/notification-preferences',{cache:'no-store'}).catch(()=>null)
+        ]);
+        const json=await taskRes.json();
+        if(!taskRes.ok)throw new Error(json?.error||'Falha ao carregar prioridades.');
+        const prefs=prefRes&&prefRes.ok?await prefRes.json().catch(()=>null):null;
         if(!alive)return;
         const rows=Array.isArray(json?.tasks)?json.tasks:[];
+        setDisplayName(String(prefs?.preferences?.display_name||'').trim());
         setTasks(rows);setPhase('success');
         if(rows.length){
           const key='gs-briefing-'+new Date().toISOString().slice(0,10);
@@ -41,7 +46,7 @@ export default function DailyBriefingPopup(){
     <button type="button" className={styles.reopen} onClick={()=>setOpen(true)}>🔔 {tasks.length} prioridade{tasks.length===1?'':'s'} hoje</button>
     {open&&<div className={styles.backdrop} role="dialog" aria-modal="true" aria-label="Resumo urgente do dia" onClick={()=>setOpen(false)}>
       <section className={styles.modal} onClick={e=>e.stopPropagation()}>
-        <header><div><small>RESUMO DO DIA</small><h2>Comece por aqui</h2><p>Estas são as tarefas que merecem atenção agora.</p></div><button type="button" onClick={()=>setOpen(false)}>×</button></header>
+        <header><div><small>RESUMO DO DIA</small><h2>{(()=>{const h=new Date().getHours(),g=h<12?'Bom dia':h<18?'Boa tarde':'Boa noite';return displayName?`${g}, ${displayName}`:`${g}. Comece por aqui`})()}</h2><p>Estas são as tarefas que merecem atenção agora.</p></div><button type="button" onClick={()=>setOpen(false)}>×</button></header>
         <div className={styles.summary}><b>{tasks.filter(x=>x.priority==='urgent').length}</b><span>urgentes</span><b>{tasks.length}</b><span>para hoje</span></div>
         <div className={styles.list}>{tasks.slice(0,6).map(t=><article key={t.id} data-priority={t.priority}>
           <span className={styles.dot}/>
