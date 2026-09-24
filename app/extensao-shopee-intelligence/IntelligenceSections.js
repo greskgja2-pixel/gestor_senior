@@ -138,6 +138,37 @@ function competitorLocation(comp,snap,history=[]){
   const direct=value==null?'':String(value).trim();
   return stateFromText(direct)||stateFromText(comp?.searchText)||stateFromText(comp?.description)||direct;
 }
+function shopIdentityFromObject(value,depth=0){
+  if(!value||typeof value!=='object'||depth>5)return{name:'',username:'',url:''};
+  const nameKeys=['shopName','shop_name','shopname','sellerName','seller_name','sellername','merchant_name','merchantName'];
+  const userKeys=['shopUsername','shop_username','username','seller_username','sellerUsername'];
+  const urlKeys=['shopUrl','shop_url','seller_url','sellerUrl'];
+  let name='',username='',url='';
+  for(const key of nameKeys){if(typeof value?.[key]==='string'&&value[key].trim()){name=value[key].trim();break}}
+  for(const key of userKeys){if(typeof value?.[key]==='string'&&value[key].trim()){username=value[key].trim();break}}
+  for(const key of urlKeys){if(typeof value?.[key]==='string'&&/^https?:\/\//i.test(value[key].trim())){url=value[key].trim();break}}
+  if(name||username||url)return{name,username,url};
+  for(const [key,v] of Object.entries(value)){
+    if(!v||typeof v!=='object')continue;
+    if(!/(shop|seller|merchant|account|store)/i.test(key))continue;
+    const nested=shopIdentityFromObject(v,depth+1);
+    if(nested.name||nested.username||nested.url)return nested;
+  }
+  return{name:'',username:'',url:''};
+}
+function competitorStore(comp,snap,history=[],watch){
+  const raw=snap?.raw&&typeof snap.raw==='object'?snap.raw:{};
+  const historicalName=historyRawValue(history,['shopName','shop_name','sellerName','seller_name']);
+  const historicalUser=historyRawValue(history,['shopUsername','shop_username','username','seller_username']);
+  const historicalUrl=historyRawValue(history,['shopUrl','shop_url','sellerUrl','seller_url']);
+  const direct=shopIdentityFromObject(comp);
+  const name=String(raw?.shopName??raw?.shop_name??raw?.sellerName??raw?.seller_name??historicalName??direct.name??'').trim();
+  const username=String(raw?.shopUsername??raw?.shop_username??raw?.username??raw?.seller_username??historicalUser??direct.username??'').trim();
+  const shopId=String(comp?.shopId??comp?.shop_id??watch?.competitor_shop_id??'').trim();
+  const explicitUrl=String(raw?.shopUrl??raw?.shop_url??raw?.sellerUrl??raw?.seller_url??historicalUrl??direct.url??'').trim();
+  const href=/^https?:\/\//i.test(explicitUrl)?explicitUrl:(username?('https://shopee.com.br/'+encodeURIComponent(username)):(shopId?'https://shopee.com.br/shop/'+encodeURIComponent(shopId):''));
+  return{name,username,shopId,href};
+}
 function yesNo(value){return value===true?'Sim':value===false?'Não':'Não confirmado'}
 function competitorImage(c){
   const asUrl=value=>{
@@ -159,6 +190,18 @@ function competitorImage(c){
   const score=u=>{let score=0;if(/down-br\.img\.susercontent\.com\/file\//i.test(u))score+=4;if(/\/br-11134207-/i.test(u))score+=10;if(/@resize_w/i.test(u))score+=2;if(/_tn(?:\?|$)/i.test(u))score-=6;if(/_cover(?:\?|$)/i.test(u))score-=7;return score};
   return rows.map((u,i)=>({u,i,score:score(u)})).sort((a,b)=>b.score-a.score||a.i-b.i)[0]?.u||null;
 }
+function VectorIcon({name,size=15,className=''}) {
+  const common={width:size,height:size,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.9,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':'true',className};
+  if(name==='search'||name==='zoom')return <svg {...common}><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg>;
+  if(name==='refresh')return <svg {...common}><path d="M20 6v5h-5"/><path d="M4 18v-5h5"/><path d="M6.1 9A7 7 0 0 1 18.5 6.5L20 11"/><path d="M17.9 15A7 7 0 0 1 5.5 17.5L4 13"/></svg>;
+  if(name==='edit')return <svg {...common}><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>;
+  if(name==='external')return <svg {...common}><path d="M14 5h5v5"/><path d="M10 14 19 5"/><path d="M19 13v6H5V5h6"/></svg>;
+  if(name==='trash')return <svg {...common}><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 14H6L5 6"/><path d="M10 11v5M14 11v5"/></svg>;
+  if(name==='history')return <svg {...common}><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>;
+  if(name==='store')return <svg {...common}><path d="M4 10v10h16V10"/><path d="M3 10 5 4h14l2 6"/><path d="M8 20v-6h8v6"/><path d="M3 10c0 2 3 2 3 0 0 2 3 2 3 0 0 2 3 2 3 0 0 2 3 2 3 0 0 2 3 2 3 0"/></svg>;
+  if(name==='chart')return <svg {...common}><path d="M4 19V9"/><path d="M10 19V5"/><path d="M16 19v-8"/><path d="M22 19V3"/></svg>;
+  return <svg {...common}><circle cx="12" cy="12" r="9"/></svg>;
+}
 function CompetitorThumb({src,title}){
   const [failed,setFailed]=useState(false);
   const [zoom,setZoom]=useState(false);
@@ -177,7 +220,7 @@ function CompetitorThumb({src,title}){
       ?<div className={styles.noImage}>▧</div>
       :<>
         <img src={src} alt={title||'Imagem do concorrente'} loading="lazy" onError={()=>setFailed(true)}/>
-        <button type="button" className={styles.radarExactZoomButton} aria-label="Ampliar imagem do concorrente" title="Ampliar imagem" onClick={()=>setZoom(true)}>⌕</button>
+        <button type="button" className={styles.radarExactZoomButton} aria-label="Ampliar imagem do concorrente" title="Ampliar imagem" onClick={()=>setZoom(true)}><VectorIcon name="zoom" size={16}/></button>
       </>}
     {zoom&&canZoom&&typeof document!=='undefined'&&createPortal(
       <div className={styles.radarExactLightbox} role="dialog" aria-modal="true" aria-label="Imagem ampliada do concorrente" onClick={()=>setZoom(false)}>
@@ -246,9 +289,10 @@ function searchMarketData(row){
   const preferred=/\bindicado\b|vendedor\s+indicado/i.test(searchText)?true:preferredFromObject(row);
   const locationRaw=b?.shop_location??b?.location??b?.shop_location_name??b?.seller_location??row?.shop_location??row?.location??row?.seller_location??null;
   const location=stateFromText(locationRaw)||locationFromObject(row)||stateFromText(searchText)||stateFromText(row?.description??b?.description);
+  const shop=shopIdentityFromObject(row);
   return{
     price,originalPrice,sold,monthlySold,preferred,
-    location:location||null,
+    location:location||null,shopName:shop.name||null,shopUsername:shop.username||null,shopUrl:shop.url||null,
     title:b?.name||b?.item_name||row?.title||null,
     rating:n(b?.item_rating?.rating_star??b?.rating_star??row?.rating),
     rawSource:'search-item'
@@ -331,7 +375,7 @@ function normalizeSearchVisibility(data,{ownerItemId,competitorItemId,maxPages=3
     itemsPerPage:n(root?.items_per_page??root?.per_page)??60,
     competitor:{found:!!competitor,position:competitor?.rank??null,page:competitor?.page??null},
     owner:{found:!!owner,position:owner?.rank??null,page:owner?.page??null},
-    ads,market:competitor?.market||{price:null,originalPrice:null,sold:null,monthlySold:null,preferred:null,location:null,title:null,rating:null},rawCount:normalized.length
+    ads,market:competitor?.market||{price:null,originalPrice:null,sold:null,monthlySold:null,preferred:null,location:null,shopName:null,shopUsername:null,shopUrl:null,title:null,rating:null},rawCount:normalized.length
   };
 }
 
@@ -428,6 +472,7 @@ function Competitors({items}){
       priceFallback:unverifiedPdpPrice,
       sold:n(snap?.sold)??competitorSold(comp),sold30d:competitorMonthlySold(comp,snap,watch?.snapshot_history),
       preferred:competitorPreferred(comp,snap,watch?.snapshot_history),location:competitorLocation(comp,snap,watch?.snapshot_history),
+      store:competitorStore(comp,snap,watch?.snapshot_history,watch),
       rating:n(snap?.rating)??n(comp.rating),raw:comp,
       image:competitorImage(comp)||competitorImage(snap)||snap?.image_url||null,link:comp.link||comp.url||watch?.competitor_url||null,
       collected:snap?.collected_at||item.latest?.analyzed_at,watch,change:watch?.latest_change||null,
@@ -496,6 +541,9 @@ function Competitors({items}){
                 monthlySold:n(market.monthlySold),
                 preferred:market.preferred,
                 location:market.location||null,
+                shopName:market.shopName||null,
+                shopUsername:market.shopUsername||null,
+                shopUrl:market.shopUrl||null,
                 searchRank:normalized.competitor.position,
                 searchPage:normalized.competitor.page,
                 keyword:normalized.keyword||keyword
@@ -575,6 +623,9 @@ function Competitors({items}){
               monthlySold:p?.monthlySold??p?.monthly_sold??p?.sold30d??p?.sold_30d??null,
               preferred:preferredFromObject(p),
               location:locationFromObject(p)||stateFromText(p?.searchText??p?.description)||null,
+              shopName:shopIdentityFromObject(p).name||null,
+              shopUsername:shopIdentityFromObject(p).username||null,
+              shopUrl:shopIdentityFromObject(p).url||null,
               priceVerification:{
                 publicPrice,extensionPrice,
                 publicOriginalPrice,extensionOriginalPrice,
@@ -688,11 +739,11 @@ function Competitors({items}){
   if(!rows.length&&monitor.phase!=='error')return <Empty text="Nenhum concorrente monitorado. Faça uma Super Análise e selecione de 1 a 3 concorrentes."/>;
   return <div className={styles.radarExact}>
     <section className={styles.radarExactToolbar}>
-      <label className={styles.radarExactSearch}><span>⌕</span><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar concorrente, anúncio ou ID..."/></label>
+      <label className={styles.radarExactSearch}><span><VectorIcon name="search" size={17}/></span><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar concorrente, anúncio ou ID..."/></label>
       <label><small>Status</small><select value={status} onChange={e=>setStatus(e.target.value)}><option value="all">Todos</option><option value="down">Queda de preço</option><option value="up">Alta de preço</option><option value="accelerating">Vendas acelerando</option><option value="due">Rechecagem vencida</option><option value="nodata">Sem dados</option></select></label>
       <label><small>Ordenar por</small><select value={sort} onChange={e=>setSort(e.target.value)}><option value="priority">Maior prioridade</option><option value="price">Maior variação de preço</option><option value="sales">Mais vendas</option><option value="collected">Última coleta</option><option value="recheck">Próxima rechecagem</option></select></label>
       <label><small>Período</small><select value={period} onChange={e=>setPeriod(e.target.value)}><option value="7">Últimos 7 dias</option><option value="14">Últimos 14 dias</option><option value="30">Últimos 30 dias</option><option value="all">Todo histórico</option></select></label>
-      <button type="button" className={styles.radarExactRefresh} onClick={recheckAll} disabled={bulkPhase==='loading'}>↻ {bulkPhase==='loading'?'Rechecando…':'Atualizar / Rechecar agora'}</button>
+      <button type="button" className={styles.radarExactRefresh} onClick={recheckAll} disabled={bulkPhase==='loading'}><VectorIcon name="refresh" size={15}/>{bulkPhase==='loading'?'Rechecando…':'Atualizar / Rechecar agora'}</button>
       <button type="button" className={styles.radarExactIcon} aria-label="Ajuda">?</button>
       <button type="button" className={styles.radarExactIcon} aria-label="Notificações">♟</button>
       <span className={styles.radarExactAvatar}>GS</span>
@@ -728,7 +779,6 @@ function Competitors({items}){
           const previousPrice=n(r.change?.price_before);
           const cutoff=period==='all'?0:Date.now()-Number(period)*86400000;
           const hist=r.history.filter(h=>!cutoff||new Date(h.collected_at).getTime()>=cutoff).slice().reverse();
-          const salesSeries=hist.map(h=>n(h.sold)).filter(v=>v!=null);
           const normalPrice=r.originalPrice!=null&&r.originalPrice>r.price?r.originalPrice:r.price;
           const offerPrice=r.originalPrice!=null&&r.price!=null&&r.originalPrice>r.price?r.price:null;
           const ownerHref='/extensao-shopee-intelligence?section=super-anuncio&item_id='+r.ownerItemId;
@@ -736,7 +786,11 @@ function Competitors({items}){
           return <article className={styles.radarExactCard} data-tone={priority.tone} data-signal={signal} key={r.key}>
             <section className={styles.radarExactIdentity}>
               <div className={styles.radarExactThumb}><CompetitorThumb src={r.image} title={r.title}/></div>
-              <div>{r.link?<a className={styles.radarExactTitle} href={r.link} target="_blank" rel="noreferrer">{r.title}</a>:<b className={styles.radarExactTitle}>{r.title}</b>}<span>Vinculado ao seu anúncio:</span><Link href={ownerHref}>{r.owner}</Link><em>Concorrente Direto</em></div>
+              <div>
+                {r.link?<a className={styles.radarExactTitle} href={r.link} target="_blank" rel="noreferrer">{r.title}</a>:<b className={styles.radarExactTitle}>{r.title}</b>}
+                <div className={styles.radarExactStore}><VectorIcon name="store" size={13}/><span>Loja:</span>{r.store?.name?(r.store?.href?<a href={r.store.href} target="_blank" rel="noreferrer">{r.store.name}<VectorIcon name="external" size={11}/></a>:<b>{r.store.name}</b>):<small>aguardando coleta</small>}</div>
+                <span>Vinculado ao seu anúncio:</span><Link href={ownerHref}>{r.owner}</Link><em>Concorrente Direto</em>
+              </div>
             </section>
 
             <section className={styles.radarExactPrice}>
@@ -744,20 +798,20 @@ function Competitors({items}){
               <div><b>{money(normalPrice)}</b>{offerPrice!=null&&<b className={styles.radarExactOffer}>{money(offerPrice)}</b>}{pricePct!=null&&Math.abs(pricePct)>=.1&&<mark data-tone={pricePct<0?'down':'up'}>{pricePct<0?'↓':'↑'} {pricePct>0?'+':''}{pricePct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</mark>}</div>
               {r.priceFallback?<span>Preço anterior confiável · aguardando rechecagem atual</span>:previousPrice!=null&&<span>Preço na coleta anterior: {money(previousPrice)}</span>}
               <div className={styles.radarExactMeta}><span><small>Indicado</small><b data-bool={r.preferred===true?'yes':r.preferred===false?'no':'unknown'}>{yesNo(r.preferred)}</b></span><span><small>Localização</small><b>{r.location||'Não coletado'}</b></span></div>
-              <strong data-tone={priority.tone}>{priority.tone==='urgent'||priority.tone==='attention'?'⚠ ':priority.tone==='opportunity'?'● ':''}{priority.label}</strong>
+              <button type="button" className={styles.radarExactHistoryChip} onClick={()=>setOpenHistory(openHistory===r.key?'':r.key)}><VectorIcon name="history" size={12}/> Histórico</button>
               <p>Última coleta: {when(r.collected)}</p><p>Rechecagem: {due.label}</p>
             </section>
 
             <section className={styles.radarExactSales}>
-              <small>Venda acumulada</small><div className={styles.radarExactSalesTop}><b>{r.sold==null?'—':Number(r.sold).toLocaleString('pt-BR')}</b><MiniTrend values={salesSeries} bars tone="green"/></div>
-              <div className={styles.radarExactSales30}><small>Últimos 30 dias</small><b>{r.sold30d==null?'Não coletado':Number(r.sold30d).toLocaleString('pt-BR')}</b></div>
+              <small>Venda acumulada</small><div className={styles.radarExactSalesTop}><b>{r.sold==null?'—':Number(r.sold).toLocaleString('pt-BR')}</b></div>
+              {r.sold30d!=null&&<div className={styles.radarExactSales30}><small>Últimos 30 dias</small><b>{Number(r.sold30d).toLocaleString('pt-BR')}</b></div>}
               {velocity!=null&&<mark data-tone={velocity>=0?'down':'up'}>{velocity>=0?'↑':'↓'} {velocity>0?'+':''}{velocity.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</mark>}
               {soldDelta!=null&&<span>{soldDelta>=0?'+':''}{soldDelta.toLocaleString('pt-BR')} desde a última coleta</span>}
-              <button type="button" onClick={()=>setOpenHistory(openHistory===r.key?'':r.key)}>Mais detalhes <span>{openHistory===r.key?'⌃':'⌄'}</span></button>
+              <button type="button" onClick={()=>setOpenHistory(openHistory===r.key?'':r.key)}><VectorIcon name="history" size={13}/> Histórico <span>{openHistory===r.key?'⌃':'⌄'}</span></button>
             </section>
 
             <section className={styles.radarExactVisibility}>
-              <h4>⌕ Visibilidade na busca</h4>
+              <h4><VectorIcon name="search" size={13}/> Visibilidade na busca</h4>
               <div><span>Rank</span><b>{searchPositionLabel(r.visibility?.competitor_position,r.visibility?.competitor_page,r.visibility?.competitor_found,r.visibility?.max_pages||3,r.visibility?.items_per_page||60)}</b></div>
               <div><span>Ads</span><b data-ads={r.visibility?.competitor_ads_status||'unknown'}>{r.visibility?.competitor_ads_status==='detected'?'Sim':r.visibility?.competitor_ads_status==='not_detected'?'Não':'Não confirmado'}</b></div>
               <div><span>Meu anúncio</span><b>{searchPositionLabel(r.visibility?.owner_position,r.visibility?.owner_page,r.visibility?.owner_found,r.visibility?.max_pages||3,r.visibility?.items_per_page||60)}</b></div>
@@ -765,11 +819,11 @@ function Competitors({items}){
             </section>
 
             <section className={styles.radarExactActions}>
-              <button type="button" className={styles.radarExactCheck} disabled={checkingCompetitor===r.key} onClick={()=>checkCompetitor(r)}>⌕ {checkingCompetitor===r.key?'Checando…':'Checar dados'}</button>
-              <Link href={priceHref}>✎ Editar preço do meu anúncio</Link>
-              <Link href={ownerHref}>↗ Ir para meu anúncio</Link>
-              {r.link?<a href={r.link} target="_blank" rel="noreferrer">↗ Abrir anúncio</a>:<button type="button" disabled>↗ Abrir anúncio</button>}
-              <button type="button" className={styles.radarExactDelete} onClick={()=>removeWatch(r)}>🗑 Excluir concorrente</button>
+              <button type="button" className={styles.radarExactCheck} disabled={checkingCompetitor===r.key} onClick={()=>checkCompetitor(r)}><VectorIcon name="search" size={14}/>{checkingCompetitor===r.key?'Checando…':'Checar dados'}</button>
+              <Link href={priceHref}><VectorIcon name="edit" size={14}/>Editar preço do meu anúncio</Link>
+              <Link href={ownerHref}><VectorIcon name="external" size={14}/>Ir para meu anúncio</Link>
+              {r.link?<a href={r.link} target="_blank" rel="noreferrer"><VectorIcon name="external" size={14}/>Abrir anúncio</a>:<button type="button" disabled><VectorIcon name="external" size={14}/>Abrir anúncio</button>}
+              <button type="button" className={styles.radarExactDelete} onClick={()=>removeWatch(r)}><VectorIcon name="trash" size={14}/>Excluir concorrente</button>
             </section>
 
             {(openHistory===r.key||openSearchDetails===r.key)&&<section className={styles.radarExactDetails}>
