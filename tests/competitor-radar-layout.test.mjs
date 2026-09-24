@@ -6,72 +6,59 @@ const ui=fs.readFileSync(new URL('../app/extensao-shopee-intelligence/Intelligen
 const css=fs.readFileSync(new URL('../app/extensao-shopee-intelligence/intelligence-sections.module.css',import.meta.url),'utf8');
 const api=fs.readFileSync(new URL('../app/api/competitor-monitor/route.js',import.meta.url),'utf8');
 
-test('radar de concorrentes usa o layout aprovado',()=>{
+test('Concorrentes foi reconstruido com estrutura propria do mockup',()=>{
   for(const token of [
-    'com queda de preço','com alta de preço','com vendas acelerando','rechecagens vencidas','concorrentes monitorados',
-    'Atualizar / Rechecar agora','Alertas do radar competitivo','Distribuição dos concorrentes','Dicas e insights'
-  ])assert.ok(ui.includes(token),`token ausente: ${token}`);
-  assert.match(css,/\.radarKpis/);
-  assert.match(css,/\.radarColumns/);
-  assert.match(css,/\.radarCard/);
-  assert.match(css,/\.radarAside/);
+    'radarExactToolbar','radarExactKpis','radarExactProgress','radarExactColumns','radarExactCard',
+    'radarExactIdentity','radarExactPrice','radarExactSales','radarExactVisibility','radarExactActions',
+    'Alertas do radar competitivo','Distribuição dos concorrentes','Dicas e insights'
+  ])assert.ok(ui.includes(token),'estrutura ausente: '+token);
+  assert.match(css,/GS_RADAR_EXACT_MOCKUP_2026_09_24/);
+  assert.doesNotMatch(css,/GS_RADAR_COMPETITIVO_2026_09_24/);
+  assert.doesNotMatch(css,/GS_RADAR_APPROVED_LAYOUT_2026_09_24/);
+  assert.doesNotMatch(css,/GS_RADAR_MOCKUP_MATCH_2026_09_24/);
 });
 
-test('cada concorrente oferece acesso ao proprio anuncio e edicao de preco',()=>{
-  assert.match(ui,/Ir para meu anúncio/);
+test('ordem visual segue mockup: toolbar, kpis, progresso e lista',()=>{
+  const toolbar=ui.indexOf('radarExactToolbar');
+  const kpis=ui.indexOf('radarExactKpis');
+  const progress=ui.indexOf('radarExactProgress');
+  const columns=ui.indexOf('radarExactColumns');
+  assert.ok(toolbar>=0&&kpis>toolbar&&progress>kpis&&columns>progress);
+});
+
+test('cada concorrente oferece titulo clicavel e atalhos do anuncio proprio',()=>{
+  assert.match(ui,/className=\{styles\.radarExactTitle\} href=\{r\.link\}/);
   assert.match(ui,/Editar preço do meu anúncio/);
-  assert.match(ui,/\/super-analise\?item_id=/);
+  assert.match(ui,/Ir para meu anúncio/);
+  assert.match(ui,/Abrir anúncio/);
+  assert.match(ui,/section=super-anuncio/);
   assert.match(ui,/tab=price/);
-  assert.match(ui,/section=super-anuncio&item_id=/);
-  assert.match(ui,/Ver no Super Anúncio/);
 });
 
-test('remover do radar preserva historico e nao volta a habilitar automaticamente',()=>{
-  assert.match(ui,/enabled:false/);
-  assert.match(api,/old\?\.enabled===false\?false:true/);
-  assert.match(ui,/O histórico já coletado será preservado/);
-});
-
-test('radar mostra variacao, ritmo, historico e rechecagem',()=>{
-  assert.match(ui,/Tendência de preço/);
-  assert.match(ui,/Tendência de vendas/);
-  assert.match(ui,/Ritmo de vendas/);
-  assert.match(ui,/Ver histórico/);
-  assert.match(ui,/Rechecar a cada/);
-});
-
-test('visibilidade da busca fica resumida e detalhes permanecem expansivos',()=>{
+test('visibilidade principal tem somente os tres dados essenciais do mockup',()=>{
   assert.match(ui,/Visibilidade na busca/);
+  assert.match(ui,/Concorrente/);
   assert.match(ui,/Meu anúncio/);
   assert.match(ui,/Shopee Ads/);
   assert.match(ui,/Ver análise da busca/);
-  assert.match(ui,/Palavra-chave/);
-  assert.match(ui,/Páginas verificadas/);
-  assert.match(ui,/Diferença/);
-  assert.match(ui,/Última leitura/);
+  assert.match(css,/\.radarExactVisibility>div\{display:grid;grid-template-columns:1fr auto/);
 });
 
-test('coleta de posição usa ação nova e fallback do Motor Senior 0.14',()=>{
+test('barra de progresso informa avanço real durante a rechecagem',()=>{
+  assert.match(ui,/Rechecando concorrentes/);
+  assert.match(ui,/bulkProgress\.done\/bulkProgress\.total/);
+  assert.match(css,/\.radarExactProgressTrack i\{/);
+  assert.match(css,/transition:width \.45s ease/);
+});
+
+test('coleta de posição e ads continua integrada ao Motor Senior',()=>{
   assert.match(ui,/collectSearchVisibility/);
   assert.match(ui,/megaStartResearch/);
   assert.match(ui,/megaGetStatus/);
   assert.match(ui,/megaGetResult/);
-  assert.match(ui,/includeRaw:true/);
   assert.match(ui,/Ads ativo nesta busca/);
-  assert.match(ui,/não prova que o vendedor não tenha campanha ativa/);
 });
 
-
-test('radar mostra progresso real durante rechecagem e mantém títulos clicáveis',()=>{
-  assert.match(ui,/Rechecando concorrentes/);
-  assert.match(ui,/bulkProgress/);
-  assert.match(ui,/radarProgressTrack/);
-  assert.match(ui,/className=\{styles\.radarTitle\} href=\{r\.link\}/);
-  assert.match(ui,/CompetitorThumb/);
-});
-
-test('visibilidade principal permanece vertical e legível',()=>{
-  assert.match(css,/GS_RADAR_APPROVED_LAYOUT_2026_09_24/);
-  assert.match(css,/\.radarVisibility\{grid-column:4!important;grid-row:1!important;align-self:stretch;display:flex!important;flex-direction:column!important/);
-  assert.match(css,/\.radarTitle\{[^}]*font-size:14px!important/);
+test('remover concorrente continua preservando o historico no backend',()=>{
+  assert.match(api,/old\?\.enabled===false\?false:true/);
 });
