@@ -564,47 +564,64 @@ function CategoryComparison({current,competitors,dominant,aligned,onApply,select
 }
 
 
-function PriceSection({price,cost,setPrice,setCost,margin,competitors,plan,onPlan,before,after,blocked,setZoomSrc,slots,slotError,flash,setFlash,selectedSlot,createFlash,flashBusy,flashMessage,flashDays,setFlashDays,flashInsight,reloadFlash,useRecommendedSlot,automation,setAutomation,saveFlashAutomation,automationBusy,automationMessage}){
+function PriceSection({price,cost,setPrice,setCost,margin,competitors,plan,onPlan,before,after,blocked,setZoomSrc,slots,selectedSlots,slotError,flash,setFlash,createFlash,flashBusy,flashMessage,flashDays,setFlashDays,flashInsight,reloadFlash,useRecommendedSlot,flashPeriod,setFlashPeriod,setFlashPreset,models,variationDraft,setVariationDraft,applyFlashPriceToAll}){
   const promoMargin=currentMargin(flash.promoPrice,cost);
   const rec=flashInsight?.recommendation;
   const dayNames=['domingo','segunda-feira','terça-feira','quarta-feira','quinta-feira','sexta-feira','sábado'];
   const confidence={high:'alta',medium:'média',low:'baixa',insufficient:'dados insuficientes'}[rec?.confidence]||'—';
+  const rangeDays=flashPeriod?.start&&flashPeriod?.end?Math.max(1,Math.round((new Date(flashPeriod.end+'T12:00:00')-new Date(flashPeriod.start+'T12:00:00'))/86400000)+1):0;
   return <>
     <section className={styles.priceTopGrid}>
-      <article className={styles.panel}><div className={styles.panelHead}><h2>Preço e margem atuais</h2><span>✎ Editável</span></div><div className={styles.priceGrid}><label>Preço<input type="number" step="0.01" value={price} onChange={e=>setPrice(e.target.value)}/></label><label>Custo<input type="number" step="0.01" value={cost} onChange={e=>setCost(e.target.value)}/></label><div><small>Margem recalculada</small><b>{pct(margin)}</b></div></div><div className={styles.formula}>Conta resumida: preço de venda {money(price)} − 20% Shopee − R$ 4,50 de taxa fixa − custo {money(cost)} = margem estimada. <small>Taxas exibidas são a regra de cálculo configurada no Gestor.</small></div><div className={styles.scoreFloat}><Gauge score={before} label="Atual"/></div></article>
+      <article className={styles.panel}><div className={styles.panelHead}><h2>Preço e margem atuais</h2><span>✎ Editável</span></div><div className={styles.priceGrid}><label>Preço<input type="number" step="0.01" value={price} onChange={e=>setPrice(e.target.value)}/></label><label>Custo<input type="number" step="0.01" value={cost} onChange={e=>setCost(e.target.value)}/></label><div><small>Margem recalculada</small><b>{pct(margin)}</b></div></div><div className={styles.formula}>Conta resumida: preço de venda {money(price)} − 20% Shopee − R$ 4,50 de taxa fixa − custo {money(cost)} = margem estimada. <small>Ads é acompanhado separadamente e não reduz esta margem do produto.</small></div><div className={styles.scoreFloat}><Gauge score={before} label="Atual"/></div></article>
       <article className={styles.panel}><div className={styles.panelHead}><h2>✦ Estratégia de preço e concorrência</h2><span>✎ Editável</span></div>{blocked?<div className={styles.preserveBox}>A alteração sugerida reduziria a nota estimada. O preço atual foi preservado.</div>:<textarea rows={9} value={plan} onChange={e=>onPlan(e.target.value)} placeholder="A IA não encontrou uma mudança necessária no preço."/>}<div className={styles.applyLine}><Gauge score={after} label={blocked?'Preservado':'Depois'}/></div></article>
     </section>
+
     <section className={styles.flashCard}>
       <div className={styles.panelHead}><h2>⚡ Oferta Relâmpago real</h2><span>Horários oficiais da Shopee</span></div>
-      <p>Escolha um horário oficial ou use a recomendação baseada no histórico real de vendas do produto. A oferta só é criada quando você confirma.</p>
+      <p>Escolha um período no calendário. O Gestor encontra os horários oficiais da Shopee dentro desse período e cria as ofertas somente depois da sua confirmação.</p>
+
       <div className={styles.flashRecommendation}>
         <div className={styles.flashRecommendationMain}>
           <b>💡 Melhor horário sugerido</b>
           {flashInsight?.phase==='loading'?<span>Analisando vendas…</span>:rec?.bestWindowLabel?<><strong>{rec.bestWindowLabel}</strong><span>{rec.bestWeekday!=null?('Melhor dia: '+dayNames[rec.bestWeekday]+' · '):''}{rec.units} unidade{rec.units===1?'':'s'} vendida{rec.units===1?'':'s'} em {rec.days} dias · confiança {confidence}.</span></>:<span>Ainda não há vendas suficientes neste período para indicar uma janela confiável.</span>}
         </div>
         <label>Histórico<select value={flashDays} onChange={e=>setFlashDays(Number(e.target.value))}><option value="7">7 dias</option><option value="30">30 dias</option><option value="60">60 dias</option><option value="90">90 dias</option></select></label>
-        <button type="button" onClick={reloadFlash} disabled={flashInsight?.phase==='loading'}>↻ Atualizar análise</button>
-        <button type="button" className={styles.recommendButton} onClick={useRecommendedSlot} disabled={!flashInsight?.recommendedSlots?.length}>✓ Usar melhor horário</button>
+        <button type="button" onClick={reloadFlash} disabled={flashInsight?.phase==='loading'}>↻ Atualizar horários</button>
+        <button type="button" className={styles.recommendButton} onClick={useRecommendedSlot} disabled={!flashInsight?.recommendedSlots?.length}>✓ Usar melhor dia</button>
       </div>
-      <small className={styles.recommendNote}>O Gestor usa as vendas reais do produto na loja. Quando a Shopee disponibiliza uma janela de 24 horas, a recomendação ajuda principalmente a escolher o melhor dia; em janelas menores, também considera o horário de pico.</small>
-      <div className={styles.flashGrid}><label>Horário<select value={flash.timeslotId} onChange={e=>setFlash(x=>({...x,timeslotId:e.target.value}))}><option value="">Selecione</option>{slots.map(s=><option key={s.timeslot_id} value={s.timeslot_id}>{flashSlotLabel(s)}</option>)}</select></label><label>Preço promocional<input type="number" step="0.01" value={flash.promoPrice} onChange={e=>setFlash(x=>({...x,promoPrice:e.target.value}))}/></label><label>Estoque reservado<input type="number" min="1" value={flash.stock} onChange={e=>setFlash(x=>({...x,stock:e.target.value}))}/></label><label>Limite por comprador<input type="number" min="0" value={flash.purchaseLimit} onChange={e=>setFlash(x=>({...x,purchaseLimit:e.target.value}))}/></label><div><small>Margem projetada</small><b>{pct(promoMargin)}</b></div></div>
-      {selectedSlot&&<small className={styles.slotHint}>Início {new Date(Number(selectedSlot.start_time)*1000).toLocaleString('pt-BR')} · término {new Date(Number(selectedSlot.end_time)*1000).toLocaleString('pt-BR')}</small>}
-      {slotError&&<div className={styles.message}>{slotError}</div>}
-      <button type="button" className={styles.primary} onClick={createFlash} disabled={flashBusy||!flash.timeslotId}>{flashBusy?'Criando…':'⚡ Criar Oferta Relâmpago na Shopee'}</button>
-      {flashMessage&&<div className={styles.message}>{flashMessage}</div>}
-      <div className={styles.flashAutomation}>
-        <div className={styles.flashAutomationHead}><div><b>🤖 Automatizar Ofertas Relâmpago</b><span>Opcional. O Gestor verifica em segundo plano e cria uma nova oferta quando este produto estiver sem oferta ativa.</span></div><label className={styles.switchLine}><input type="checkbox" checked={automation.enabled} onChange={e=>setAutomation(x=>({...x,enabled:e.target.checked}))}/><span>{automation.enabled?'Ativada':'Desativada'}</span></label></div>
-        <div className={styles.autoGrid}>
-          <label><input type="checkbox" checked={automation.useBestTime} onChange={e=>setAutomation(x=>({...x,useBestTime:e.target.checked}))}/> Usar melhor horário automaticamente</label>
-          <label>Intervalo mínimo entre ofertas<select value={automation.minGapHours} onChange={e=>setAutomation(x=>({...x,minGapHours:e.target.value}))}><option value="12">12 horas</option><option value="20">20 horas</option><option value="24">24 horas</option><option value="48">48 horas</option><option value="72">72 horas</option></select></label>
-          <div><small>Preço automático</small><b>{money(flash.promoPrice)}</b><span>Usa o preço promocional definido acima.</span></div>
-          <div><small>Estoque automático</small><b>{n(flash.stock)?.toLocaleString('pt-BR')||'—'}</b><span>Usa o estoque reservado definido acima.</span></div>
+
+      <div className={styles.flashPeriodCard}>
+        <div className={styles.flashPeriodHead}><div><b>📅 Período das ofertas</b><span>Selecione a data inicial e final.</span></div><strong>{rangeDays?rangeDays+' dia'+(rangeDays===1?'':'s'):'—'}</strong></div>
+        <div className={styles.flashPeriodInputs}>
+          <label>De<input type="date" value={flashPeriod?.start||''} onChange={e=>setFlashPeriod(x=>({...x,start:e.target.value}))}/></label>
+          <span>até</span>
+          <label>Até<input type="date" value={flashPeriod?.end||''} onChange={e=>setFlashPeriod(x=>({...x,end:e.target.value}))}/></label>
+          <button type="button" onClick={reloadFlash}>Buscar horários oficiais</button>
         </div>
-        <button type="button" className={automation.enabled?styles.primary:styles.secondaryAction} onClick={()=>saveFlashAutomation(automation.enabled)} disabled={automationBusy}>{automationBusy?'Salvando…':automation.enabled?'Salvar / ativar automação':'Salvar automação desativada'}</button>
-        {automationMessage&&<div className={styles.message}>{automationMessage}</div>}
-        <small className={styles.recommendNote}>A automação não muda o preço sozinha: ela usa o preço, estoque e limite definidos por você. O histórico serve apenas para escolher a melhor janela oficial disponível.</small>
+        <div className={styles.flashPeriodPresets}>
+          <button type="button" onClick={()=>setFlashPreset('today')}>Hoje</button>
+          <button type="button" onClick={()=>setFlashPreset('7')}>Próximos 7 dias</button>
+          <button type="button" onClick={()=>setFlashPreset('30')}>Próximos 30 dias</button>
+          <button type="button" onClick={()=>setFlashPreset('month')}>Este mês</button>
+        </div>
+        <div className={styles.flashPeriodResult}><b>{selectedSlots.length} horário{selectedSlots.length===1?'':'s'} oficial{selectedSlots.length===1?'':'is'} encontrado{selectedSlots.length===1?'':'s'}</b><span>{selectedSlots.length?selectedSlots.slice(0,3).map(flashSlotLabel).join(' · '):'Escolha o período e clique em buscar horários oficiais.'}</span></div>
       </div>
+
+      {models.length?<div className={styles.flashVariationInline}>
+        <div className={styles.flashVariationInlineHead}><div><b>Preço da oferta por variação</b><span>A Shopee exige um preço válido para cada variação.</span></div><div className={styles.flashApplyAll}><input type="number" min="0.01" step="0.01" placeholder="Preço para todas" value={flash.promoPrice} onChange={e=>setFlash(x=>({...x,promoPrice:e.target.value}))}/><button type="button" onClick={applyFlashPriceToAll}>Aplicar em todas</button></div></div>
+        <div className={styles.flashVariationInlineTable}>
+          <div><b>Variação</b><b>Preço atual</b><b>Preço da oferta</b><b>Estoque reservado</b></div>
+          {models.map((model,index)=>{const id=String(model.model_id??index),row=variationDraft[id]||{};return <div key={id}><span><b>{model.name||('Variação '+(index+1))}</b>{model.sku&&<small>SKU: {model.sku}</small>}</span><span>{money(model.current_price??model.original_price)}</span><label><input type="number" min="0.01" step="0.01" value={row.promoPrice??''} onChange={e=>setVariationDraft(d=>({...d,[id]:{...(d[id]||{}),promoPrice:e.target.value}}))}/></label><label><input type="number" min="1" step="1" value={row.stock??''} onChange={e=>setVariationDraft(d=>({...d,[id]:{...(d[id]||{}),stock:e.target.value}}))}/>{model.available_stock!=null&&<small>Disponível: {Number(model.available_stock).toLocaleString('pt-BR')}</small>}</label></div>})}
+        </div>
+        <label className={styles.flashPurchaseLimit}>Limite por comprador<input type="number" min="0" value={flash.purchaseLimit} onChange={e=>setFlash(x=>({...x,purchaseLimit:e.target.value}))}/></label>
+      </div>:<div className={styles.flashGrid}><label>Preço promocional<input type="number" step="0.01" value={flash.promoPrice} onChange={e=>setFlash(x=>({...x,promoPrice:e.target.value}))}/></label><label>Estoque reservado<input type="number" min="1" value={flash.stock} onChange={e=>setFlash(x=>({...x,stock:e.target.value}))}/></label><label>Limite por comprador<input type="number" min="0" value={flash.purchaseLimit} onChange={e=>setFlash(x=>({...x,purchaseLimit:e.target.value}))}/></label><div><small>Margem projetada</small><b>{pct(promoMargin)}</b></div></div>}
+
+      {slotError&&<div className={styles.message}>{slotError}</div>}
+      <button type="button" className={styles.primary} onClick={createFlash} disabled={flashBusy||!selectedSlots.length}>{flashBusy?'Criando…':`⚡ Criar Ofertas Relâmpago (${selectedSlots.length})`}</button>
+      <small className={styles.recommendNote}>Antes de criar, o Gestor abre uma confirmação com o período, preços e opção para avisar quando as ofertas terminarem.</small>
+      {flashMessage&&<div className={styles.message}>{flashMessage}</div>}
     </section>
+
     <section className={styles.competitorsVisual}><h2>{competitors.length} concorrentes selecionados</h2><div className={styles.competitorGrid}>{competitors.map((c,i)=><article key={i}><SmartImage urls={imageCandidates(c)} alt="" onZoom={setZoomSrc}/><div><small>Concorrente {i+1}</small>{competitorUrl(c)?<a href={competitorUrl(c)} target="_blank" rel="noreferrer">{c.title||('Concorrente '+(i+1))} ↗</a>:<b>{c.title||('Concorrente '+(i+1))}</b>}<span>Preço <strong>{money(parsedSearchPrice(c))}</strong></span><span>Vendidos <strong>{n(parsedSearchSold(c))?.toLocaleString('pt-BR')||'—'}</strong></span></div></article>)}</div></section>
   </>
 }
