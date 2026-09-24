@@ -42,9 +42,30 @@ function competitorSold(c){
   return Number.isFinite(base)?Math.round(base*(m[2]?1000:1)):null;
 }
 function competitorImage(c){
-  const rows=[c?.imageUrl,c?.image_url,...arr(c?.imageUrls),...arr(c?.image_urls)].map(v=>String(v||'').trim()).filter(Boolean).filter(u=>!/\.svg(?:\?|$)/i.test(u)&&!/productdetailspage/i.test(u));
-  const score=u=>{let s=0;if(/down-br\.img\.susercontent\.com\/file\//i.test(u))s+=3;if(/\/br-11134207-/i.test(u))s+=8;if(/_tn(?:\?|$)/i.test(u))s-=5;if(/_cover(?:\?|$)/i.test(u))s-=6;return s};
-  return rows.map((u,i)=>({u,i,s:score(u)})).sort((a,b)=>b.s-a.s||a.i-b.i)[0]?.u||null;
+  const asUrl=value=>{
+    if(value==null)return null;
+    if(typeof value==='object')return asUrl(value.url??value.src??value.image_url??value.imageUrl??value.image??value.image_id??value.imageId);
+    const raw=String(value||'').trim();
+    if(!raw)return null;
+    if(/^https?:\/\//i.test(raw))return raw;
+    if(/^[a-z0-9_-]{20,}$/i.test(raw))return 'https://down-br.img.susercontent.com/file/'+raw;
+    return null;
+  };
+  const nested=c?.item_basic||c?.item||c?.product||{};
+  const rows=[
+    c?.imageUrl,c?.image_url,c?.image,c?.cover,c?.cover_url,c?.thumbnail,c?.image_id,c?.imageId,
+    nested?.image,nested?.image_url,nested?.imageUrl,nested?.image_id,nested?.imageId,
+    ...arr(c?.imageUrls),...arr(c?.image_urls),...arr(c?.images),
+    ...arr(nested?.imageUrls),...arr(nested?.image_urls),...arr(nested?.images)
+  ].map(asUrl).filter(Boolean).filter(u=>!/\.svg(?:\?|$)/i.test(u)&&!/productdetailspage|avatar|profile|logo/i.test(u));
+  const score=u=>{let score=0;if(/down-br\.img\.susercontent\.com\/file\//i.test(u))score+=4;if(/\/br-11134207-/i.test(u))score+=10;if(/@resize_w/i.test(u))score+=2;if(/_tn(?:\?|$)/i.test(u))score-=6;if(/_cover(?:\?|$)/i.test(u))score-=7;return score};
+  return rows.map((u,i)=>({u,i,score:score(u)})).sort((a,b)=>b.score-a.score||a.i-b.i)[0]?.u||null;
+}
+function CompetitorThumb({src,title}){
+  const [failed,setFailed]=useState(false);
+  useEffect(()=>setFailed(false),[src]);
+  if(!src||failed)return <div className={styles.noImage}>▧</div>;
+  return <img src={src} alt={title||'Imagem do concorrente'} loading="lazy" onError={()=>setFailed(true)}/>;
 }
 
 function relativeTime(value){
@@ -216,6 +237,7 @@ function Competitors({items}){
   const [openHistory,setOpenHistory]=useState('');
   const [openMenu,setOpenMenu]=useState('');
   const [bulkPhase,setBulkPhase]=useState('idle');
+  const [bulkProgress,setBulkProgress]=useState({done:0,total:0,label:''});
   const [openSearchDetails,setOpenSearchDetails]=useState('');
   const [visibilityPhase,setVisibilityPhase]=useState({});
 
@@ -246,7 +268,7 @@ function Competitors({items}){
       ownerCategory:ownerSnapshot.category||ownerSnapshot.category_name||'',
       competitorItemId:compItem,title:snap?.title||comp.title||`Concorrente ${i+1}`,
       price:n(snap?.price)??competitorPrice(comp),sold:n(snap?.sold)??competitorSold(comp),rating:n(snap?.rating)??n(comp.rating),raw:comp,
-      image:snap?.image_url||competitorImage(comp),link:comp.link||comp.url||watch?.competitor_url||null,
+      image:competitorImage(comp)||competitorImage(snap)||snap?.image_url||null,link:comp.link||comp.url||watch?.competitor_url||null,
       collected:snap?.collected_at||item.latest?.analyzed_at,watch,change:watch?.latest_change||null,
       history:arr(watch?.snapshot_history),confidence:snap?.confidence||null,
       visibility:watch?.latest_visibility||null,visibilityHistory:arr(watch?.visibility_history)
@@ -309,9 +331,15 @@ function Competitors({items}){
   async function recheckAll(){
     const targets=filtered.map(r=>r.watch).filter(Boolean).slice(0,12);
     if(!targets.length)return;
+    const grouped=new Map();
+    for(const row of filtered){if(!grouped.has(String(row.ownerItemId)))grouped.set(String(row.ownerItemId),[]);grouped.get(String(row.ownerItemId)).push(row)}
+    const visibilityGroups=[...grouped.values()].slice(0,6);
+    const totalSteps=Math.max(1,targets.length+visibilityGroups.length);
+    let done=0,updated=0,failed=0;
     setBulkPhase('loading');
-    let updated=0,failed=0;
+    setBulkProgress({done:0,total:totalSteps,label:'Preparando rechecagem…'});
     for(const watch of targets){
+      setBulkProgress({done,total:totalSteps,label:`Verificando anúncio ${done+1} de ${targets.length}…`});
       try{
         const data=await motorData('collectProduct',{url:watch.competitor_url,reason:'manual-competitor-refresh',expectedItemId:String(watch.competitor_item_id)},45000);
         const p=data?.product||data;
@@ -334,16 +362,23 @@ function Competitors({items}){
         failed++;
         try{await fetchJsonWithTimeout('/api/competitor-monitor',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:watch.id,action:'record_error',last_error:String(error?.message||error).slice(0,900)})},8000)}catch{}
       }
-      if(targets.length>1)await new Promise(resolve=>setTimeout(resolve,1600));
+      done++;
+      setBulkProgress({done,total:totalSteps,label:`${done} de ${totalSteps} etapas concluídas`});
+      if(targets.length>1)await new Promise(resolve=>setTimeout(resolve,1200));
     }
-    const grouped=new Map();
-    for(const row of filtered){if(!grouped.has(String(row.ownerItemId)))grouped.set(String(row.ownerItemId),[]);grouped.get(String(row.ownerItemId)).push(row)}
     let visibilityFailed=0;
-    for(const group of [...grouped.values()].slice(0,6)){const result=await collectVisibilityGroup(group,{silent:true});visibilityFailed+=result.failed||0}
+    for(let i=0;i<visibilityGroups.length;i++){
+      setBulkProgress({done,total:totalSteps,label:`Medindo posição na busca ${i+1} de ${visibilityGroups.length}…`});
+      const result=await collectVisibilityGroup(visibilityGroups[i],{silent:true});
+      visibilityFailed+=result.failed||0;
+      done++;
+      setBulkProgress({done,total:totalSteps,label:`${done} de ${totalSteps} etapas concluídas`});
+    }
     await loadMonitor();
+    setBulkProgress({done:totalSteps,total:totalSteps,label:'Rechecagem concluída.'});
     setBulkPhase(failed||visibilityFailed?'error':'success');
     if(failed||visibilityFailed)setMonitor(x=>({...x,error:`${updated} concorrente(s) atualizados; ${failed} coleta(s) de produto e ${visibilityFailed} leitura(s) de busca aguardam nova tentativa.`}));
-    setTimeout(()=>setBulkPhase('idle'),3000);
+    setTimeout(()=>{setBulkPhase('idle');setBulkProgress({done:0,total:0,label:''})},3500);
   }
 
   async function removeWatch(row){
@@ -431,8 +466,16 @@ function Competitors({items}){
       <label><small>Status</small><select value={status} onChange={e=>setStatus(e.target.value)}><option value="all">Todos</option><option value="down">Queda de preço</option><option value="up">Alta de preço</option><option value="accelerating">Vendas acelerando</option><option value="due">Rechecagem vencida</option><option value="nodata">Sem dados</option></select></label>
       <label><small>Ordenar por</small><select value={sort} onChange={e=>setSort(e.target.value)}><option value="priority">Maior prioridade</option><option value="price">Maior variação de preço</option><option value="sales">Mais vendas desde a coleta</option><option value="collected">Última coleta</option><option value="recheck">Próxima rechecagem</option></select></label>
       <label><small>Período</small><select value={period} onChange={e=>setPeriod(e.target.value)}><option value="7">Últimos 7 dias</option><option value="14">Últimos 14 dias</option><option value="30">Últimos 30 dias</option><option value="all">Todo histórico</option></select></label>
-      <button type="button" className={styles.radarRefresh} onClick={recheckAll} disabled={bulkPhase==='loading'}>↻ {bulkPhase==='loading'?'Solicitando…':bulkPhase==='success'?'Rechecagem solicitada':'Atualizar / Rechecar agora'}</button>
+      <button type="button" className={styles.radarRefresh} onClick={recheckAll} disabled={bulkPhase==='loading'}>↻ {bulkPhase==='loading'?'Rechecando…':bulkPhase==='success'?'Rechecagem concluída':'Atualizar / Rechecar agora'}</button>
     </section>
+
+    {bulkPhase==='loading'&&<section className={styles.radarProgress}>
+      <div className={styles.radarProgressIcon}>↻</div>
+      <div className={styles.radarProgressText}><b>Rechecando concorrentes…</b><span>{bulkProgress.label||'Verificando anúncios e posições na busca…'}</span></div>
+      <div className={styles.radarProgressTrack}><i style={{width:(bulkProgress.total?Math.max(2,Math.round((bulkProgress.done/bulkProgress.total)*100)):2)+'%'}}/></div>
+      <strong>{bulkProgress.total?Math.round((bulkProgress.done/bulkProgress.total)*100):0}%</strong>
+      <small>Isso pode levar alguns minutos.<br/>Mantenha esta página aberta.</small>
+    </section>}
 
     {monitor.phase==='error'&&<div className={styles.error}>{monitor.error}<button onClick={loadMonitor}>Tentar novamente</button></div>}
 
@@ -451,8 +494,8 @@ function Competitors({items}){
           const priceHref=`/super-analise?item_id=${r.ownerItemId}&tab=price`;
           return <article className={styles.radarCard} data-tone={priority.tone} key={r.key}>
             <div className={styles.radarIdentity}>
-              <div className={styles.radarThumb}>{due.due&&<em>VENCIDA</em>}{r.image?<img src={r.image} alt=""/>:<div className={styles.noImage}>▧</div>}</div>
-              <div><b className={styles.radarTitle}>{r.title}</b><span>Vinculado ao seu anúncio:</span><Link href={ownerHref}>{r.owner}</Link>{r.ownerCategory&&<small>{r.ownerCategory}</small>}</div>
+              <div className={styles.radarThumb}>{due.due&&<em>VENCIDA</em>}<CompetitorThumb src={r.image} title={r.title}/></div>
+              <div>{r.link?<a className={styles.radarTitle} href={r.link} target="_blank" rel="noreferrer">{r.title}</a>:<b className={styles.radarTitle}>{r.title}</b>}<span>Vinculado ao seu anúncio:</span><Link href={ownerHref}>{r.owner}</Link>{r.ownerCategory&&<small>{r.ownerCategory}</small>}</div>
             </div>
             <div className={styles.radarMetric}>
               <span>Preço atual</span><b>{dataText(r.price,money,r.raw)}</b>{previousPrice!=null&&<small>Era {money(previousPrice)}</small>}
