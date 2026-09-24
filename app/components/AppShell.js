@@ -72,6 +72,7 @@ function AppSidebar({active,onNavigate,onCloseMobile}){
   const [extension,setExtension]=useState({status:'checking',version:''});
   const [shop,setShop]=useState({status:'checking',connected:null,paused:false,shopId:null,shopName:null,error:''});
   const [busy,setBusy]=useState(false);
+  const [openTasks,setOpenTasks]=useState(0);
   const [competitorSync,setCompetitorSync]=useState({phase:'idle',due:0,updated:0,failed:0,message:''});
   const competitorSyncRef=useRef({running:false,lastAt:0});
 
@@ -150,6 +151,20 @@ function AppSidebar({active,onNavigate,onCloseMobile}){
     }finally{competitorSyncRef.current.running=false}
   }
 
+  useEffect(()=>{
+    let alive=true;
+    const load=async()=>{
+      try{
+        const data=await fetchJsonWithTimeout('/api/tasks',{cache:'no-store'},10000);
+        if(alive)setOpenTasks(Array.isArray(data?.tasks)?data.tasks.length:0);
+      }catch{if(alive)setOpenTasks(0)}
+    };
+    load();
+    const timer=setInterval(load,2*60*1000);
+    window.addEventListener('focus',load);
+    return()=>{alive=false;clearInterval(timer);window.removeEventListener('focus',load)};
+  },[]);
+
   async function refreshShop(){
     setShop(prev=>({...prev,status:prev.connected===null?'checking':'refreshing',error:''}));
     try{
@@ -213,7 +228,7 @@ function AppSidebar({active,onNavigate,onCloseMobile}){
       {MENU.map(entry=>{
         if(entry.type==='item'){
           return <Link key={entry.label} href={entry.href} onClick={onNavigate} className={active===entry.label?'is-active':''}>
-            <Icon item={entry}/><span>{entry.label}</span>
+            <Icon item={entry}/><span>{entry.label}</span>{entry.label==='Prioridades'&&openTasks>0&&<span className="gs-nav-badge">{openTasks>99?'99+':openTasks}</span>}
           </Link>
         }
         return <div className="gs-nav-group" key={entry.id}>
