@@ -503,7 +503,7 @@
 .nextActionButtons{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}.nextActionButtons a,.nextActionButtons button{border:1px solid #d7e2ed;border-radius:7px;background:#fff;color:#24578f;padding:6px 8px;text-decoration:none;font-size:7px;font-weight:900;cursor:pointer}.nextActionButtons a{background:#1769e8;border-color:#1769e8;color:#fff}
 @media(max-width:700px){.nextActionsHead{align-items:flex-start}.nextActionsList article{grid-template-columns:10px 1fr}.nextActionButtons{grid-column:2;justify-content:flex-start}.nextActionsHead>button{white-space:nowrap}}
 
-.inlineEditor{margin-top:2px;min-width:0}
+.inlineEditor{width:100%;min-width:0;margin-top:2px}
 .flashInlineLink{display:inline-flex;align-items:center;justify-content:center;border:1px solid #cbdbea;border-radius:7px;background:#fff;color:#235f9f;padding:7px 9px;font-size:8px;font-weight:900;cursor:pointer}
 .flashAttentionActions>button{display:inline-flex;align-items:center;justify-content:center;padding:7px 9px;border-radius:7px;background:#fff;color:#885900;border:1px solid #ecd7a5;font-size:8px;font-weight:900;white-space:nowrap;cursor:pointer}
 .flashAttention[data-tone="ok"] .flashAttentionActions>button{color:#13784a;border-color:#bee8d0}
