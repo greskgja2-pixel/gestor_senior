@@ -14,7 +14,7 @@ export async function GET(){
   if(error)return NextResponse.json({error:error.message},{status:500});
   return NextResponse.json({ok:true,preferences:data||{
     shop_id:shop.shop_id,display_name:'',email:'',phone:'',task_enabled:true,email_enabled:true,whatsapp_enabled:false,push_enabled:false,
-    timezone:'America/Sao_Paulo',categories:{flash_sale:true,reanalysis:true,competitors:true,images:true,video:true,ads:true,other:true}
+    timezone:'America/Sao_Paulo',ads_zero_sales_spend_threshold:10,categories:{flash_sale:true,reanalysis:true,competitors:true,images:true,video:true,ads:true,other:true}
   }});
 }
 
@@ -29,6 +29,7 @@ export async function POST(request){
     task_enabled:body?.task_enabled!==false,email_enabled:body?.email_enabled!==false,
     whatsapp_enabled:body?.whatsapp_enabled===true,push_enabled:body?.push_enabled===true,
     timezone:text(body?.timezone,80)||'America/Sao_Paulo',
+    ads_zero_sales_spend_threshold:Number.isFinite(Number(body?.ads_zero_sales_spend_threshold))?Math.max(0,Number(body.ads_zero_sales_spend_threshold)):10,
     categories:body?.categories&&typeof body.categories==='object'?body.categories:{flash_sale:true,reanalysis:true,competitors:true,images:true,video:true,ads:true,other:true},
     updated_at:new Date().toISOString()
   };
