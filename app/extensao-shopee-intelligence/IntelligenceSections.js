@@ -29,6 +29,18 @@ function missingKind(obj){
   return'Não coletado';
 }
 function dataText(value,formatter,context){return n(value)!=null?formatter(value):missingKind(context)}
+function competitorPrice(c){
+  if(n(c?.price)!=null)return n(c.price);
+  const m=String(c?.searchText||'').match(/R\$\s*\n?\s*([0-9.]+,[0-9]{2})/i);
+  return m?Number(m[1].replace(/\./g,'').replace(',','.')):null;
+}
+function competitorSold(c){
+  if(n(c?.sold)!=null)return n(c.sold);
+  const m=String(c?.searchText||'').match(/([0-9]+(?:[.,][0-9]+)?)\s*(mil)?\+?\s*Vendido/i);
+  if(!m)return null;
+  const base=Number(m[1].replace(',','.'));
+  return Number.isFinite(base)?Math.round(base*(m[2]?1000:1)):null;
+}
 function competitorImage(c){
   const rows=[c?.imageUrl,c?.image_url,...arr(c?.imageUrls),...arr(c?.image_urls)].map(v=>String(v||'').trim()).filter(Boolean).filter(u=>!/\.svg(?:\?|$)/i.test(u)&&!/productdetailspage/i.test(u));
   const score=u=>{let s=0;if(/down-br\.img\.susercontent\.com\/file\//i.test(u))s+=3;if(/\/br-11134207-/i.test(u))s+=8;if(/_tn(?:\?|$)/i.test(u))s-=5;if(/_cover(?:\?|$)/i.test(u))s-=6;return s};
@@ -36,15 +48,61 @@ function competitorImage(c){
 }
 
 function Competitors({items}){
-  const rows=useMemo(()=>items.flatMap(item=>arr(item.latest?.competitors).slice(0,3).map((c,i)=>({
-    owner:item.latest?.product_snapshot?.title||item.latest?.product_snapshot?.item_name||`Produto ${item.itemId}`,
-    title:c.title||`Concorrente ${i+1}`,price:n(c.price),sold:n(c.sold),rating:n(c.rating),raw:c,
-    image:competitorImage(c),link:c.link||c.url||null,collected:item.latest?.analyzed_at
-  }))),[items]);
-  if(!rows.length)return <Empty text="Nenhum concorrente foi coletado/vinculado ainda. Faça uma Super Análise e selecione de 1 a 3 concorrentes."/>;
-  return <div className={styles.gridCards}>{rows.map((r,i)=><article className={styles.competitor} key={i}>{r.image?<img src={r.image} alt=""/>:<div className={styles.noImage}/>}<div><small>Vinculado a: {r.owner}</small><b>{r.title}</b><p>{dataText(r.price,money,r.raw)} · {dataText(r.sold,v=>Number(v).toLocaleString('pt-BR'),r.raw)} vendidos · {dataText(r.rating,v=>Number(v).toFixed(1)+'★',r.raw)}</p><span>Coleta: {when(r.collected)}</span>{r.link&&<a href={r.link} target="_blank" rel="noreferrer">Abrir anúncio ↗</a>}</div></article>)}</div>
-}
+  const [monitor,setMonitor]=useState({phase:'loading',watches:[],error:''});
+  async function loadMonitor(){
+    setMonitor(x=>({...x,phase:'loading',error:''}));
+    try{
+      const data=await fetchJsonWithTimeout('/api/competitor-monitor',{cache:'no-store'},15000);
+      setMonitor({phase:'success',watches:arr(data?.watches),error:''});
+    }catch(e){setMonitor({phase:'error',watches:[],error:String(e?.message||e)})}
+  }
+  useEffect(()=>{loadMonitor()},[]);
+  const watchMap=useMemo(()=>new Map(arr(monitor.watches).map(w=>[`${w.owner_item_id}:${w.competitor_item_id}`,w])),[monitor.watches]);
+  const rows=useMemo(()=>items.flatMap(item=>arr(item.latest?.competitors).slice(0,3).map((comp,i)=>{
+    const compItem=String(comp?.itemId??comp?.item_id??comp?.id??'');
+    const watch=watchMap.get(`${item.itemId}:${compItem}`)||null;
+    const snap=watch?.latest_snapshot||null;
+    return{
+      ownerItemId:item.itemId,
+      owner:item.latest?.product_snapshot?.title||item.latest?.product_snapshot?.item_name||`Produto ${item.itemId}`,
+      competitorItemId:compItem,title:snap?.title||comp.title||`Concorrente ${i+1}`,
+      price:n(snap?.price)??competitorPrice(comp),sold:n(snap?.sold)??competitorSold(comp),rating:n(snap?.rating)??n(comp.rating),raw:comp,
+      image:snap?.image_url||competitorImage(comp),link:comp.link||comp.url||watch?.competitor_url||null,
+      collected:snap?.collected_at||item.latest?.analyzed_at,watch
+    };
+  })),[items,watchMap]);
 
+  async function updateWatch(watch,patch){
+    if(!watch?.id)return;
+    try{
+      await fetchJsonWithTimeout('/api/competitor-monitor',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:watch.id,...patch})},12000);
+      await loadMonitor();
+    }catch(e){setMonitor(x=>({...x,phase:'error',error:String(e?.message||e)}))}
+  }
+
+  if(!rows.length)return <Empty text="Nenhum concorrente foi coletado/vinculado ainda. Faça uma Super Análise e selecione de 1 a 3 concorrentes."/>;
+  return <>
+    <section className={styles.monitorSummary}>
+      <div><b>Radar de concorrentes</b><p>Quando o Motor Senior estiver conectado, o Gestor rechecа automaticamente os concorrentes vencidos usando a sessão normal do navegador.</p></div>
+      <span>{monitor.phase==='loading'?'Carregando…':`${arr(monitor.watches).filter(w=>new Date(w.next_check_at).getTime()<=Date.now()).length} aguardando rechecagem`}</span>
+    </section>
+    {monitor.phase==='error'&&<div className={styles.error}>{monitor.error}<button onClick={loadMonitor}>Tentar novamente</button></div>}
+    <div className={styles.gridCards}>{rows.map((r,i)=><article className={styles.competitor} key={`${r.ownerItemId}:${r.competitorItemId||i}`}>
+      {r.image?<img src={r.image} alt=""/>:<div className={styles.noImage}/>}
+      <div>
+        <small>Vinculado a: {r.owner}</small><b>{r.title}</b>
+        <p>{dataText(r.price,money,r.raw)} · {dataText(r.sold,v=>Number(v).toLocaleString('pt-BR'),r.raw)} vendidos · {dataText(r.rating,v=>Number(v).toFixed(1)+'★',r.raw)}</p>
+        <span>Última coleta: {when(r.collected)}</span>
+        {r.watch?<div className={styles.monitorControls}>
+          <label>Rechecar a cada <select value={r.watch.frequency_days||7} onChange={e=>updateWatch(r.watch,{frequency_days:Number(e.target.value),reset_next:true})}><option value="2">2 dias</option><option value="3">3 dias</option><option value="7">7 dias</option><option value="14">14 dias</option><option value="30">30 dias</option></select></label>
+          <small>Próxima: {when(r.watch.next_check_at)}</small>
+          <button type="button" onClick={()=>updateWatch(r.watch,{action:'due_now'})}>↻ Atualizar na próxima passagem da extensão</button>
+        </div>:<small>Monitoramento sendo preparado…</small>}
+        {r.link&&<a href={r.link} target="_blank" rel="noreferrer">Abrir anúncio ↗</a>}
+      </div>
+    </article>)}</div>
+  </>;
+}
 function Ads(){
   const [data,setData]=useState(null),[phase,setPhase]=useState('loading'),[error,setError]=useState(''),[syncSource,setSyncSource]=useState('');
 
