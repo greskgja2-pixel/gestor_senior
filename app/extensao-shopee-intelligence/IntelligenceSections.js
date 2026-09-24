@@ -502,10 +502,18 @@ function Competitors({items}){
 
   async function removeWatch(row){
     if(!row.watch?.id)return;
-    const ok=window.confirm(`Remover “${row.title}” do Radar de concorrentes? O histórico já coletado será preservado.`);
+    const ok=window.confirm(`Excluir “${row.title}” da página Concorrentes? Ele deixará de ser monitorado. O histórico já coletado será preservado para não perder dados antigos.`);
     if(!ok)return;
     setOpenMenu('');
-    await updateWatch(row.watch,{enabled:false});
+    try{
+      await fetchJsonWithTimeout('/api/competitor-monitor',{
+        method:'PATCH',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({id:row.watch.id,enabled:false})
+      },12000);
+      await loadMonitor();
+    }catch(e){
+      setMonitor(x=>({...x,phase:'error',error:'Não foi possível excluir o concorrente: '+String(e?.message||e)}));
+    }
   }
 
   const counts=useMemo(()=>{
@@ -653,6 +661,7 @@ function Competitors({items}){
               <Link href={priceHref}>✎ Editar preço do meu anúncio</Link>
               <Link href={ownerHref}>↗ Ir para meu anúncio</Link>
               {r.link?<a href={r.link} target="_blank" rel="noreferrer">↗ Abrir anúncio</a>:<button type="button" disabled>↗ Abrir anúncio</button>}
+              <button type="button" className={styles.radarExactDelete} onClick={()=>removeWatch(r)}>🗑 Excluir concorrente</button>
             </section>
 
             {(openHistory===r.key||openSearchDetails===r.key)&&<section className={styles.radarExactDetails}>
