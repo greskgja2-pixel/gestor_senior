@@ -449,19 +449,20 @@ function Competitors({items}){
         }
         const extensionPrice=n(p?.currentPrice??p?.price);
         const publicPrice=n(publicProduct?.price);
-        const verifiedPrice=publicPrice??extensionPrice;
+        // O retorno collectProduct já confundiu cupom/valor auxiliar com preço real.
+        // Sem confirmação independente, não gravamos mais esse preço como atual.
+        const verifiedPrice=publicPrice;
         const extensionOriginalPrice=n(p?.originalPrice??p?.original_price??p?.priceBeforeDiscount??p?.price_before_discount);
         const publicOriginalPrice=n(publicProduct?.priceBeforeDiscount??publicProduct?.originalPrice);
         const verifiedOriginalPrice=publicOriginalPrice??extensionOriginalPrice;
         const verifiedSold=n(publicProduct?.historicalSold)??n(p?.sold??p?.historicalSold??p?.historical_sold);
-        if(verifiedPrice==null)throw new Error('A coleta não trouxe um preço verificável para este concorrente.');
 
         await fetchJsonWithTimeout('/api/competitor-monitor',{
           method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({
             watch_id:watch.id,title:p?.title||p?.item_name||watch.competitor_title,
             price:verifiedPrice,sold:verifiedSold,rating:p?.rating??publicProduct?.rating??null,stock:p?.stock??publicProduct?.stock??null,
-            image_url:competitorImage(p),source:publicPrice!=null?'shopee-public-item-verified':(source||'pdp_get_pc_intercepted'),confidence:publicPrice!=null?'verified':'structured',
+            image_url:competitorImage(p),source:publicPrice!=null?'shopee-public-item-verified':'pdp_get_pc_intercepted',confidence:publicPrice!=null?'verified':'price-unverified',
             raw:{
               ratingSource:p?.ratingSource||null,validationSource:p?.validationSource||null,categoryId:p?.categoryId??p?.category_id??null,
               originalPrice:verifiedOriginalPrice,
