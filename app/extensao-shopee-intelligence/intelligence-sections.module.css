@@ -320,3 +320,5 @@ a.radarTitle:hover{text-decoration:underline!important}
   .radarActions{grid-column:1/-1;grid-row:2;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
   .radarActions>*{margin-top:0!important}.radarButtonRow{grid-column:1/-1}
 }
+
+/* GS_MOCKUP_MATCH_DEPLOY_SYNC */
