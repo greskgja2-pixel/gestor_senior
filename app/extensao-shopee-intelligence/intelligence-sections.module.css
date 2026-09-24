@@ -93,6 +93,7 @@
 .radarExactIdentity{display:grid;grid-template-columns:120px minmax(0,1fr);gap:13px;align-items:start;min-width:0}
 .radarExactThumb{width:120px;height:120px;overflow:hidden;border-radius:8px;background:#edf2f7;position:relative}
 .radarExactThumb img,.radarExactThumb .noImage{width:120px;height:120px;object-fit:cover;border-radius:8px;background:#edf2f7}
+.radarExactMediaCount{position:absolute;right:5px;bottom:5px;display:grid;place-items:center;min-width:25px;height:25px;padding:0 6px;border-radius:7px;background:rgba(12,29,48,.88);color:#fff;font-size:9px;font-weight:900;box-shadow:0 2px 7px rgba(0,0,0,.15)}
 .radarExactIdentity>div:last-child{min-width:0;padding-top:3px}
 .radarExactTitle{display:block;margin:0;color:#0662d4!important;font-size:13px!important;line-height:1.25!important;font-weight:900!important;text-decoration:none!important}
 a.radarExactTitle:hover{text-decoration:underline!important}
