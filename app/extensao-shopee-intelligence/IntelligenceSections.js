@@ -42,6 +42,21 @@ function competitorSold(c){
   const base=Number(m[1].replace(',','.'));
   return Number.isFinite(base)?Math.round(base*(m[2]?1000:1)):null;
 }
+function validCompetitorTitle(value){
+  const s=String(value||'').trim();
+  if(!s)return'';
+  if(/^produto[_\s-]*\d+$/i.test(s))return'';
+  if(/^product[_\s-]*\d+$/i.test(s))return'';
+  if(/^item[_\s-]*\d+$/i.test(s))return'';
+  return s;
+}
+function competitorTitle(...values){
+  for(const value of values){
+    const s=validCompetitorTitle(value);
+    if(s)return s;
+  }
+  return'Concorrente';
+}
 function explicitBool(...values){
   for(const value of values){
     if(value===true||value===1||value==='1'||String(value).toLowerCase()==='true')return true;
@@ -91,10 +106,9 @@ function preferredSignalsFromObject(value,depth=0,path='root'){
     if(typeof v==='string'){
       const raw=String(v).trim(),valueText=normalizeLooseText(raw);
       const sellerKey=/(badge|label|tag|seller|shop|store|preferred|prefer)/.test(keyText);
-      const pageTextKey=/(page.?text|visible.?text|dom.?text|body.?text|document.?text|search.?text|content.?text)/.test(keyText);
       const explicitSellerLabel=/\bvendedor\s+indicado\b|\bpreferred\s+seller\b|\bvendedor\s+preferido\b/.test(valueText);
       const badgeLabel=sellerKey&&/(^|\W)(indicado|preferred|preferido)(\W|$)/.test(valueText);
-      const isolatedVisibleLabel=pageTextKey&&raw.split(/\r?\n|\|/).map(x=>normalizeLooseText(x.trim())).some(line=>line==='indicado'||line==='vendedor indicado'||line==='preferred seller'||line==='vendedor preferido');
+      const isolatedVisibleLabel=raw.split(/\r?\n|\|/).map(x=>normalizeLooseText(x.trim())).some(line=>line==='indicado'||line==='vendedor indicado'||line==='preferred seller'||line==='vendedor preferido');
       if((explicitSellerLabel||badgeLabel||isolatedVisibleLabel)&&!result.trueEvidence)result.trueEvidence=path+'.'+key+':visible-label';
     }else if(typeof v==='object'){
       const nested=preferredSignalsFromObject(v,depth+1,path+'.'+key);
@@ -490,7 +504,7 @@ function Competitors({items}){
       key:`${item.itemId}:${compItem||i}`,ownerItemId:item.itemId,
       owner:ownerSnapshot.title||ownerSnapshot.item_name||`Produto ${item.itemId}`,
       ownerCategory:ownerSnapshot.category||ownerSnapshot.category_name||'',
-      competitorItemId:compItem,title:snap?.title||comp.title||`Concorrente ${i+1}`,
+      competitorItemId:compItem,title:competitorTitle(snap?.title,watch?.competitor_title,comp.title,comp.name,`Concorrente ${i+1}`),
       price:unverifiedPdpPrice?competitorPrice(comp):(n(snap?.price)??competitorPrice(comp)),
       originalPrice:unverifiedPdpPrice?competitorOriginalPrice(comp,null):competitorOriginalPrice(comp,snap),
       priceFallback:unverifiedPdpPrice,
@@ -556,7 +570,7 @@ function Competitors({items}){
             body:JSON.stringify({
               watch_id:row.watch.id,
               collected_at:normalized.searchedAt,
-              title:market.title||row.title,
+              title:competitorTitle(market.title,row.title,row.watch?.competitor_title),
               price:n(market.price),sold:n(market.sold),rating:n(market.rating),
               image_url:row.image||null,
               source:'shopee-search-structured',confidence:'observed',
@@ -592,7 +606,7 @@ function Competitors({items}){
       const watch=row.watch;
       let productWarning='';
       try{
-        const data=await motorData('collectProduct',{url:watch.competitor_url,reason:'single-competitor-check',expectedItemId:String(watch.competitor_item_id)},45000);
+        const data=await motorData('collectProduct',{url:watch.competitor_url,reason:'single-competitor-check',expectedItemId:String(watch.competitor_item_id),includeVisibleText:true,detectLabels:['Indicado','Vendedor Indicado','Preferred Seller']},45000);
         const p=data?.product||data;
         const itemId=String(p?.itemId??p?.item_id??''),shopId=String(p?.shopId??p?.shop_id??'');
         if(itemId!==String(watch.competitor_item_id)||shopId!==String(watch.competitor_shop_id))throw new Error('A extensão retornou outro anúncio.');
@@ -605,7 +619,7 @@ function Competitors({items}){
           method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({
             watch_id:watch.id,
-            title:p?.title||p?.item_name||watch.competitor_title,
+            title:competitorTitle(p?.title,p?.item_name,watch.competitor_title),
             price:null,
             sold:n(p?.sold??p?.historicalSold??p?.historical_sold),
             rating:n(p?.rating),stock:n(p?.stock),image_url:competitorImage(p),
@@ -646,7 +660,7 @@ function Competitors({items}){
     for(const watch of targets){
       setBulkProgress({done,total:totalSteps,label:`Verificando anúncio ${done+1} de ${targets.length}…`});
       try{
-        const data=await motorData('collectProduct',{url:watch.competitor_url,reason:'manual-competitor-refresh',expectedItemId:String(watch.competitor_item_id)},45000);
+        const data=await motorData('collectProduct',{url:watch.competitor_url,reason:'manual-competitor-refresh',expectedItemId:String(watch.competitor_item_id),includeVisibleText:true,detectLabels:['Indicado','Vendedor Indicado','Preferred Seller']},45000);
         const p=data?.product||data;
         const itemId=String(p?.itemId??p?.item_id??''),shopId=String(p?.shopId??p?.shop_id??'');
         if(itemId!==String(watch.competitor_item_id)||shopId!==String(watch.competitor_shop_id))throw new Error('A extensão retornou outro anúncio.');
@@ -849,7 +863,7 @@ function Competitors({items}){
               <div className={styles.radarExactThumb}><CompetitorThumb src={r.image} title={r.title}/></div>
               <div>
                 {r.link?<a className={styles.radarExactTitle} href={r.link} target="_blank" rel="noreferrer">{r.title}</a>:<b className={styles.radarExactTitle}>{r.title}</b>}
-                <div className={styles.radarExactStore}><VectorIcon name="store" size={13}/><span>Loja:</span>{r.store?.name?(r.store?.href?<a href={r.store.href} target="_blank" rel="noreferrer">{r.store.name}<VectorIcon name="external" size={11}/></a>:<b>{r.store.name}</b>):<small>aguardando coleta</small>}</div>
+                <div className={styles.radarExactStore}><span className={styles.radarExactStoreGlyph}><VectorIcon name="store" size={17}/></span><span>Loja:</span>{r.store?.name?(r.store?.href?<a href={r.store.href} target="_blank" rel="noreferrer">{r.store.name}<VectorIcon name="external" size={11}/></a>:<b>{r.store.name}</b>):<small>aguardando coleta</small>}</div>
                 <span>Vinculado ao seu anúncio:</span><Link href={ownerHref}>{r.owner}</Link><em>Concorrente Direto</em>
               </div>
             </section>
