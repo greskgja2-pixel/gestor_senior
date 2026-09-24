@@ -79,12 +79,40 @@ async function syncWatches(db,shopId){
     }
   }
 }
-async function latestSnapshots(db,watchIds){
+function snapshotChange(previous,latest){
+  if(!previous||!latest)return null;
+  const prevPrice=finite(previous.price),price=finite(latest.price);
+  const prevSold=finite(previous.sold),sold=finite(latest.sold);
+  const prevRating=finite(previous.rating),rating=finite(latest.rating);
+  const before=new Date(previous.collected_at).getTime(),after=new Date(latest.collected_at).getTime();
+  const days=Number.isFinite(before)&&Number.isFinite(after)&&after>before?(after-before)/86400000:null;
+  const soldDelta=sold!=null&&prevSold!=null?sold-prevSold:null;
+  return {
+    price_before:prevPrice,price_now:price,
+    price_change:prevPrice!=null&&price!=null?price-prevPrice:null,
+    price_change_pct:prevPrice>0&&price!=null?((price-prevPrice)/prevPrice)*100:null,
+    sold_before:prevSold,sold_now:sold,sold_delta:soldDelta,
+    sold_per_day:days&&soldDelta!=null&&soldDelta>=0?soldDelta/days:null,
+    rating_before:prevRating,rating_now:rating,
+    rating_change:prevRating!=null&&rating!=null?rating-prevRating:null,
+    elapsed_days:days
+  };
+}
+async function snapshotBundles(db,watchIds){
   if(!watchIds.length)return new Map();
   const {data,error}=await db.from('gs_competitor_snapshots').select('*').in('watch_id',watchIds).order('collected_at',{ascending:false});
   if(error)throw new Error(error.message);
+  const grouped=new Map();
+  for(const row of data||[]){
+    if(!grouped.has(row.watch_id))grouped.set(row.watch_id,[]);
+    const rows=grouped.get(row.watch_id);
+    if(rows.length<8)rows.push(row);
+  }
   const map=new Map();
-  for(const s of data||[]){if(!map.has(s.watch_id))map.set(s.watch_id,s)}
+  for(const [watchId,history] of grouped){
+    const latest=history[0]||null,previous=history[1]||null;
+    map.set(watchId,{latest,previous,history,change:snapshotChange(previous,latest)});
+  }
   return map;
 }
 async function createChangeTask(db,shopId,watch,previous,current){
@@ -123,8 +151,15 @@ export async function GET(request){
     if(due)q=q.lte('next_check_at',new Date().toISOString());
     if(owner)q=q.eq('owner_item_id',owner);
     const {data,error}=await q;if(error)throw new Error(error.message);
-    const rows=data||[],snapshots=await latestSnapshots(db,rows.map(x=>x.id));
-    return NextResponse.json({ok:true,watches:rows.map(w=>({...w,latest_snapshot:snapshots.get(w.id)||null})),due_count:due?rows.length:rows.filter(w=>new Date(w.next_check_at).getTime()<=Date.now()).length});
+    const rows=data||[],bundles=await snapshotBundles(db,rows.map(x=>x.id));
+    return NextResponse.json({
+      ok:true,
+      watches:rows.map(w=>{
+        const bundle=bundles.get(w.id)||{};
+        return {...w,latest_snapshot:bundle.latest||null,previous_snapshot:bundle.previous||null,snapshot_history:bundle.history||[],latest_change:bundle.change||null};
+      }),
+      due_count:due?rows.length:rows.filter(w=>new Date(w.next_check_at).getTime()<=Date.now()).length
+    });
   }catch(e){return NextResponse.json({error:String(e?.message||e)},{status:500})}
 }
 
