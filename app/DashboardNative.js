@@ -4,6 +4,7 @@ import {getProducts} from '../lib/products';
 import {getOrders} from '../lib/orders';
 import {supabaseAdmin} from '../lib/supabase';
 import styles from './dashboard-native.module.css';
+import DailyBriefingPopup from './components/DailyBriefingPopup';
 
 const qty=v=>Number.isFinite(Number(v))?Number(v):0;
 function itemSales(orders,from,to){
@@ -79,7 +80,7 @@ export default async function DashboardNative(){
     Array.isArray(noVideo)&&noVideo.length?{text:`Adicionar vídeo em ${noVideo.length} anúncios com ausência confirmada`,badge:'Boa oportunidade',href:'/extensao-shopee-intelligence?section=super-anuncio'}:null,
     Array.isArray(imageIssues)&&imageIssues.length?{text:`Melhorar as fotos de ${imageIssues.length} anúncios sinalizados pela Super Análise`,badge:'Aumentar cliques',href:'/extensao-shopee-intelligence?section=super-anuncio'}:null
   ].filter(Boolean);
-  return <div className={styles.page}>
+  return <div className={styles.page}><DailyBriefingPopup/>
     <header className={styles.header}><div><h1>Dashboard</h1><p>Aqui estão suas principais oportunidades e próximas ações para fazer sua loja crescer.</p></div><span className={styles.live}>● Shopee LIVE</span></header>
     <section className={styles.navigator}>
       <div className={styles.navigatorHead}><div><span className={styles.target}>◎</span><div><h2>Painel Norteador</h2><p>Foque no que realmente importa. Estes são os pontos que podem gerar mais resultados para a sua loja esta semana.</p></div></div><b>ϟ {opportunities} oportunidades identificadas</b></div>
