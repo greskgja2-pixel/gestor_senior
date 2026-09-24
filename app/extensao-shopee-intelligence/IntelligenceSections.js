@@ -452,8 +452,19 @@ function Competitors({items}){
 
   if(monitor.phase==='loading'&&!rows.length)return <Empty text="Carregando Radar de concorrentes…"/>;
   if(!rows.length&&monitor.phase!=='error')return <Empty text="Nenhum concorrente monitorado. Faça uma Super Análise e selecione de 1 a 3 concorrentes."/>;
-  return <div className={styles.radarPage}>
-    <section className={styles.radarKpis}>
+  return <div className={styles.radarExact}>
+    <section className={styles.radarExactToolbar}>
+      <label className={styles.radarExactSearch}><span>⌕</span><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar concorrente, anúncio ou ID..."/></label>
+      <label><small>Status</small><select value={status} onChange={e=>setStatus(e.target.value)}><option value="all">Todos</option><option value="down">Queda de preço</option><option value="up">Alta de preço</option><option value="accelerating">Vendas acelerando</option><option value="due">Rechecagem vencida</option><option value="nodata">Sem dados</option></select></label>
+      <label><small>Ordenar por</small><select value={sort} onChange={e=>setSort(e.target.value)}><option value="priority">Maior prioridade</option><option value="price">Maior variação de preço</option><option value="sales">Mais vendas</option><option value="collected">Última coleta</option><option value="recheck">Próxima rechecagem</option></select></label>
+      <label><small>Período</small><select value={period} onChange={e=>setPeriod(e.target.value)}><option value="7">Últimos 7 dias</option><option value="14">Últimos 14 dias</option><option value="30">Últimos 30 dias</option><option value="all">Todo histórico</option></select></label>
+      <button type="button" className={styles.radarExactRefresh} onClick={recheckAll} disabled={bulkPhase==='loading'}>↻ {bulkPhase==='loading'?'Rechecando…':'Atualizar / Rechecar agora'}</button>
+      <button type="button" className={styles.radarExactIcon} aria-label="Ajuda">?</button>
+      <button type="button" className={styles.radarExactIcon} aria-label="Notificações">♟</button>
+      <span className={styles.radarExactAvatar}>GS</span>
+    </section>
+
+    <section className={styles.radarExactKpis}>
       <article data-tone="down"><span>↓</span><div><b>{counts.down}</b><strong>com queda de preço</strong><small>{counts.total?((counts.down/counts.total)*100).toFixed(1).replace('.',','):'0'}% do total</small></div></article>
       <article data-tone="up"><span>↑</span><div><b>{counts.up}</b><strong>com alta de preço</strong><small>{counts.total?((counts.up/counts.total)*100).toFixed(1).replace('.',','):'0'}% do total</small></div></article>
       <article data-tone="sales"><span>▥</span><div><b>{counts.accelerating}</b><strong>com vendas acelerando</strong><small>{counts.total?((counts.accelerating/counts.total)*100).toFixed(1).replace('.',','):'0'}% do total</small></div></article>
@@ -461,108 +472,86 @@ function Competitors({items}){
       <article data-tone="total"><span>♟</span><div><b>{counts.total}</b><strong>concorrentes monitorados</strong><small>100% do total</small></div></article>
     </section>
 
-    <section className={styles.radarFilters}>
-      <label className={styles.radarSearch}><span>⌕</span><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar concorrente, anúncio ou ID..."/></label>
-      <label><small>Status</small><select value={status} onChange={e=>setStatus(e.target.value)}><option value="all">Todos</option><option value="down">Queda de preço</option><option value="up">Alta de preço</option><option value="accelerating">Vendas acelerando</option><option value="due">Rechecagem vencida</option><option value="nodata">Sem dados</option></select></label>
-      <label><small>Ordenar por</small><select value={sort} onChange={e=>setSort(e.target.value)}><option value="priority">Maior prioridade</option><option value="price">Maior variação de preço</option><option value="sales">Mais vendas desde a coleta</option><option value="collected">Última coleta</option><option value="recheck">Próxima rechecagem</option></select></label>
-      <label><small>Período</small><select value={period} onChange={e=>setPeriod(e.target.value)}><option value="7">Últimos 7 dias</option><option value="14">Últimos 14 dias</option><option value="30">Últimos 30 dias</option><option value="all">Todo histórico</option></select></label>
-      <button type="button" className={styles.radarRefresh} onClick={recheckAll} disabled={bulkPhase==='loading'}>↻ {bulkPhase==='loading'?'Rechecando…':bulkPhase==='success'?'Rechecagem concluída':'Atualizar / Rechecar agora'}</button>
-    </section>
-
-    {bulkPhase==='loading'&&<section className={styles.radarProgress}>
-      <div className={styles.radarProgressIcon}>↻</div>
-      <div className={styles.radarProgressText}><b>Rechecando concorrentes…</b><span>{bulkProgress.label||'Verificando anúncios e posições na busca…'}</span></div>
-      <div className={styles.radarProgressTrack}><i style={{width:(bulkProgress.total?Math.max(2,Math.round((bulkProgress.done/bulkProgress.total)*100)):2)+'%'}}/></div>
+    {bulkPhase==='loading'&&<section className={styles.radarExactProgress}>
+      <div className={styles.radarExactProgressIcon}>↻</div>
+      <div className={styles.radarExactProgressCopy}><b>Rechecando concorrentes…</b><span>{bulkProgress.label||'Verificando anúncios e posições na busca…'}</span></div>
+      <div className={styles.radarExactProgressTrack}><i style={{width:(bulkProgress.total?Math.max(2,Math.round((bulkProgress.done/bulkProgress.total)*100)):2)+'%'}}/></div>
       <strong>{bulkProgress.total?Math.round((bulkProgress.done/bulkProgress.total)*100):0}%</strong>
       <small>Isso pode levar alguns minutos.<br/>Mantenha esta página aberta.</small>
     </section>}
 
     {monitor.phase==='error'&&<div className={styles.error}>{monitor.error}<button onClick={loadMonitor}>Tentar novamente</button></div>}
 
-    <div className={styles.radarColumns}>
-      <section className={styles.radarListArea}>
-        <div className={styles.radarListHead}><b>{filtered.length} concorrente{filtered.length===1?'':'s'} encontrado{filtered.length===1?'':'s'}</b><div><span>Legenda rápida:</span><i data-tone="down"/> Queda de preço <i data-tone="up"/> Alta de preço <i data-tone="sales"/> Vendas acelerando <i data-tone="due"/> Rechecagem vencida</div></div>
-        <div className={styles.radarList}>{filtered.map((r,index)=>{
-          const priority=competitorPriority(r),due=dueInfo(r.watch?.next_check_at),pricePct=n(r.change?.price_change_pct),priceDelta=n(r.change?.price_change),soldDelta=n(r.change?.sold_delta),salesRate=n(r.change?.sold_per_day),velocity=n(r.change?.sold_velocity_change_pct);
+    <div className={styles.radarExactColumns}>
+      <section className={styles.radarExactListArea}>
+        <div className={styles.radarExactListHead}>
+          <b>{filtered.length} concorrente{filtered.length===1?'':'s'} encontrado{filtered.length===1?'':'s'}</b>
+          <div><i data-tone="down"/> Queda de preço <i data-tone="up"/> Alta de preço <i data-tone="sales"/> Vendas acelerando <i data-tone="due"/> Rechecagem vencida</div>
+        </div>
+
+        <div className={styles.radarExactList}>{filtered.map(r=>{
+          const priority=competitorPriority(r),due=dueInfo(r.watch?.next_check_at),pricePct=n(r.change?.price_change_pct),soldDelta=n(r.change?.sold_delta),velocity=n(r.change?.sold_velocity_change_pct);
           const previousPrice=n(r.change?.price_before);
           const cutoff=period==='all'?0:Date.now()-Number(period)*86400000;
           const hist=r.history.filter(h=>!cutoff||new Date(h.collected_at).getTime()>=cutoff).slice().reverse();
-          const priceSeries=hist.map(h=>n(h.price)).filter(v=>v!=null);
           const salesSeries=hist.map(h=>n(h.sold)).filter(v=>v!=null);
-          const primary=priority.rank<=1&&pricePct!=null&&pricePct<0;
-          const ownerHref=`/extensao-shopee-intelligence?section=super-anuncio&item_id=${r.ownerItemId}`;
-          const priceHref=`/super-analise?item_id=${r.ownerItemId}&tab=price`;
-          return <article className={styles.radarCard} data-tone={priority.tone} key={r.key}>
-            <div className={styles.radarIdentity}>
-              <div className={styles.radarThumb}>{due.due&&<em>VENCIDA</em>}<CompetitorThumb src={r.image} title={r.title}/></div>
-              <div>{r.link?<a className={styles.radarTitle} href={r.link} target="_blank" rel="noreferrer">{r.title}</a>:<b className={styles.radarTitle}>{r.title}</b>}<span>Vinculado ao seu anúncio:</span><Link href={ownerHref}>{r.owner}</Link>{r.ownerCategory&&<small>{r.ownerCategory}</small>}</div>
-            </div>
-            <div className={styles.radarMetric}>
-              <span>Preço atual</span><b>{dataText(r.price,money,r.raw)}</b>{previousPrice!=null&&<small>Era {money(previousPrice)}</small>}
-              {pricePct!=null&&Math.abs(pricePct)>=.1&&<em data-tone={pricePct<0?'down':'up'}>{pricePct<0?'↓':'↑'} {priceDelta==null?Math.abs(pricePct).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%':(priceDelta>0?'+':'-')+money(Math.abs(priceDelta))}<small>{pricePct>0?'+':''}{pricePct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</small></em>}
-              <div className={styles.radarMini}><span>Tendência de preço</span><MiniTrend values={priceSeries} tone={pricePct<0?'green':pricePct>0?'red':'slate'}/></div>
-            </div>
-            <div className={styles.radarMetric}>
-              <span>Vendas acumuladas</span><b>{dataText(r.sold,v=>Number(v).toLocaleString('pt-BR'),r.raw)}</b>{soldDelta!=null&&<em data-tone="sales">▲ {soldDelta>=0?'+':''}{soldDelta.toLocaleString('pt-BR')}<small>desde a última coleta</small></em>}
-              <div className={styles.radarMini}><span>Tendência de vendas</span><MiniTrend values={salesSeries} bars tone="blue"/></div>
-            </div>
-            <div className={styles.radarVelocity}>
-              <span>Ritmo de vendas</span><div className={styles.radarVelocityBars}>{[.35,.52,.7,.88,1].map((x,i)=><i key={i} style={{height:(velocity!=null&&velocity>=25?x:Math.max(.25,x-.28))*100+'%'}}/>)}</div><b>{velocity!=null&&velocity>=25?'Acelerando':'Estável'}</b>{salesRate!=null&&<small>{salesRate.toLocaleString('pt-BR',{maximumFractionDigits:1})}/dia</small>}
-            </div>
-            <div className={styles.radarActions}>
-              <span className={styles.radarStatus} data-tone={priority.tone}>{priority.tone==='urgent'?'⚠ ':priority.tone==='opportunity'?'★ ':''}{priority.label}</span>
-              <small>Última coleta: {when(r.collected)}</small><small className={due.due?styles.radarDue:''}>Rechecagem: {due.label}</small>
-              {r.watch&&<label>Rechecar a cada <select value={r.watch.frequency_days||7} onChange={e=>updateWatch(r.watch,{frequency_days:Number(e.target.value),reset_next:true})}><option value="2">2 dias</option><option value="3">3 dias</option><option value="7">7 dias</option><option value="14">14 dias</option><option value="30">30 dias</option></select></label>}
-              {primary?<Link className={styles.radarPrimary} href={priceHref}>✎ Editar preço do meu anúncio</Link>:<Link className={styles.radarOwn} href={ownerHref}>↗ Ir para meu anúncio</Link>}
-              {primary&&<small className={styles.radarHelper}>Acessa seu anúncio vinculado para editar preço, imagens ou título.</small>}
-              <div className={styles.radarButtonRow}>
-                <button type="button" onClick={()=>setOpenHistory(openHistory===r.key?'':r.key)}>◷ Ver histórico</button>
-                {r.link&&<a href={r.link} target="_blank" rel="noreferrer">↗ Abrir anúncio</a>}
-                <div className={styles.radarMenuWrap}>
-                  <button type="button" className={styles.radarDots} onClick={e=>{e.stopPropagation();setOpenMenu(openMenu===r.key?'':r.key)}}>⋮</button>
-                  {openMenu===r.key&&<div className={styles.radarMenu} onClick={e=>e.stopPropagation()}>
-                    <Link href={ownerHref}><b>↗ Ir para meu anúncio</b><small>Acessa o seu anúncio vinculado</small></Link>
-                    <Link href={priceHref}><b>✎ Editar preço</b><small>Abre seu anúncio para editar o preço</small></Link>
-                    <Link href={ownerHref}><b>ϟ Ver no Super Anúncio</b><small>Analisar com Super Anúncio</small></Link>
-                    <button type="button" onClick={()=>removeWatch(r)}><b>♲ Remover da lista</b><small>Preserva o histórico já coletado</small></button>
-                  </div>}
-                </div>
-              </div>
-              {r.watch?.last_status==='error'&&r.watch.last_error&&<small className={styles.monitorError}>Falha anterior: {r.watch.last_error}</small>}
-            </div>
-            <div className={styles.radarVisibility}>
-              <b>⌕ Visibilidade na busca</b>
-              <span><small>Concorrente</small><strong>{searchPositionLabel(r.visibility?.competitor_position,r.visibility?.competitor_page,r.visibility?.competitor_found,r.visibility?.max_pages||3)}</strong></span>
-              <span><small>Meu anúncio</small><strong>{searchPositionLabel(r.visibility?.owner_position,r.visibility?.owner_page,r.visibility?.owner_found,r.visibility?.max_pages||3)}</strong></span>
-              <span><small>Shopee Ads</small><strong data-ads={r.visibility?.competitor_ads_status||'unknown'}>{r.visibility?.competitor_ads_status==='detected'?'● Ads ativo nesta busca':r.visibility?.competitor_ads_status==='not_detected'?'○ Sem Ads nesta busca':'— Não confirmado'}</strong></span>
-              <button type="button" onClick={()=>setOpenSearchDetails(openSearchDetails===r.key?'':r.key)}>{openSearchDetails===r.key?'Ocultar detalhes':'Ver análise da busca'} {openSearchDetails===r.key?'⌃':'⌄'}</button>
-            </div>
-            {openSearchDetails===r.key&&<div className={styles.radarSearchDetails}>
-              <div className={styles.radarSearchDetailHead}><div><b>Análise da busca</b><p>Detalhes ficam escondidos para manter o card limpo. A posição sempre é medida para uma palavra-chave específica.</p></div><button type="button" disabled={visibilityPhase[String(r.ownerItemId)]==='loading'} onClick={()=>collectVisibilityGroup(rows.filter(x=>String(x.ownerItemId)===String(r.ownerItemId))).then(loadMonitor)}>↻ {visibilityPhase[String(r.ownerItemId)]==='loading'?'Pesquisando…':'Atualizar posições'}</button></div>
-              <div className={styles.radarSearchConfig}>
-                <label>Palavra-chave<input defaultValue={r.watch?.settings?.search_keyword||r.owner} onBlur={e=>{const value=e.target.value.trim();if(value&&value!==r.watch?.settings?.search_keyword)updateWatch(r.watch,{search_keyword:value})}}/></label>
-                <label>Páginas verificadas<select value={r.watch?.settings?.search_max_pages||3} onChange={e=>updateWatch(r.watch,{search_max_pages:Number(e.target.value)})}><option value="1">1 página</option><option value="2">2 páginas</option><option value="3">3 páginas</option><option value="4">4 páginas</option><option value="5">5 páginas</option></select></label>
+          const ownerHref='/extensao-shopee-intelligence?section=super-anuncio&item_id='+r.ownerItemId;
+          const priceHref='/super-analise?item_id='+r.ownerItemId+'&tab=price';
+          return <article className={styles.radarExactCard} data-tone={priority.tone} key={r.key}>
+            <section className={styles.radarExactIdentity}>
+              <div className={styles.radarExactThumb}><CompetitorThumb src={r.image} title={r.title}/></div>
+              <div>{r.link?<a className={styles.radarExactTitle} href={r.link} target="_blank" rel="noreferrer">{r.title}</a>:<b className={styles.radarExactTitle}>{r.title}</b>}<span>Vinculado ao seu anúncio:</span><Link href={ownerHref}>{r.owner}</Link><em>Concorrente Direto</em></div>
+            </section>
+
+            <section className={styles.radarExactPrice}>
+              <small>Preço atual</small><div><b>{dataText(r.price,money,r.raw)}</b>{pricePct!=null&&Math.abs(pricePct)>=.1&&<mark data-tone={pricePct<0?'down':'up'}>{pricePct<0?'↓':'↑'} {pricePct>0?'+':''}{pricePct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</mark>}</div>{previousPrice!=null&&<span>vs {money(previousPrice)}</span>}
+              <strong data-tone={priority.tone}>{priority.tone==='urgent'||priority.tone==='attention'?'⚠ ':priority.tone==='opportunity'?'● ':''}{priority.label}</strong>
+              <p>Última venda: {when(r.collected)}</p><p>Rechecagem: {due.label}</p>
+            </section>
+
+            <section className={styles.radarExactSales}>
+              <small>Vendas (30 dias)</small><div className={styles.radarExactSalesTop}><b>{r.sold==null?'—':Number(r.sold).toLocaleString('pt-BR')}</b><MiniTrend values={salesSeries} bars tone="green"/></div>
+              {velocity!=null&&<mark data-tone={velocity>=0?'down':'up'}>{velocity>=0?'↑':'↓'} {velocity>0?'+':''}{velocity.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</mark>}
+              {soldDelta!=null&&<span>{soldDelta>=0?'+':''}{soldDelta.toLocaleString('pt-BR')} desde a última coleta</span>}
+              <button type="button" onClick={()=>setOpenHistory(openHistory===r.key?'':r.key)}>Mais detalhes <span>{openHistory===r.key?'⌃':'⌄'}</span></button>
+            </section>
+
+            <section className={styles.radarExactVisibility}>
+              <h4>⌕ Visibilidade na busca</h4>
+              <div><span>Concorrente</span><b>{searchPositionLabel(r.visibility?.competitor_position,r.visibility?.competitor_page,r.visibility?.competitor_found,r.visibility?.max_pages||3)}</b></div>
+              <div><span>Meu anúncio</span><b>{searchPositionLabel(r.visibility?.owner_position,r.visibility?.owner_page,r.visibility?.owner_found,r.visibility?.max_pages||3)}</b></div>
+              <div><span>Shopee Ads</span><b data-ads={r.visibility?.competitor_ads_status||'unknown'}>{r.visibility?.competitor_ads_status==='detected'?'Ads ativo nesta busca':r.visibility?.competitor_ads_status==='not_detected'?'Sem Ads nesta busca':'Não confirmado'}</b></div>
+              <button type="button" onClick={()=>setOpenSearchDetails(openSearchDetails===r.key?'':r.key)}>Ver análise da busca →</button>
+            </section>
+
+            <section className={styles.radarExactActions}>
+              <Link href={priceHref}>✎ Editar preço do meu anúncio</Link>
+              <Link href={ownerHref}>↗ Ir para meu anúncio</Link>
+              {r.link?<a href={r.link} target="_blank" rel="noreferrer">↗ Abrir anúncio</a>:<button type="button" disabled>↗ Abrir anúncio</button>}
+            </section>
+
+            {(openHistory===r.key||openSearchDetails===r.key)&&<section className={styles.radarExactDetails}>
+              {openHistory===r.key&&<div className={styles.radarExactDetailGrid}>
+                <label>Rechecar a cada<select value={r.watch?.frequency_days||7} onChange={e=>updateWatch(r.watch,{frequency_days:Number(e.target.value),reset_next:true})}><option value="2">2 dias</option><option value="3">3 dias</option><option value="7">7 dias</option><option value="14">14 dias</option><option value="30">30 dias</option></select></label>
+                <div><small>Preço anterior</small><b>{money(previousPrice)}</b></div>
+                <div><small>Vendas desde a última coleta</small><b>{soldDelta==null?'—':(soldDelta>=0?'+':'')+soldDelta.toLocaleString('pt-BR')}</b></div>
+                <div><small>Última coleta</small><b>{when(r.collected)}</b></div>
+              </div>}
+              {openSearchDetails===r.key&&<div className={styles.radarExactSearchDetails}>
+                <div><small>Palavra-chave</small><b>{r.watch?.settings?.search_keyword||r.owner}</b></div>
                 <div><small>Diferença</small><b>{n(r.visibility?.competitor_position)!=null&&n(r.visibility?.owner_position)!=null?(n(r.visibility.owner_position)-n(r.visibility.competitor_position)>0?'+':'')+(n(r.visibility.owner_position)-n(r.visibility.competitor_position)).toLocaleString('pt-BR')+' posições':'—'}</b></div>
                 <div><small>Última leitura</small><b>{r.visibility?.searched_at?when(r.visibility.searched_at):'Ainda não coletado'}</b></div>
-              </div>
-              <p className={styles.radarAdsNote}>{r.visibility?.competitor_ads_status==='detected'?'A Shopee exibiu este concorrente como patrocinado nesta busca, então havia Ads ativo para este contexto naquele momento.':r.visibility?.competitor_ads_status==='not_detected'?'Nesta busca o resultado foi identificado como não patrocinado. Isso não prova que o vendedor não tenha campanha ativa para outros termos, posições ou momentos.':'Ainda não há evidência suficiente para afirmar se este anúncio está usando Shopee Ads nesta busca.'}{r.visibility?.competitor_ads_evidence?' Evidência: '+r.visibility.competitor_ads_evidence+'.':''} A posição é observada na busca por relevância usando a sessão atual da Shopee e pode variar por horário, usuário e contexto.</p>
-              {visibilityPhase[String(r.ownerItemId)]==='error'&&<p className={styles.radarVisibilityError}>O Motor Senior atual não conseguiu coletar a posição. A tela preserva o último dado válido e tentará novamente quando o coletor suportar a leitura.</p>}
-              {r.visibilityHistory.length>1&&<div className={styles.radarVisibilityHistory}>{r.visibilityHistory.slice(0,8).map(v=><div key={v.id}><span>{when(v.searched_at)}</span><b>Concorrente {n(v.competitor_position)!=null?'#'+n(v.competitor_position):'—'} · Meu anúncio {n(v.owner_position)!=null?'#'+n(v.owner_position):'—'}</b><small>{v.keyword} · Ads: {v.competitor_ads_status==='detected'?'detectado':v.competitor_ads_status==='not_detected'?'não identificado':'sem leitura'}</small></div>)}</div>}
-            </div>}
-            {openHistory===r.key&&<div className={styles.radarHistory}><div className={styles.radarHistoryHead}><b>Histórico de coletas</b><span>{r.history.length} registro{r.history.length===1?'':'s'}</span></div>{r.history.length?<div className={styles.radarHistoryGrid}>{r.history.map((h,idx)=>{const older=r.history[idx+1],sd=n(h.sold)!=null&&n(older?.sold)!=null?n(h.sold)-n(older.sold):null,pd=n(h.price)!=null&&n(older?.price)!=null?n(h.price)-n(older.price):null;return <div key={h.id||h.collected_at||idx}><span>{when(h.collected_at)}</span><b>{money(h.price)}</b><small>{n(h.sold)==null?'Vendas sem dados':n(h.sold).toLocaleString('pt-BR')+' vendidos'}{sd!=null?' · '+(sd>=0?'+':'')+sd.toLocaleString('pt-BR')+' vendas':''}{pd!=null&&Math.abs(pd)>=.01?' · preço '+(pd>0?'subiu':'caiu')+' '+money(Math.abs(pd)):''}</small></div>})}</div>:<span>Sem histórico anterior.</span>}</div>}
+                <button type="button" disabled={visibilityPhase[String(r.ownerItemId)]==='loading'} onClick={()=>collectVisibilityGroup(rows.filter(x=>String(x.ownerItemId)===String(r.ownerItemId))).then(loadMonitor)}>↻ {visibilityPhase[String(r.ownerItemId)]==='loading'?'Pesquisando…':'Atualizar posições'}</button>
+              </div>}
+            </section>}
           </article>
         })}</div>
       </section>
 
-      <aside className={styles.radarAside}>
-        <section className={styles.radarSideCard}><div className={styles.radarSideTitle}><b>🔔 Alertas do radar competitivo</b><span>{alerts.length}</span></div><div className={styles.radarAlerts}>{alerts.length?alerts.map(a=><article key={a.key} data-tone={a.tone}>{a.image?<img src={a.image} alt=""/>:<i>{a.tone==='due'?'◷':a.tone==='image'?'▧':a.tone==='sales'?'▥':a.tone==='down'?'↓':'↑'}</i>}<b>{a.text}</b><small>{a.at?relativeTime(a.at):'agora'}</small></article>):<p>Nenhuma mudança importante detectada.</p>}</div></section>
-        <section className={styles.radarSideCard}><div className={styles.radarSideTitle}><b>♧ Distribuição dos concorrentes</b></div><div className={styles.radarDistribution}><div className={styles.radarDonut} style={{background:donut}}><span><b>{rows.length}</b>Total</span></div><div>{[['down','Queda de preço',distribution.down],['up','Alta de preço',distribution.up],['sales','Vendas acelerando',distribution.accelerating],['due','Rechecagem vencida',distribution.due],['stable','Estáveis',distribution.stable]].map(([tone,label,value])=><p key={tone}><i data-tone={tone}/><span>{value} {label.toLowerCase()} {rows.length?'('+(value/rows.length*100).toFixed(1).replace('.',',')+'%)':''}</span></p>)}</div></div></section>
-        <section className={styles.radarSideCard}><div className={styles.radarSideTitle}><b>💡 Dicas e insights</b></div><div className={styles.radarInsights}>
-          {counts.down>0&&<p><i>1</i><span><b>{counts.down} concorrente{counts.down===1?' reduziu':'s reduziram'} o preço.</b> Avalie seu preço e sua margem antes de reagir.</span></p>}
-          {counts.accelerating>0&&<p><i>2</i><span><b>{counts.accelerating} concorrente{counts.accelerating===1?' está':'s estão'} vendendo mais rápido.</b> Pode ser um bom momento para revisar anúncio, oferta e Ads.</span></p>}
-          {counts.due>0&&<p><i>3</i><span><b>{counts.due} rechecagem{counts.due===1?' está':' estão'} vencida{counts.due===1?'':'s'}.</b> Atualize os dados para não perder mudanças importantes.</span></p>}
-          {!counts.down&&!counts.accelerating&&!counts.due&&<p><i>✓</i><span><b>Nenhum sinal urgente agora.</b> Continue acompanhando as próximas coletas.</span></p>}
-        </div></section>
+      <aside className={styles.radarExactAside}>
+        <section className={styles.radarExactSideCard}><header><b>🔔 Alertas do radar competitivo</b><span>{alerts.length}</span></header><div className={styles.radarExactAlerts}>{alerts.length?alerts.slice(0,5).map(a=><article key={a.key}>{a.image?<img src={a.image} alt=""/>:<i>!</i>}<b>{a.text}</b><small>{a.at?relativeTime(a.at):'agora'}</small></article>):<p>Nenhuma mudança importante detectada.</p>}</div></section>
+        <section className={styles.radarExactSideCard}><header><b>ⓘ Distribuição dos concorrentes</b></header><div className={styles.radarExactDistribution}><div className={styles.radarExactDonut} style={{background:donut}}><span><b>{rows.length}</b><small>total</small></span></div><div>{[['down','com queda de preço',distribution.down],['up','com alta de preço',distribution.up],['sales','com vendas acelerando',distribution.accelerating],['due','rechecagem vencida',distribution.due],['stable','estáveis',distribution.stable]].map(([tone,label,value])=><p key={tone}><i data-tone={tone}/><span>{value} {label} ({rows.length?(value/rows.length*100).toFixed(1).replace('.',','):'0'}%)</span></p>)}</div></div></section>
+        <section className={styles.radarExactSideCard}><header><b>💡 Dicas e insights</b></header><div className={styles.radarExactInsight}><i>1</i><p>{counts.down>0?<><b>{counts.down} concorrente{counts.down===1?' reduziu':'s reduziram'} o preço.</b><span>Atenção a impactos na sua posição de busca.</span></>:<><b>Nenhum sinal urgente agora.</b><span>Continue acompanhando as próximas coletas.</span></>}</p></div></section>
       </aside>
     </div>
   </div>;
@@ -657,6 +646,7 @@ function Reports({items}){
 function Kpi({label,value}){return <article className={styles.kpi}><small>{label}</small><b>{value}</b></article>}
 
 export default function IntelligenceSections({items=[],section='shopee-ads'}){
+  if(section==='concorrentes')return <div className={styles.screen}><main className={styles.main}><Competitors items={items}/></main></div>;
   const [title,subtitle,icon]=titles[section]||titles['shopee-ads'];
-  return <div className={styles.screen}><main className={styles.main}><header className={styles.header}><div><span>{icon}</span><div><h1>{title}</h1><p>{subtitle}</p></div></div></header><div className={styles.body}>{section==='concorrentes'&&<Competitors items={items}/>} {section==='shopee-ads'&&<Ads/>} {section==='reanalises'&&<Reanalises items={items}/>} {section==='prioridades'&&<Prioridades items={items}/>} {section==='relatorios'&&<Reports items={items}/>}</div></main></div>
+  return <div className={styles.screen}><main className={styles.main}><header className={styles.header}><div><span>{icon}</span><div><h1>{title}</h1><p>{subtitle}</p></div></div></header><div className={styles.body}>{section==='shopee-ads'&&<Ads/>} {section==='reanalises'&&<Reanalises items={items}/>} {section==='prioridades'&&<Prioridades items={items}/>} {section==='relatorios'&&<Reports items={items}/>}</div></main></div>
 }
