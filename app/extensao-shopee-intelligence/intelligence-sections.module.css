@@ -20,3 +20,14 @@
 .deltaDown{background:#fff0f0;color:#bb4242!important}
 .deltaUp{background:#eef9f2;color:#238057!important}
 .deltaNeutral{background:#eef4fb;color:#3e6289!important}
+
+/* GS_COMPETITOR_HISTORY_2026_09_24 */
+.historyDetails{margin-top:8px;border-top:1px solid #edf1f5;padding-top:7px}
+.historyDetails summary{cursor:pointer;color:#245f9f;font-size:8px;font-weight:900;list-style:none}
+.historyDetails summary::-webkit-details-marker{display:none}
+.historyRows{display:grid;gap:5px;margin-top:7px}
+.historyRows>div{padding:7px 8px;border:1px solid #e4ebf3;border-radius:8px;background:#f9fbfd}
+.historyRows span,.historyRows b,.historyRows small{display:block}
+.historyRows span{font-size:7px!important;color:#8796a7!important}
+.historyRows b{margin-top:2px!important;font-size:8px!important;color:#244a77!important}
+.historyRows small{margin-top:2px!important;font-size:7px!important;color:#657b94!important}
