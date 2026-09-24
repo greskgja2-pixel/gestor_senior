@@ -484,3 +484,4 @@
   .flashAttention{grid-template-columns:32px 1fr}
   .flashAttention>a{grid-column:1/-1;width:100%}
 }
+.flashAttentionActions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}.flashAttentionActions>a{display:inline-flex;align-items:center;justify-content:center;padding:7px 9px;border-radius:7px;background:#fff;color:#885900;border:1px solid #ecd7a5;text-decoration:none;font-size:8px;font-weight:900;white-space:nowrap}.flashAttention[data-tone="ok"] .flashAttentionActions>a{color:#13784a;border-color:#bee8d0}@media(max-width:700px){.flashAttentionActions{grid-column:1/-1;justify-content:stretch}.flashAttentionActions>a{flex:1}}
