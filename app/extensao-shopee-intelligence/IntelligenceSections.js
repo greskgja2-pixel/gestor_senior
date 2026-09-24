@@ -41,6 +41,31 @@ function competitorSold(c){
   const base=Number(m[1].replace(',','.'));
   return Number.isFinite(base)?Math.round(base*(m[2]?1000:1)):null;
 }
+function explicitBool(...values){
+  for(const value of values){
+    if(value===true||value===1||value==='1'||String(value).toLowerCase()==='true')return true;
+    if(value===false||value===0||value==='0'||String(value).toLowerCase()==='false')return false;
+  }
+  return null;
+}
+function competitorOriginalPrice(comp,snap){
+  const raw=snap?.raw&&typeof snap.raw==='object'?snap.raw:{};
+  return n(raw?.originalPrice??raw?.original_price??raw?.price_before_discount??comp?.originalPrice??comp?.original_price??comp?.price_before_discount);
+}
+function competitorMonthlySold(comp,snap){
+  const raw=snap?.raw&&typeof snap.raw==='object'?snap.raw:{};
+  return n(raw?.monthlySold??raw?.monthly_sold??raw?.sold_30d??comp?.monthlySold??comp?.monthly_sold??comp?.sold_30d);
+}
+function competitorPreferred(comp,snap){
+  const raw=snap?.raw&&typeof snap.raw==='object'?snap.raw:{};
+  return explicitBool(raw?.preferred,raw?.is_preferred_plus_seller,raw?.is_preferred_shop,comp?.preferred,comp?.is_preferred_plus_seller,comp?.is_preferred_shop);
+}
+function competitorLocation(comp,snap){
+  const raw=snap?.raw&&typeof snap.raw==='object'?snap.raw:{};
+  const value=raw?.location??raw?.shop_location??raw?.seller_location??comp?.location??comp?.shop_location??comp?.seller_location;
+  return value==null?'':String(value).trim();
+}
+function yesNo(value){return value===true?'Sim':value===false?'Não':'Não confirmado'}
 function competitorImage(c){
   const asUrl=value=>{
     if(value==null)return null;
@@ -103,22 +128,26 @@ function MiniTrend({values=[],bars=false,tone='blue'}){
   const points=data.map((v,i)=>`${data.length===1?50:(i/(data.length-1))*100},${88-((v-min)/span)*70}`).join(' ');
   return <svg className={styles.radarLine} data-tone={tone} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline points={points}/></svg>;
 }
-function searchPositionLabel(position,page,found,maxPages=3){
-  const pos=n(position),pg=n(page);
-  if(pos!=null)return (pg!=null?pg+'ª pág · ':'')+'#'+pos.toLocaleString('pt-BR');
-  if(found===false)return'Não encontrado até '+maxPages+'ª pág';
+function searchPositionLabel(position,page,found,maxPages=3,itemsPerPage=60){
+  const pos=n(position),pg=n(page),perPage=Math.max(1,n(itemsPerPage)??60);
+  if(pos!=null){
+    const resolvedPage=pg!=null?pg:Math.floor((pos-1)/perPage)+1;
+    const withinPage=((Math.max(1,pos)-1)%perPage)+1;
+    return resolvedPage+'ª página · '+withinPage+'º anúncio';
+  }
+  if(found===false)return'Não encontrado até '+maxPages+'ª página';
   return'Aguardando leitura';
 }
 function detectAdsFromSearchRow(row){
   if(!row||typeof row!=='object')return{status:'unknown',evidence:null};
   const scopes=[row,row?.item_basic,row?.item,row?.ads,row?.ad,row?.tracking_info,row?.tracking].filter(x=>x&&typeof x==='object');
-  const trueFields=['isSponsored','is_sponsored','isAd','is_ad','isAds','is_ads','sponsored','sponsored_listing'];
-  const falseFields=['isSponsored','is_sponsored','isAd','is_ad','isAds','is_ads'];
+  const fields=['isSponsored','is_sponsored','isAd','is_ad','isAds','is_ads','sponsored','sponsored_listing'];
   for(const scope of scopes){
-    for(const key of trueFields)if(scope[key]===true||scope[key]===1||scope[key]==='1')return{status:'detected',evidence:key+'=true'};
-    for(const key of ['adsid','ads_id','adid','ad_id','ads_keyword'])if(scope[key]!=null&&String(scope[key]).trim()&&String(scope[key])!=='0')return{status:'detected',evidence:key};
+    for(const key of fields)if(scope[key]===true||scope[key]===1||scope[key]==='1')return{status:'detected',evidence:key+'=true'};
   }
-  for(const scope of scopes)for(const key of falseFields)if(scope[key]===false||scope[key]===0||scope[key]==='0')return{status:'not_detected',evidence:key+'=false'};
+  for(const scope of scopes){
+    for(const key of fields)if(scope[key]===false||scope[key]===0||scope[key]==='0')return{status:'not_detected',evidence:key+'=false'};
+  }
   return{status:'unknown',evidence:null};
 }
 function normalizeSearchVisibility(data,{ownerItemId,competitorItemId,maxPages=3}){
@@ -272,7 +301,10 @@ function Competitors({items}){
       owner:ownerSnapshot.title||ownerSnapshot.item_name||`Produto ${item.itemId}`,
       ownerCategory:ownerSnapshot.category||ownerSnapshot.category_name||'',
       competitorItemId:compItem,title:snap?.title||comp.title||`Concorrente ${i+1}`,
-      price:n(snap?.price)??competitorPrice(comp),sold:n(snap?.sold)??competitorSold(comp),rating:n(snap?.rating)??n(comp.rating),raw:comp,
+      price:n(snap?.price)??competitorPrice(comp),originalPrice:competitorOriginalPrice(comp,snap),
+      sold:n(snap?.sold)??competitorSold(comp),sold30d:competitorMonthlySold(comp,snap),
+      preferred:competitorPreferred(comp,snap),location:competitorLocation(comp,snap),
+      rating:n(snap?.rating)??n(comp.rating),raw:comp,
       image:competitorImage(comp)||competitorImage(snap)||snap?.image_url||null,link:comp.link||comp.url||watch?.competitor_url||null,
       collected:snap?.collected_at||item.latest?.analyzed_at,watch,change:watch?.latest_change||null,
       history:arr(watch?.snapshot_history),confidence:snap?.confidence||null,
@@ -357,9 +389,15 @@ function Competitors({items}){
           method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({
             watch_id:watch.id,title:p?.title||p?.item_name||watch.competitor_title,
-            price:p?.price??p?.currentPrice??null,sold:p?.sold??p?.historicalSold??null,rating:p?.rating??null,stock:p?.stock??null,
+            price:p?.price??p?.currentPrice??null,sold:p?.sold??p?.historicalSold??p?.historical_sold??null,rating:p?.rating??null,stock:p?.stock??null,
             image_url:competitorImage(p),source:source||'pdp_get_pc_intercepted',confidence:'structured',
-            raw:{ratingSource:p?.ratingSource||null,validationSource:p?.validationSource||null,categoryId:p?.categoryId??p?.category_id??null}
+            raw:{
+              ratingSource:p?.ratingSource||null,validationSource:p?.validationSource||null,categoryId:p?.categoryId??p?.category_id??null,
+              originalPrice:p?.originalPrice??p?.original_price??p?.priceBeforeDiscount??p?.price_before_discount??null,
+              monthlySold:p?.monthlySold??p?.monthly_sold??p?.sold30d??p?.sold_30d??null,
+              preferred:explicitBool(p?.preferred,p?.isPreferred,p?.is_preferred_plus_seller,p?.is_preferred_shop),
+              location:p?.location??p?.shopLocation??p?.shop_location??p?.sellerLocation??p?.seller_location??null
+            }
           })
         },15000);
         updated++;
@@ -495,27 +533,33 @@ function Competitors({items}){
         </div>
 
         <div className={styles.radarExactList}>{filtered.map(r=>{
-          const priority=competitorPriority(r),due=dueInfo(r.watch?.next_check_at),pricePct=n(r.change?.price_change_pct),soldDelta=n(r.change?.sold_delta),velocity=n(r.change?.sold_velocity_change_pct);
+          const priority=competitorPriority(r),signal=mainSignal(r),due=dueInfo(r.watch?.next_check_at),pricePct=n(r.change?.price_change_pct),soldDelta=n(r.change?.sold_delta),velocity=n(r.change?.sold_velocity_change_pct);
           const previousPrice=n(r.change?.price_before);
           const cutoff=period==='all'?0:Date.now()-Number(period)*86400000;
           const hist=r.history.filter(h=>!cutoff||new Date(h.collected_at).getTime()>=cutoff).slice().reverse();
           const salesSeries=hist.map(h=>n(h.sold)).filter(v=>v!=null);
+          const normalPrice=r.originalPrice!=null&&r.originalPrice>r.price?r.originalPrice:r.price;
+          const offerPrice=r.originalPrice!=null&&r.price!=null&&r.originalPrice>r.price?r.price:null;
           const ownerHref='/extensao-shopee-intelligence?section=super-anuncio&item_id='+r.ownerItemId;
           const priceHref='/super-analise?item_id='+r.ownerItemId+'&tab=price';
-          return <article className={styles.radarExactCard} data-tone={priority.tone} key={r.key}>
+          return <article className={styles.radarExactCard} data-tone={priority.tone} data-signal={signal} key={r.key}>
             <section className={styles.radarExactIdentity}>
               <div className={styles.radarExactThumb}><CompetitorThumb src={r.image} title={r.title} count={competitorMediaCount(r.raw)}/></div>
               <div>{r.link?<a className={styles.radarExactTitle} href={r.link} target="_blank" rel="noreferrer">{r.title}</a>:<b className={styles.radarExactTitle}>{r.title}</b>}<span>Vinculado ao seu anúncio:</span><Link href={ownerHref}>{r.owner}</Link><em>Concorrente Direto</em></div>
             </section>
 
             <section className={styles.radarExactPrice}>
-              <small>Preço atual</small><div><b>{dataText(r.price,money,r.raw)}</b>{pricePct!=null&&Math.abs(pricePct)>=.1&&<mark data-tone={pricePct<0?'down':'up'}>{pricePct<0?'↓':'↑'} {pricePct>0?'+':''}{pricePct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</mark>}</div>{previousPrice!=null&&<span>vs {money(previousPrice)}</span>}
+              <small>Preço normal / oferta</small>
+              <div><b>{money(normalPrice)}</b>{offerPrice!=null&&<b className={styles.radarExactOffer}>{money(offerPrice)}</b>}{pricePct!=null&&Math.abs(pricePct)>=.1&&<mark data-tone={pricePct<0?'down':'up'}>{pricePct<0?'↓':'↑'} {pricePct>0?'+':''}{pricePct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</mark>}</div>
+              {previousPrice!=null&&<span>Preço na coleta anterior: {money(previousPrice)}</span>}
+              <div className={styles.radarExactMeta}><span><small>Indicado</small><b data-bool={r.preferred===true?'yes':r.preferred===false?'no':'unknown'}>{yesNo(r.preferred)}</b></span><span><small>Localização</small><b>{r.location||'Não coletado'}</b></span></div>
               <strong data-tone={priority.tone}>{priority.tone==='urgent'||priority.tone==='attention'?'⚠ ':priority.tone==='opportunity'?'● ':''}{priority.label}</strong>
-              <p>Última venda: {when(r.collected)}</p><p>Rechecagem: {due.label}</p>
+              <p>Última coleta: {when(r.collected)}</p><p>Rechecagem: {due.label}</p>
             </section>
 
             <section className={styles.radarExactSales}>
-              <small>Vendas (30 dias)</small><div className={styles.radarExactSalesTop}><b>{r.sold==null?'—':Number(r.sold).toLocaleString('pt-BR')}</b><MiniTrend values={salesSeries} bars tone="green"/></div>
+              <small>Venda acumulada</small><div className={styles.radarExactSalesTop}><b>{r.sold==null?'—':Number(r.sold).toLocaleString('pt-BR')}</b><MiniTrend values={salesSeries} bars tone="green"/></div>
+              <div className={styles.radarExactSales30}><small>Últimos 30 dias</small><b>{r.sold30d==null?'Não coletado':Number(r.sold30d).toLocaleString('pt-BR')}</b></div>
               {velocity!=null&&<mark data-tone={velocity>=0?'down':'up'}>{velocity>=0?'↑':'↓'} {velocity>0?'+':''}{velocity.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</mark>}
               {soldDelta!=null&&<span>{soldDelta>=0?'+':''}{soldDelta.toLocaleString('pt-BR')} desde a última coleta</span>}
               <button type="button" onClick={()=>setOpenHistory(openHistory===r.key?'':r.key)}>Mais detalhes <span>{openHistory===r.key?'⌃':'⌄'}</span></button>
@@ -523,9 +567,9 @@ function Competitors({items}){
 
             <section className={styles.radarExactVisibility}>
               <h4>⌕ Visibilidade na busca</h4>
-              <div><span>Concorrente</span><b>{searchPositionLabel(r.visibility?.competitor_position,r.visibility?.competitor_page,r.visibility?.competitor_found,r.visibility?.max_pages||3)}</b></div>
-              <div><span>Meu anúncio</span><b>{searchPositionLabel(r.visibility?.owner_position,r.visibility?.owner_page,r.visibility?.owner_found,r.visibility?.max_pages||3)}</b></div>
-              <div><span>Shopee Ads</span><b data-ads={r.visibility?.competitor_ads_status||'unknown'}>{r.visibility?.competitor_ads_status==='detected'?'Ads ativo nesta busca':r.visibility?.competitor_ads_status==='not_detected'?'Sem Ads nesta busca':'Não confirmado'}</b></div>
+              <div><span>Rank</span><b>{searchPositionLabel(r.visibility?.competitor_position,r.visibility?.competitor_page,r.visibility?.competitor_found,r.visibility?.max_pages||3,r.visibility?.items_per_page||60)}</b></div>
+              <div><span>Ads</span><b data-ads={r.visibility?.competitor_ads_status||'unknown'}>{r.visibility?.competitor_ads_status==='detected'?'Sim':r.visibility?.competitor_ads_status==='not_detected'?'Não':'Não confirmado'}</b></div>
+              <div><span>Meu anúncio</span><b>{searchPositionLabel(r.visibility?.owner_position,r.visibility?.owner_page,r.visibility?.owner_found,r.visibility?.max_pages||3,r.visibility?.items_per_page||60)}</b></div>
               <button type="button" onClick={()=>setOpenSearchDetails(openSearchDetails===r.key?'':r.key)}>Ver análise da busca →</button>
             </section>
 
