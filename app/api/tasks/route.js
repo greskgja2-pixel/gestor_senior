@@ -1,6 +1,7 @@
 import {NextResponse} from 'next/server';
 import {getActiveShop} from '../../../lib/shop';
 import {supabaseAdmin} from '../../../lib/supabase';
+import {getAdsCampaignList,getAdsCampaignSettings,getAdsCampaignDaily} from '../../../lib/shopee-extra';
 
 export const dynamic='force-dynamic';
 export const runtime='nodejs';
@@ -43,6 +44,94 @@ async function syncReanalysisTasks(db,shopId){
   }
 }
 
+
+function spDate(offsetDays=0){
+  const d=new Date(Date.now()+offsetDays*86400000);
+  const parts=new Intl.DateTimeFormat('en-US',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(d);
+  const get=t=>parts.find(p=>p.type===t)?.value;
+  return `${get('year')}-${get('month')}-${get('day')}`;
+}
+function adsPayload(result){return result?.data?.response||result?.data||result?.response||result||{}}
+function campaignNodes(value,out=[]){
+  if(Array.isArray(value)){for(const row of value)campaignNodes(row,out);return out}
+  if(!value||typeof value!=='object')return out;
+  if(value.campaign_id!==undefined&&value.campaign_id!==null){out.push(value);return out}
+  for(const child of Object.values(value))campaignNodes(child,out);
+  return out;
+}
+function metricRows(value,out=[]){
+  const keys=new Set(['expense','cost','spend','broad_order','order','orders']);
+  if(Array.isArray(value)){for(const row of value)metricRows(row,out);return out}
+  if(!value||typeof value!=='object')return out;
+  if(Object.keys(value).some(k=>keys.has(k))){out.push(value);return out}
+  for(const child of Object.values(value))metricRows(child,out);
+  return out;
+}
+function adsTotals(node){
+  let spend=0,orders=0,hasSpend=false,hasOrders=false;
+  for(const row of metricRows(node,[])){
+    const s=row.expense??row.cost??row.spend;
+    const o=row.broad_order??row.order??row.orders;
+    if(s!==undefined&&s!==null&&Number.isFinite(Number(s))){spend+=Number(s);hasSpend=true}
+    if(o!==undefined&&o!==null&&Number.isFinite(Number(o))){orders+=Number(o);hasOrders=true}
+  }
+  return{spend:hasSpend?spend:null,orders:hasOrders?orders:null};
+}
+function adsCampaignMeta(settings,list){
+  const map=new Map();
+  const listRows=Array.isArray(adsPayload(list)?.campaign_list)?adsPayload(list).campaign_list:[];
+  for(const row of listRows){
+    const id=Number(row?.campaign_id);if(id)map.set(id,{title:row?.ad_name||row?.campaign_name||null,itemId:Number(row?.item_id)||null});
+  }
+  const settingRows=Array.isArray(adsPayload(settings)?.campaign_list)?adsPayload(settings).campaign_list:campaignNodes(adsPayload(settings),[]);
+  for(const row of settingRows){
+    const id=Number(row?.campaign_id);if(!id)continue;
+    const common=row?.common_info||{},auto=Array.isArray(row?.auto_product_ads_info)?row.auto_product_ads_info:[],first=auto[0]||{};
+    const ids=Array.isArray(common.item_id_list)?common.item_id_list.map(Number).filter(Boolean):auto.map(x=>Number(x?.item_id)).filter(Boolean);
+    const prev=map.get(id)||{};
+    map.set(id,{title:common.ad_name||first.product_name||prev.title||`Campanha ${id}`,itemId:ids[0]||Number(first.item_id)||prev.itemId||null});
+  }
+  return map;
+}
+async function syncAdsZeroSalesTasks(db,shop){
+  try{
+    const day=spDate(-1),marker=`ads-sync:${day}`;
+    const {data:done}=await db.from('gs_tasks').select('id').eq('shop_id',shop.shop_id).eq('dedupe_key',marker).maybeSingle();
+    if(done)return;
+    const {data:prefs}=await db.from('gs_notification_preferences').select('ads_zero_sales_spend_threshold,categories').eq('shop_id',shop.shop_id).maybeSingle();
+    if(prefs?.categories?.ads===false)return;
+    const threshold=Number.isFinite(Number(prefs?.ads_zero_sales_spend_threshold))?Math.max(0,Number(prefs.ads_zero_sales_spend_threshold)):10;
+    const campaigns=await getAdsCampaignList(shop),listRows=Array.isArray(adsPayload(campaigns)?.campaign_list)?adsPayload(campaigns).campaign_list:[];
+    const ids=listRows.map(x=>Number(x?.campaign_id)).filter(Boolean);
+    if(!ids.length){
+      await db.from('gs_tasks').insert({shop_id:shop.shop_id,task_type:'system_sync',title:'Sincronização Ads diária',status:'done',source:'system-sync',dedupe_key:marker,metadata:{date:day,campaigns:0},completed_at:new Date().toISOString(),updated_at:new Date().toISOString()});
+      return;
+    }
+    const [settings,daily]=await Promise.all([
+      getAdsCampaignSettings(shop,ids),
+      getAdsCampaignDaily(shop,ids,{startDate:day,endDate:day})
+    ]);
+    const meta=adsCampaignMeta(settings,campaigns),nodes=campaignNodes(adsPayload(daily),[]);
+    for(const node of nodes){
+      const campaignId=Number(node?.campaign_id);if(!campaignId)continue;
+      const totals=adsTotals(node);
+      if(totals.spend==null||totals.orders==null||totals.spend<threshold||totals.orders!==0)continue;
+      const m=meta.get(campaignId)||{},spend=totals.spend.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+      await db.from('gs_tasks').upsert({
+        shop_id:shop.shop_id,item_id:m.itemId||null,task_type:'ads',
+        title:'Shopee Ads gastou e não vendeu ontem',
+        description:`${m.title||('Campanha '+campaignId)} gastou ${spend} em ${day} e registrou 0 pedidos. Avalie a campanha antes de continuar investindo.`,
+        priority:'urgent',status:'open',due_at:new Date().toISOString(),remind_at:new Date().toISOString(),
+        source:'ads-daily',action_url:'/extensao-shopee-intelligence?section=shopee-ads',
+        dedupe_key:`ads-zero-sales:${campaignId}:${day}`,
+        metadata:{campaign_id:campaignId,date:day,spend:totals.spend,orders:0,threshold},
+        updated_at:new Date().toISOString()
+      },{onConflict:'shop_id,dedupe_key',ignoreDuplicates:true});
+    }
+    await db.from('gs_tasks').insert({shop_id:shop.shop_id,task_type:'system_sync',title:'Sincronização Ads diária',status:'done',source:'system-sync',dedupe_key:marker,metadata:{date:day,campaigns:ids.length,threshold},completed_at:new Date().toISOString(),updated_at:new Date().toISOString()});
+  }catch(error){console.warn('[tasks] falha no alerta diário de Ads',String(error?.message||error))}
+}
+
 function sortTasks(rows){
   return [...rows].sort((a,b)=>{
     const p=(priorityRank[a.priority]??9)-(priorityRank[b.priority]??9);
@@ -56,9 +145,10 @@ export async function GET(request){
   const shop=await getActiveShop();
   if(!shop)return NextResponse.json({error:'Nenhuma loja Shopee conectada.'},{status:400});
   const db=supabaseAdmin();
-  await syncReanalysisTasks(db,shop.shop_id);
   const url=new URL(request.url);
   const briefing=url.searchParams.get('briefing')==='1';
+  await syncReanalysisTasks(db,shop.shop_id);
+  if(briefing)await syncAdsZeroSalesTasks(db,shop);
   const status=safeText(url.searchParams.get('status'),20)||'open';
   const itemId=positiveInt(url.searchParams.get('item_id'));
   let q=db.from('gs_tasks').select('*').eq('shop_id',shop.shop_id).eq('status',status).order('created_at',{ascending:false}).limit(300);
