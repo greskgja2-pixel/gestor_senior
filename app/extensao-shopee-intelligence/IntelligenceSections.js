@@ -161,24 +161,31 @@ function normalizeSearchVisibility(data,{ownerItemId,competitorItemId,maxPages=3
 }
 
 async function visibilityViaMega({keyword,maxPages}){
-  let status=null;
+  let status=null,startedResearch=false,finalStatus=null;
   try{status=await motorData('megaGetStatus',{},8000)}catch{}
   if(status?.active)throw new Error('O Motor Senior já está executando outra pesquisa. Aguarde ela terminar para atualizar a posição.');
-  await motorData('megaStartResearch',{
-    title:keyword,queries:[keyword],sortModes:['relevance'],includeSales:false,pages:maxPages,adLimit:1,mode:'economy',
-    reviewLimits:{'1':0,'2':0,'3':0,'4':0,'5':0},delayMs:1500
-  },12000);
-  const started=Date.now();
-  let finalStatus=null;
-  while(Date.now()-started<75000){
-    await new Promise(resolve=>setTimeout(resolve,900));
-    finalStatus=await motorData('megaGetStatus',{},8000);
-    if(finalStatus?.stage!=='discovery'||['finished','finished_with_errors','cancelled','failed'].includes(String(finalStatus?.state||'')))break;
+  try{
+    await motorData('megaStartResearch',{
+      title:keyword,queries:[keyword],sortModes:['relevance'],includeSales:false,pages:maxPages,adLimit:1,mode:'economy',
+      reviewLimits:{'1':0,'2':0,'3':0,'4':0,'5':0},delayMs:1500
+    },12000);
+    startedResearch=true;
+    const started=Date.now();
+    while(Date.now()-started<75000){
+      await new Promise(resolve=>setTimeout(resolve,900));
+      finalStatus=await motorData('megaGetStatus',{},8000);
+      if(finalStatus?.stage!=='discovery'||['finished','finished_with_errors','cancelled','failed'].includes(String(finalStatus?.state||'')))break;
+    }
+    if(finalStatus?.stage==='discovery')throw new Error('A leitura da busca excedeu o tempo limite.');
+    return await motorData('megaGetResult',{includeRaw:true},12000);
+  }finally{
+    if(startedResearch){
+      try{
+        const current=finalStatus||await motorData('megaGetStatus',{},5000);
+        if(current?.active)await motorData('megaCancelResearch',{},8000);
+      }catch{}
+    }
   }
-  if(finalStatus?.stage==='discovery')throw new Error('A leitura da busca excedeu o tempo limite.');
-  const result=await motorData('megaGetResult',{includeRaw:true},12000);
-  try{if(finalStatus?.active)await motorData('megaCancelResearch',{},8000)}catch{}
-  return result;
 }
 
 function competitorPriority(row){
