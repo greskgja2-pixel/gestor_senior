@@ -1,6 +1,6 @@
 import {NextResponse} from 'next/server';
 import {getActiveShop} from '../../../../lib/shop';
-import {getItemBaseInfo,getFlashSaleTimeSlots,getShopFlashSaleList,getShopFlashSaleItems,createShopFlashSale,addShopFlashSaleItems,updateShopFlashSale} from '../../../../lib/shopee';
+import {getItemBaseInfo,getItemModelList,getFlashSaleTimeSlots,getShopFlashSaleList,getShopFlashSaleItems,createShopFlashSale,addShopFlashSaleItems,updateShopFlashSale} from '../../../../lib/shopee';
 import {supabaseAdmin} from '../../../../lib/supabase';
 import {analyzeItemSalesHistory,rankFlashSaleSlots,formatHourRange} from '../../../../lib/flash-sale-intelligence';
 
@@ -14,6 +14,37 @@ const num=v=>Number.isFinite(Number(v))?Number(v):null;
 function pickNumber(...values){
   for(const value of values){const n=Number(value);if(Number.isFinite(n))return n}
   return null;
+}
+
+function normalizeProductModels(raw){
+  const response=raw?.response||{};
+  const tiers=Array.isArray(response?.tier_variation)?response.tier_variation:[];
+  const models=Array.isArray(response?.model)?response.model:[];
+  const optionName=(tierIndex=[])=>tierIndex.map((optionIndex,tierPos)=>{
+    const tier=tiers[tierPos]||{};
+    const option=Array.isArray(tier?.option_list)?tier.option_list[Number(optionIndex)]:null;
+    const tierName=String(tier?.name||'').trim();
+    const optionText=String(option?.option||option?.name||'').trim();
+    return [tierName,optionText].filter(Boolean).join(': ');
+  }).filter(Boolean).join(' · ');
+  return models.map((m,index)=>{
+    const priceInfo=Array.isArray(m?.price_info)?m.price_info[0]||{}:{};
+    const stock=pickNumber(
+      m?.stock_info_v2?.summary_info?.total_available_stock,
+      m?.stock_info?.[0]?.normal_stock,
+      m?.stock_info?.normal_stock,
+      m?.normal_stock
+    );
+    return{
+      model_id:int(m?.model_id),
+      name:optionName(m?.tier_index)||String(m?.model_sku||('Variação '+(index+1))),
+      sku:m?.model_sku||null,
+      status:m?.model_status||null,
+      current_price:pickNumber(priceInfo?.current_price,priceInfo?.original_price),
+      original_price:pickNumber(priceInfo?.original_price,priceInfo?.current_price),
+      available_stock:stock
+    };
+  }).filter(x=>x.model_id);
 }
 
 function normalizeOfferItem(itemId,sale,raw){
@@ -76,6 +107,20 @@ export async function GET(request){
       console.warn('[flash-sale] falha calculando melhor horário',error);
     }
 
+    let productModels=[],productHasVariations=false,productModelError=null;
+    try{
+      const base=await getItemBaseInfo({shopId:shop.shop_id,accessToken:shop.access_token,itemIdList:[itemId]});
+      const current=base?.response?.item_list?.find(x=>Number(x?.item_id)===Number(itemId));
+      productHasVariations=!!current?.has_model;
+      if(productHasVariations){
+        const modelRaw=await getItemModelList({shopId:shop.shop_id,accessToken:shop.access_token,itemId});
+        productModels=normalizeProductModels(modelRaw).filter(x=>String(x.status||'').toUpperCase()!=='MODEL_UNAVAILABLE');
+      }
+    }catch(error){
+      productModelError=String(error?.message||error);
+      console.warn('[flash-sale] falha lendo variações do produto',error);
+    }
+
     const listRaw=await getShopFlashSaleList({shopId:shop.shop_id,accessToken:shop.access_token,type:2,offset:0,limit:100});
     const sales=Array.isArray(listRaw?.response?.flash_sale_list)?listRaw.response.flash_sale_list:[];
     const candidates=sales
@@ -111,6 +156,7 @@ export async function GET(request){
     const nextScheduled=scheduledOffers[0]||null;
     return NextResponse.json({
       ok:true,slots,activeOffers,scheduledOffers,recommendation,recommendedSlots,automation,
+      productHasVariations,productModels,productModelError,
       planning:{
         coverage_until:coverageUntil,
         next_scheduled_start:nextScheduled?.start_time||null,
@@ -127,12 +173,34 @@ export async function POST(request){
   if(!shop)return NextResponse.json({error:'Nenhuma loja Shopee conectada.'},{status:400});
   let body={};try{body=await request.json()}catch{return NextResponse.json({error:'JSON inválido.'},{status:400})}
   const itemId=int(body?.item_id),timeslotId=int(body?.timeslot_id),promo=num(body?.promo_price),stock=int(body?.stock),purchaseLimit=int(body?.purchase_limit??0);
-  if(!(itemId>0&&timeslotId>0&&promo>0&&stock>0&&purchaseLimit>=0))return NextResponse.json({error:'Preencha horário, preço promocional, estoque e limite de compra corretamente.'},{status:400});
+  const submittedModels=Array.isArray(body?.models)?body.models:[];
+  if(!(itemId>0&&timeslotId>0&&purchaseLimit>=0))return NextResponse.json({error:'Preencha produto, horário e limite de compra corretamente.'},{status:400});
   try{
     const base=await getItemBaseInfo({shopId:shop.shop_id,accessToken:shop.access_token,itemIdList:[itemId]});
     const current=base?.response?.item_list?.find(x=>Number(x?.item_id)===itemId);
     if(!current)return NextResponse.json({error:'Anúncio não encontrado na loja conectada.'},{status:404});
-    if(current?.has_model)return NextResponse.json({error:'Este anúncio possui variações. Para segurança, a Oferta Relâmpago precisa ser configurada por variação antes do envio.'},{status:409});
+    let flashItem;
+    if(current?.has_model){
+      const modelRaw=await getItemModelList({shopId:shop.shop_id,accessToken:shop.access_token,itemId});
+      const currentModels=normalizeProductModels(modelRaw).filter(x=>String(x.status||'').toUpperCase()!=='MODEL_UNAVAILABLE');
+      if(!currentModels.length)return NextResponse.json({error:'A Shopee informou que este anúncio possui variações, mas não retornou os modelos disponíveis.'},{status:409});
+      const submitted=new Map(submittedModels.map(x=>[String(x?.model_id),x]));
+      const missing=currentModels.filter(x=>!submitted.has(String(x.model_id)));
+      if(missing.length)return NextResponse.json({error:'Defina o preço da Oferta Relâmpago para todas as variações antes de continuar.',missing_models:missing.map(x=>({model_id:x.model_id,name:x.name}))},{status:400});
+      const models=currentModels.map(model=>{
+        const input=submitted.get(String(model.model_id))||{};
+        const modelPromo=num(input?.promo_price??input?.input_promo_price);
+        const modelStock=int(input?.stock);
+        if(!(modelPromo>0))throw new Error('Preço promocional inválido na variação "'+model.name+'".');
+        if(!(modelStock>0))throw new Error('Estoque reservado inválido na variação "'+model.name+'".');
+        if(model.available_stock!=null&&modelStock>model.available_stock)throw new Error('O estoque reservado de "'+model.name+'" excede o estoque disponível ('+model.available_stock+').');
+        return{model_id:model.model_id,input_promo_price:modelPromo,stock:modelStock};
+      });
+      flashItem={item_id:itemId,purchase_limit:purchaseLimit,models};
+    }else{
+      if(!(promo>0&&stock>0))return NextResponse.json({error:'Preencha preço promocional e estoque corretamente.'},{status:400});
+      flashItem={item_id:itemId,purchase_limit:purchaseLimit,item_input_promo_price:promo,item_stock:stock};
+    }
 
     const created=await createShopFlashSale({shopId:shop.shop_id,accessToken:shop.access_token,timeslotId});
     const flashSaleId=created?.response?.flash_sale_id;
@@ -140,7 +208,7 @@ export async function POST(request){
 
     const added=await addShopFlashSaleItems({
       shopId:shop.shop_id,accessToken:shop.access_token,flashSaleId,
-      items:[{item_id:itemId,purchase_limit:purchaseLimit,item_input_promo_price:promo,item_stock:stock}]
+      items:[flashItem]
     });
     const failed=added?.response?.failed_items||[];
     if(failed.length){
