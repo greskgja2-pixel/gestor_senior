@@ -21,6 +21,26 @@ const MENU=[
 
 const STORAGE_SHOP='gs-shop-state-v2';
 
+function bestProductImage(product){
+  const rows=[
+    product?.imageUrl,product?.image_url,
+    ...(Array.isArray(product?.imageUrls)?product.imageUrls:[]),
+    ...(Array.isArray(product?.image_urls)?product.image_urls:[]),
+    ...(Array.isArray(product?.images)?product.images.map(x=>typeof x==='string'?x:(x?.url||x?.image_url||x?.imageUrl)):[]),
+    ...(Array.isArray(product?.image?.image_url_list)?product.image.image_url_list:[])
+  ].map(v=>String(v||'').trim()).filter(Boolean).filter(u=>/^https?:\/\//i.test(u)&&!/\.svg(?:\?|$)/i.test(u)&&!/productdetailspage|avatar|icon|logo/i.test(u));
+  const score=u=>{let value=0;if(/down-br\.img\.susercontent\.com\/file\//i.test(u))value+=5;if(/\/br-11134207-/i.test(u))value+=10;if(/_tn(?:\?|$)/i.test(u))value-=6;if(/_cover(?:\?|$)/i.test(u))value-=8;if(/review|rating|profile/i.test(u))value-=10;return value};
+  return rows.map((u,i)=>({u,i,score:score(u)})).sort((a,b)=>b.score-a.score||a.i-b.i)[0]?.u||null;
+}
+
+function isStructuredProduct(product,data,source){
+  if(/pdp_get_pc|structured|api/.test(source))return true;
+  if(product?.ratingDebug?.pdpGetPc?.ok===true||product?.rating_debug?.pdp_get_pc?.ok===true)return true;
+  if(product?.validation?.pdpGetPc?.ok===true||product?.validation?.pdp_get_pc?.ok===true)return true;
+  if(data?.ratingDebug?.pdpGetPc?.ok===true||data?.rating_debug?.pdp_get_pc?.ok===true)return true;
+  return false;
+}
+
 function routeState(pathname,section){
   if(pathname==='/'){
     if(section==='temas')return{label:'Temas'};
@@ -97,9 +117,9 @@ function AppSidebar({active,onNavigate,onCloseMobile}){
           const itemId=String(p?.itemId??p?.item_id??''),shopId=String(p?.shopId??p?.shop_id??'');
           if(itemId!==String(watch.competitor_item_id)||shopId!==String(watch.competitor_shop_id))throw new Error('A extensão retornou outro anúncio.');
           const source=String(p?.ratingSource||p?.validationSource||p?.source||data?.source||'').toLowerCase();
-          const structured=/pdp_get_pc|structured|api/.test(source);
+          const structured=isStructuredProduct(p,data,source);
           if(!structured)throw new Error('Coleta estruturada do concorrente ainda não foi confirmada; snapshot descartado.');
-          const imageUrl=p?.imageUrl||p?.image_url||p?.imageUrls?.[0]||p?.image?.image_url_list?.[0]||null;
+          const imageUrl=bestProductImage(p);
           await fetchJsonWithTimeout('/api/competitor-monitor',{
             method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',
             body:JSON.stringify({
@@ -107,7 +127,7 @@ function AppSidebar({active,onNavigate,onCloseMobile}){
               price:p?.price??p?.currentPrice??null,sold:p?.sold??p?.historicalSold??null,
               rating:p?.rating??null,stock:p?.stock??null,image_url:imageUrl,
               source:source||'pdp_get_pc_intercepted',confidence:'structured',
-              raw:{ratingSource:p?.ratingSource||null,validationSource:p?.validationSource||null,imageCount:p?.imageCount??null,categoryId:p?.categoryId??p?.category_id??null}
+              raw:{ratingSource:p?.ratingSource||null,validationSource:p?.validationSource||null,imageCount:p?.imageCount??(Array.isArray(p?.imageUrls)?p.imageUrls.length:null),categoryId:p?.categoryId??p?.category_id??null,pdpGetPcOk:p?.ratingDebug?.pdpGetPc?.ok===true||p?.rating_debug?.pdp_get_pc?.ok===true}
             })
           },15000);
           updated++;
