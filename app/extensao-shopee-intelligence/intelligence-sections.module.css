@@ -150,9 +150,11 @@ a.radarExactTitle:hover{text-decoration:underline!important}
 .radarExactVisibility b[data-ads="unknown"]{color:#566d85}
 .radarExactVisibility>button{width:100%;height:30px;margin-top:6px;border:1px solid #9ec2eb;border-radius:6px;background:#fff;color:#1265d8;font-size:9px;font-weight:900;cursor:pointer}
 
-.radarExactActions{display:grid;grid-template-rows:repeat(3,39px);gap:6px}
-.radarExactActions a,.radarExactActions button{display:flex;align-items:center;justify-content:center;border:1px solid #0d6cf0;border-radius:7px;background:#fff;color:#0c63d7;font-size:9.5px;font-weight:900;text-align:center;text-decoration:none}
+.radarExactActions{display:grid;grid-template-rows:repeat(4,34px);gap:6px}
+.radarExactActions a,.radarExactActions button{display:flex;align-items:center;justify-content:center;border:1px solid #0d6cf0;border-radius:7px;background:#fff;color:#0c63d7;font-size:9px;font-weight:900;text-align:center;text-decoration:none}
 .radarExactActions a:first-child{background:#0d6cf0;color:#fff}
+.radarExactActions .radarExactDelete{border-color:#e6a9ae;background:#fff7f8;color:#c43f4a;cursor:pointer}
+.radarExactActions .radarExactDelete:hover{background:#ffecef;border-color:#dc6973}
 .radarExactActions button:disabled{opacity:.5}
 
 .radarExactDetails{grid-column:1/-1;padding:10px;border-top:1px solid #e5ebf2;background:#f9fbfd;border-radius:0 0 7px 7px}
@@ -194,7 +196,7 @@ a.radarExactTitle:hover{text-decoration:underline!important}
   .radarExactCard{grid-template-columns:minmax(220px,2.12fr) minmax(145px,1.08fr) minmax(130px,1fr) minmax(180px,1.53fr) minmax(160px,1.28fr);gap:9px;padding:10px}
   .radarExactIdentity{grid-template-columns:92px minmax(0,1fr);gap:10px}.radarExactThumb,.radarExactThumb img,.radarExactThumb .noImage{width:92px;height:92px}
   .radarExactTitle{font-size:11px!important}
-  .radarExactActions{grid-template-rows:repeat(3,34px)}.radarExactActions a,.radarExactActions button{font-size:8px}
+  .radarExactActions{grid-template-rows:repeat(4,32px)}.radarExactActions a,.radarExactActions button{font-size:8px}
 }
 @media(max-width:1180px){
   .radarExactToolbar{grid-template-columns:1fr 1fr 1fr}.radarExactSearch{grid-column:1/-1}.radarExactRefresh{grid-column:1/-1}.radarExactIcon,.radarExactAvatar{display:none}
