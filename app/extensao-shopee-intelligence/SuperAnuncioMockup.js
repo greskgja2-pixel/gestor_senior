@@ -4,6 +4,7 @@ import {useEffect,useMemo,useRef,useState} from 'react';
 import Link from 'next/link';
 import styles from './super-anuncio-mockup.module.css';
 import ReminderButton from '../components/ReminderButton';
+import SuperAnaliseInteligente from '../super-analise/SuperAnaliseInteligente';
 import {fetchJsonWithTimeout,classifyAsyncError} from '../lib/client-async';
 
 const n=v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v))?null:Number(v);
@@ -126,6 +127,7 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
   const allowedTabs=useMemo(()=>new Set(TABS.map(([key])=>key)),[]);
   const [selectedId,setSelectedId]=useState(initialSelected?.itemId||'');
   const [tab,setTab]=useState(allowedTabs.has(initialTab)?initialTab:'overview');
+  const [editorTab,setEditorTab]=useState(null);
   const [liveAds,setLiveAds]=useState({phase:'idle',campaign:null,error:''});
   const [flashSales,setFlashSales]=useState({phase:'idle',offers:[],scheduled:[],automation:null,planning:null,error:''});
   const [productTasks,setProductTasks]=useState({phase:'idle',rows:[],error:''});
@@ -140,6 +142,7 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
     const selected=items.find(x=>String(x.itemId)===String(initialItemId));
     if(selected)setSelectedId(selected.itemId);
     if(allowedTabs.has(initialTab))setTab(initialTab);
+    if(['title','description','images','category','price','competitors'].includes(initialTab))setEditorTab(initialTab);
   },[items,initialItemId,initialTab,allowedTabs]);
 
   useEffect(()=>{
@@ -310,7 +313,7 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
 
       <section className={styles.selector}>
         <div className={styles.selectorGroup}>
-          <div className={styles.selectorField}><small>Anúncio atual</small><select value={selectedId} onChange={e=>{setSelectedId(e.target.value);setTab('overview')}}>{items.map(x=><option key={x.itemId} value={x.itemId}>{x.latest?.product_snapshot?.title||x.latest?.product_snapshot?.item_name||`Produto ${x.itemId}`}</option>)}</select></div>
+          <div className={styles.selectorField}><small>Anúncio atual</small><select value={selectedId} onChange={e=>{setSelectedId(e.target.value);setTab('overview');setEditorTab(null)}}>{items.map(x=><option key={x.itemId} value={x.itemId}>{x.latest?.product_snapshot?.title||x.latest?.product_snapshot?.item_name||`Produto ${x.itemId}`}</option>)}</select></div>
         </div>
         <div className={styles.selectorActions}>
           <Link href="/produtos" className={styles.followBtn}><Icon name="plus"/> Acompanhar outro anúncio</Link>
@@ -319,43 +322,29 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
       </section>
       {deleteError&&<div className={styles.deleteError}>{deleteError}</div>}
 
-      <div className={styles.tabs}>
-        <div className={styles.mainTabs}>{TABS.map(([k,label,icon])=><button type="button" key={k} className={tab===k?styles.tabActive:''} onClick={()=>setTab(k)}><Icon name={icon}/>{label}</button>)}</div>
-        <span className={styles.tabDivider} aria-hidden="true"/>
-        <span className={styles.analysisLabel}><Icon name="sparkles"/> Super Análise</span>
-        <div className={styles.attributeTabs}>
-          {ATTRIBUTE_BLOCKS.map(([key,label,icon,terms])=>{const s=attributeScore(r,terms);return <Link key={key} className={styles.attributeTab} data-tone={attributeTone(s)} href={`/super-analise?item_id=${item.itemId}&tab=${key}`} title={`Abrir detalhes de ${label}`}><Icon name={icon}/><span>{label}</span><b>{s==null?'—':s}</b></Link>})}
-        </div>
-      </div>
-
       <div className={styles.quickActions}>
-        <span><Icon name="sparkles"/> Editar anúncio</span>
-        <Link href={`/super-analise?item_id=${item.itemId}&tab=title`}>Título</Link>
-        <Link href={`/super-analise?item_id=${item.itemId}&tab=description`}>Descrição</Link>
-        <Link href={`/super-analise?item_id=${item.itemId}&tab=images`}>Imagens</Link>
-        <Link href={`/super-analise?item_id=${item.itemId}&tab=category`}>Categoria</Link>
-        <Link className={styles.quickPrimary} href={`/super-analise?item_id=${item.itemId}&tab=price`}>Preço & Oferta Relâmpago</Link>
-        <small>As alterações são salvas por área; quando a sugestão reduzir a nota, o conteúdo atual é preservado.</small>
+        <button type="button" className={styles.quickLabel} onClick={()=>setEditorTab(null)}><Icon name="sparkles"/> Editar anúncio</button>
+        <button type="button" className={editorTab==='title'?styles.quickActive:''} onClick={()=>setEditorTab('title')}>Título</button>
+        <button type="button" className={editorTab==='description'?styles.quickActive:''} onClick={()=>setEditorTab('description')}>Descrição</button>
+        <button type="button" className={editorTab==='images'?styles.quickActive:''} onClick={()=>setEditorTab('images')}>Imagens</button>
+        <button type="button" className={editorTab==='category'?styles.quickActive:''} onClick={()=>setEditorTab('category')}>Categoria</button>
+        <button type="button" className={`${styles.quickPrimary} ${editorTab==='price'?styles.quickActive:''}`} onClick={()=>setEditorTab('price')}>Preço & Oferta Relâmpago</button>
+        <button type="button" className={editorTab==='competitors'?styles.quickActive:''} onClick={()=>setEditorTab('competitors')}><Icon name="users"/> Concorrentes</button>
+        <small>Você continua dentro do Super Anúncio. As alterações são salvas por área.</small>
       </div>
 
       <div className={styles.workspace}>
         <section className={styles.content}>
-          {tab==='overview'&&<Overview item={item} price={price} prevPrice={prevPrice} sold={sold} prevSold={prevSold} margin={margin} ai={ai} flashSales={flashSales} productTasks={productTasks} onTaskAction={resolveProductTask} onReloadTasks={()=>loadProductTasks(item.itemId)} onReloadFlash={()=>loadFlashSales(item.itemId)}/>} 
-          {tab==='ads'&&<AdsPanel ads={ads} liveAds={liveAds} onRetry={()=>loadLiveAds(item.itemId)} hasHistorical={!!historicalAds}/>}
-          {tab==='analysis'&&<AnalysisPanel report={r} ai={ai}/>}
-          {tab==='competitors'&&<CompetitorsPanel competitors={competitors} collectedAt={r.analyzed_at} onZoom={setZoomSrc}/>}
-          {tab==='history'&&<HistoryPanel history={item.history}/>}
-          {tab==='variations'&&<VariationsPanel variations={variations} costs={arr(p.variationCosts)} product={p}/>}
-          {tab==='overview'&&<BottomCards item={item} competitors={competitors} score={score} afterScore={safeAfterScore}/>}
+          {!editorTab&&<><Overview item={item} price={price} prevPrice={prevPrice} sold={sold} prevSold={prevSold} margin={margin} ai={ai} flashSales={flashSales} productTasks={productTasks} onTaskAction={resolveProductTask} onReloadTasks={()=>loadProductTasks(item.itemId)} onReloadFlash={()=>loadFlashSales(item.itemId)} onOpenPrice={()=>setEditorTab('price')}/><BottomCards item={item} competitors={competitors} score={score} afterScore={safeAfterScore}/></>}
+          {editorTab==='competitors'&&<CompetitorsPanel competitors={competitors} collectedAt={r.analyzed_at} onZoom={setZoomSrc}/>}
+          {editorTab&&editorTab!=='competitors'&&<div className={styles.inlineEditor}><SuperAnaliseInteligente report={r} products={[]} initialTab={editorTab} embedded/></div>}
         </section>
-
-
       </div>
     </main>
   </div>;
 }
 
-function Overview({item,price,prevPrice,sold,prevSold,margin,ai,flashSales,productTasks,onTaskAction,onReloadTasks,onReloadFlash}){
+function Overview({item,price,prevPrice,sold,prevSold,margin,ai,flashSales,productTasks,onTaskAction,onReloadTasks,onReloadFlash,onOpenPrice}){
   const r=item.latest||{};
   return <><section className={styles.compare}>
     <article className={`${styles.panel} ${styles.overviewPanel}`}>
@@ -377,7 +366,7 @@ function Overview({item,price,prevPrice,sold,prevSold,margin,ai,flashSales,produ
       </div>
     </article>
   </section>
-  <FlashSaleCard state={flashSales} itemId={item.itemId} onReload={onReloadFlash}/>
+  <FlashSaleCard state={flashSales} itemId={item.itemId} onReload={onReloadFlash} onOpenPrice={onOpenPrice}/>
   <NextActionsCard state={productTasks} itemId={item.itemId} onAction={onTaskAction} onReload={onReloadTasks}/>
   <section className={styles.explain}>
     <div className={styles.explainHead}><span className={styles.panelIcon}><Icon name="file"/></span><div><h2>Resumo do acompanhamento</h2><p className={styles.sub}>Visão consolidada das principais informações e recomendações.</p></div></div>
@@ -411,7 +400,7 @@ function NextActionsCard({state,itemId,onAction,onReload}){
   </section>;
 }
 
-function FlashSaleCard({state,itemId,onReload}){
+function FlashSaleCard({state,itemId,onReload,onOpenPrice}){
   const offers=arr(state?.offers);
   const scheduled=arr(state?.scheduled);
   const automation=state?.automation||null;
@@ -448,7 +437,7 @@ function FlashSaleCard({state,itemId,onReload}){
       <div className={styles.flashField}><small>Período</small><b>{flashWhen(offer.start_time)}</b><span>até {flashWhen(offer.end_time)}</span></div>
       <div className={styles.flashField}><small>Preço da oferta</small><b>{priceText}</b>{offer.variation_count>1&&<span>{offer.variation_count} variações</span>}</div>
       <div className={styles.flashField}><small>Estoque da oferta</small><b>{stock==null?'—':stock.toLocaleString('pt-BR')}</b><span>unidades disponíveis na oferta</span></div>
-      <Link href={'/super-analise?item_id='+itemId+'&tab=price'}>Ver preço e oferta ↗</Link>
+      <button type="button" className={styles.flashInlineLink} onClick={onOpenPrice}>Ver preço e oferta ↗</button>
     </article>;
   };
 
@@ -462,8 +451,8 @@ function FlashSaleCard({state,itemId,onReload}){
       <span>{attentionTone==='ok'?'✓':attentionTone==='auto'?'🤖':'!'}</span>
       <div><b>{attentionTitle}</b><p>{attentionText}</p></div>
       <span className={styles.flashAttentionActions}>
-        {!automationEnabled&&<Link href={'/super-analise?item_id='+itemId+'&tab=price'}>{scheduled.length?'Planejar próxima':'Agendar agora'} ↗</Link>}
-        <ReminderButton itemId={itemId} taskType="flash_sale" priority={scheduled.length?'medium':'high'} title="Criar próxima Oferta Relâmpago" description={scheduled.length&&coverage?('Revisar a próxima Oferta Relâmpago deste produto. Cobertura atual até '+flashWhen(coverage)+'.'):'Programar uma nova Oferta Relâmpago para este produto.'} actionUrl={'/super-analise?item_id='+itemId+'&tab=price'} label="🔔 Lembrar depois"/>
+        {!automationEnabled&&<button type="button" onClick={onOpenPrice}>{scheduled.length?'Planejar próxima':'Agendar agora'} ↗</button>}
+        <ReminderButton itemId={itemId} taskType="flash_sale" priority={scheduled.length?'medium':'high'} title="Criar próxima Oferta Relâmpago" description={scheduled.length&&coverage?('Revisar a próxima Oferta Relâmpago deste produto. Cobertura atual até '+flashWhen(coverage)+'.'):'Programar uma nova Oferta Relâmpago para este produto.'} actionUrl={'/extensao-shopee-intelligence?section=super-anuncio&item_id='+itemId} label="🔔 Lembrar depois"/>
       </span>
     </div>
 
@@ -474,7 +463,7 @@ function FlashSaleCard({state,itemId,onReload}){
 
     {!failed&&!loading&&scheduled.length?<><div className={styles.flashSectionTitle}><b>Próximas ofertas agendadas</b><span>{scheduled.length}</span></div><div className={styles.flashOfferList}>{scheduled.map((offer,i)=>renderOffer(offer,i,'scheduled'))}</div></>:null}
 
-    {!failed&&!loading&&!offers.length&&!scheduled.length?<div className={styles.flashEmpty}>Nenhuma Oferta Relâmpago ativa ou futura foi encontrada para este produto. <Link href={'/super-analise?item_id='+itemId+'&tab=price'}>Criar oferta ↗</Link></div>:null}
+    {!failed&&!loading&&!offers.length&&!scheduled.length?<div className={styles.flashEmpty}>Nenhuma Oferta Relâmpago ativa ou futura foi encontrada para este produto. <button type="button" className={styles.flashInlineLink} onClick={onOpenPrice}>Criar oferta ↗</button></div>:null}
 
     {!failed&&!loading&&automation?<div className={styles.flashAutomationSummary}>
       <b>🤖 Automação {automationEnabled?'ativa':'desativada'}</b>
