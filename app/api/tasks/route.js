@@ -11,6 +11,14 @@ const positiveInt=v=>Number.isSafeInteger(Number(v))&&Number(v)>0?Number(v):null
 const allowedPriority=new Set(['urgent','high','medium','low']);
 const priorityRank={urgent:0,high:1,medium:2,low:3};
 
+async function closeOpenAutoTasks(db,shopId,taskType,sources){
+  const now=new Date().toISOString();
+  let q=db.from('gs_tasks').update({status:'dismissed',updated_at:now}).eq('shop_id',shopId).eq('task_type',taskType).eq('status','open');
+  if(Array.isArray(sources)&&sources.length)q=q.in('source',sources);
+  const {error}=await q;
+  if(error)console.warn('[tasks] falha ao encerrar tarefas desativadas',taskType,error.message);
+}
+
 async function syncReanalysisTasks(db,shopId){
   const now=Date.now(),soon=now+24*3600*1000;
   const [{data:schedules,error:scheduleError},{data:existing,error:taskError}]=await Promise.all([
@@ -132,8 +140,8 @@ async function syncAdsZeroSalesTasks(db,shop){
     const day=spDate(-1),marker=`ads-sync:${day}`;
     const {data:done}=await db.from('gs_tasks').select('id').eq('shop_id',shop.shop_id).eq('dedupe_key',marker).maybeSingle();
     if(done)return;
-    const {data:prefs}=await db.from('gs_notification_preferences').select('ads_zero_sales_spend_threshold,categories').eq('shop_id',shop.shop_id).maybeSingle();
-    if(prefs?.categories?.ads===false)return;
+    const {data:prefs}=await db.from('gs_notification_preferences').select('ads_zero_sales_spend_threshold,categories,task_enabled').eq('shop_id',shop.shop_id).maybeSingle();
+    if(prefs?.task_enabled===false||prefs?.categories?.ads===false)return;
     const threshold=Number.isFinite(Number(prefs?.ads_zero_sales_spend_threshold))?Math.max(0,Number(prefs.ads_zero_sales_spend_threshold)):10;
     const campaigns=await getAdsCampaignList(shop),listRows=Array.isArray(adsPayload(campaigns)?.campaign_list)?adsPayload(campaigns).campaign_list:[];
     const ids=listRows.map(x=>Number(x?.campaign_id)).filter(Boolean);
@@ -181,8 +189,16 @@ export async function GET(request){
   const db=supabaseAdmin();
   const url=new URL(request.url);
   const briefing=url.searchParams.get('briefing')==='1';
-  await Promise.all([syncReanalysisTasks(db,shop.shop_id),syncCompetitorDueTasks(db,shop.shop_id)]);
-  if(briefing)await syncAdsZeroSalesTasks(db,shop);
+  const {data:prefs}=await db.from('gs_notification_preferences').select('task_enabled,categories').eq('shop_id',shop.shop_id).maybeSingle();
+  const taskEnabled=prefs?.task_enabled!==false,categories=prefs?.categories||{};
+  const syncJobs=[];
+  if(taskEnabled&&categories.reanalysis!==false)syncJobs.push(syncReanalysisTasks(db,shop.shop_id));
+  else syncJobs.push(closeOpenAutoTasks(db,shop.shop_id,'reanalysis',['system']));
+  if(taskEnabled&&categories.competitors!==false)syncJobs.push(syncCompetitorDueTasks(db,shop.shop_id));
+  else syncJobs.push(closeOpenAutoTasks(db,shop.shop_id,'competitors',['system']));
+  await Promise.all(syncJobs);
+  if(briefing&&taskEnabled&&categories.ads!==false)await syncAdsZeroSalesTasks(db,shop);
+  else if(!taskEnabled||categories.ads===false)await closeOpenAutoTasks(db,shop.shop_id,'ads',['ads-daily']);
   const status=safeText(url.searchParams.get('status'),20)||'open';
   const itemId=positiveInt(url.searchParams.get('item_id'));
   let q=db.from('gs_tasks').select('*').eq('shop_id',shop.shop_id).eq('status',status).order('created_at',{ascending:false}).limit(300);
