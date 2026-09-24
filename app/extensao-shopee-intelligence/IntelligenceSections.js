@@ -56,18 +56,62 @@ function competitorOriginalPrice(comp,snap){
   const prices=[...String(comp?.searchText||'').matchAll(/R\$\s*\n?\s*([0-9.]+,[0-9]{2})/gi)].map(m=>Number(m[1].replace(/\./g,'').replace(',','.'))).filter(Number.isFinite);
   return prices.length>1?prices[1]:null;
 }
-function competitorMonthlySold(comp,snap){
-  const raw=snap?.raw&&typeof snap.raw==='object'?snap.raw:{};
-  return n(raw?.monthlySold??raw?.monthly_sold??raw?.sold_30d??comp?.monthlySold??comp?.monthly_sold??comp?.sold_30d);
+const BRAZIL_STATES=[
+  'Acre','Alagoas','Amapá','Amazonas','Bahia','Ceará','Distrito Federal','Espírito Santo','Goiás','Maranhão',
+  'Mato Grosso','Mato Grosso do Sul','Minas Gerais','Pará','Paraíba','Paraná','Pernambuco','Piauí',
+  'Rio de Janeiro','Rio Grande do Norte','Rio Grande do Sul','Rondônia','Roraima','Santa Catarina','São Paulo','Sergipe','Tocantins'
+];
+function normalizeLooseText(value){return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}
+function stateFromText(value){
+  const raw=String(value||'').trim(); if(!raw)return'';
+  const loose=normalizeLooseText(raw);
+  const found=BRAZIL_STATES.find(state=>loose.includes(normalizeLooseText(state)));
+  return found||'';
 }
-function competitorPreferred(comp,snap){
-  const raw=snap?.raw&&typeof snap.raw==='object'?snap.raw:{};
-  return explicitBool(raw?.preferred,raw?.is_preferred_plus_seller,raw?.is_preferred_shop,comp?.preferred,comp?.is_preferred_plus_seller,comp?.is_preferred_shop);
+function historyRawValue(history,keys){
+  for(const snap of arr(history)){
+    const raw=snap?.raw&&typeof snap.raw==='object'?snap.raw:{};
+    for(const key of keys){const value=raw?.[key];if(value!==null&&value!==undefined&&value!=='')return value}
+  }
+  return null;
 }
-function competitorLocation(comp,snap){
+function preferredFromObject(value,depth=0){
+  if(!value||typeof value!=='object'||depth>5)return null;
+  const keys=['is_preferred_plus_seller','is_preferred_shop','is_preferred_seller','isPreferredPlusSeller','isPreferredShop','isPreferredSeller','preferred','preferred_seller'];
+  const direct=explicitBool(...keys.map(k=>value?.[k]));
+  if(direct!==null)return direct;
+  for(const [key,v] of Object.entries(value)){
+    if(v==null)continue;
+    const keyText=normalizeLooseText(key);
+    const valueText=typeof v==='string'?normalizeLooseText(v):'';
+    if((keyText.includes('badge')||keyText.includes('label')||keyText.includes('seller')||keyText.includes('shop'))&&/preferred|preferido|indicado/.test(valueText))return true;
+    if(typeof v==='object'){
+      const nested=preferredFromObject(v,depth+1);
+      if(nested!==null)return nested;
+    }
+  }
+  return null;
+}
+function competitorMonthlySold(comp,snap,history=[]){
   const raw=snap?.raw&&typeof snap.raw==='object'?snap.raw:{};
-  const value=raw?.location??raw?.shop_location??raw?.seller_location??comp?.location??comp?.shop_location??comp?.seller_location;
-  return value==null?'':String(value).trim();
+  return n(raw?.monthlySold??raw?.monthly_sold??raw?.sold_30d??historyRawValue(history,['monthlySold','monthly_sold','sold_30d'])??comp?.monthlySold??comp?.monthly_sold??comp?.sold_30d);
+}
+function competitorPreferred(comp,snap,history=[]){
+  const raw=snap?.raw&&typeof snap.raw==='object'?snap.raw:{};
+  const direct=explicitBool(
+    raw?.preferred,raw?.is_preferred_plus_seller,raw?.is_preferred_shop,
+    historyRawValue(history,['preferred','is_preferred_plus_seller','is_preferred_shop']),
+    comp?.preferred,comp?.is_preferred_plus_seller,comp?.is_preferred_shop
+  );
+  if(direct!==null)return direct;
+  if(/\bindicado\b|vendedor\s+indicado/i.test(String(comp?.searchText||'')))return true;
+  return preferredFromObject(comp);
+}
+function competitorLocation(comp,snap,history=[]){
+  const raw=snap?.raw&&typeof snap.raw==='object'?snap.raw:{};
+  const value=raw?.location??raw?.shop_location??raw?.seller_location??historyRawValue(history,['location','shop_location','seller_location'])??comp?.location??comp?.shop_location??comp?.seller_location;
+  const direct=value==null?'':String(value).trim();
+  return stateFromText(direct)||stateFromText(comp?.searchText)||stateFromText(comp?.description)||direct;
 }
 function yesNo(value){return value===true?'Sim':value===false?'Não':'Não confirmado'}
 function competitorImage(c){
@@ -168,19 +212,20 @@ function shopeeSearchPrice(value){
 }
 function searchMarketData(row){
   const b=row?.item_basic||row?.item||row||{};
-  const searchText=String(row?.searchText||b?.searchText||'');
+  const searchText=String(row?.searchText||b?.searchText||row?.display_text||b?.display_text||'');
   const textPrices=[...searchText.matchAll(/R\$\s*\n?\s*([0-9.]+,[0-9]{2})/gi)].map(m=>Number(m[1].replace(/\./g,'').replace(',','.'))).filter(Number.isFinite);
   const price=shopeeSearchPrice(b?.price??b?.price_min??b?.price_min_before_discount)??(textPrices[0]??null);
   const originalPrice=shopeeSearchPrice(b?.price_before_discount??b?.original_price)??(textPrices.length>1?textPrices[1]:null);
   const sold=n(b?.historical_sold??b?.sold);
   const monthlySold=n(b?.monthly_sold??b?.sold_30d);
-  const preferred=explicitBool(b?.is_preferred_plus_seller,b?.is_preferred_shop,b?.is_preferred_seller);
-  const locationRaw=b?.shop_location??b?.location??b?.shop_location_name??null;
+  const preferred=preferredFromObject(row);
+  const locationRaw=b?.shop_location??b?.location??b?.shop_location_name??b?.seller_location??row?.shop_location??row?.location??row?.seller_location??null;
+  const location=stateFromText(locationRaw)||stateFromText(searchText)||stateFromText(row?.description??b?.description);
   return{
     price,originalPrice,sold,monthlySold,preferred,
-    location:locationRaw==null?null:String(locationRaw).trim(),
-    title:b?.name||b?.item_name||null,
-    rating:n(b?.item_rating?.rating_star??b?.rating_star),
+    location:location||null,
+    title:b?.name||b?.item_name||row?.title||null,
+    rating:n(b?.item_rating?.rating_star??b?.rating_star??row?.rating),
     rawSource:'search-item'
   };
 }
@@ -210,7 +255,7 @@ function normalizeSearchVisibility(data,{ownerItemId,competitorItemId,maxPages=3
       return [...pool].sort((a,b)=>(n(a?.rank)??Infinity)-(n(b?.rank)??Infinity))[0]||null;
     };
     const comp=selectCandidate(competitorItemId),own=selectCandidate(ownerItemId),compAppearance=bestAppearance(comp),ownAppearance=bestAppearance(own);
-    let ads={status:'unknown',evidence:null},market={price:null,originalPrice:null,sold:null,monthlySold:null,preferred:null,location:null,title:null,rating:null};
+    let ads={status:'unknown',evidence:null},market=searchMarketData(comp||{});
     for(const search of arr(discovery?.rawSearches)){
       if(search?.sort&&search.sort!=='relevance')continue;
       if(keyword&&String(search?.query||'').trim().toLowerCase()!==keyword.toLowerCase())continue;
@@ -322,6 +367,7 @@ function Competitors({items}){
   const [bulkProgress,setBulkProgress]=useState({done:0,total:0,label:''});
   const [openSearchDetails,setOpenSearchDetails]=useState('');
   const [visibilityPhase,setVisibilityPhase]=useState({});
+  const [checkingCompetitor,setCheckingCompetitor]=useState('');
 
   async function loadMonitor(){
     setMonitor(x=>({...x,phase:'loading',error:''}));
@@ -353,8 +399,8 @@ function Competitors({items}){
       price:unverifiedPdpPrice?competitorPrice(comp):(n(snap?.price)??competitorPrice(comp)),
       originalPrice:unverifiedPdpPrice?competitorOriginalPrice(comp,null):competitorOriginalPrice(comp,snap),
       priceFallback:unverifiedPdpPrice,
-      sold:n(snap?.sold)??competitorSold(comp),sold30d:competitorMonthlySold(comp,snap),
-      preferred:competitorPreferred(comp,snap),location:competitorLocation(comp,snap),
+      sold:n(snap?.sold)??competitorSold(comp),sold30d:competitorMonthlySold(comp,snap,watch?.snapshot_history),
+      preferred:competitorPreferred(comp,snap,watch?.snapshot_history),location:competitorLocation(comp,snap,watch?.snapshot_history),
       rating:n(snap?.rating)??n(comp.rating),raw:comp,
       image:competitorImage(comp)||competitorImage(snap)||snap?.image_url||null,link:comp.link||comp.url||watch?.competitor_url||null,
       collected:snap?.collected_at||item.latest?.analyzed_at,watch,change:watch?.latest_change||null,
@@ -407,7 +453,8 @@ function Competitors({items}){
           })
         },15000);
         const market=normalized.market||{};
-        if(n(market.price)!=null){
+        const hasMarketData=n(market.price)!=null||n(market.sold)!=null||n(market.monthlySold)!=null||market.preferred!==null||!!market.location;
+        if(hasMarketData){
           await fetchJsonWithTimeout('/api/competitor-monitor',{
             method:'POST',headers:{'Content-Type':'application/json'},
             body:JSON.stringify({
@@ -437,6 +484,18 @@ function Competitors({items}){
       if(!silent)setVisibilityPhase(x=>({...x,[phaseKey]:'error',error:String(error?.message||error)}));
       return{updated:0,failed:list.length,error};
     }
+  }
+
+  async function checkCompetitor(row){
+    if(!row?.watch?.id)return;
+    setCheckingCompetitor(row.key);
+    try{
+      const result=await collectVisibilityGroup([row],{silent:true});
+      if(result.failed)throw result.error||new Error('A busca não conseguiu atualizar os dados deste concorrente.');
+      await loadMonitor();
+    }catch(e){
+      setMonitor(x=>({...x,phase:'error',error:'Falha ao checar o concorrente: '+String(e?.message||e)}));
+    }finally{setCheckingCompetitor('')}
   }
 
   async function recheckAll(){
@@ -679,6 +738,7 @@ function Competitors({items}){
             </section>
 
             <section className={styles.radarExactActions}>
+              <button type="button" className={styles.radarExactCheck} disabled={checkingCompetitor===r.key} onClick={()=>checkCompetitor(r)}>⌕ {checkingCompetitor===r.key?'Checando…':'Checar dados'}</button>
               <Link href={priceHref}>✎ Editar preço do meu anúncio</Link>
               <Link href={ownerHref}>↗ Ir para meu anúncio</Link>
               {r.link?<a href={r.link} target="_blank" rel="noreferrer">↗ Abrir anúncio</a>:<button type="button" disabled>↗ Abrir anúncio</button>}
