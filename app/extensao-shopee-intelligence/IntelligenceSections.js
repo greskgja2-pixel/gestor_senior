@@ -85,15 +85,53 @@ function searchPositionLabel(position,page,found,maxPages=3){
 }
 function detectAdsFromSearchRow(row){
   if(!row||typeof row!=='object')return{status:'unknown',evidence:null};
+  const scopes=[row,row?.item_basic,row?.item,row?.ads,row?.ad,row?.tracking_info,row?.tracking].filter(x=>x&&typeof x==='object');
   const trueFields=['isSponsored','is_sponsored','isAd','is_ad','isAds','is_ads','sponsored','sponsored_listing'];
   const falseFields=['isSponsored','is_sponsored','isAd','is_ad','isAds','is_ads'];
-  for(const key of trueFields)if(row[key]===true||row[key]===1||row[key]==='1')return{status:'detected',evidence:key+'=true'};
-  for(const key of ['adsid','ads_id','adid','ad_id','campaign_id','ads_keyword'])if(row[key]!=null&&String(row[key]).trim()&&String(row[key])!=='0')return{status:'detected',evidence:key};
-  for(const key of falseFields)if(row[key]===false||row[key]===0||row[key]==='0')return{status:'not_detected',evidence:key+'=false'};
+  for(const scope of scopes){
+    for(const key of trueFields)if(scope[key]===true||scope[key]===1||scope[key]==='1')return{status:'detected',evidence:key+'=true'};
+    for(const key of ['adsid','ads_id','adid','ad_id','ads_keyword'])if(scope[key]!=null&&String(scope[key]).trim()&&String(scope[key])!=='0')return{status:'detected',evidence:key};
+  }
+  for(const scope of scopes)for(const key of falseFields)if(scope[key]===false||scope[key]===0||scope[key]==='0')return{status:'not_detected',evidence:key+'=false'};
   return{status:'unknown',evidence:null};
 }
 function normalizeSearchVisibility(data,{ownerItemId,competitorItemId,maxPages=3}){
   const root=data?.data||data||{};
+  const discovery=root?.discovery||null;
+  if(discovery){
+    const candidates=discovery?.candidates&&typeof discovery.candidates==='object'?Object.values(discovery.candidates):[];
+    const queries=arr(root?.queries);
+    const keyword=String(queries[0]||root?.title||'').trim();
+    const selectCandidate=id=>candidates.find(c=>String(c?.itemid??c?.itemId??c?.item_id??'')===String(id))||null;
+    const bestAppearance=c=>{
+      const rows=arr(c?.appearances).filter(a=>(!a?.sort||a.sort==='relevance')&&(!keyword||String(a?.query||'').trim().toLowerCase()===keyword.toLowerCase()));
+      const pool=rows.length?rows:arr(c?.appearances).filter(a=>!a?.sort||a.sort==='relevance');
+      return [...pool].sort((a,b)=>(n(a?.rank)??Infinity)-(n(b?.rank)??Infinity))[0]||null;
+    };
+    const comp=selectCandidate(competitorItemId),own=selectCandidate(ownerItemId),compAppearance=bestAppearance(comp),ownAppearance=bestAppearance(own);
+    let ads={status:'unknown',evidence:null};
+    for(const search of arr(discovery?.rawSearches)){
+      if(search?.sort&&search.sort!=='relevance')continue;
+      if(keyword&&String(search?.query||'').trim().toLowerCase()!==keyword.toLowerCase())continue;
+      for(const rawRow of arr(search?.body?.items)){
+        const b=rawRow?.item_basic||rawRow?.item||rawRow||{};
+        const id=String(b?.itemid??b?.item_id??rawRow?.itemid??rawRow?.item_id??'');
+        if(id===String(competitorItemId)){
+          const evidence=detectAdsFromSearchRow(rawRow);
+          if(evidence.status==='detected')ads=evidence;
+          else if(ads.status==='unknown'&&evidence.status==='not_detected')ads=evidence;
+        }
+      }
+    }
+    const perPage=60;
+    return{
+      keyword,searchedAt:new Date().toISOString(),maxPages:Math.max(1,Math.min(5,n(root?.pages)??maxPages)),itemsPerPage:perPage,
+      competitor:{found:!!comp,position:n(compAppearance?.rank),page:n(compAppearance?.page)!=null?n(compAppearance.page)+1:null},
+      owner:{found:!!own,position:n(ownAppearance?.rank),page:n(ownAppearance?.page)!=null?n(ownAppearance.page)+1:null},
+      ads,rawCount:candidates.length
+    };
+  }
+
   const directComp=root.competitor||root.target||null,directOwner=root.owner||root.own||root.my_listing||null;
   const rows=arr(root.results).length?arr(root.results):arr(root.items).length?arr(root.items):arr(root.products).length?arr(root.products):arr(root.candidates).length?arr(root.candidates):arr(root.search_results);
   const norm=(row,index)=>{
@@ -121,6 +159,28 @@ function normalizeSearchVisibility(data,{ownerItemId,competitorItemId,maxPages=3
     ads,rawCount:normalized.length
   };
 }
+
+async function visibilityViaMega({keyword,maxPages}){
+  let status=null;
+  try{status=await motorData('megaGetStatus',{},8000)}catch{}
+  if(status?.active)throw new Error('O Motor Senior já está executando outra pesquisa. Aguarde ela terminar para atualizar a posição.');
+  await motorData('megaStartResearch',{
+    title:keyword,queries:[keyword],sortModes:['relevance'],includeSales:false,pages:maxPages,adLimit:1,mode:'economy',
+    reviewLimits:{'1':0,'2':0,'3':0,'4':0,'5':0},delayMs:1500
+  },12000);
+  const started=Date.now();
+  let finalStatus=null;
+  while(Date.now()-started<75000){
+    await new Promise(resolve=>setTimeout(resolve,900));
+    finalStatus=await motorData('megaGetStatus',{},8000);
+    if(finalStatus?.stage!=='discovery'||['finished','finished_with_errors','cancelled','failed'].includes(String(finalStatus?.state||'')))break;
+  }
+  if(finalStatus?.stage==='discovery')throw new Error('A leitura da busca excedeu o tempo limite.');
+  const result=await motorData('megaGetResult',{includeRaw:true},12000);
+  try{if(finalStatus?.active)await motorData('megaCancelResearch',{},8000)}catch{}
+  return result;
+}
+
 function competitorPriority(row){
   const due=dueInfo(row.watch?.next_check_at).due;
   const pricePct=n(row.change?.price_change_pct),velocity=n(row.change?.sold_velocity_change_pct);
@@ -202,11 +262,18 @@ function Competitors({items}){
     const phaseKey=String(first.ownerItemId);
     if(!silent)setVisibilityPhase(x=>({...x,[phaseKey]:'loading'}));
     try{
-      const data=await motorData('collectSearchVisibility',{
-        keyword,maxPages,ownerItemId:String(first.ownerItemId),
-        competitorItemIds:list.map(r=>String(r.competitorItemId)).filter(Boolean),
-        reason:'competitor-search-visibility'
-      },90000);
+      let data;
+      try{
+        data=await motorData('collectSearchVisibility',{
+          keyword,maxPages,ownerItemId:String(first.ownerItemId),
+          competitorItemIds:list.map(r=>String(r.competitorItemId)).filter(Boolean),
+          reason:'competitor-search-visibility'
+        },90000);
+      }catch(error){
+        const message=String(error?.message||error);
+        if(!/não reconhecida|not recognized|unknown action|collectSearchVisibility/i.test(message))throw error;
+        data=await visibilityViaMega({keyword,maxPages});
+      }
       let updated=0;
       for(const row of list){
         const normalized=normalizeSearchVisibility(data,{ownerItemId:row.ownerItemId,competitorItemId:row.competitorItemId,maxPages});
@@ -417,7 +484,7 @@ function Competitors({items}){
               <b>⌕ Visibilidade na busca</b>
               <span><small>Concorrente</small><strong>{searchPositionLabel(r.visibility?.competitor_position,r.visibility?.competitor_page,r.visibility?.competitor_found,r.visibility?.max_pages||3)}</strong></span>
               <span><small>Meu anúncio</small><strong>{searchPositionLabel(r.visibility?.owner_position,r.visibility?.owner_page,r.visibility?.owner_found,r.visibility?.max_pages||3)}</strong></span>
-              <span><small>Shopee Ads</small><strong data-ads={r.visibility?.competitor_ads_status||'unknown'}>{r.visibility?.competitor_ads_status==='detected'?'● Ads detectado':r.visibility?.competitor_ads_status==='not_detected'?'○ Ads não identificado':'— Sem leitura'}</strong></span>
+              <span><small>Shopee Ads</small><strong data-ads={r.visibility?.competitor_ads_status||'unknown'}>{r.visibility?.competitor_ads_status==='detected'?'● Ads ativo nesta busca':r.visibility?.competitor_ads_status==='not_detected'?'○ Sem Ads nesta busca':'— Não confirmado'}</strong></span>
               <button type="button" onClick={()=>setOpenSearchDetails(openSearchDetails===r.key?'':r.key)}>{openSearchDetails===r.key?'Ocultar detalhes':'Ver análise da busca'} {openSearchDetails===r.key?'⌃':'⌄'}</button>
             </div>
             {openSearchDetails===r.key&&<div className={styles.radarSearchDetails}>
@@ -428,7 +495,7 @@ function Competitors({items}){
                 <div><small>Diferença</small><b>{n(r.visibility?.competitor_position)!=null&&n(r.visibility?.owner_position)!=null?(n(r.visibility.owner_position)-n(r.visibility.competitor_position)>0?'+':'')+(n(r.visibility.owner_position)-n(r.visibility.competitor_position)).toLocaleString('pt-BR')+' posições':'—'}</b></div>
                 <div><small>Última leitura</small><b>{r.visibility?.searched_at?when(r.visibility.searched_at):'Ainda não coletado'}</b></div>
               </div>
-              <p className={styles.radarAdsNote}>{r.visibility?.competitor_ads_status==='detected'?'A Shopee marcou/exibiu este concorrente como patrocinado nesta busca.':r.visibility?.competitor_ads_status==='not_detected'?'Não foi detectado sinal de anúncio patrocinado nesta busca. Isso não prova que o vendedor não tenha campanha ativa para outros termos ou momentos.':'Ainda não há evidência suficiente para afirmar se este anúncio está usando Shopee Ads.'}{r.visibility?.competitor_ads_evidence?' Evidência: '+r.visibility.competitor_ads_evidence+'.':''}</p>
+              <p className={styles.radarAdsNote}>{r.visibility?.competitor_ads_status==='detected'?'A Shopee exibiu este concorrente como patrocinado nesta busca, então havia Ads ativo para este contexto naquele momento.':r.visibility?.competitor_ads_status==='not_detected'?'Nesta busca o resultado foi identificado como não patrocinado. Isso não prova que o vendedor não tenha campanha ativa para outros termos, posições ou momentos.':'Ainda não há evidência suficiente para afirmar se este anúncio está usando Shopee Ads nesta busca.'}{r.visibility?.competitor_ads_evidence?' Evidência: '+r.visibility.competitor_ads_evidence+'.':''}</p>
               {visibilityPhase[String(r.ownerItemId)]==='error'&&<p className={styles.radarVisibilityError}>O Motor Senior atual não conseguiu coletar a posição. A tela preserva o último dado válido e tentará novamente quando o coletor suportar a leitura.</p>}
               {r.visibilityHistory.length>1&&<div className={styles.radarVisibilityHistory}>{r.visibilityHistory.slice(0,8).map(v=><div key={v.id}><span>{when(v.searched_at)}</span><b>Concorrente {n(v.competitor_position)!=null?'#'+n(v.competitor_position):'—'} · Meu anúncio {n(v.owner_position)!=null?'#'+n(v.owner_position):'—'}</b><small>{v.keyword} · Ads: {v.competitor_ads_status==='detected'?'detectado':v.competitor_ads_status==='not_detected'?'não identificado':'sem leitura'}</small></div>)}</div>}
             </div>}
