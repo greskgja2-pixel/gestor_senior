@@ -132,3 +132,33 @@
   .flashAutomationHead{align-items:flex-start;flex-direction:column}
 }
 .reminderStrip{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:12px 0;padding:10px 12px;border:1px solid #dce7f2;border-radius:10px;background:#f8fbff;color:#60758e;font-size:9px}@media(max-width:650px){.reminderStrip{align-items:flex-start;flex-direction:column}}
+
+/* GS_FLASH_VARIATION_DIALOG_2026_09_24 */
+.flashVariationModal{position:fixed;inset:0;z-index:2147483601;display:grid;place-items:center;padding:28px;background:rgba(6,18,34,.72);backdrop-filter:blur(5px)}
+.flashVariationDialog{width:min(940px,94vw);max-height:88vh;overflow:auto;border:1px solid #cfddeb;border-radius:14px;background:#fff;box-shadow:0 26px 90px rgba(5,20,42,.35)}
+.flashVariationDialog>header{position:sticky;top:0;z-index:2;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:15px 16px;border-bottom:1px solid #e2e9f1;background:#fff}
+.flashVariationDialog>header>div{display:grid;gap:4px}
+.flashVariationDialog>header b{font-size:15px;color:#173765}
+.flashVariationDialog>header span{font-size:9px;line-height:1.45;color:#687b92}
+.flashVariationDialog>header>button{width:34px;height:34px;border:1px solid #d7e2ed;border-radius:50%;background:#f7f9fc;color:#24466d;font-size:22px;cursor:pointer}
+.flashVariationTools{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 16px;background:#f7fbff;border-bottom:1px solid #e3ebf4}
+.flashVariationTools>span{font-size:9px;font-weight:900;color:#36597e}
+.flashVariationTools>button{border:1px solid #bcd4ef;border-radius:7px;background:#fff;color:#1766ce;padding:7px 10px;font-size:8px;font-weight:900;cursor:pointer}
+.flashVariationTable{padding:0 16px 12px}
+.flashVariationTable>div{display:grid;grid-template-columns:minmax(210px,2fr) 120px 150px 160px;gap:10px;align-items:center;padding:9px 6px;border-bottom:1px solid #e8edf3}
+.flashVariationTable>div:first-child{position:sticky;top:65px;z-index:1;background:#f3f7fb;color:#566b84;border-radius:8px 8px 0 0;font-size:8px}
+.flashVariationTable>div:not(:first-child)>span{font-size:9px;color:#2e4968}
+.flashVariationTable>div:not(:first-child)>span>b{display:block;color:#1b3962;font-size:9px;line-height:1.35}
+.flashVariationTable small{display:block;margin-top:3px;color:#8191a4;font-size:7px}
+.flashVariationTable label{display:grid;gap:3px}
+.flashVariationTable input{width:100%;height:34px;border:1px solid #cedce9;border-radius:7px;background:#fff;color:#1d385e;padding:0 9px;font-size:9px}
+.flashVariationDialog>footer{position:sticky;bottom:0;display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid #e1e8f0;background:#fff}
+.flashVariationDialog>footer .primary,.flashVariationDialog>footer .secondaryAction{min-width:160px}
+@media(max-width:760px){
+  .flashVariationModal{padding:10px}
+  .flashVariationDialog{width:98vw;max-height:94vh}
+  .flashVariationTable{padding:0 10px 10px;overflow-x:auto}
+  .flashVariationTable>div{min-width:690px}
+  .flashVariationDialog>footer{flex-direction:column-reverse}
+  .flashVariationDialog>footer .primary,.flashVariationDialog>footer .secondaryAction{width:100%}
+}
