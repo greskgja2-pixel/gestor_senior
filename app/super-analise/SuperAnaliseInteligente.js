@@ -380,7 +380,6 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
   const categoryAligned=Boolean(dominantCategory&&currentCategory&&categoryLeaf(dominantCategory[0])===categoryLeaf(currentCategory));
 
   const liveMargin=currentMargin(draft.price,draft.cost);
-  const selectedSlot=slots.find(x=>String(x.timeslot_id)===String(flash.timeslotId));
   const reportFlashModels=arr(p.models||p.variations).map((m,index)=>({
     model_id:m?.model_id??m?.modelId??m?.id,
     name:m?.name||m?.model_name||m?.modelName||('Variação '+(index+1)),
@@ -390,38 +389,37 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
     available_stock:n(m?.available_stock??m?.stock??m?.normal_stock)
   })).filter(x=>x.model_id!=null);
   const effectiveFlashModels=flashModels.length?flashModels:reportFlashModels;
+  const selectedSlots=useMemo(()=>{
+    const startAt=flashPeriod?.start?new Date(flashPeriod.start+'T00:00:00').getTime():-Infinity;
+    const endAt=flashPeriod?.end?new Date(flashPeriod.end+'T23:59:59').getTime():Infinity;
+    return slots.filter(slot=>{
+      const at=Number(slot?.start_time)*1000;
+      return Number.isFinite(at)&&at>=startAt&&at<=endAt;
+    });
+  },[slots,flashPeriod?.start,flashPeriod?.end]);
 
-  async function postFlash(models=null){
-    setFlashBusy(true);setFlashMessage('');
-    try{
-      const body={item_id:report.item_id,timeslot_id:Number(flash.timeslotId),purchase_limit:Number(flash.purchaseLimit||0)};
-      if(models?.length)body.models=models;
-      else{body.promo_price=Number(flash.promoPrice);body.stock=Number(flash.stock)}
-      const j=await fetchJsonWithTimeout('/api/shopee/flash-sale',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)},30000);
-      setFlashVariationOpen(false);
-      setFlashMessage(`Oferta Relâmpago criada na Shopee. ID ${j.flash_sale_id}.`);
-      await loadFlashMeta(flashDays);
-    }catch(e){setFlashMessage(String(e?.message||e))}finally{setFlashBusy(false)}
+  function ensureVariationDraft(){
+    const next={...flashVariationDraft};
+    for(const model of effectiveFlashModels){
+      const id=String(model.model_id),row=next[id]||{};
+      const available=n(model.available_stock);
+      next[id]={
+        promoPrice:row.promoPrice??(Number(flash.promoPrice)>0?String(flash.promoPrice):String(model.current_price??'')),
+        stock:row.stock??String(available??'')
+      };
+    }
+    setFlashVariationDraft(next);
+    return next;
   }
 
-  async function createFlash(){
-    if(!flash.timeslotId)return setFlashMessage('Selecione um horário oficial disponibilizado pela Shopee.');
-    if(effectiveFlashModels.length){
-      const next={...flashVariationDraft};
-      for(const model of effectiveFlashModels){
-        const id=String(model.model_id);
-        const existing=next[id]||{};
-        const available=n(model.available_stock);
-        const defaultStock=n(flash.stock)>0?(available!=null?Math.min(Number(flash.stock),available):Number(flash.stock)):(available??'');
-        next[id]={
-          promoPrice:existing.promoPrice??(Number(flash.promoPrice)>0?String(flash.promoPrice):String(model.current_price??'')),
-          stock:existing.stock??String(defaultStock??'')
-        };
-      }
-      setFlashVariationDraft(next);setFlashVariationOpen(true);setFlashMessage('');
-      return;
-    }
-    await postFlash();
+  function setFlashPreset(kind){
+    const start=localYmd(new Date());
+    let next={start,end:start};
+    if(kind==='7')next={start,end:addLocalDays(start,6)};
+    else if(kind==='30')next={start,end:addLocalDays(start,29)};
+    else if(kind==='month')next={start,end:endOfLocalMonth(start)};
+    setFlashPeriod(next);
+    loadFlashMeta(flashDays,next);
   }
 
   function applyFlashPriceToAll(){
@@ -435,44 +433,66 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
     });
   }
 
-  async function confirmVariationFlash(){
-    const models=[];
-    for(const model of effectiveFlashModels){
-      const id=String(model.model_id),row=flashVariationDraft[id]||{};
-      const promo=Number(row.promoPrice),reserved=Number(row.stock);
-      if(!(promo>0)){setFlashMessage('Preencha o preço promocional de todas as variações.');return}
-      if(!(Number.isInteger(reserved)&&reserved>0)){setFlashMessage('Preencha o estoque reservado de todas as variações.');return}
-      if(n(model.available_stock)!=null&&reserved>Number(model.available_stock)){setFlashMessage('O estoque reservado de '+(model.name||'uma variação')+' excede o disponível.');return}
-      models.push({model_id:Number(model.model_id),promo_price:promo,stock:reserved});
+  function prepareFlashCreation(){
+    if(!flashPeriod?.start||!flashPeriod?.end)return setFlashMessage('Escolha a data inicial e final do período.');
+    if(new Date(flashPeriod.end+'T23:59:59')<new Date(flashPeriod.start+'T00:00:00'))return setFlashMessage('A data final precisa ser igual ou posterior à data inicial.');
+    if(!selectedSlots.length)return setFlashMessage('A Shopee não retornou horários oficiais disponíveis dentro desse período. Atualize os horários ou escolha outro período.');
+
+    if(effectiveFlashModels.length){
+      const draftRows=ensureVariationDraft();
+      for(const model of effectiveFlashModels){
+        const id=String(model.model_id),row=draftRows[id]||{};
+        const promo=Number(row.promoPrice),reserved=Number(row.stock);
+        if(!(promo>0))return setFlashMessage('Defina o preço da oferta para todas as variações.');
+        if(!(Number.isInteger(reserved)&&reserved>0))return setFlashMessage('Defina o estoque reservado de todas as variações.');
+        if(n(model.available_stock)!=null&&reserved>Number(model.available_stock))return setFlashMessage('O estoque reservado de '+(model.name||'uma variação')+' excede o estoque disponível.');
+      }
+    }else{
+      if(!(Number(flash.promoPrice)>0))return setFlashMessage('Informe o preço promocional.');
+      if(!(Number.isInteger(Number(flash.stock))&&Number(flash.stock)>0))return setFlashMessage('Informe o estoque reservado.');
     }
-    await postFlash(models);
+    setFlashMessage('');
+    setFlashConfirmOpen(true);
+  }
+
+  async function confirmFlashCreation(){
+    setFlashBusy(true);setFlashMessage('');
+    try{
+      const body={
+        item_id:report.item_id,
+        timeslot_ids:selectedSlots.map(x=>Number(x.timeslot_id)).filter(Boolean),
+        purchase_limit:Number(flash.purchaseLimit||0),
+        notify_app:flashNotify.app,
+        notify_email:flashNotify.email
+      };
+      if(effectiveFlashModels.length){
+        body.models=effectiveFlashModels.map(model=>{
+          const row=flashVariationDraft[String(model.model_id)]||{};
+          return{model_id:Number(model.model_id),promo_price:Number(row.promoPrice),stock:Number(row.stock)};
+        });
+      }else{
+        body.promo_price=Number(flash.promoPrice);
+        body.stock=Number(flash.stock);
+      }
+      const j=await fetchJsonWithTimeout('/api/shopee/flash-sale',{
+        method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)
+      },55000);
+      setFlashConfirmOpen(false);
+      const created=Number(j?.created_count||j?.flash_sale_ids?.length||1);
+      const failed=Number(j?.failed_count||0);
+      setFlashMessage(failed?(`${created} oferta(s) criada(s); ${failed} horário(s) não puderam ser criados.`):(`${created} Oferta(s) Relâmpago criada(s) na Shopee.`));
+      await loadFlashMeta(flashDays,flashPeriod);
+    }catch(e){setFlashMessage(String(e?.message||e))}finally{setFlashBusy(false)}
   }
 
   function useRecommendedSlot(){
     const slot=flashInsight.recommendedSlots?.[0];
-    if(!slot?.timeslot_id){setFlashMessage('Ainda não há um horário recomendado disponível para aplicar.');return}
-    setFlash(x=>({...x,timeslotId:String(slot.timeslot_id)}));
-    setFlashMessage('Horário oficial mais compatível com o histórico de vendas selecionado.');
-  }
-
-  async function saveFlashAutomation(nextEnabled=automation.enabled){
-    if(!(Number(flash.promoPrice)>0)||!(Number(flash.stock)>0)){
-      setAutomationMessage('Defina preço promocional e estoque antes de ativar a automação.');return;
-    }
-    setAutomationBusy(true);setAutomationMessage('');
-    try{
-      const j=await fetchJsonWithTimeout('/api/shopee/flash-sale/automation',{
-        method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-          item_id:report.item_id,enabled:!!nextEnabled,promo_price:Number(flash.promoPrice),
-          stock:Number(flash.stock),purchase_limit:Number(flash.purchaseLimit||0),
-          lookback_days:Number(flashDays),use_best_time:automation.useBestTime!==false,
-          min_gap_hours:Number(automation.minGapHours||20)
-        })
-      },20000);
-      setAutomation({enabled:!!j?.automation?.enabled,useBestTime:j?.automation?.use_best_time!==false,minGapHours:String(j?.automation?.min_gap_hours||20)});
-      setAutomationMessage(j?.automation?.enabled?'Automação ativa. O Gestor criará novas ofertas em segundo plano quando não houver uma oferta ativa para este produto.':'Automação desativada.');
-    }catch(e){setAutomationMessage(String(e?.message||e))}finally{setAutomationBusy(false)}
+    if(!slot?.start_time){setFlashMessage('Ainda não há um horário recomendado disponível para aplicar.');return}
+    const day=localYmd(new Date(Number(slot.start_time)*1000));
+    const next={start:day,end:day};
+    setFlashPeriod(next);
+    loadFlashMeta(flashDays,next);
+    setFlashMessage('O período foi ajustado para o melhor dia sugerido pelo histórico de vendas.');
   }
 
   if(!report)return <div className={styles.screen}><main className={styles.empty}><h1>✦ Super Análise Inteligente</h1><p>Nenhuma análise encontrada.</p></main></div>;
