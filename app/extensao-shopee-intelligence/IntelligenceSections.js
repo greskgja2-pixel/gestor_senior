@@ -4,7 +4,7 @@ import {useEffect,useMemo,useState} from 'react';
 import Link from 'next/link';
 import styles from './intelligence-sections.module.css';
 import ReminderButton from '../components/ReminderButton';
-import {fetchJsonWithTimeout,motorRequest,classifyAsyncError} from '../lib/client-async';
+import {fetchJsonWithTimeout,motorRequest,motorData,classifyAsyncError} from '../lib/client-async';
 
 const n=v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v))?null:Number(v);
 const arr=v=>Array.isArray(v)?v:[];
@@ -148,18 +148,39 @@ function Competitors({items}){
   }
 
   async function recheckAll(){
-    const targets=rows.map(r=>r.watch).filter(Boolean);
+    const targets=filtered.map(r=>r.watch).filter(Boolean).slice(0,12);
     if(!targets.length)return;
     setBulkPhase('loading');
-    try{
-      await Promise.all(targets.map(w=>fetchJsonWithTimeout('/api/competitor-monitor',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:w.id,action:'due_now'})},12000)));
-      await loadMonitor();
-      setBulkPhase('success');
-      setTimeout(()=>setBulkPhase('idle'),2400);
-    }catch(e){
-      setBulkPhase('error');
-      setMonitor(x=>({...x,error:String(e?.message||e)}));
+    let updated=0,failed=0;
+    for(const watch of targets){
+      try{
+        const data=await motorData('collectProduct',{url:watch.competitor_url,reason:'manual-competitor-refresh',expectedItemId:String(watch.competitor_item_id)},45000);
+        const p=data?.product||data;
+        const itemId=String(p?.itemId??p?.item_id??''),shopId=String(p?.shopId??p?.shop_id??'');
+        if(itemId!==String(watch.competitor_item_id)||shopId!==String(watch.competitor_shop_id))throw new Error('A extensão retornou outro anúncio.');
+        const source=String(p?.ratingSource||p?.validationSource||p?.source||data?.source||'').toLowerCase();
+        const structured=/pdp_get_pc|structured|api/.test(source)||p?.ratingDebug?.pdpGetPc?.ok===true||p?.rating_debug?.pdp_get_pc?.ok===true||p?.validation?.pdpGetPc?.ok===true;
+        if(!structured)throw new Error('A coleta estruturada deste concorrente não foi confirmada.');
+        await fetchJsonWithTimeout('/api/competitor-monitor',{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({
+            watch_id:watch.id,title:p?.title||p?.item_name||watch.competitor_title,
+            price:p?.price??p?.currentPrice??null,sold:p?.sold??p?.historicalSold??null,rating:p?.rating??null,stock:p?.stock??null,
+            image_url:competitorImage(p),source:source||'pdp_get_pc_intercepted',confidence:'structured',
+            raw:{ratingSource:p?.ratingSource||null,validationSource:p?.validationSource||null,categoryId:p?.categoryId??p?.category_id??null}
+          })
+        },15000);
+        updated++;
+      }catch(error){
+        failed++;
+        try{await fetchJsonWithTimeout('/api/competitor-monitor',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:watch.id,action:'record_error',last_error:String(error?.message||error).slice(0,900)})},8000)}catch{}
+      }
+      if(targets.length>1)await new Promise(resolve=>setTimeout(resolve,1600));
     }
+    await loadMonitor();
+    setBulkPhase(failed?'error':'success');
+    if(failed)setMonitor(x=>({...x,error:`${updated} atualizado(s); ${failed} falharam e ficarão para nova tentativa.`}));
+    setTimeout(()=>setBulkPhase('idle'),3000);
   }
 
   async function removeWatch(row){
