@@ -19,6 +19,18 @@ function idsFromCompetitor(c){
   }
   return {shopId,itemId,url};
 }
+function fallbackPrice(c){
+  const direct=finite(c?.price);if(direct!=null)return direct;
+  const m=String(c?.searchText||'').match(/R\$\s*\n?\s*([0-9.]+,[0-9]{2})/i);
+  return m?Number(m[1].replace(/\./g,'').replace(',','.')):null;
+}
+function fallbackSold(c){
+  const direct=finite(c?.sold);if(direct!=null)return direct;
+  const m=String(c?.searchText||'').match(/([0-9]+(?:[.,][0-9]+)?)\s*(mil)?\+?\s*Vendido/i);
+  if(!m)return null;
+  const base=Number(m[1].replace(',','.'));
+  return Number.isFinite(base)?Math.round(base*(m[2]?1000:1)):null;
+}
 function addDays(iso,days){
   const base=iso?new Date(iso):new Date();
   const ms=Number.isNaN(base.getTime())?Date.now():base.getTime();
@@ -46,8 +58,24 @@ async function syncWatches(db,shopId){
         source_report_id:r.id,updated_at:new Date().toISOString()
       };
       if(!old)row.next_check_at=addDays(r.analyzed_at,freq);
-      const {error:upsertError}=await db.from('gs_competitor_watches').upsert(row,{onConflict:'shop_id,owner_item_id,competitor_item_id'});
+      const {data:saved,error:upsertError}=await db.from('gs_competitor_watches').upsert(row,{onConflict:'shop_id,owner_item_id,competitor_item_id'}).select('*').single();
       if(upsertError)throw new Error(upsertError.message);
+      if(!saved?.last_check_at){
+        const baselinePrice=fallbackPrice(c),baselineSold=fallbackSold(c),baselineRating=finite(c?.rating);
+        if(baselinePrice!=null||baselineSold!=null||baselineRating!=null){
+          const baselineAt=r.analyzed_at||new Date().toISOString();
+          const {data:previousBaseline}=await db.from('gs_competitor_snapshots').select('id').eq('watch_id',saved.id).limit(1);
+          if(!previousBaseline?.length){
+            const {error:baselineError}=await db.from('gs_competitor_snapshots').insert({
+              watch_id:saved.id,shop_id:shopId,owner_item_id:r.item_id,competitor_shop_id:ids.shopId,competitor_item_id:ids.itemId,
+              collected_at:baselineAt,price:baselinePrice,sold:baselineSold,rating:baselineRating,title:text(c?.title,500),
+              source:'analysis-report-search',confidence:'fallback',raw:{searchText:text(c?.searchText,3000)}
+            });
+            if(baselineError)console.warn('[competitor-monitor] baseline error',baselineError.message);
+            else await db.from('gs_competitor_watches').update({last_check_at:baselineAt,last_status:'baseline',updated_at:new Date().toISOString()}).eq('id',saved.id);
+          }
+        }
+      }
     }
   }
 }
