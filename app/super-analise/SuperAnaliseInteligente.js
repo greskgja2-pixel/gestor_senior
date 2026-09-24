@@ -127,6 +127,36 @@ function ZoomModal({src,onClose}) {
   </div>
 }
 
+function FlashVariationModal({open,models,draft,setDraft,basePromo,onApplyAll,onClose,onConfirm,busy}) {
+  if(!open)return null;
+  return <div className={styles.flashVariationModal} role="dialog" aria-modal="true" aria-label="Preços da Oferta Relâmpago por variação" onClick={onClose}>
+    <section className={styles.flashVariationDialog} onClick={e=>e.stopPropagation()}>
+      <header>
+        <div><b>⚡ Preço por variação</b><span>Defina o preço e o estoque reservado para cada variação antes de criar a Oferta Relâmpago.</span></div>
+        <button type="button" onClick={onClose} aria-label="Fechar">×</button>
+      </header>
+      <div className={styles.flashVariationTools}>
+        <span>{models.length} variação{models.length===1?'':'ões'}</span>
+        {Number(basePromo)>0&&<button type="button" onClick={onApplyAll}>Aplicar {money(basePromo)} em todas</button>}
+      </div>
+      <div className={styles.flashVariationTable}>
+        <div><b>Variação</b><b>Preço atual</b><b>Preço da oferta</b><b>Estoque reservado</b></div>
+        {models.map((model,index)=>{
+          const id=String(model.model_id??model.modelId??model.id??index);
+          const row=draft[id]||{};
+          return <div key={id}>
+            <span><b>{model.name||model.model_name||model.modelSku||('Variação '+(index+1))}</b>{model.sku&&<small>SKU: {model.sku}</small>}</span>
+            <span>{money(model.current_price??model.price??model.original_price)}</span>
+            <label><input type="number" min="0.01" step="0.01" value={row.promoPrice??''} onChange={e=>setDraft(d=>({...d,[id]:{...(d[id]||{}),promoPrice:e.target.value}}))}/></label>
+            <label><input type="number" min="1" step="1" value={row.stock??''} onChange={e=>setDraft(d=>({...d,[id]:{...(d[id]||{}),stock:e.target.value}}))}/>{model.available_stock!=null&&<small>Disponível: {Number(model.available_stock).toLocaleString('pt-BR')}</small>}</label>
+          </div>
+        })}
+      </div>
+      <footer><button type="button" className={styles.secondaryAction} onClick={onClose} disabled={busy}>Cancelar</button><button type="button" className={styles.primary} onClick={onConfirm} disabled={busy}>{busy?'Criando…':'Criar Oferta Relâmpago'}</button></footer>
+    </section>
+  </div>
+}
+
 export default function SuperAnaliseInteligente({report,products=[],initialTab='title'}){
   const allowedTabs=useMemo(()=>new Set(TABS.map(([key])=>key)),[]);
   const [tab,setTab]=useState(allowedTabs.has(initialTab)?initialTab:'title');
@@ -142,6 +172,9 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
   const [slots,setSlots]=useState([]);
   const [slotError,setSlotError]=useState('');
   const [flash,setFlash]=useState({timeslotId:'',promoPrice:'',stock:'',purchaseLimit:'0'});
+  const [flashModels,setFlashModels]=useState([]);
+  const [flashVariationOpen,setFlashVariationOpen]=useState(false);
+  const [flashVariationDraft,setFlashVariationDraft]=useState({});
   const [flashBusy,setFlashBusy]=useState(false);
   const [flashMessage,setFlashMessage]=useState('');
   const [flashDays,setFlashDays]=useState(30);
@@ -184,6 +217,7 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
     setBaseline({draft:nextDraft,gallery:nextGallery,chosenCategory:categoryId});
     setHistory({past:[],future:[]});setMessage('');
     setFlash(x=>({...x,promoPrice:basePrice?String(basePrice):'',stock:String(p.stock??'')}));
+    setFlashVariationOpen(false);setFlashVariationDraft({});setFlashModels([]);
   },[report?.id]);
 
   async function loadFlashMeta(days=flashDays){
@@ -191,9 +225,9 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
     setFlashInsight(x=>({...x,phase:'loading',error:''}));
     try{
       const j=await fetchJsonWithTimeout('/api/shopee/flash-sale?item_id='+encodeURIComponent(report.item_id)+'&days='+Number(days),{cache:'no-store'},25000);
-      const next=arr(j?.slots),recommended=arr(j?.recommendedSlots);
-      setSlots(next);setSlotError('');
-      setFlashInsight({phase:'success',recommendation:j?.recommendation||null,recommendedSlots:recommended,error:''});
+      const next=arr(j?.slots),recommended=arr(j?.recommendedSlots),models=arr(j?.productModels);
+      setSlots(next);setSlotError('');setFlashModels(models);
+      setFlashInsight({phase:'success',recommendation:j?.recommendation||null,recommendedSlots:recommended,error:j?.productModelError||''});
       const preferred=recommended[0]?.timeslot_id||next[0]?.timeslot_id;
       if(preferred)setFlash(x=>x.timeslotId?x:{...x,timeslotId:String(preferred)});
     }catch(e){
@@ -304,14 +338,71 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
 
   const liveMargin=currentMargin(draft.price,draft.cost,inferredDeductions);
   const selectedSlot=slots.find(x=>String(x.timeslot_id)===String(flash.timeslotId));
+  const reportFlashModels=arr(p.models||p.variations).map((m,index)=>({
+    model_id:m?.model_id??m?.modelId??m?.id,
+    name:m?.name||m?.model_name||m?.modelName||('Variação '+(index+1)),
+    sku:m?.model_sku||m?.sku||null,
+    current_price:n(m?.current_price??m?.currentPrice??m?.price),
+    original_price:n(m?.original_price??m?.originalPrice??m?.price),
+    available_stock:n(m?.available_stock??m?.stock??m?.normal_stock)
+  })).filter(x=>x.model_id!=null);
+  const effectiveFlashModels=flashModels.length?flashModels:reportFlashModels;
+
+  async function postFlash(models=null){
+    setFlashBusy(true);setFlashMessage('');
+    try{
+      const body={item_id:report.item_id,timeslot_id:Number(flash.timeslotId),purchase_limit:Number(flash.purchaseLimit||0)};
+      if(models?.length)body.models=models;
+      else{body.promo_price=Number(flash.promoPrice);body.stock=Number(flash.stock)}
+      const j=await fetchJsonWithTimeout('/api/shopee/flash-sale',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)},30000);
+      setFlashVariationOpen(false);
+      setFlashMessage(`Oferta Relâmpago criada na Shopee. ID ${j.flash_sale_id}.`);
+      await loadFlashMeta(flashDays);
+    }catch(e){setFlashMessage(String(e?.message||e))}finally{setFlashBusy(false)}
+  }
 
   async function createFlash(){
     if(!flash.timeslotId)return setFlashMessage('Selecione um horário oficial disponibilizado pela Shopee.');
-    setFlashBusy(true);setFlashMessage('');
-    try{
-      const j=await fetchJsonWithTimeout('/api/shopee/flash-sale',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({item_id:report.item_id,timeslot_id:Number(flash.timeslotId),promo_price:Number(flash.promoPrice),stock:Number(flash.stock),purchase_limit:Number(flash.purchaseLimit||0)})},30000);
-      setFlashMessage(`Oferta Relâmpago criada na Shopee. ID ${j.flash_sale_id}.`);
-    }catch(e){setFlashMessage(String(e?.message||e))}finally{setFlashBusy(false)}
+    if(effectiveFlashModels.length){
+      const next={...flashVariationDraft};
+      for(const model of effectiveFlashModels){
+        const id=String(model.model_id);
+        const existing=next[id]||{};
+        const available=n(model.available_stock);
+        const defaultStock=n(flash.stock)>0?(available!=null?Math.min(Number(flash.stock),available):Number(flash.stock)):(available??'');
+        next[id]={
+          promoPrice:existing.promoPrice??(Number(flash.promoPrice)>0?String(flash.promoPrice):String(model.current_price??'')),
+          stock:existing.stock??String(defaultStock??'')
+        };
+      }
+      setFlashVariationDraft(next);setFlashVariationOpen(true);setFlashMessage('');
+      return;
+    }
+    await postFlash();
+  }
+
+  function applyFlashPriceToAll(){
+    setFlashVariationDraft(d=>{
+      const next={...d};
+      for(const model of effectiveFlashModels){
+        const id=String(model.model_id);
+        next[id]={...(next[id]||{}),promoPrice:String(flash.promoPrice||'')};
+      }
+      return next;
+    });
+  }
+
+  async function confirmVariationFlash(){
+    const models=[];
+    for(const model of effectiveFlashModels){
+      const id=String(model.model_id),row=flashVariationDraft[id]||{};
+      const promo=Number(row.promoPrice),reserved=Number(row.stock);
+      if(!(promo>0)){setFlashMessage('Preencha o preço promocional de todas as variações.');return}
+      if(!(Number.isInteger(reserved)&&reserved>0)){setFlashMessage('Preencha o estoque reservado de todas as variações.');return}
+      if(n(model.available_stock)!=null&&reserved>Number(model.available_stock)){setFlashMessage('O estoque reservado de '+(model.name||'uma variação')+' excede o disponível.');return}
+      models.push({model_id:Number(model.model_id),promo_price:promo,stock:reserved});
+    }
+    await postFlash(models);
   }
 
   function useRecommendedSlot(){
@@ -345,6 +436,7 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
 
   return <div className={styles.screen}>
     <ZoomModal src={zoomSrc} onClose={()=>setZoomSrc('')}/>
+    <FlashVariationModal open={flashVariationOpen} models={effectiveFlashModels} draft={flashVariationDraft} setDraft={setFlashVariationDraft} basePromo={flash.promoPrice} onApplyAll={applyFlashPriceToAll} onClose={()=>!flashBusy&&setFlashVariationOpen(false)} onConfirm={confirmVariationFlash} busy={flashBusy}/>
     <main className={styles.main}>
       <header className={styles.header}><div className={styles.titleBlock}><div className={styles.titleRow}><h1>✦ Super Análise Inteligente</h1><div className={styles.scoreChip} title="Nota geral estimada do anúncio"><b>{overallBefore==null?'—':Math.round(overallBefore)}</b><span>→</span><b className={styles.scoreAfter}>{overallAfter==null?'—':Math.round(overallAfter)}</b><em>{overallDelta==null?'':overallDelta>0?`+${overallDelta} pontos`:'sem perda'}</em><small>Nota geral do anúncio</small></div></div><p>Compare os dados originais com a sugestão da IA e aplique apenas o que fizer sentido.</p></div><div className={styles.headerActions}><button type="button" data-gs-super-analysis onClick={openExtension}>↗ Abrir Motor Senior</button></div></header>
       <section className={styles.productBar}>
