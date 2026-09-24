@@ -218,7 +218,7 @@ function searchMarketData(row){
   const originalPrice=shopeeSearchPrice(b?.price_before_discount??b?.original_price)??(textPrices.length>1?textPrices[1]:null);
   const sold=n(b?.historical_sold??b?.sold);
   const monthlySold=n(b?.monthly_sold??b?.sold_30d);
-  const preferred=preferredFromObject(row);
+  const preferred=/\bindicado\b|vendedor\s+indicado/i.test(searchText)?true:preferredFromObject(row);
   const locationRaw=b?.shop_location??b?.location??b?.shop_location_name??b?.seller_location??row?.shop_location??row?.location??row?.seller_location??null;
   const location=stateFromText(locationRaw)||stateFromText(searchText)||stateFromText(row?.description??b?.description);
   return{
@@ -231,6 +231,8 @@ function searchMarketData(row){
 }
 function detectAdsFromSearchRow(row){
   if(!row||typeof row!=='object')return{status:'unknown',evidence:null};
+  const visibleText=String(row?.searchText??row?.item_basic?.searchText??row?.item?.searchText??'');
+  if(/(^|\n)\s*Ad\s*(\n|$)/i.test(visibleText))return{status:'detected',evidence:'search-label-ad'};
   const scopes=[row,row?.item_basic,row?.item,row?.ads,row?.ad,row?.tracking_info,row?.tracking].filter(x=>x&&typeof x==='object');
   const fields=['isSponsored','is_sponsored','isAd','is_ad','isAds','is_ads','sponsored','sponsored_listing'];
   for(const scope of scopes){
