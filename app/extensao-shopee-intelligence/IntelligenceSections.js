@@ -29,12 +29,17 @@ function missingKind(obj){
   return'Não coletado';
 }
 function dataText(value,formatter,context){return n(value)!=null?formatter(value):missingKind(context)}
+function competitorImage(c){
+  const rows=[c?.imageUrl,c?.image_url,...arr(c?.imageUrls),...arr(c?.image_urls)].map(v=>String(v||'').trim()).filter(Boolean).filter(u=>!/\.svg(?:\?|$)/i.test(u)&&!/productdetailspage/i.test(u));
+  const score=u=>{let s=0;if(/down-br\.img\.susercontent\.com\/file\//i.test(u))s+=3;if(/\/br-11134207-/i.test(u))s+=8;if(/_tn(?:\?|$)/i.test(u))s-=5;if(/_cover(?:\?|$)/i.test(u))s-=6;return s};
+  return rows.map((u,i)=>({u,i,s:score(u)})).sort((a,b)=>b.s-a.s||a.i-b.i)[0]?.u||null;
+}
 
 function Competitors({items}){
   const rows=useMemo(()=>items.flatMap(item=>arr(item.latest?.competitors).slice(0,3).map((c,i)=>({
     owner:item.latest?.product_snapshot?.title||item.latest?.product_snapshot?.item_name||`Produto ${item.itemId}`,
     title:c.title||`Concorrente ${i+1}`,price:n(c.price),sold:n(c.sold),rating:n(c.rating),raw:c,
-    image:c.imageUrl||arr(c.imageUrls)[0]||null,link:c.link||c.url||null,collected:item.latest?.analyzed_at
+    image:competitorImage(c),link:c.link||c.url||null,collected:item.latest?.analyzed_at
   }))),[items]);
   if(!rows.length)return <Empty text="Nenhum concorrente foi coletado/vinculado ainda. Faça uma Super Análise e selecione de 1 a 3 concorrentes."/>;
   return <div className={styles.gridCards}>{rows.map((r,i)=><article className={styles.competitor} key={i}>{r.image?<img src={r.image} alt=""/>:<div className={styles.noImage}/>}<div><small>Vinculado a: {r.owner}</small><b>{r.title}</b><p>{dataText(r.price,money,r.raw)} · {dataText(r.sold,v=>Number(v).toLocaleString('pt-BR'),r.raw)} vendidos · {dataText(r.rating,v=>Number(v).toFixed(1)+'★',r.raw)}</p><span>Coleta: {when(r.collected)}</span>{r.link&&<a href={r.link} target="_blank" rel="noreferrer">Abrir anúncio ↗</a>}</div></article>)}</div>
