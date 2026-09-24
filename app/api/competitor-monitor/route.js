@@ -1,6 +1,7 @@
 import {NextResponse} from 'next/server';
 import {getActiveShop} from '../../../lib/shop';
 import {supabaseAdmin} from '../../../lib/supabase';
+import {sendTaskNotification,whatsappVelocityRule} from '../../../lib/notifications';
 
 export const dynamic='force-dynamic';
 export const runtime='nodejs';
@@ -142,7 +143,16 @@ async function createChangeTask(db,shopId,watch,previous,current){
     updated_at:new Date().toISOString()
   };
   const {error}=await db.from('gs_tasks').upsert(task,{onConflict:'shop_id,dedupe_key',ignoreDuplicates:true});
-  if(error&&!String(error.message).includes('duplicate'))console.warn('[competitor-monitor] task error',error.message);
+  if(error&&!String(error.message).includes('duplicate')){console.warn('[competitor-monitor] task error',error.message);return}
+  const {data:saved}=await db.from('gs_tasks').select('*').eq('shop_id',shopId).eq('dedupe_key',dedupe).maybeSingle();
+  if(saved){
+    try{
+      await sendTaskNotification({
+        db,shopId,task:saved,allowWhatsApp:false,
+        event:{kind:'competitor_price',competitorTitle:watch.competitor_title,priceChangePct:pricePct}
+      });
+    }catch(error){console.warn('[competitor-monitor] notification error',String(error?.message||error))}
+  }
 }
 async function createVelocityTask(db,shopId,watch,older,previous,current){
   const prior=snapshotChange(older,previous),latest=snapshotChange(previous,current);
@@ -163,7 +173,22 @@ async function createVelocityTask(db,shopId,watch,older,previous,current){
     updated_at:new Date().toISOString()
   };
   const {error}=await db.from('gs_tasks').upsert(task,{onConflict:'shop_id,dedupe_key',ignoreDuplicates:true});
-  if(error&&!String(error.message).includes('duplicate'))console.warn('[competitor-monitor] velocity task error',error.message);
+  if(error&&!String(error.message).includes('duplicate')){console.warn('[competitor-monitor] velocity task error',error.message);return}
+  const {data:saved}=await db.from('gs_tasks').select('*').eq('shop_id',shopId).eq('dedupe_key',task.dedupe_key).maybeSingle();
+  if(saved){
+    let criticalWhatsApp=false;
+    try{
+      const {data:prefs}=await db.from('gs_notification_preferences').select('categories').eq('shop_id',shopId).maybeSingle();
+      const rule=whatsappVelocityRule(prefs);
+      criticalWhatsApp=rule.enabled&&now>=rule.minSalesPerDay&&(pct==null||pct>=rule.pctThreshold);
+    }catch(error){console.warn('[competitor-monitor] whatsapp rule error',String(error?.message||error))}
+    try{
+      await sendTaskNotification({
+        db,shopId,task:saved,allowWhatsApp:criticalWhatsApp,
+        event:{kind:'competitor_velocity',competitorTitle:watch.competitor_title,soldPerDay:now,velocityChangePct:pct}
+      });
+    }catch(error){console.warn('[competitor-monitor] velocity notification error',String(error?.message||error))}
+  }
 }
 
 export async function GET(request){
