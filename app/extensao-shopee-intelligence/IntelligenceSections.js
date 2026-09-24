@@ -96,6 +96,7 @@ function Competitors({items}){
           {n(r.change.price_change_pct)!=null&&Math.abs(n(r.change.price_change_pct))>=0.1&&<span className={n(r.change.price_change_pct)<0?styles.deltaDown:styles.deltaUp}>Preço {n(r.change.price_change_pct)<0?'↓':'↑'} {Math.abs(n(r.change.price_change_pct)).toLocaleString('pt-BR',{maximumFractionDigits:1})}%</span>}
           {n(r.change.sold_delta)!=null&&<span className={styles.deltaNeutral}>{n(r.change.sold_delta)>=0?'+':''}{n(r.change.sold_delta).toLocaleString('pt-BR')} vendas{n(r.change.sold_per_day)!=null?' · '+n(r.change.sold_per_day).toLocaleString('pt-BR',{maximumFractionDigits:1})+'/dia':''}</span>}
           {n(r.change.rating_change)!=null&&Math.abs(n(r.change.rating_change))>=0.01&&<span className={styles.deltaNeutral}>Nota {n(r.change.rating_change)>0?'+':''}{n(r.change.rating_change).toLocaleString('pt-BR',{maximumFractionDigits:2})}</span>}
+          {n(r.change.sold_velocity_change_pct)!=null&&Math.abs(n(r.change.sold_velocity_change_pct))>=25&&<span className={n(r.change.sold_velocity_change_pct)>0?styles.deltaUp:styles.deltaDown}>Ritmo {n(r.change.sold_velocity_change_pct)>0?'↑':'↓'} {Math.abs(n(r.change.sold_velocity_change_pct)).toLocaleString('pt-BR',{maximumFractionDigits:0})}%</span>}
         </div>}
         <span>Última coleta: {when(r.collected)}{r.history.length?' · '+r.history.length+' coleta'+(r.history.length===1?'':'s')+' no histórico':''}{r.confidence==='fallback'?' · baseline aproximado':''}</span>
         {r.watch?<div className={styles.monitorControls}>
