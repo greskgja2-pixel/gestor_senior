@@ -19,8 +19,10 @@ function unwrap(raw) {
   const beforeScaled = Number(ib?.price_before_discount ?? ib?.original_price ?? 0); const before = beforeScaled > 10000 ? beforeScaled / 100000 : beforeScaled;
   const image = ib?.image || ib?.image_id || null; const rating = Number(ib?.item_rating?.rating_star ?? ib?.rating_star ?? 0) || null;
   const counts = ib?.item_rating?.rating_count; const reviews = Array.isArray(counts) ? Number(counts[0] || 0) : Number(ib?.rating_count || 0);
-  const cumulativeSold = Number(ib?.historical_sold ?? ib?.sold ?? 0);
-  const monthlySold = Number(ib?.monthly_sold ?? ib?.sold_30d ?? 0);
+  const cumulativeRaw = ib?.historical_sold ?? ib?.sold;
+  const monthlyRaw = ib?.monthly_sold ?? ib?.sold_30d;
+  const cumulativeSold = cumulativeRaw===null||cumulativeRaw===undefined||cumulativeRaw===''?null:Number(cumulativeRaw);
+  const monthlySold = monthlyRaw===null||monthlyRaw===undefined||monthlyRaw===''?null:Number(monthlyRaw);
   const preferredKeys=['is_preferred_plus_seller','is_preferred_shop','is_preferred_seller'];
   const preferredPresent=preferredKeys.some(k=>Object.prototype.hasOwnProperty.call(ib,k));
   const preferred=preferredPresent?preferredKeys.some(k=>ib?.[k]===true||ib?.[k]===1||ib?.[k]==='1'):null;
@@ -29,8 +31,8 @@ function unwrap(raw) {
     price:price||null,originalPrice:before||null,categoryId:Number(ib?.catid??ib?.category_id??0)||null,
     image:image?(String(image).startsWith("http")?String(image):`https://down-br.img.susercontent.com/file/${image}`):null,
     rating,reviews:Number.isFinite(reviews)?reviews:null,
-    sold:Number.isFinite(cumulativeSold)&&cumulativeSold>0?cumulativeSold:null,
-    monthlySold:Number.isFinite(monthlySold)&&monthlySold>=0?monthlySold:null,
+    sold:Number.isFinite(cumulativeSold)?cumulativeSold:null,
+    monthlySold:Number.isFinite(monthlySold)?monthlySold:null,
     official:Boolean(ib?.is_official_shop),preferred,
     location:ib?.shop_location||ib?.location||ib?.shop_location_name||null,
     url:`https://shopee.com.br/product/${shopid}/${itemid}`
