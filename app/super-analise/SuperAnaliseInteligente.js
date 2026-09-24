@@ -25,6 +25,10 @@ function flashSlotLabel(slot){
   if(Math.abs(duration-86400000)<60000)return `${d(start)} — 24h (${hm(start)} → ${d(end)} ${hm(end)})`;
   return `${d(start)} ${hm(start)} → ${d(end)} ${hm(end)}`;
 }
+function localYmd(date=new Date()){const y=date.getFullYear(),m=String(date.getMonth()+1).padStart(2,'0'),d=String(date.getDate()).padStart(2,'0');return `${y}-${m}-${d}`}
+function addLocalDays(value,days){const d=new Date(String(value)+'T12:00:00');d.setDate(d.getDate()+Number(days||0));return localYmd(d)}
+function endOfLocalMonth(value){const d=new Date(String(value)+'T12:00:00');d.setMonth(d.getMonth()+1,0);return localYmd(d)}
+function dateRangeLabel(period){if(!period?.start||!period?.end)return'Período não definido';const a=new Date(period.start+'T12:00:00'),b=new Date(period.end+'T12:00:00');return `${a.toLocaleDateString('pt-BR')} → ${b.toLocaleDateString('pt-BR')}`}
 
 const TABS=[
   ['title','Título','T'],['description','Descrição','▤'],['images','Imagens','▧'],['video','Vídeo','▶'],
@@ -158,7 +162,28 @@ function FlashVariationModal({open,models,draft,setDraft,basePromo,onApplyAll,on
   </div>
 }
 
-export default function SuperAnaliseInteligente({report,products=[],initialTab='title'}){
+function FlashConfirmModal({open,period,slotCount,models,variationDraft,flash,notify,setNotify,onClose,onConfirm,busy}) {
+  if(!open)return null;
+  return <div className={styles.flashVariationModal} role="dialog" aria-modal="true" aria-label="Confirmar Ofertas Relâmpago" onClick={onClose}>
+    <section className={styles.flashVariationDialog} onClick={e=>e.stopPropagation()}>
+      <header><div><b>⚡ Confirmar criação das Ofertas Relâmpago</b><span>Confira o período e as notificações antes de enviar para a Shopee.</span></div><button type="button" onClick={onClose} aria-label="Fechar">×</button></header>
+      <div className={styles.flashConfirmSummary}>
+        <div><small>Período</small><b>{dateRangeLabel(period)}</b></div>
+        <div><small>Horários oficiais encontrados</small><b>{slotCount}</b></div>
+        <div><small>Produto</small><b>{models.length?models.length+' variações':'Preço único'}</b></div>
+      </div>
+      {models.length?<div className={styles.flashConfirmModels}>{models.map((model,index)=>{const id=String(model.model_id??index),row=variationDraft[id]||{};return <div key={id}><span>{model.name||('Variação '+(index+1))}</span><b>{money(row.promoPrice)}</b><small>Estoque {n(row.stock)?.toLocaleString('pt-BR')||'—'}</small></div>})}</div>:<div className={styles.flashConfirmSingle}><span>Preço promocional</span><b>{money(flash.promoPrice)}</b><small>Estoque {n(flash.stock)?.toLocaleString('pt-BR')||'—'}</small></div>}
+      <div className={styles.flashNotifyChoices}>
+        <b>Quando esse período terminar:</b>
+        <label><input type="checkbox" checked={notify.app} onChange={e=>setNotify(x=>({...x,app:e.target.checked}))}/> Mostrar aviso no Gestor</label>
+        <label><input type="checkbox" checked={notify.email} onChange={e=>setNotify(x=>({...x,email:e.target.checked}))}/> Enviar também por e-mail</label>
+      </div>
+      <footer><button type="button" className={styles.secondaryAction} onClick={onClose} disabled={busy}>Voltar</button><button type="button" className={styles.primary} onClick={onConfirm} disabled={busy||(!notify.app&&!notify.email)}>{busy?'Criando…':`Criar ${slotCount} oferta${slotCount===1?'':'s'}`}</button></footer>
+    </section>
+  </div>
+}
+
+export default function SuperAnaliseInteligente({report,products=[],initialTab='title',embedded=false}){
   const allowedTabs=useMemo(()=>new Set(TABS.map(([key])=>key)),[]);
   const [tab,setTab]=useState(allowedTabs.has(initialTab)?initialTab:'title');
   const [analysis,setAnalysis]=useState(report?.report?.ai_analysis||null);
@@ -176,6 +201,9 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
   const [flashModels,setFlashModels]=useState([]);
   const [flashVariationOpen,setFlashVariationOpen]=useState(false);
   const [flashVariationDraft,setFlashVariationDraft]=useState({});
+  const [flashPeriod,setFlashPeriod]=useState(()=>{const start=localYmd(new Date());return{start,end:addLocalDays(start,7)}});
+  const [flashConfirmOpen,setFlashConfirmOpen]=useState(false);
+  const [flashNotify,setFlashNotify]=useState({app:true,email:false});
   const [flashBusy,setFlashBusy]=useState(false);
   const [flashMessage,setFlashMessage]=useState('');
   const [flashDays,setFlashDays]=useState(30);
