@@ -50,7 +50,10 @@ function explicitBool(...values){
 }
 function competitorOriginalPrice(comp,snap){
   const raw=snap?.raw&&typeof snap.raw==='object'?snap.raw:{};
-  return n(raw?.originalPrice??raw?.original_price??raw?.price_before_discount??comp?.originalPrice??comp?.original_price??comp?.price_before_discount);
+  const direct=n(raw?.originalPrice??raw?.original_price??raw?.price_before_discount??comp?.originalPrice??comp?.original_price??comp?.price_before_discount);
+  if(direct!=null)return direct;
+  const prices=[...String(comp?.searchText||'').matchAll(/R\$\s*\n?\s*([0-9.]+,[0-9]{2})/gi)].map(m=>Number(m[1].replace(/\./g,'').replace(',','.'))).filter(Number.isFinite);
+  return prices.length>1?prices[1]:null;
 }
 function competitorMonthlySold(comp,snap){
   const raw=snap?.raw&&typeof snap.raw==='object'?snap.raw:{};
@@ -321,12 +324,15 @@ function Competitors({items}){
     const watch=watchMap.get(`${item.itemId}:${compItem}`)||null;
     const snap=watch?.latest_snapshot||null;
     const ownerSnapshot=item.latest?.product_snapshot||{};
+    const unverifiedPdpPrice=snap?.source==='pdp_get_pc_intercepted'&&n(snap?.raw?.priceVerification?.publicPrice)==null;
     return{
       key:`${item.itemId}:${compItem||i}`,ownerItemId:item.itemId,
       owner:ownerSnapshot.title||ownerSnapshot.item_name||`Produto ${item.itemId}`,
       ownerCategory:ownerSnapshot.category||ownerSnapshot.category_name||'',
       competitorItemId:compItem,title:snap?.title||comp.title||`Concorrente ${i+1}`,
-      price:n(snap?.price)??competitorPrice(comp),originalPrice:competitorOriginalPrice(comp,snap),
+      price:unverifiedPdpPrice?competitorPrice(comp):(n(snap?.price)??competitorPrice(comp)),
+      originalPrice:unverifiedPdpPrice?competitorOriginalPrice(comp,null):competitorOriginalPrice(comp,snap),
+      priceFallback:unverifiedPdpPrice,
       sold:n(snap?.sold)??competitorSold(comp),sold30d:competitorMonthlySold(comp,snap),
       preferred:competitorPreferred(comp,snap),location:competitorLocation(comp,snap),
       rating:n(snap?.rating)??n(comp.rating),raw:comp,
@@ -621,7 +627,7 @@ function Competitors({items}){
             <section className={styles.radarExactPrice}>
               <small>Preço normal / oferta</small>
               <div><b>{money(normalPrice)}</b>{offerPrice!=null&&<b className={styles.radarExactOffer}>{money(offerPrice)}</b>}{pricePct!=null&&Math.abs(pricePct)>=.1&&<mark data-tone={pricePct<0?'down':'up'}>{pricePct<0?'↓':'↑'} {pricePct>0?'+':''}{pricePct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</mark>}</div>
-              {previousPrice!=null&&<span>Preço na coleta anterior: {money(previousPrice)}</span>}
+              {r.priceFallback?<span>Preço anterior confiável · aguardando rechecagem atual</span>:previousPrice!=null&&<span>Preço na coleta anterior: {money(previousPrice)}</span>}
               <div className={styles.radarExactMeta}><span><small>Indicado</small><b data-bool={r.preferred===true?'yes':r.preferred===false?'no':'unknown'}>{yesNo(r.preferred)}</b></span><span><small>Localização</small><b>{r.location||'Não coletado'}</b></span></div>
               <strong data-tone={priority.tone}>{priority.tone==='urgent'||priority.tone==='attention'?'⚠ ':priority.tone==='opportunity'?'● ':''}{priority.label}</strong>
               <p>Última coleta: {when(r.collected)}</p><p>Rechecagem: {due.label}</p>
