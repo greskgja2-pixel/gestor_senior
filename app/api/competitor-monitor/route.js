@@ -104,10 +104,17 @@ export async function PATCH(request){
   const shop=await getActiveShop();
   if(!shop)return NextResponse.json({error:'Nenhuma loja Shopee conectada.'},{status:400});
   let body={};try{body=await request.json()}catch{return NextResponse.json({error:'JSON inválido.'},{status:400})}
-  const id=text(body?.id,100),freq=finite(body?.frequency_days);
-  if(!id||!freq||freq<1||freq>30)return NextResponse.json({error:'Agendamento inválido.'},{status:400});
-  const patch={frequency_days:Math.round(freq),updated_at:new Date().toISOString()};
-  if(body?.reset_next===true)patch.next_check_at=addDays(new Date().toISOString(),Math.round(freq));
+  const id=text(body?.id,100),freq=finite(body?.frequency_days),action=text(body?.action,40);
+  if(!id)return NextResponse.json({error:'Monitoramento inválido.'},{status:400});
+  const patch={updated_at:new Date().toISOString()};
+  if(action==='due_now')patch.next_check_at=new Date().toISOString();
+  if(freq!=null){
+    if(freq<1||freq>30)return NextResponse.json({error:'A frequência deve ficar entre 1 e 30 dias.'},{status:400});
+    patch.frequency_days=Math.round(freq);
+    if(body?.reset_next===true)patch.next_check_at=addDays(new Date().toISOString(),Math.round(freq));
+  }
+  if(typeof body?.enabled==='boolean')patch.enabled=body.enabled;
+  if(Object.keys(patch).length===1)return NextResponse.json({error:'Nenhuma alteração informada.'},{status:400});
   const {data,error}=await supabaseAdmin().from('gs_competitor_watches').update(patch).eq('shop_id',shop.shop_id).eq('id',id).select('*').maybeSingle();
   if(error)return NextResponse.json({error:error.message},{status:500});
   return NextResponse.json({ok:true,watch:data});
