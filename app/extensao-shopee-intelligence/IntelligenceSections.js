@@ -68,7 +68,7 @@ function Competitors({items}){
       competitorItemId:compItem,title:snap?.title||comp.title||`Concorrente ${i+1}`,
       price:n(snap?.price)??competitorPrice(comp),sold:n(snap?.sold)??competitorSold(comp),rating:n(snap?.rating)??n(comp.rating),raw:comp,
       image:snap?.image_url||competitorImage(comp),link:comp.link||comp.url||watch?.competitor_url||null,
-      collected:snap?.collected_at||item.latest?.analyzed_at,watch
+      collected:snap?.collected_at||item.latest?.analyzed_at,watch,change:watch?.latest_change||null,history:arr(watch?.snapshot_history),confidence:snap?.confidence||null
     };
   })),[items,watchMap]);
 
@@ -92,7 +92,12 @@ function Competitors({items}){
       <div>
         <small>Vinculado a: {r.owner}</small><b>{r.title}</b>
         <p>{dataText(r.price,money,r.raw)} · {dataText(r.sold,v=>Number(v).toLocaleString('pt-BR'),r.raw)} vendidos · {dataText(r.rating,v=>Number(v).toFixed(1)+'★',r.raw)}</p>
-        <span>Última coleta: {when(r.collected)}</span>
+        {r.change&&<div className={styles.deltaLine}>
+          {n(r.change.price_change_pct)!=null&&Math.abs(n(r.change.price_change_pct))>=0.1&&<span className={n(r.change.price_change_pct)<0?styles.deltaDown:styles.deltaUp}>Preço {n(r.change.price_change_pct)<0?'↓':'↑'} {Math.abs(n(r.change.price_change_pct)).toLocaleString('pt-BR',{maximumFractionDigits:1})}%</span>}
+          {n(r.change.sold_delta)!=null&&<span className={styles.deltaNeutral}>{n(r.change.sold_delta)>=0?'+':''}{n(r.change.sold_delta).toLocaleString('pt-BR')} vendas{n(r.change.sold_per_day)!=null?' · '+n(r.change.sold_per_day).toLocaleString('pt-BR',{maximumFractionDigits:1})+'/dia':''}</span>}
+          {n(r.change.rating_change)!=null&&Math.abs(n(r.change.rating_change))>=0.01&&<span className={styles.deltaNeutral}>Nota {n(r.change.rating_change)>0?'+':''}{n(r.change.rating_change).toLocaleString('pt-BR',{maximumFractionDigits:2})}</span>}
+        </div>}
+        <span>Última coleta: {when(r.collected)}{r.history.length?' · '+r.history.length+' coleta'+(r.history.length===1?'':'s')+' no histórico':''}{r.confidence==='fallback'?' · baseline aproximado':''}</span>
         {r.watch?<div className={styles.monitorControls}>
           <label>Rechecar a cada <select value={r.watch.frequency_days||7} onChange={e=>updateWatch(r.watch,{frequency_days:Number(e.target.value),reset_next:true})}><option value="2">2 dias</option><option value="3">3 dias</option><option value="7">7 dias</option><option value="14">14 dias</option><option value="30">30 dias</option></select></label>
           <small>Próxima: {when(r.watch.next_check_at)}</small>
@@ -167,7 +172,12 @@ function Prioridades({items}){
     try{await fetchJsonWithTimeout('/api/tasks',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,action,hours})},12000);await loadTasks()}catch{}
   }
   const rows=items.map(item=>{const r=item.latest||{},ai=r.report?.ai_analysis||{},priorities=arr(ai.priorities);return{itemId:item.itemId,title:r.product_snapshot?.title||r.product_snapshot?.item_name||`Produto ${item.itemId}`,score:n(r.score),priority:priorities[0],analyzed:r.analyzed_at}}).sort((a,b)=>(a.score??999)-(b.score??999));
+  const urgent=tasks.filter(t=>t.priority==='urgent').length;
+  const competitorTasks=tasks.filter(t=>t.task_type==='competitors').length;
+  const adsTasks=tasks.filter(t=>t.task_type==='ads').length;
+  const dueToday=tasks.filter(t=>{if(!t.due_at)return false;const d=new Date(t.due_at);if(Number.isNaN(d.getTime()))return false;const end=new Date();end.setHours(23,59,59,999);return d.getTime()<=end.getTime()}).length;
   return <div className={styles.priorityStack}>
+    <div className={styles.kpis}><Kpi label="Urgentes" value={urgent}/><Kpi label="Concorrentes" value={competitorTasks}/><Kpi label="Shopee Ads" value={adsTasks}/><Kpi label="Até hoje" value={dueToday}/></div>
     <section className={styles.panel}>
       <div className={styles.panelHead}><div><h2>Tarefas e lembretes</h2><p>O que você pediu para lembrar e o que o Gestor marcou como vencido.</p></div><span>{tasks.length} aberta{tasks.length===1?'':'s'}</span></div>
       {taskPhase==='loading'?<Empty text="Carregando tarefas…"/>:taskPhase==='error'?<Empty text="Não foi possível carregar as tarefas agora." action="Tentar novamente" onAction={loadTasks}/>:tasks.length?<div className={styles.taskList}>{tasks.map(t=><article key={t.id} data-priority={t.priority}><div><b>{t.title}</b><small>{t.due_at?'Prazo: '+when(t.due_at):'Sem prazo definido'} · {t.task_type||'tarefa'}</small><p>{t.description||'Tarefa pendente.'}</p></div><div className={styles.taskActions}>{t.action_url&&<Link href={t.action_url}>Resolver agora</Link>}<button onClick={()=>taskAction(t.id,'snooze',24)}>Amanhã</button><button onClick={()=>taskAction(t.id,'done')}>Concluir</button></div></article>)}</div>:<Empty text="Nenhuma tarefa aberta agora."/>}
