@@ -299,6 +299,12 @@ export async function POST(request){
       snapshot.raw.location||
       snapshot.raw.shop_location||
       snapshot.raw.seller_location||
+      snapshot.raw.shopName||
+      snapshot.raw.shop_name||
+      snapshot.raw.shopUsername||
+      snapshot.raw.shop_username||
+      snapshot.raw.shopUrl||
+      snapshot.raw.shop_url||
       snapshot.raw.preferred===true||
       snapshot.raw.preferred===false||
       finite(snapshot.raw.monthlySold??snapshot.raw.monthly_sold??snapshot.raw.sold_30d)!=null
