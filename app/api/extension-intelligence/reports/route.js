@@ -76,10 +76,25 @@ export async function DELETE(request) {
   const shop = await getActiveShop(); if (!shop) return NextResponse.json({ error: "Nenhuma loja autorizada." }, { status: 400 });
   const db = supabaseAdmin();
   try {
+    const { data: watches, error: watchReadError } = await db.from("gs_competitor_watches")
+      .select("id").eq("shop_id", shop.shop_id).eq("owner_item_id", itemId);
+    if (watchReadError) throw new Error(watchReadError.message);
+
+    const { error: taskError } = await db.from("gs_tasks").delete().eq("shop_id", shop.shop_id).eq("item_id", itemId);
+    if (taskError) throw new Error(taskError.message);
+
+    const watchIds = (watches || []).map(w => w.id).filter(Boolean);
+    if (watchIds.length) {
+      const { error: watchDisableError } = await db.from("gs_competitor_watches")
+        .update({ enabled: false, last_status: "removed_with_analysis", updated_at: new Date().toISOString() })
+        .eq("shop_id", shop.shop_id).eq("owner_item_id", itemId);
+      if (watchDisableError) throw new Error(watchDisableError.message);
+    }
+
     const { error: scheduleError } = await db.from("extension_analysis_schedules").delete().eq("shop_id", shop.shop_id).eq("item_id", itemId);
     if (scheduleError) throw new Error(scheduleError.message);
     const { error: reportError } = await db.from("extension_analysis_reports").delete().eq("shop_id", shop.shop_id).eq("item_id", itemId);
     if (reportError) throw new Error(reportError.message);
-    return NextResponse.json({ ok: true, item_id: itemId });
+    return NextResponse.json({ ok: true, item_id: itemId, tasks_deleted: true, competitors_disabled: watchIds.length });
   } catch (error) { return NextResponse.json({ error: String(error.message || error) }, { status: 500 }); }
 }
