@@ -94,9 +94,15 @@
 .radarExactCard[data-signal="stable"]{border-color:#d7e2ed}
 
 .radarExactIdentity{display:grid;grid-template-columns:120px minmax(0,1fr);gap:13px;align-items:start;min-width:0}
-.radarExactThumb{width:120px;height:120px;overflow:hidden;border-radius:8px;background:#edf2f7;position:relative}
+.radarExactThumb{width:120px;height:120px;border-radius:8px;background:#edf2f7;position:relative}
 .radarExactThumb img,.radarExactThumb .noImage{width:120px;height:120px;object-fit:cover;border-radius:8px;background:#edf2f7}
-.radarExactMediaCount{position:absolute;right:5px;bottom:5px;display:grid;place-items:center;min-width:25px;height:25px;padding:0 6px;border-radius:7px;background:rgba(12,29,48,.88);color:#fff;font-size:9px;font-weight:900;box-shadow:0 2px 7px rgba(0,0,0,.15)}
+.radarExactZoomButton{position:absolute;right:6px;bottom:6px;width:28px;height:28px;display:grid;place-items:center;border:1px solid rgba(255,255,255,.78);border-radius:8px;background:rgba(15,34,58,.82);color:#fff;font-size:17px;font-weight:900;line-height:1;cursor:pointer;box-shadow:0 2px 7px rgba(0,0,0,.18);backdrop-filter:blur(3px)}
+.radarExactZoomButton:hover{background:rgba(6,98,212,.95)}
+.radarExactLightbox{position:fixed;inset:0;z-index:99999;display:grid;grid-template-rows:1fr auto;place-items:center;padding:44px 24px 24px;background:rgba(5,15,29,.88);backdrop-filter:blur(7px)}
+.radarExactLightbox img{max-width:min(92vw,1200px);max-height:82vh;width:auto;height:auto;object-fit:contain;border-radius:12px;background:#fff;box-shadow:0 18px 60px rgba(0,0,0,.42)}
+.radarExactLightbox small{max-width:min(88vw,900px);margin-top:13px;color:#fff;font-size:12px;font-weight:800;text-align:center;line-height:1.35}
+.radarExactLightboxClose{position:fixed;top:18px;right:22px;width:42px;height:42px;display:grid;place-items:center;border:1px solid rgba(255,255,255,.4);border-radius:50%;background:rgba(255,255,255,.12);color:#fff;font-size:30px;line-height:1;cursor:pointer}
+.radarExactLightboxClose:hover{background:rgba(255,255,255,.22)}
 .radarExactIdentity>div:last-child{min-width:0;padding-top:3px}
 .radarExactTitle{display:block;margin:0;color:#0662d4!important;font-size:13px!important;line-height:1.25!important;font-weight:900!important;text-decoration:none!important}
 a.radarExactTitle:hover{text-decoration:underline!important}
