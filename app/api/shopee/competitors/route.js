@@ -16,10 +16,25 @@ function unwrap(raw) {
   const ib = raw?.item_basic || raw?.item || raw; const itemid = ib?.itemid ?? ib?.item_id; const shopid = ib?.shopid ?? ib?.shop_id;
   if (!itemid || !shopid) return null;
   const scaled = Number(ib?.price ?? ib?.price_min ?? 0); const price = scaled > 10000 ? scaled / 100000 : scaled;
-  const beforeScaled = Number(ib?.price_before_discount ?? 0); const before = beforeScaled > 10000 ? beforeScaled / 100000 : beforeScaled;
+  const beforeScaled = Number(ib?.price_before_discount ?? ib?.original_price ?? 0); const before = beforeScaled > 10000 ? beforeScaled / 100000 : beforeScaled;
   const image = ib?.image || ib?.image_id || null; const rating = Number(ib?.item_rating?.rating_star ?? ib?.rating_star ?? 0) || null;
   const counts = ib?.item_rating?.rating_count; const reviews = Array.isArray(counts) ? Number(counts[0] || 0) : Number(ib?.rating_count || 0);
-  return {itemId:String(itemid),shopId:String(shopid),title:ib?.name||ib?.item_name||"",price:price||null,originalPrice:before||null,categoryId:Number(ib?.catid??ib?.category_id??0)||null,image:image?(String(image).startsWith("http")?String(image):`https://down-br.img.susercontent.com/file/${image}`):null,rating,reviews:Number.isFinite(reviews)?reviews:null,sold:Number(ib?.historical_sold??ib?.sold??ib?.monthly_sold??0)||null,official:Boolean(ib?.is_official_shop),preferred:Boolean(ib?.is_preferred_plus_seller||ib?.is_preferred_shop),location:ib?.shop_location||ib?.location||null,url:`https://shopee.com.br/product/${shopid}/${itemid}`};
+  const cumulativeSold = Number(ib?.historical_sold ?? ib?.sold ?? 0);
+  const monthlySold = Number(ib?.monthly_sold ?? ib?.sold_30d ?? 0);
+  const preferredKeys=['is_preferred_plus_seller','is_preferred_shop','is_preferred_seller'];
+  const preferredPresent=preferredKeys.some(k=>Object.prototype.hasOwnProperty.call(ib,k));
+  const preferred=preferredPresent?preferredKeys.some(k=>ib?.[k]===true||ib?.[k]===1||ib?.[k]==='1'):null;
+  return {
+    itemId:String(itemid),shopId:String(shopid),title:ib?.name||ib?.item_name||"",
+    price:price||null,originalPrice:before||null,categoryId:Number(ib?.catid??ib?.category_id??0)||null,
+    image:image?(String(image).startsWith("http")?String(image):`https://down-br.img.susercontent.com/file/${image}`):null,
+    rating,reviews:Number.isFinite(reviews)?reviews:null,
+    sold:Number.isFinite(cumulativeSold)&&cumulativeSold>0?cumulativeSold:null,
+    monthlySold:Number.isFinite(monthlySold)&&monthlySold>=0?monthlySold:null,
+    official:Boolean(ib?.is_official_shop),preferred,
+    location:ib?.shop_location||ib?.location||ib?.shop_location_name||null,
+    url:`https://shopee.com.br/product/${shopid}/${itemid}`
+  };
 }
 function similarity(own,c){
   const a=tokens(own.item_name),b=tokens(c.title),A=new Set(a),B=new Set(b);const inter=[...A].filter(x=>B.has(x)).length;const union=new Set([...a,...b]).size||1;
