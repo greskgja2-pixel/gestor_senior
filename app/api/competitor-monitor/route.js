@@ -79,7 +79,13 @@ async function syncWatches(db,shopId){
             const {error:baselineError}=await db.from('gs_competitor_snapshots').insert({
               watch_id:saved.id,shop_id:shopId,owner_item_id:r.item_id,competitor_shop_id:ids.shopId,competitor_item_id:ids.itemId,
               collected_at:baselineAt,price:baselinePrice,sold:baselineSold,rating:baselineRating,title:text(c?.title,500),
-              source:'analysis-report-search',confidence:'fallback',raw:{searchText:text(c?.searchText,3000)}
+              source:'analysis-report-search',confidence:'fallback',raw:{
+                searchText:text(c?.searchText,3000),
+                originalPrice:finite(c?.originalPrice??c?.original_price??c?.price_before_discount),
+                monthlySold:finite(c?.monthlySold??c?.monthly_sold??c?.sold_30d),
+                preferred:typeof c?.preferred==='boolean'?c.preferred:null,
+                location:text(c?.location??c?.shop_location??c?.seller_location,200)
+              }
             });
             if(baselineError)console.warn('[competitor-monitor] baseline error',baselineError.message);
             else await db.from('gs_competitor_watches').update({last_check_at:baselineAt,last_status:'baseline',updated_at:new Date().toISOString()}).eq('id',saved.id);
