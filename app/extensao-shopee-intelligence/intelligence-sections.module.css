@@ -86,9 +86,12 @@
 .radarExactDistribution i[data-tone="stable"]{background:#b9c5d2}
 .radarExactList{display:grid;gap:10px}
 
-.radarExactCard{display:grid;grid-template-columns:minmax(250px,2.12fr) minmax(130px,1fr) minmax(130px,1fr) minmax(200px,1.53fr) minmax(175px,1.28fr);grid-template-rows:minmax(148px,auto) auto;gap:12px;padding:12px;background:#fff;border:1px solid #d7e2ed;border-radius:9px;box-shadow:0 1px 3px rgba(27,58,91,.03)}
-.radarExactCard[data-tone="urgent"],.radarExactCard[data-tone="attention"]{border-color:#e8d2d4}
-.radarExactCard[data-tone="opportunity"]{border-color:#d2e8db}
+.radarExactCard{display:grid;grid-template-columns:minmax(250px,2.12fr) minmax(155px,1.12fr) minmax(145px,1fr) minmax(205px,1.53fr) minmax(175px,1.28fr);grid-template-rows:minmax(148px,auto) auto;gap:12px;padding:12px;background:#fff;border:2px solid #d7e2ed;border-radius:9px;box-shadow:0 1px 3px rgba(27,58,91,.03);transition:border-color .2s ease,box-shadow .2s ease}
+.radarExactCard[data-signal="down"]{border-color:#20b06b;box-shadow:inset 4px 0 0 #20b06b,0 1px 3px rgba(27,58,91,.03)}
+.radarExactCard[data-signal="up"]{border-color:#ef4d59;box-shadow:inset 4px 0 0 #ef4d59,0 1px 3px rgba(27,58,91,.03)}
+.radarExactCard[data-signal="accelerating"]{border-color:#2875e5;box-shadow:inset 4px 0 0 #2875e5,0 1px 3px rgba(27,58,91,.03)}
+.radarExactCard[data-signal="due"]{border-color:#ef9b16;box-shadow:inset 4px 0 0 #ef9b16,0 1px 3px rgba(27,58,91,.03)}
+.radarExactCard[data-signal="stable"]{border-color:#d7e2ed}
 
 .radarExactIdentity{display:grid;grid-template-columns:120px minmax(0,1fr);gap:13px;align-items:start;min-width:0}
 .radarExactThumb{width:120px;height:120px;overflow:hidden;border-radius:8px;background:#edf2f7;position:relative}
@@ -105,6 +108,14 @@ a.radarExactTitle:hover{text-decoration:underline!important}
 .radarExactPrice>small,.radarExactSales>small{display:block;color:#77899d;font-size:8px}
 .radarExactPrice>div:first-of-type{display:flex;align-items:center;gap:8px;margin-top:3px}
 .radarExactPrice>div>b,.radarExactSalesTop>b{font-size:18px;line-height:1;color:#143965}
+.radarExactPrice .radarExactOffer{font-size:14px;color:#17a662}
+.radarExactMeta{display:grid!important;grid-template-columns:1fr!important;gap:4px!important;margin-top:9px!important}
+.radarExactMeta>span{display:grid!important;grid-template-columns:auto 1fr!important;align-items:center!important;gap:6px!important;margin:0!important}
+.radarExactMeta small{font-size:7px!important;color:#7c8da0!important}
+.radarExactMeta b{font-size:8px!important;color:#264b72!important;line-height:1.2!important}
+.radarExactMeta b[data-bool="yes"]{color:#168e58!important}
+.radarExactMeta b[data-bool="no"]{color:#6b7f94!important}
+.radarExactMeta b[data-bool="unknown"]{color:#9a6d20!important}
 .radarExactPrice>span{display:block;margin-top:4px;color:#8190a1;font-size:7px}
 .radarExactPrice mark,.radarExactSales mark{display:inline-flex;align-items:center;margin:0;padding:4px 8px;border-radius:999px;font-size:8px;font-weight:900;background:transparent}
 .radarExactPrice mark[data-tone="down"],.radarExactSales mark[data-tone="down"]{background:#e9f8f0;color:#14945b}
@@ -116,6 +127,9 @@ a.radarExactTitle:hover{text-decoration:underline!important}
 .radarExactPrice p{margin:4px 0 0;color:#6f8297;font-size:7px}
 
 .radarExactSalesTop{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;margin-top:4px}
+.radarExactSales30{display:grid;gap:2px;margin-top:10px}
+.radarExactSales30 small{font-size:7px;color:#7b8da0}
+.radarExactSales30 b{font-size:11px;color:#234a74}
 .radarExactSales mark{margin-top:12px}
 .radarExactSales>span{display:block;margin-top:5px;color:#60809f;font-size:7px}
 .radarExactSales>button{position:absolute;right:0;bottom:2px;width:112px;height:31px;border:1px solid #cbd9e8;border-radius:7px;background:#fff;color:#254d77;font-size:8px;font-weight:800;cursor:pointer}
@@ -177,7 +191,7 @@ a.radarExactTitle:hover{text-decoration:underline!important}
 @media(max-width:1450px){
   .radarExactToolbar{grid-template-columns:minmax(250px,4.5fr) minmax(90px,1fr) minmax(125px,1.4fr) minmax(105px,1.1fr) minmax(175px,1.9fr) 30px 30px 30px;gap:7px}
   .radarExactColumns{grid-template-columns:minmax(0,1fr) 235px}
-  .radarExactCard{grid-template-columns:minmax(220px,2.12fr) minmax(115px,1fr) minmax(115px,1fr) minmax(180px,1.53fr) minmax(160px,1.28fr);gap:9px;padding:10px}
+  .radarExactCard{grid-template-columns:minmax(220px,2.12fr) minmax(145px,1.08fr) minmax(130px,1fr) minmax(180px,1.53fr) minmax(160px,1.28fr);gap:9px;padding:10px}
   .radarExactIdentity{grid-template-columns:92px minmax(0,1fr);gap:10px}.radarExactThumb,.radarExactThumb img,.radarExactThumb .noImage{width:92px;height:92px}
   .radarExactTitle{font-size:11px!important}
   .radarExactActions{grid-template-rows:repeat(3,34px)}.radarExactActions a,.radarExactActions button{font-size:8px}
