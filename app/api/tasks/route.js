@@ -60,7 +60,9 @@ export async function GET(request){
   const url=new URL(request.url);
   const briefing=url.searchParams.get('briefing')==='1';
   const status=safeText(url.searchParams.get('status'),20)||'open';
+  const itemId=positiveInt(url.searchParams.get('item_id'));
   let q=db.from('gs_tasks').select('*').eq('shop_id',shop.shop_id).eq('status',status).order('created_at',{ascending:false}).limit(300);
+  if(itemId)q=q.eq('item_id',itemId);
   const {data,error}=await q;
   if(error)return NextResponse.json({error:error.message},{status:500});
   let tasks=data||[];
