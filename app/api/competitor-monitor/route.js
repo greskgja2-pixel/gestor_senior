@@ -295,7 +295,15 @@ export async function POST(request){
       source:text(body?.source,80)||'motor-senior',confidence:text(body?.confidence,40)||'structured',
       raw:body?.raw&&typeof body.raw==='object'?body.raw:{}
     };
-    if(snapshot.price==null&&snapshot.sold==null&&!snapshot.image_url)return NextResponse.json({error:'A coleta não trouxe preço, vendas nem imagem confiável.'},{status:422});
+    const hasMetadata=snapshot.raw&&(
+      snapshot.raw.location||
+      snapshot.raw.shop_location||
+      snapshot.raw.seller_location||
+      snapshot.raw.preferred===true||
+      snapshot.raw.preferred===false||
+      finite(snapshot.raw.monthlySold??snapshot.raw.monthly_sold??snapshot.raw.sold_30d)!=null
+    );
+    if(snapshot.price==null&&snapshot.sold==null&&!snapshot.image_url&&!hasMetadata)return NextResponse.json({error:'A coleta não trouxe preço, vendas, imagem nem metadados confiáveis.'},{status:422});
     const {data:previousRows,error:prevError}=await db.from('gs_competitor_snapshots').select('*').eq('watch_id',watch.id).order('collected_at',{ascending:false}).limit(2);
     if(prevError)throw new Error(prevError.message);
     const previous=previousRows?.[0]||null,older=previousRows?.[1]||null;
