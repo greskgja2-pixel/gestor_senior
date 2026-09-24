@@ -162,3 +162,73 @@
   .flashVariationDialog>footer{flex-direction:column-reverse}
   .flashVariationDialog>footer .primary,.flashVariationDialog>footer .secondaryAction{width:100%}
 }
+
+
+/* GS_EMBEDDED_SUPER_ANALYSIS_2026_09_24 */
+.embeddedScreen{position:relative!important;inset:auto!important;z-index:auto!important;min-height:0!important;height:auto!important;background:transparent!important;overflow:visible!important}
+.embeddedMain{width:100%;min-height:0;padding:0;background:transparent}
+.embeddedScreen .tabWorkspace{margin-top:0}
+.embeddedScreen .tabContent{min-width:0}
+.embeddedScreen .actionPanel{margin-top:10px}
+
+/* GS_FLASH_PERIOD_PLANNER_2026_09_24 */
+.flashPeriodCard{margin:10px 0;padding:11px;border:1px solid #d6e3f0;border-radius:10px;background:#fbfdff}
+.flashPeriodHead{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.flashPeriodHead>div{display:grid;gap:3px}
+.flashPeriodHead b{font-size:10px;color:#173b6e}
+.flashPeriodHead span{font-size:8px;color:#75869a}
+.flashPeriodHead strong{padding:5px 9px;border-radius:999px;background:#eaf3ff;color:#1764c8;font-size:8px}
+.flashPeriodInputs{display:grid;grid-template-columns:minmax(170px,1fr) auto minmax(170px,1fr) auto;gap:8px;align-items:end;margin-top:10px}
+.flashPeriodInputs label{display:grid;gap:4px;color:#667b93;font-size:8px;font-weight:800}
+.flashPeriodInputs input{height:34px;border:1px solid #cedce9;border-radius:7px;background:#fff;color:#274567;padding:0 9px;font-size:9px}
+.flashPeriodInputs>span{padding-bottom:9px;color:#7b8da2;font-size:8px}
+.flashPeriodInputs>button{height:34px;border:1px solid #1769e8;border-radius:7px;background:#1769e8;color:#fff;padding:0 12px;font-size:8px;font-weight:900;cursor:pointer}
+.flashPeriodPresets{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.flashPeriodPresets button{border:1px solid #bcd3ed;border-radius:7px;background:#fff;color:#1764c8;padding:6px 9px;font-size:8px;font-weight:900;cursor:pointer}
+.flashPeriodPresets button:hover{background:#eef6ff}
+.flashPeriodResult{display:grid;gap:3px;margin-top:9px;padding:8px 9px;border:1px dashed #c9d8e8;border-radius:8px;background:#fff}
+.flashPeriodResult b{font-size:8.5px;color:#234c79}
+.flashPeriodResult span{font-size:7.5px;color:#74859a;line-height:1.45}
+
+.flashVariationInline{margin-top:10px;padding:10px;border:1px solid #dce7f2;border-radius:10px;background:#fff}
+.flashVariationInlineHead{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:8px}
+.flashVariationInlineHead>div:first-child{display:grid;gap:3px}
+.flashVariationInlineHead b{font-size:10px;color:#183c70}
+.flashVariationInlineHead span{font-size:8px;color:#71839a}
+.flashApplyAll{display:flex;gap:6px;align-items:center}
+.flashApplyAll input{width:120px;height:31px;border:1px solid #cedce9;border-radius:7px;padding:0 8px;font-size:8px}
+.flashApplyAll button{height:31px;border:1px solid #bcd3ed;border-radius:7px;background:#eef6ff;color:#1764c8;font-size:8px;font-weight:900;padding:0 9px;cursor:pointer}
+.flashVariationInlineTable{display:grid}
+.flashVariationInlineTable>div{display:grid;grid-template-columns:minmax(200px,2fr) 120px 150px 170px;gap:8px;align-items:center;padding:8px 6px;border-bottom:1px solid #edf1f5}
+.flashVariationInlineTable>div:first-child{border-radius:7px;background:#f4f7fb;color:#60758f;font-size:8px}
+.flashVariationInlineTable span{font-size:8px;color:#294b73}
+.flashVariationInlineTable span>b{display:block;font-size:8.5px;color:#183b68}
+.flashVariationInlineTable small{display:block;margin-top:2px;font-size:7px;color:#8191a3}
+.flashVariationInlineTable label{display:grid;gap:2px}
+.flashVariationInlineTable input{width:100%;height:32px;border:1px solid #cedce9;border-radius:7px;padding:0 8px;font-size:8.5px}
+.flashPurchaseLimit{display:grid;grid-template-columns:150px 140px;gap:8px;align-items:center;margin-top:9px;color:#60758f;font-size:8px;font-weight:800}
+.flashPurchaseLimit input{height:32px;border:1px solid #cedce9;border-radius:7px;padding:0 8px}
+
+.flashConfirmSummary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px 16px;background:#f7fbff;border-bottom:1px solid #e3ebf4}
+.flashConfirmSummary>div{display:grid;gap:3px;padding:9px;border:1px solid #dce7f2;border-radius:8px;background:#fff}
+.flashConfirmSummary small{font-size:7px;color:#7a8da3}
+.flashConfirmSummary b{font-size:9px;color:#1d416e}
+.flashConfirmModels{display:grid;gap:5px;padding:12px 16px}
+.flashConfirmModels>div{display:grid;grid-template-columns:1fr auto auto;gap:10px;padding:8px;border-bottom:1px solid #edf1f5;font-size:8px}
+.flashConfirmModels span{font-weight:800;color:#244a75}.flashConfirmModels b{color:#11945a}.flashConfirmModels small{color:#71839a}
+.flashConfirmSingle{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid #e5edf5}
+.flashConfirmSingle span{font-size:8px;color:#6e829a}.flashConfirmSingle b{font-size:14px;color:#15925a}.flashConfirmSingle small{font-size:8px;color:#6f8196}
+.flashNotifyChoices{display:grid;gap:7px;padding:12px 16px}
+.flashNotifyChoices>b{font-size:9px;color:#173c6e}
+.flashNotifyChoices label{display:flex;align-items:center;gap:7px;font-size:8px;color:#365a80}
+.flashNotifyChoices input{accent-color:#1769e8}
+
+@media(max-width:760px){
+  .flashPeriodInputs{grid-template-columns:1fr}
+  .flashPeriodInputs>span{display:none}
+  .flashVariationInlineHead{align-items:stretch;flex-direction:column}
+  .flashApplyAll{width:100%}.flashApplyAll input{flex:1}
+  .flashVariationInlineTable{overflow-x:auto}
+  .flashVariationInlineTable>div{min-width:650px}
+  .flashConfirmSummary{grid-template-columns:1fr}
+}
