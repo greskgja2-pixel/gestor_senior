@@ -104,6 +104,7 @@ function Competitors({items}){
           <small>Próxima: {when(r.watch.next_check_at)}</small>
           <button type="button" onClick={()=>updateWatch(r.watch,{action:'due_now'})}>↻ Atualizar na próxima passagem da extensão</button>
         </div>:<small>Monitoramento sendo preparado…</small>}
+        {r.history.length>1&&<details className={styles.historyDetails}><summary>Ver histórico ({r.history.length})</summary><div className={styles.historyRows}>{r.history.map((h,idx)=>{const older=r.history[idx+1];const soldNow=n(h?.sold),soldBefore=n(older?.sold),priceNow=n(h?.price),priceBefore=n(older?.price);const soldDelta=soldNow!=null&&soldBefore!=null?soldNow-soldBefore:null;const priceChanged=priceNow!=null&&priceBefore!=null&&Math.abs(priceNow-priceBefore)>=0.01;return <div key={h.id||h.collected_at||idx}><span>{when(h.collected_at)}</span><b>{priceNow==null?'Preço sem dados':money(priceNow)}</b><small>{soldNow==null?'Vendas sem dados':soldNow.toLocaleString('pt-BR')+' vendidos'}{soldDelta!=null&&idx<r.history.length-1?' · '+(soldDelta>=0?'+':'')+soldDelta.toLocaleString('pt-BR')+' desde a coleta anterior':''}{priceChanged?' · preço alterado':''}</small></div>})}</div></details>}
         {r.link&&<a href={r.link} target="_blank" rel="noreferrer">Abrir anúncio ↗</a>}
       </div>
     </article>)}</div>
