@@ -39,3 +39,24 @@ test('radar mostra variacao, ritmo, historico e rechecagem',()=>{
   assert.match(ui,/Ver histórico/);
   assert.match(ui,/Rechecar a cada/);
 });
+
+test('visibilidade da busca fica resumida e detalhes permanecem expansivos',()=>{
+  assert.match(ui,/Visibilidade na busca/);
+  assert.match(ui,/Meu anúncio/);
+  assert.match(ui,/Shopee Ads/);
+  assert.match(ui,/Ver análise da busca/);
+  assert.match(ui,/Palavra-chave/);
+  assert.match(ui,/Páginas verificadas/);
+  assert.match(ui,/Diferença/);
+  assert.match(ui,/Última leitura/);
+});
+
+test('coleta de posição usa ação nova e fallback do Motor Senior 0.14',()=>{
+  assert.match(ui,/collectSearchVisibility/);
+  assert.match(ui,/megaStartResearch/);
+  assert.match(ui,/megaGetStatus/);
+  assert.match(ui,/megaGetResult/);
+  assert.match(ui,/includeRaw:true/);
+  assert.match(ui,/Ads ativo nesta busca/);
+  assert.match(ui,/não prova que o vendedor não tenha campanha ativa/);
+});
