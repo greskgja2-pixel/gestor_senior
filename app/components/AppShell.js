@@ -9,6 +9,7 @@ const MENU=[
   {type:'item',label:'Dashboard',icon:'⌂',tone:'violet',href:'/'},
   {type:'item',label:'Super Análise',icon:'▤',tone:'indigo',href:'/super-analise'},
   {type:'item',label:'Super Anúncio',icon:'▣',tone:'cyan',href:'/extensao-shopee-intelligence?section=super-anuncio'},
+  {type:'item',label:'Concorrentes',icon:'⌘',tone:'blue',href:'/extensao-shopee-intelligence?section=concorrentes'},
   {type:'item',label:'Reanálises',icon:'↻',tone:'purple',href:'/extensao-shopee-intelligence?section=reanalises'},
   {type:'item',label:'Prioridades',icon:'☆',tone:'amber',href:'/extensao-shopee-intelligence?section=prioridades'},
   {type:'item',label:'Relatórios',icon:'▤',tone:'teal',href:'/extensao-shopee-intelligence?section=relatorios'},
