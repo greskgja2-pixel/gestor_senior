@@ -77,6 +77,50 @@ function MiniTrend({values=[],bars=false,tone='blue'}){
   const points=data.map((v,i)=>`${data.length===1?50:(i/(data.length-1))*100},${88-((v-min)/span)*70}`).join(' ');
   return <svg className={styles.radarLine} data-tone={tone} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline points={points}/></svg>;
 }
+function searchPositionLabel(position,page,found,maxPages=3){
+  const pos=n(position),pg=n(page);
+  if(pos!=null)return (pg!=null?pg+'ª pág · ':'')+'#'+pos.toLocaleString('pt-BR');
+  if(found===false)return'Não encontrado até '+maxPages+'ª pág';
+  return'Aguardando leitura';
+}
+function detectAdsFromSearchRow(row){
+  if(!row||typeof row!=='object')return{status:'unknown',evidence:null};
+  const trueFields=['isSponsored','is_sponsored','isAd','is_ad','isAds','is_ads','sponsored','sponsored_listing'];
+  const falseFields=['isSponsored','is_sponsored','isAd','is_ad','isAds','is_ads'];
+  for(const key of trueFields)if(row[key]===true||row[key]===1||row[key]==='1')return{status:'detected',evidence:key+'=true'};
+  for(const key of ['adsid','ads_id','adid','ad_id','campaign_id','ads_keyword'])if(row[key]!=null&&String(row[key]).trim()&&String(row[key])!=='0')return{status:'detected',evidence:key};
+  for(const key of falseFields)if(row[key]===false||row[key]===0||row[key]==='0')return{status:'not_detected',evidence:key+'=false'};
+  return{status:'unknown',evidence:null};
+}
+function normalizeSearchVisibility(data,{ownerItemId,competitorItemId,maxPages=3}){
+  const root=data?.data||data||{};
+  const directComp=root.competitor||root.target||null,directOwner=root.owner||root.own||root.my_listing||null;
+  const rows=arr(root.results).length?arr(root.results):arr(root.items).length?arr(root.items):arr(root.products).length?arr(root.products):arr(root.candidates).length?arr(root.candidates):arr(root.search_results);
+  const norm=(row,index)=>{
+    const itemId=String(row?.itemId??row?.item_id??row?.itemid??row?.id??'');
+    const rank=n(row?.rank??row?.position??row?.search_position??row?.relevance_rank)??(index+1);
+    const perPage=n(root?.items_per_page??root?.per_page)??60;
+    const page=n(row?.page??row?.page_number)??(rank?Math.floor((rank-1)/perPage)+1:null);
+    return{...row,itemId,rank,page,ads:detectAdsFromSearchRow(row)};
+  };
+  const normalized=rows.map(norm);
+  const pick=(direct,id)=>{
+    if(direct){const x=norm(direct,0);if(!x.itemId)x.itemId=String(id);return x}
+    return normalized.find(x=>x.itemId===String(id))||null;
+  };
+  const competitor=pick(directComp,competitorItemId),owner=pick(directOwner,ownerItemId);
+  const explicitAds=String(root?.competitor_ads_status||'');
+  const ads=['detected','not_detected','unknown'].includes(explicitAds)?{status:explicitAds,evidence:root?.competitor_ads_evidence||null}:(competitor?.ads||{status:'unknown',evidence:null});
+  return{
+    keyword:String(root?.keyword||root?.search_term||'').trim(),
+    searchedAt:root?.searched_at||root?.collected_at||new Date().toISOString(),
+    maxPages:Math.max(1,Math.min(5,n(root?.max_pages)??maxPages)),
+    itemsPerPage:n(root?.items_per_page??root?.per_page)??60,
+    competitor:{found:!!competitor,position:competitor?.rank??null,page:competitor?.page??null},
+    owner:{found:!!owner,position:owner?.rank??null,page:owner?.page??null},
+    ads,rawCount:normalized.length
+  };
+}
 function competitorPriority(row){
   const due=dueInfo(row.watch?.next_check_at).due;
   const pricePct=n(row.change?.price_change_pct),velocity=n(row.change?.sold_velocity_change_pct);
@@ -105,6 +149,8 @@ function Competitors({items}){
   const [openHistory,setOpenHistory]=useState('');
   const [openMenu,setOpenMenu]=useState('');
   const [bulkPhase,setBulkPhase]=useState('idle');
+  const [openSearchDetails,setOpenSearchDetails]=useState('');
+  const [visibilityPhase,setVisibilityPhase]=useState({});
 
   async function loadMonitor(){
     setMonitor(x=>({...x,phase:'loading',error:''}));
@@ -135,7 +181,8 @@ function Competitors({items}){
       price:n(snap?.price)??competitorPrice(comp),sold:n(snap?.sold)??competitorSold(comp),rating:n(snap?.rating)??n(comp.rating),raw:comp,
       image:snap?.image_url||competitorImage(comp),link:comp.link||comp.url||watch?.competitor_url||null,
       collected:snap?.collected_at||item.latest?.analyzed_at,watch,change:watch?.latest_change||null,
-      history:arr(watch?.snapshot_history),confidence:snap?.confidence||null
+      history:arr(watch?.snapshot_history),confidence:snap?.confidence||null,
+      visibility:watch?.latest_visibility||null,visibilityHistory:arr(watch?.visibility_history)
     };
   }).filter(r=>monitor.phase!=='success'||!!r.watch)),[items,watchMap,monitor.phase]);
 
@@ -145,6 +192,44 @@ function Competitors({items}){
       await fetchJsonWithTimeout('/api/competitor-monitor',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:watch.id,...patch})},12000);
       await loadMonitor();
     }catch(e){setMonitor(x=>({...x,phase:'error',error:String(e?.message||e)}))}
+  }
+
+  async function collectVisibilityGroup(group,{silent=false}={}){
+    const list=arr(group).filter(r=>r.watch?.id);
+    if(!list.length)return{updated:0,failed:0};
+    const first=list[0],keyword=String(first.watch?.settings?.search_keyword||first.owner||'').trim();
+    const maxPages=Math.max(1,Math.min(5,n(first.watch?.settings?.search_max_pages)??3));
+    const phaseKey=String(first.ownerItemId);
+    if(!silent)setVisibilityPhase(x=>({...x,[phaseKey]:'loading'}));
+    try{
+      const data=await motorData('collectSearchVisibility',{
+        keyword,maxPages,ownerItemId:String(first.ownerItemId),
+        competitorItemIds:list.map(r=>String(r.competitorItemId)).filter(Boolean),
+        reason:'competitor-search-visibility'
+      },90000);
+      let updated=0;
+      for(const row of list){
+        const normalized=normalizeSearchVisibility(data,{ownerItemId:row.ownerItemId,competitorItemId:row.competitorItemId,maxPages});
+        await fetchJsonWithTimeout('/api/competitor-visibility',{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({
+            watch_id:row.watch.id,keyword:normalized.keyword||keyword,searched_at:normalized.searchedAt,
+            max_pages:normalized.maxPages,items_per_page:normalized.itemsPerPage,
+            competitor_found:normalized.competitor.found,competitor_position:normalized.competitor.position,competitor_page:normalized.competitor.page,
+            owner_found:normalized.owner.found,owner_position:normalized.owner.position,owner_page:normalized.owner.page,
+            competitor_ads_status:normalized.ads.status,competitor_ads_evidence:normalized.ads.evidence,
+            source:'motor-senior-search',confidence:'observed',
+            raw:{results_count:normalized.rawCount}
+          })
+        },15000);
+        updated++;
+      }
+      if(!silent)setVisibilityPhase(x=>({...x,[phaseKey]:'success'}));
+      return{updated,failed:0};
+    }catch(error){
+      if(!silent)setVisibilityPhase(x=>({...x,[phaseKey]:'error',error:String(error?.message||error)}));
+      return{updated:0,failed:list.length,error};
+    }
   }
 
   async function recheckAll(){
@@ -177,9 +262,13 @@ function Competitors({items}){
       }
       if(targets.length>1)await new Promise(resolve=>setTimeout(resolve,1600));
     }
+    const grouped=new Map();
+    for(const row of filtered){if(!grouped.has(String(row.ownerItemId)))grouped.set(String(row.ownerItemId),[]);grouped.get(String(row.ownerItemId)).push(row)}
+    let visibilityFailed=0;
+    for(const group of [...grouped.values()].slice(0,6)){const result=await collectVisibilityGroup(group,{silent:true});visibilityFailed+=result.failed||0}
     await loadMonitor();
-    setBulkPhase(failed?'error':'success');
-    if(failed)setMonitor(x=>({...x,error:`${updated} atualizado(s); ${failed} falharam e ficarão para nova tentativa.`}));
+    setBulkPhase(failed||visibilityFailed?'error':'success');
+    if(failed||visibilityFailed)setMonitor(x=>({...x,error:`${updated} concorrente(s) atualizados; ${failed} coleta(s) de produto e ${visibilityFailed} leitura(s) de busca aguardam nova tentativa.`}));
     setTimeout(()=>setBulkPhase('idle'),3000);
   }
 
@@ -324,6 +413,25 @@ function Competitors({items}){
               </div>
               {r.watch?.last_status==='error'&&r.watch.last_error&&<small className={styles.monitorError}>Falha anterior: {r.watch.last_error}</small>}
             </div>
+            <div className={styles.radarVisibility}>
+              <b>⌕ Visibilidade na busca</b>
+              <span><small>Concorrente</small><strong>{searchPositionLabel(r.visibility?.competitor_position,r.visibility?.competitor_page,r.visibility?.competitor_found,r.visibility?.max_pages||3)}</strong></span>
+              <span><small>Meu anúncio</small><strong>{searchPositionLabel(r.visibility?.owner_position,r.visibility?.owner_page,r.visibility?.owner_found,r.visibility?.max_pages||3)}</strong></span>
+              <span><small>Shopee Ads</small><strong data-ads={r.visibility?.competitor_ads_status||'unknown'}>{r.visibility?.competitor_ads_status==='detected'?'● Ads detectado':r.visibility?.competitor_ads_status==='not_detected'?'○ Ads não identificado':'— Sem leitura'}</strong></span>
+              <button type="button" onClick={()=>setOpenSearchDetails(openSearchDetails===r.key?'':r.key)}>{openSearchDetails===r.key?'Ocultar detalhes':'Ver análise da busca'} {openSearchDetails===r.key?'⌃':'⌄'}</button>
+            </div>
+            {openSearchDetails===r.key&&<div className={styles.radarSearchDetails}>
+              <div className={styles.radarSearchDetailHead}><div><b>Análise da busca</b><p>Detalhes ficam escondidos para manter o card limpo. A posição sempre é medida para uma palavra-chave específica.</p></div><button type="button" disabled={visibilityPhase[String(r.ownerItemId)]==='loading'} onClick={()=>collectVisibilityGroup(rows.filter(x=>String(x.ownerItemId)===String(r.ownerItemId))).then(loadMonitor)}>↻ {visibilityPhase[String(r.ownerItemId)]==='loading'?'Pesquisando…':'Atualizar posições'}</button></div>
+              <div className={styles.radarSearchConfig}>
+                <label>Palavra-chave<input defaultValue={r.watch?.settings?.search_keyword||r.owner} onBlur={e=>{const value=e.target.value.trim();if(value&&value!==r.watch?.settings?.search_keyword)updateWatch(r.watch,{search_keyword:value})}}/></label>
+                <label>Páginas verificadas<select value={r.watch?.settings?.search_max_pages||3} onChange={e=>updateWatch(r.watch,{search_max_pages:Number(e.target.value)})}><option value="1">1 página</option><option value="2">2 páginas</option><option value="3">3 páginas</option><option value="4">4 páginas</option><option value="5">5 páginas</option></select></label>
+                <div><small>Diferença</small><b>{n(r.visibility?.competitor_position)!=null&&n(r.visibility?.owner_position)!=null?(n(r.visibility.owner_position)-n(r.visibility.competitor_position)>0?'+':'')+(n(r.visibility.owner_position)-n(r.visibility.competitor_position)).toLocaleString('pt-BR')+' posições':'—'}</b></div>
+                <div><small>Última leitura</small><b>{r.visibility?.searched_at?when(r.visibility.searched_at):'Ainda não coletado'}</b></div>
+              </div>
+              <p className={styles.radarAdsNote}>{r.visibility?.competitor_ads_status==='detected'?'A Shopee marcou/exibiu este concorrente como patrocinado nesta busca.':r.visibility?.competitor_ads_status==='not_detected'?'Não foi detectado sinal de anúncio patrocinado nesta busca. Isso não prova que o vendedor não tenha campanha ativa para outros termos ou momentos.':'Ainda não há evidência suficiente para afirmar se este anúncio está usando Shopee Ads.'}{r.visibility?.competitor_ads_evidence?' Evidência: '+r.visibility.competitor_ads_evidence+'.':''}</p>
+              {visibilityPhase[String(r.ownerItemId)]==='error'&&<p className={styles.radarVisibilityError}>O Motor Senior atual não conseguiu coletar a posição. A tela preserva o último dado válido e tentará novamente quando o coletor suportar a leitura.</p>}
+              {r.visibilityHistory.length>1&&<div className={styles.radarVisibilityHistory}>{r.visibilityHistory.slice(0,8).map(v=><div key={v.id}><span>{when(v.searched_at)}</span><b>Concorrente {n(v.competitor_position)!=null?'#'+n(v.competitor_position):'—'} · Meu anúncio {n(v.owner_position)!=null?'#'+n(v.owner_position):'—'}</b><small>{v.keyword} · Ads: {v.competitor_ads_status==='detected'?'detectado':v.competitor_ads_status==='not_detected'?'não identificado':'sem leitura'}</small></div>)}</div>}
+            </div>}
             {openHistory===r.key&&<div className={styles.radarHistory}><div className={styles.radarHistoryHead}><b>Histórico de coletas</b><span>{r.history.length} registro{r.history.length===1?'':'s'}</span></div>{r.history.length?<div className={styles.radarHistoryGrid}>{r.history.map((h,idx)=>{const older=r.history[idx+1],sd=n(h.sold)!=null&&n(older?.sold)!=null?n(h.sold)-n(older.sold):null,pd=n(h.price)!=null&&n(older?.price)!=null?n(h.price)-n(older.price):null;return <div key={h.id||h.collected_at||idx}><span>{when(h.collected_at)}</span><b>{money(h.price)}</b><small>{n(h.sold)==null?'Vendas sem dados':n(h.sold).toLocaleString('pt-BR')+' vendidos'}{sd!=null?' · '+(sd>=0?'+':'')+sd.toLocaleString('pt-BR')+' vendas':''}{pd!=null&&Math.abs(pd)>=.01?' · preço '+(pd>0?'subiu':'caiu')+' '+money(Math.abs(pd)):''}</small></div>})}</div>:<span>Sem histórico anterior.</span>}</div>}
           </article>
         })}</div>
