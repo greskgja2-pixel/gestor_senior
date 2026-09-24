@@ -138,6 +138,29 @@ function searchPositionLabel(position,page,found,maxPages=3,itemsPerPage=60){
   if(found===false)return'Não encontrado até '+maxPages+'ª página';
   return'Aguardando leitura';
 }
+function shopeeSearchPrice(value){
+  const raw=n(value);
+  if(raw==null)return null;
+  return raw>10000?raw/100000:raw;
+}
+function searchMarketData(row){
+  const b=row?.item_basic||row?.item||row||{};
+  const searchText=String(row?.searchText||b?.searchText||'');
+  const textPrices=[...searchText.matchAll(/R\$\s*\n?\s*([0-9.]+,[0-9]{2})/gi)].map(m=>Number(m[1].replace(/\./g,'').replace(',','.'))).filter(Number.isFinite);
+  const price=shopeeSearchPrice(b?.price??b?.price_min??b?.price_min_before_discount)??(textPrices[0]??null);
+  const originalPrice=shopeeSearchPrice(b?.price_before_discount??b?.original_price)??(textPrices.length>1?textPrices[1]:null);
+  const sold=n(b?.historical_sold??b?.sold);
+  const monthlySold=n(b?.monthly_sold??b?.sold_30d);
+  const preferred=explicitBool(b?.is_preferred_plus_seller,b?.is_preferred_shop,b?.is_preferred_seller);
+  const locationRaw=b?.shop_location??b?.location??b?.shop_location_name??null;
+  return{
+    price,originalPrice,sold,monthlySold,preferred,
+    location:locationRaw==null?null:String(locationRaw).trim(),
+    title:b?.name||b?.item_name||null,
+    rating:n(b?.item_rating?.rating_star??b?.rating_star),
+    rawSource:'search-item'
+  };
+}
 function detectAdsFromSearchRow(row){
   if(!row||typeof row!=='object')return{status:'unknown',evidence:null};
   const scopes=[row,row?.item_basic,row?.item,row?.ads,row?.ad,row?.tracking_info,row?.tracking].filter(x=>x&&typeof x==='object');
@@ -164,7 +187,7 @@ function normalizeSearchVisibility(data,{ownerItemId,competitorItemId,maxPages=3
       return [...pool].sort((a,b)=>(n(a?.rank)??Infinity)-(n(b?.rank)??Infinity))[0]||null;
     };
     const comp=selectCandidate(competitorItemId),own=selectCandidate(ownerItemId),compAppearance=bestAppearance(comp),ownAppearance=bestAppearance(own);
-    let ads={status:'unknown',evidence:null};
+    let ads={status:'unknown',evidence:null},market={price:null,originalPrice:null,sold:null,monthlySold:null,preferred:null,location:null,title:null,rating:null};
     for(const search of arr(discovery?.rawSearches)){
       if(search?.sort&&search.sort!=='relevance')continue;
       if(keyword&&String(search?.query||'').trim().toLowerCase()!==keyword.toLowerCase())continue;
@@ -175,6 +198,8 @@ function normalizeSearchVisibility(data,{ownerItemId,competitorItemId,maxPages=3
           const evidence=detectAdsFromSearchRow(rawRow);
           if(evidence.status==='detected')ads=evidence;
           else if(ads.status==='unknown'&&evidence.status==='not_detected')ads=evidence;
+          const observed=searchMarketData(rawRow);
+          market={...market,...Object.fromEntries(Object.entries(observed).filter(([,v])=>v!==null&&v!==undefined&&v!==''))};
         }
       }
     }
@@ -183,7 +208,7 @@ function normalizeSearchVisibility(data,{ownerItemId,competitorItemId,maxPages=3
       keyword,searchedAt:new Date().toISOString(),maxPages:Math.max(1,Math.min(5,n(root?.pages)??maxPages)),itemsPerPage:perPage,
       competitor:{found:!!comp,position:n(compAppearance?.rank),page:n(compAppearance?.page)!=null?n(compAppearance.page)+1:null},
       owner:{found:!!own,position:n(ownAppearance?.rank),page:n(ownAppearance?.page)!=null?n(ownAppearance.page)+1:null},
-      ads,rawCount:candidates.length
+      ads,market,rawCount:candidates.length
     };
   }
 
@@ -194,7 +219,7 @@ function normalizeSearchVisibility(data,{ownerItemId,competitorItemId,maxPages=3
     const rank=n(row?.rank??row?.position??row?.search_position??row?.relevance_rank)??(index+1);
     const perPage=n(root?.items_per_page??root?.per_page)??60;
     const page=n(row?.page??row?.page_number)??(rank?Math.floor((rank-1)/perPage)+1:null);
-    return{...row,itemId,rank,page,ads:detectAdsFromSearchRow(row)};
+    return{...row,itemId,rank,page,ads:detectAdsFromSearchRow(row),market:searchMarketData(row)};
   };
   const normalized=rows.map(norm);
   const pick=(direct,id)=>{
@@ -211,7 +236,7 @@ function normalizeSearchVisibility(data,{ownerItemId,competitorItemId,maxPages=3
     itemsPerPage:n(root?.items_per_page??root?.per_page)??60,
     competitor:{found:!!competitor,position:competitor?.rank??null,page:competitor?.page??null},
     owner:{found:!!owner,position:owner?.rank??null,page:owner?.page??null},
-    ads,rawCount:normalized.length
+    ads,market:competitor?.market||{price:null,originalPrice:null,sold:null,monthlySold:null,preferred:null,location:null,title:null,rating:null},rawCount:normalized.length
   };
 }
 
@@ -355,6 +380,29 @@ function Competitors({items}){
             raw:{results_count:normalized.rawCount,search_order:'relevance',session_observed:true}
           })
         },15000);
+        const market=normalized.market||{};
+        if(n(market.price)!=null){
+          await fetchJsonWithTimeout('/api/competitor-monitor',{
+            method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({
+              watch_id:row.watch.id,
+              collected_at:normalized.searchedAt,
+              title:market.title||row.title,
+              price:n(market.price),sold:n(market.sold),rating:n(market.rating),
+              image_url:row.image||null,
+              source:'shopee-search-structured',confidence:'observed',
+              raw:{
+                originalPrice:n(market.originalPrice),
+                monthlySold:n(market.monthlySold),
+                preferred:market.preferred,
+                location:market.location||null,
+                searchRank:normalized.competitor.position,
+                searchPage:normalized.competitor.page,
+                keyword:normalized.keyword||keyword
+              }
+            })
+          },15000);
+        }
         updated++;
       }
       if(!silent)setVisibilityPhase(x=>({...x,[phaseKey]:'success'}));
