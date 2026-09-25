@@ -1,0 +1,12 @@
+import PublicInfoLayout from '../../components/PublicInfoLayout';
+import styles from '../../public-info.module.css';
+export const metadata={title:'Documentação Técnica | Gestor Sênior'};
+export default function Page(){
+ return <PublicInfoLayout eyebrow="Documentação" title="Integração técnica atual" lead="Descrição baseada no código em produção do Gestor Sênior, sem antecipar recursos que ainda não foram implementados.">
+  <section className={styles.section}><h2>Arquitetura</h2><ul><li>Frontend e backend: Next.js 14 com React 18 e rotas de API server-side.</li><li>Autenticação e banco: Supabase.</li><li>Hospedagem: Vercel.</li><li>Integração de marketplace: Shopee Open Platform API v2.</li></ul></section>
+  <section className={styles.section}><h2>Modelo de conta</h2><p>O cadastro usa Supabase Auth para validar e autenticar e-mail/senha. Depois do login, o Gestor emite uma sessão própria assinada em cookie HttpOnly. A tabela <code>gs_accounts</code> relaciona o usuário autenticado ao <code>shop_id</code> autorizado.</p><p>Nesta etapa, uma conta do Gestor Sênior possui uma loja Shopee vinculada por vez. O administrador global possui um painel separado para visualizar cadastros e atividade recente.</p></section>
+  <section className={styles.section}><h2>Fluxo Shopee</h2><ol><li>Usuário autenticado inicia “Entrar com minha loja Shopee”.</li><li>O backend gera a URL assinada de autorização e um state temporário ligado ao usuário.</li><li>A Shopee devolve o código de autorização ao callback HTTPS.</li><li>O backend troca o código por tokens, persiste a credencial no servidor e vincula o shop_id à conta.</li><li>As APIs do Gestor resolvem a loja pelo usuário da sessão antes de consultar dados.</li></ol></section>
+  <section className={styles.section}><h2>Segurança implementada</h2><ul><li>Cookie de sessão HttpOnly, SameSite=Lax e Secure em produção.</li><li>Assinatura HMAC-SHA256 da sessão do Gestor.</li><li>OAuth state associado ao usuário que iniciou a autorização.</li><li>Chaves de serviço e tokens Shopee mantidos no lado servidor.</li><li>Tabelas de contas administrativas com RLS e acesso direto restrito à service role.</li></ul></section>
+  <p className={styles.notice}>Recursos futuros como múltiplas lojas por conta, papéis manager/viewer, 2FA, SLA formal e infraestrutura adicional não são descritos aqui como implementados.</p>
+ </PublicInfoLayout>
+}
