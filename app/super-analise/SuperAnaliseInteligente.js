@@ -653,7 +653,7 @@ function PriceSection({price,cost,setPrice,setCost,margin,competitors,plan,onPla
           <button type="button" onClick={()=>setFlashPreset('30')}>Próximos 30 dias</button>
           <button type="button" onClick={()=>setFlashPreset('month')}>Este mês</button>
         </div>
-        <div className={styles.flashPeriodResult}><b>{selectedSlots.length} horário{selectedSlots.length===1?'':'s'} oficial{selectedSlots.length===1?'':'is'} encontrado{selectedSlots.length===1?'':'s'}</b><span>{selectedSlots.length?selectedSlots.slice(0,3).map(flashSlotLabel).join(' · '):'Escolha um período para consultar os horários oficiais da Shopee.'}</span><button type="button" onClick={reloadFlash}>↻ Atualizar horários</button></div>
+        <div className={styles.flashPeriodResult}><b>{selectedSlots.length} horário{selectedSlots.length===1?'':'s'} oficial{selectedSlots.length===1?'':'is'} encontrado{selectedSlots.length===1?'':'s'}</b><span>{selectedSlots.length?selectedSlots.slice(0,3).map(flashSlotLabel).join(' · '):flashInsight?.phase==='loading'?'Consultando os horários oficiais da Shopee…':flashPeriod?.start&&flashPeriod?.end?'A Shopee não retornou horários oficiais disponíveis neste período. Tente atualizar ou escolher outro intervalo.':'Escolha um período para consultar os horários oficiais da Shopee.'}</span><button type="button" onClick={reloadFlash} disabled={flashInsight?.phase==='loading'}>{flashInsight?.phase==='loading'?'↻ Consultando…':'↻ Atualizar horários'}</button></div>
       </div>
       {periodPickerOpen&&<FlashPeriodPicker value={flashPeriod} onChange={setFlashPeriod} onApply={period=>{setFlashPeriod(period);reloadFlash(period)}} onClose={()=>setPeriodPickerOpen(false)}/>} 
 
