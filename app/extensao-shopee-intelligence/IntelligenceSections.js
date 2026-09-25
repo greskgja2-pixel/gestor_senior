@@ -926,7 +926,7 @@ function Competitors({items}){
             <section className={styles.radarExactVisibility}>
               <h4><VectorIcon name="search" size={13}/> Visibilidade na busca</h4>
               <div><span>Rank</span><b>{searchPositionLabel(r.visibility?.competitor_position,r.visibility?.competitor_page,r.visibility?.competitor_found,r.visibility?.max_pages||3,r.visibility?.items_per_page||60)}</b></div>
-              <div><span>Ads</span><b data-ads={r.visibility?.competitor_ads_status&&r.visibility.competitor_ads_status!=='unknown'?r.visibility.competitor_ads_status:(r.adsFallback===true?'detected':r.adsFallback===false?'not_detected':'unknown')}>{r.visibility?.competitor_ads_status==='detected'?'Sim':r.visibility?.competitor_ads_status==='not_detected'?'Não':r.adsFallback===true?'Sim':r.adsFallback===false?'Não':'Não confirmado'}</b></div>
+              <div><span>Ads</span><b data-ads={r.visibility?.competitor_ads_status&&r.visibility.competitor_ads_status!=='unknown'?r.visibility.competitor_ads_status:(r.adsFallback===true?'detected':r.adsFallback===false?'not_detected':'unknown')}>{r.visibility?.competitor_ads_status==='detected'?'Ads ativo nesta busca':r.visibility?.competitor_ads_status==='not_detected'?'Não':r.adsFallback===true?'Ads ativo nesta busca':r.adsFallback===false?'Não':'Não confirmado'}</b></div>
               <div><span>Meu anúncio</span><b>{searchPositionLabel(r.visibility?.owner_position,r.visibility?.owner_page,r.visibility?.owner_found,r.visibility?.max_pages||3,r.visibility?.items_per_page||60)}</b></div>
               <button type="button" onClick={()=>setOpenSearchDetails(openSearchDetails===r.key?'':r.key)}>Ver análise da busca →</button>
             </section>
