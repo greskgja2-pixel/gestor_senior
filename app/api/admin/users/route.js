@@ -16,7 +16,7 @@ export async function GET(){
   const users=(auth.data?.users||[]).map(user=>{
     const row=accountById.get(user.id);
     return {id:user.id,email:user.email,name:row?.display_name||user.user_metadata?.display_name||'',
-      createdAt:user.created_at,confirmedAt:user.email_confirmed_at,lastLoginAt:row?.last_login_at||user.last_sign_in_at,
+      createdAt:user.created_at,invited:user.app_metadata?.gs_signup_method==='invite',lastLoginAt:row?.last_login_at||user.last_sign_in_at,
       lastSeenAt:row?.last_seen_at||null,shopId:row?.shop_id?String(row.shop_id):null};
   });
   return NextResponse.json({users,total:auth.data?.total||users.length},
