@@ -80,8 +80,9 @@ async function loadOfficialTimeSlots({shop,startTime,endTime}){
         responseType:Array.isArray(raw?.response)?'array':typeof raw?.response,
         responseKeys:raw?.response&&typeof raw.response==='object'&&!Array.isArray(raw.response)?Object.keys(raw.response):[],
         topLevelKeys:raw&&typeof raw==='object'?Object.keys(raw):[],
-        message:raw?.message||null,
-        warning:raw?.warning||null
+        shopeeError:raw?.error??null,
+        message:raw?.message??null,
+        warning:raw?.warning??null
       });
     }
     return normalized;
