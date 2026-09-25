@@ -1,6 +1,6 @@
 import {NextResponse} from 'next/server';
 
-const PUBLIC=new Set(['/login','/cadastro','/api/auth/login','/api/auth/register','/api/auth/logout','/api/shopee/callback','/api/cron/flash-sale']);
+const PUBLIC=new Set(['/login','/cadastro','/apresentacao','/privacidade','/termos','/docs/tecnica','/status','/api/auth/login','/api/auth/register','/api/auth/logout','/api/shopee/callback','/api/cron/flash-sale']);
 const MAX_AGE=7*24*60*60*1000;
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const encoder=new TextEncoder();
