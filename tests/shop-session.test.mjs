@@ -28,6 +28,21 @@ test('callback exige o state do mesmo navegador',()=>{
   assert.equal(validOauthState(state,null,user),false);
 });
 
+test('chave curta configurada usa chave segura do servidor como reserva',()=>{
+  const original=process.env.APP_SESSION_SECRET;
+  process.env.APP_SESSION_SECRET='curta';
+  process.env.SUPABASE_SERVICE_ROLE_KEY='service-key-for-tests-that-is-over-thirty-two-characters';
+  try{
+    const token=createAccountSession('11111111-1111-4111-8111-111111111111',1);
+    assert.equal(readAccountSession(token)?.userId,'11111111-1111-4111-8111-111111111111');
+    const state=newOauthState();
+    assert.equal(validOauthState(state,createOauthPending(state,'owner'),'owner'),true);
+  }finally{
+    process.env.APP_SESSION_SECRET=original;
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+  }
+});
+
 test('credenciais e cron sempre selecionam shop_id explicitamente',()=>{
   const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
   const shop=read('lib/shop.js');

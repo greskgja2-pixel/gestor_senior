@@ -17,7 +17,8 @@ async function validAccountToken(token){
   const data=decode(payload),now=Date.now();
   if(!data||!UUID.test(data.uid)||!Number.isSafeInteger(data.v)||data.v<1||
     !Number.isSafeInteger(data.exp)||data.exp<=now||data.exp>now+MAX_AGE)return false;
-  const secret=process.env.APP_SESSION_SECRET||process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const configured=process.env.APP_SESSION_SECRET;
+  const secret=configured?.length>=32?configured:process.env.SUPABASE_SERVICE_ROLE_KEY;
   if(!secret||secret.length<32)return false;
   const raw=await crypto.subtle.importKey('raw',encoder.encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);
   const derived=await crypto.subtle.sign('HMAC',raw,encoder.encode('gestor-senior/account-session/v1'));
