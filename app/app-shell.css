@@ -67,3 +67,4 @@ body{background:var(--gs-shell-bg)!important;background-image:none!important;col
    mantinha 100vh. Esta regra vem depois e iguala/supera a especificidade. */
 .gs-app-main .gs-super-analysis-flow[class*="_screen__"]{min-height:0!important;height:auto!important;overflow:visible!important}
 .gs-app-main .gs-super-analysis-flow main[class*="_main__"]{min-height:0!important;height:auto!important;overflow:visible!important}
+.gs-account-actions{border-top:1px solid var(--gs-shell-border);margin-top:9px;padding-top:8px}.gs-account-actions small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--gs-shell-muted);margin:0 0 6px}.gs-account-actions button{background:transparent!important;color:var(--gs-shell-nav)!important;border:1px solid var(--gs-shell-border)!important}

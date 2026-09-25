@@ -1,0 +1,16 @@
+.wrap{min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 20% 10%,#243d73 0,#101c38 38%,#0b1225 100%);color:#17233b}
+.card{width:min(100%,440px);padding:36px;border-radius:22px;background:#fff;box-shadow:0 28px 80px #0006}
+.logo{display:grid;place-items:center;width:50px;height:50px;border-radius:15px;background:#162950;color:#e7c466;font-size:21px;font-weight:800;margin-bottom:18px}
+.eyebrow{font-size:11px;font-weight:800;letter-spacing:.18em;color:#637797}
+.card h1{margin:8px 0 6px;font-size:27px;line-height:1.2;color:#17233b}
+.intro{margin:0 0 24px;color:#586780;line-height:1.5}
+.form{display:grid;gap:17px}
+.form label{display:grid;gap:7px;font-size:13px;font-weight:700;color:#273853}
+.form input{width:100%;min-width:0;height:45px;padding:0 13px;border:1px solid #ccd5e3;border-radius:10px;color:#17233b;background:#fff;font:inherit}
+.form input:focus{outline:2px solid #5479d1;outline-offset:1px}
+.form button{height:46px;border:0;border-radius:10px;background:#253e81;color:#fff;font-size:15px;font-weight:750;cursor:pointer}
+.form button:disabled{opacity:.65;cursor:wait}
+.error{margin:0;color:#b42a36;font-size:13px}.success{background:#ecfaf1;padding:15px;border-radius:10px;color:#17633c;line-height:1.5}
+.success p{margin:10px 0 0}.switch{margin:24px 0 9px;color:#596985}.card a{color:#244bac;font-weight:700}
+.card small{color:#74809a}
+@media(max-width:480px){.card{padding:27px 22px}.card h1{font-size:24px}}
