@@ -20,8 +20,6 @@ const MENU=[
   {type:'item',label:'Configurações',icon:'⚙',tone:'slate',href:'/?section=config'}
 ];
 
-const STORAGE_SHOP='gs-shop-state-v2';
-
 function bestProductImage(product){
   const rows=[
     product?.imageUrl,product?.image_url,
@@ -173,7 +171,6 @@ function AppSidebar({active,onNavigate,onCloseMobile}){
       const data=await fetchJsonWithTimeout('/api/shopee/connection',{cache:'no-store'},10000);
       const next={status:'success',connected:!!data.connected,paused:!!data.paused,shopId:data.shopId||null,shopName:data.shopName||null,error:''};
       setShop(next);
-      try{sessionStorage.setItem(STORAGE_SHOP,JSON.stringify(next))}catch{}
     }catch(error){
       console.error('[AppSidebar] connection refresh failed',error);
       setShop(prev=>({...prev,status:'error',error:error?.code==='timeout'?'Tempo esgotado ao verificar a loja.':'Não foi possível verificar a loja agora.'}));
@@ -181,10 +178,6 @@ function AppSidebar({active,onNavigate,onCloseMobile}){
   }
 
   useEffect(()=>{
-    try{
-      const cached=JSON.parse(sessionStorage.getItem(STORAGE_SHOP)||'null');
-      if(cached&&typeof cached.connected==='boolean')setShop({...cached,status:'success',error:''});
-    }catch{}
     refreshShop();
     const timer=setInterval(refreshShop,30000);
     return()=>clearInterval(timer);
@@ -202,7 +195,6 @@ function AppSidebar({active,onNavigate,onCloseMobile}){
         location.href='/api/shopee/authorize';
         return;
       }
-      try{sessionStorage.removeItem(STORAGE_SHOP)}catch{}
       await refreshShop();
       location.reload();
     }catch(error){
@@ -252,7 +244,7 @@ function AppSidebar({active,onNavigate,onCloseMobile}){
       {extension.status==='connected'&&competitorSync.message&&<div className="gs-status-row"><i data-ok={competitorSync.phase==='success'||competitorSync.phase==='idle'?'true':'false'}/><div><b>Radar de concorrentes</b><small>{competitorSync.message}</small></div></div>}
       {shop.error&&<div className="gs-status-error">{shop.error}</div>}
       <button type="button" onClick={shopAction} disabled={busy||shop.status==='checking'}>
-        {busy?'Aguarde…':shop.connected?'Sair da loja':shop.paused?'Entrar com a Shopee':'Conectar loja'}
+        {busy?'Aguarde…':shop.connected?'Sair da loja':shop.paused?'Entrar com a Shopee':'Entrar com minha loja Shopee'}
       </button>
       {shop.status==='error'&&<button type="button" className="gs-status-retry" onClick={refreshShop} disabled={busy}>Tentar verificar novamente</button>}
     </div>

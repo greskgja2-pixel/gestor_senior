@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 
 export async function POST() {
   try {
-    await resumeShop();
+    if(!(await resumeShop()))return NextResponse.json({error:'Faça login com a Shopee para reconectar sua loja.'},{status:401});
     console.log("[shopee:resume] loja reconectada sem nova autorização");
     return NextResponse.json({ ok: true });
   } catch (err) {
