@@ -73,7 +73,18 @@ async function loadOfficialTimeSlots({shop,startTime,endTime}){
     const raw=await getFlashSaleTimeSlots({
       shopId:shop.shop_id,accessToken:shop.access_token,startTime:start,endTime:end
     });
-    return normalizeTimeSlots(raw);
+    const normalized=normalizeTimeSlots(raw);
+    if(!normalized.length){
+      console.warn('[flash-sale] get_time_slot_id retornou vazio',{
+        startTime:start,endTime:end,
+        responseType:Array.isArray(raw?.response)?'array':typeof raw?.response,
+        responseKeys:raw?.response&&typeof raw.response==='object'&&!Array.isArray(raw.response)?Object.keys(raw.response):[],
+        topLevelKeys:raw&&typeof raw==='object'?Object.keys(raw):[],
+        message:raw?.message||null,
+        warning:raw?.warning||null
+      });
+    }
+    return normalized;
   };
 
   const direct=await fetchRange(startTime,endTime);
