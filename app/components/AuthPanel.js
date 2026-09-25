@@ -12,11 +12,11 @@ export default function AuthPanel({mode}){
     try{
       const res=await fetch(`/api/auth/${register?'register':'login'}`,{
         method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({name:form.get('name'),email:form.get('email'),password:form.get('password'),code:form.get('code')})
+        body:JSON.stringify({name:form.get('name'),email:form.get('email'),password:form.get('password')})
       });
       const body=await res.json();
       if(!res.ok)throw new Error(body.error||'Não foi possível continuar.');
-      if(register&&!body.login){setMessage(body.message||'Confira seu e-mail e depois entre.');return}
+      if(register&&!body.login){setMessage(body.message||'Conta criada. Entre com seu e-mail e senha.');return}
       const next=new URLSearchParams(window.location.search).get('next');
       window.location.assign(next?.startsWith('/')&&!next.startsWith('//')?next:'/');
     }catch(err){setError(err.message)}finally{setBusy(false)}
@@ -26,18 +26,17 @@ export default function AuthPanel({mode}){
       <div className={styles.logo}>GS</div>
       <span className={styles.eyebrow}>GESTOR SÊNIOR</span>
       <h1>{register?'Crie sua conta':'Entre na sua conta'}</h1>
-      <p className={styles.intro}>{register?'Use um código de convite do administrador para criar sua conta e conectar sua loja.':'Acesse os dados da loja vinculada à sua conta.'}</p>
+      <p className={styles.intro}>{register?'Crie sua conta gratuitamente e depois conecte sua própria loja Shopee.':'Acesse os dados da loja vinculada à sua conta.'}</p>
       {message?<div className={styles.success} role="status">{message}<p><Link href="/login">Ir para o login</Link></p></div>:
         <form onSubmit={submit} className={styles.form}>
           {register&&<label>Seu nome<input name="name" autoComplete="name" required maxLength={100} placeholder="Como podemos chamar você?"/></label>}
           <label>E-mail<input name="email" type="email" autoComplete="email" required placeholder="voce@exemplo.com"/></label>
           <label>Senha<input name="password" type="password" autoComplete={register?'new-password':'current-password'} required minLength={register?8:1} placeholder={register?'Mínimo de 8 caracteres':'Sua senha'}/></label>
-          {register&&<label>Código de convite<input name="code" autoComplete="off" required minLength={48} maxLength={48} placeholder="Código enviado pelo administrador"/></label>}
           {error&&<p className={styles.error} role="alert">{error}</p>}
           <button type="submit" disabled={busy}>{busy?'Aguarde…':register?'Criar conta':'Entrar'}</button>
         </form>}
       <p className={styles.switch}>{register?'Já tem conta?':'Ainda não tem conta?'} <Link href={register?'/login':'/cadastro'}>{register?'Entrar':'Criar conta'}</Link></p>
-      <small>Após entrar, autorize sua própria loja pela Shopee. Guarde sua senha: a recuperação por e-mail será disponibilizada após configurar o envio de mensagens.</small>
+      <small>Depois de entrar, cada usuário autoriza a própria loja Shopee. Os dados de uma loja não são compartilhados com outras contas.</small>
     </div>
   </div>
 }
