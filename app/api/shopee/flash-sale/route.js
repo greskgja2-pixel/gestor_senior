@@ -47,6 +47,54 @@ function normalizeProductModels(raw){
   }).filter(x=>x.model_id);
 }
 
+function normalizeTimeSlots(raw){
+  const candidates=[
+    raw?.response,
+    raw?.response?.time_slot_list,
+    raw?.response?.timeslot_list,
+    raw?.response?.time_slots,
+    raw?.response?.slots,
+    raw?.data,
+    raw?.data?.time_slot_list,
+    raw?.data?.timeslot_list,
+    raw?.data?.time_slots,
+    raw?.data?.slots
+  ];
+  for(const candidate of candidates){
+    if(Array.isArray(candidate)){
+      return candidate.filter(slot=>Number(slot?.timeslot_id)>0&&Number(slot?.start_time)>0&&Number(slot?.end_time)>0);
+    }
+  }
+  return[];
+}
+
+async function loadOfficialTimeSlots({shop,startTime,endTime}){
+  const fetchRange=async(start,end)=>{
+    const raw=await getFlashSaleTimeSlots({
+      shopId:shop.shop_id,accessToken:shop.access_token,startTime:start,endTime:end
+    });
+    return normalizeTimeSlots(raw);
+  };
+
+  const direct=await fetchRange(startTime,endTime);
+  if(direct.length)return direct;
+
+  // Algumas contas/regiões da Shopee devolvem lista vazia em consultas longas.
+  // Refaz em blocos menores e junta apenas slots oficiais retornados pela própria API.
+  if(endTime-startTime<=24*3600)return[];
+  const merged=new Map();
+  const chunk=3*24*3600;
+  for(let cursor=startTime;cursor<endTime;cursor+=chunk){
+    const chunkEnd=Math.min(endTime,cursor+chunk-1);
+    const rows=await fetchRange(cursor,chunkEnd);
+    for(const slot of rows){
+      const key=String(slot.timeslot_id||`${slot.start_time}:${slot.end_time}`);
+      merged.set(key,slot);
+    }
+  }
+  return[...merged.values()].sort((a,b)=>Number(a?.start_time||0)-Number(b?.start_time||0));
+}
+
 function normalizeOfferItem(itemId,sale,raw){
   const response=raw?.response||{};
   const infos=Array.isArray(response?.item_info)?response.item_info:[];
@@ -99,8 +147,7 @@ export async function GET(request){
   const itemId=int(url.searchParams.get('item_id'));
   const recommendationDays=[7,30,60,90].includes(Number(url.searchParams.get('days')))?Number(url.searchParams.get('days')):30;
   try{
-    const raw=await getFlashSaleTimeSlots({shopId:shop.shop_id,accessToken:shop.access_token,startTime:start,endTime:end});
-    const slots=Array.isArray(raw?.response)?raw.response:[];
+    const slots=await loadOfficialTimeSlots({shop,startTime:start,endTime:end});
     if(!itemId)return NextResponse.json({ok:true,slots});
 
     let recommendation=null,recommendedSlots=[];
@@ -210,11 +257,11 @@ export async function POST(request){
       flashItem={item_id:itemId,purchase_limit:purchaseLimit,item_input_promo_price:promo,item_stock:stock};
     }
 
-    const officialRaw=await getFlashSaleTimeSlots({
-      shopId:shop.shop_id,accessToken:shop.access_token,
-      startTime:Math.floor(Date.now()/1000)+30,endTime:Math.floor(Date.now()/1000)+46*24*3600
+    const official=await loadOfficialTimeSlots({
+      shop,
+      startTime:Math.floor(Date.now()/1000)+30,
+      endTime:Math.floor(Date.now()/1000)+46*24*3600
     });
-    const official=Array.isArray(officialRaw?.response)?officialRaw.response:[];
     const byId=new Map(official.map(slot=>[Number(slot?.timeslot_id),slot]));
     const invalid=timeslotIds.filter(id=>!byId.has(Number(id)));
     if(invalid.length)return NextResponse.json({error:'Um ou mais horários escolhidos não estão mais disponíveis na Shopee. Atualize os horários e tente novamente.',invalid_timeslot_ids:invalid},{status:409});
