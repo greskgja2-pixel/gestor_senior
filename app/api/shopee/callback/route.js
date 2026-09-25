@@ -3,7 +3,8 @@
 import { NextResponse } from 'next/server';
 import { exchangeCodeForToken } from '../../../../lib/shopee';
 import { supabaseAdmin } from '../../../../lib/supabase';
-import { OAUTH_COOKIE, SESSION_COOKIE, SESSION_SECONDS, cookieOptions, createShopSession, validOauthState } from '../../../../lib/shop-session';
+import { OAUTH_COOKIE, cookieOptions, validOauthState } from '../../../../lib/shop-session';
+import {getAccount} from '../../../../lib/account';
 
 export const dynamic='force-dynamic';
 export const runtime='nodejs';
@@ -15,8 +16,10 @@ function clearPending(response){
 
 export async function GET(request){
   const url=new URL(request.url);
+  const account=await getAccount();
+  if(!account)return NextResponse.redirect(new URL('/login',url.origin));
   const state=url.searchParams.get('gs_state');
-  if(!validOauthState(state,request.cookies.get(OAUTH_COOKIE)?.value)){
+  if(!validOauthState(state,request.cookies.get(OAUTH_COOKIE)?.value,account.user_id)){
     return clearPending(NextResponse.json({error:'Autorização expirada ou iniciada em outro navegador. Volte ao Gestor e tente novamente.'},{status:403}));
   }
   const shopeeError=url.searchParams.get('error');
@@ -34,8 +37,11 @@ export async function GET(request){
       expire_in:token.expire_in,obtained_at:new Date().toISOString(),updated_at:new Date().toISOString(),paused:false
     },{onConflict:'shop_id'});
     if(error)throw new Error(`Erro salvando credenciais no Supabase: ${error.message}`);
+    const {data:linked,error:linkError}=await supabaseAdmin().from('gs_accounts')
+      .update({shop_id:Number(shopId)}).eq('user_id',account.user_id)
+      .eq('session_version',account.session_version).select('user_id').single();
+    if(linkError||!linked)throw new Error('Não foi possível vincular a loja à sua conta.');
     const response=NextResponse.redirect(new URL('/?authorized=1',url.origin));
-    response.cookies.set(SESSION_COOKIE,createShopSession(shopId),cookieOptions(SESSION_SECONDS));
     console.log('[shopee:callback] loja autorizada',JSON.stringify({shopId}));
     return clearPending(response);
   }catch(error){

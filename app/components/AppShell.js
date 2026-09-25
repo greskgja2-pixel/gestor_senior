@@ -50,6 +50,7 @@ function routeState(pathname,section){
   if(pathname.startsWith('/pedidos'))return{label:'Pedidos'};
   if(pathname.startsWith('/super-analise'))return{label:'Super Análise',group:'products'};
   if(pathname.startsWith('/protecao-roas'))return{label:'Proteção ROAS',group:'ads'};
+  if(pathname.startsWith('/admin'))return{label:'Administração'};
   if(pathname.startsWith('/extensao-shopee-intelligence')){
     const map={
       'super-anuncio':'Super Anúncio',
@@ -67,7 +68,7 @@ function routeState(pathname,section){
 
 function Icon({item}){return <span className="gs-nav-icon" data-tone={item.tone}>{item.icon}</span>}
 
-function AppSidebar({active,onNavigate,onCloseMobile}){
+function AppSidebar({active,onNavigate,onCloseMobile,account}){
   const [extension,setExtension]=useState({status:'checking',version:''});
   const [shop,setShop]=useState({status:'checking',connected:null,paused:false,shopId:null,shopName:null,error:''});
   const [busy,setBusy]=useState(false);
@@ -219,7 +220,7 @@ function AppSidebar({active,onNavigate,onCloseMobile}){
     </div>
 
     <nav className="gs-nav">
-      {MENU.map(entry=>{
+      {[...MENU,...(account?.isAdmin?[{type:'item',label:'Administração',icon:'♛',tone:'amber',href:'/admin'}]:[])].map(entry=>{
         if(entry.type==='item'){
           return <Link key={entry.label} href={entry.href} onClick={onNavigate} className={active===entry.label?'is-active':''}>
             <Icon item={entry}/><span>{entry.label}</span>{entry.label==='Prioridades'&&openTasks>0&&<span className="gs-nav-badge">{openTasks>99?'99+':openTasks}</span>}
@@ -246,6 +247,7 @@ function AppSidebar({active,onNavigate,onCloseMobile}){
       <button type="button" onClick={shopAction} disabled={busy||shop.status==='checking'}>
         {busy?'Aguarde…':shop.connected?'Sair da loja':shop.paused?'Entrar com a Shopee':'Entrar com minha loja Shopee'}
       </button>
+      {account&&<div className="gs-account-actions"><small>{account.name||account.email}</small><button type="button" onClick={async()=>{await fetch('/api/auth/logout',{method:'POST'});location.href='/login'}}>Sair da conta</button></div>}
       {shop.status==='error'&&<button type="button" className="gs-status-retry" onClick={refreshShop} disabled={busy}>Tentar verificar novamente</button>}
     </div>
   </aside>
@@ -253,17 +255,31 @@ function AppSidebar({active,onNavigate,onCloseMobile}){
 
 export default function AppShell({children}){
   const pathname=usePathname();
+  if(pathname==='/login'||pathname==='/cadastro')return children;
+  return <ProtectedAppShell pathname={pathname}>{children}</ProtectedAppShell>;
+}
+
+function ProtectedAppShell({children,pathname}){
   const searchParams=useSearchParams();
   const section=searchParams.get('section')||'';
   const [drawer,setDrawer]=useState(false);
+  const [account,setAccount]=useState(null);
 
   useEffect(()=>{setDrawer(false)},[pathname,section]);
+
+  useEffect(()=>{
+    let alive=true;
+    fetch('/api/auth/me',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(data=>{if(alive)setAccount(data)}).catch(()=>{});
+    const ping=()=>{if(document.visibilityState==='visible')fetch('/api/auth/activity',{method:'POST',cache:'no-store'}).catch(()=>{})};
+    ping();const timer=setInterval(ping,60000);window.addEventListener('focus',ping);
+    return()=>{alive=false;clearInterval(timer);window.removeEventListener('focus',ping)};
+  },[]);
 
   const route=useMemo(()=>routeState(pathname,section),[pathname,section]);
   const close=()=>setDrawer(false);
 
   return <div className="gs-app-shell" data-drawer={drawer?'open':'closed'}>
-    <AppSidebar active={route.label} onNavigate={close} onCloseMobile={close}/>
+    <AppSidebar active={route.label} onNavigate={close} onCloseMobile={close} account={account}/>
     <div className="gs-mobile-bar">
       <button type="button" onClick={()=>setDrawer(true)} aria-label="Abrir menu">☰</button>
       <span className="gs-logo-mark">GS</span><b>Gestor Sênior</b><small>{route.label||'Painel'}</small>
