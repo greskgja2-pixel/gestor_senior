@@ -50,7 +50,7 @@ function routeState(pathname,section){
   if(pathname.startsWith('/pedidos'))return{label:'Pedidos'};
   if(pathname.startsWith('/super-analise'))return{label:'Super Análise',group:'products'};
   if(pathname.startsWith('/protecao-roas'))return{label:'Proteção ROAS',group:'ads'};
-  if(pathname.startsWith('/admin'))return{label:'Administração'};
+  if(pathname.startsWith('/admin'))return{label:'Usuários'};
   if(pathname.startsWith('/extensao-shopee-intelligence')){
     const map={
       'super-anuncio':'Super Anúncio',
@@ -220,7 +220,7 @@ function AppSidebar({active,onNavigate,onCloseMobile,account}){
     </div>
 
     <nav className="gs-nav">
-      {[...MENU,...(account?.isAdmin?[{type:'item',label:'Administração',icon:'♛',tone:'amber',href:'/admin'}]:[])].map(entry=>{
+      {[...MENU,...(account?.isAdmin?[{type:'item',label:'Usuários',icon:'♛',tone:'amber',href:'/admin'}]:[])].map(entry=>{
         if(entry.type==='item'){
           return <Link key={entry.label} href={entry.href} onClick={onNavigate} className={active===entry.label?'is-active':''}>
             <Icon item={entry}/><span>{entry.label}</span>{entry.label==='Prioridades'&&openTasks>0&&<span className="gs-nav-badge">{openTasks>99?'99+':openTasks}</span>}
