@@ -6,7 +6,7 @@ const date=value=>value?new Date(value).toLocaleString('pt-BR',{dateStyle:'short
 const online=value=>!!value&&Date.now()-new Date(value).getTime()<2*60*1000;
 
 export default function AdminDashboard(){
-  const [data,setData]=useState(null),[error,setError]=useState(''),[claim,setClaim]=useState(false),[busy,setBusy]=useState(false);
+  const [data,setData]=useState(null),[error,setError]=useState(''),[claim,setClaim]=useState(false),[busy,setBusy]=useState(false),[invite,setInvite]=useState(null);
   async function load(){
     try{
       const res=await fetch('/api/admin/users',{cache:'no-store'});
@@ -26,15 +26,25 @@ export default function AdminDashboard(){
       await load();window.location.reload();
     }catch(err){setError(err.message)}finally{setBusy(false)}
   }
+  async function createInvite(){
+    setBusy(true);setError('');
+    try{
+      const res=await fetch('/api/admin/invites',{method:'POST'}),body=await res.json();
+      if(!res.ok)throw new Error(body.error||'Falha ao gerar convite.');
+      setInvite(body);
+    }catch(err){setError(err.message)}finally{setBusy(false)}
+  }
   const users=data?.users||[];
   return <div className={styles.page}>
     <div className={styles.heading}><div><span>GESTOR SÊNIOR</span><h1>Administração</h1><p>Cadastros e atividade recente das contas.</p></div>{data&&<button onClick={load}>Atualizar</button>}</div>
     {error&&<p className={styles.error} role="alert">{error}</p>}
     {claim?<div className={styles.claim}><h2>Ativar administração</h2><p>Digite o código de ativação de uso único entregue ao proprietário do Gestor Sênior.</p><form onSubmit={activate}><input name="code" type="password" autoComplete="off" required minLength={32} placeholder="Código de ativação"/><button disabled={busy}>{busy?'Ativando…':'Ativar painel'}</button></form></div>:
       data?<>
+        <div className={styles.invite}><div><strong>Convidar outro lojista</strong><p>Gere um código e envie ao usuário. Ele poderá criar a conta em <a href="/cadastro">/cadastro</a> e conectar a própria loja. Cada código funciona uma vez e vence em 30 dias.</p></div><button disabled={busy} onClick={createInvite}>{busy?'Aguarde…':'Gerar código de convite'}</button>
+          {invite&&<div className={styles.generated}><span>Código novo (copie agora; ele não será exibido novamente):</span><code>{invite.code}</code><button type="button" onClick={()=>navigator.clipboard?.writeText(invite.code)}>Copiar código</button></div>}</div>
         <div className={styles.metrics}><article><b>{data.total}</b><span>Contas criadas</span></article><article><b>{users.filter(user=>online(user.lastSeenAt)).length}</b><span>Ativas agora (últimos 2 min)</span></article><article><b>{users.filter(user=>user.shopId).length}</b><span>Lojas conectadas</span></article></div>
         <div className={styles.tableWrap}><table><thead><tr><th>Usuário</th><th>Cadastro</th><th>Último login</th><th>Atividade</th><th>Loja</th></tr></thead><tbody>
-          {users.map(user=><tr key={user.id}><td><strong>{user.name||'Sem nome'}</strong><small>{user.email||'Sem e-mail'}{!user.confirmedAt?' · aguardando confirmação':''}</small></td><td>{date(user.createdAt)}</td><td>{date(user.lastLoginAt)}</td><td><span className={online(user.lastSeenAt)?styles.on:styles.off}>{online(user.lastSeenAt)?'● Online':'○ Ausente'}</span><small>{date(user.lastSeenAt)}</small></td><td>{user.shopId?`#${user.shopId}`:'Não conectada'}</td></tr>)}
+          {users.map(user=><tr key={user.id}><td><strong>{user.name||'Sem nome'}</strong><small>{user.email||'Sem e-mail'}{user.invited?' · por convite':''}</small></td><td>{date(user.createdAt)}</td><td>{date(user.lastLoginAt)}</td><td><span className={online(user.lastSeenAt)?styles.on:styles.off}>{online(user.lastSeenAt)?'● Online':'○ Ausente'}</span><small>{date(user.lastSeenAt)}</small></td><td>{user.shopId?`#${user.shopId}`:'Não conectada'}</td></tr>)}
           {!users.length&&<tr><td colSpan={5}>Ainda não há contas cadastradas.</td></tr>}
         </tbody></table></div>
         {data.total>users.length&&<p className={styles.note}>Mostrando os primeiros {users.length} usuários. Há outros cadastros no Supabase.</p>}

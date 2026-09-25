@@ -26,14 +26,20 @@ credenciais correspondentes configuradas na Vercel.
 
 ## Contas e administração
 
-Em `/cadastro`, cada lojista cria conta com nome, e-mail e senha. Após confirmar
-o e-mail (quando solicitado pelo Supabase), entra em `/login` e autoriza sua
+Em `/cadastro`, cada lojista cria conta com nome, e-mail, senha e código de
+convite. Entra em `/login` e autoriza sua
 própria loja Shopee. O vínculo da loja é gravado em `gs_accounts` e todos os
 acessos aos dados são restritos à loja daquela conta. As sessões expiram em sete
 dias; os tokens da Shopee e a chave de serviço permanecem apenas no servidor.
 
-O proprietário entra em `/admin` e informa o código de ativação de uso único,
-entregue separadamente. O painel lista contas criadas, loja conectada, último
+O proprietário usa o código inicial no próprio cadastro, entra em `/admin` e
+informa o mesmo código de ativação. Depois pode gerar novos convites de uso
+único e validade de 30 dias no painel. Cada convidado escolhe sua própria senha.
+O painel lista contas criadas, loja conectada, último
 login e atividade recente. Uma conta é exibida como online quando houve
 atividade nos últimos dois minutos. As tabelas do painel têm RLS habilitado e
 somente a service role pode acessá-las diretamente.
+
+O envio de e-mail do Supabase não está configurado para endereços externos.
+Contas por convite são habilitadas pela API administrativa no servidor; o e-mail
+informado não é verificado. A recuperação de senha por e-mail dependerá de SMTP.
