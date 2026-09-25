@@ -15,6 +15,7 @@ const superAnalysis=read('app/super-analise/SuperAnaliseInteligente.js');
 
 const routes=[
   '/super-analise',
+  '/pesquisa-produtos',
   '/extensao-shopee-intelligence?section=super-anuncio',
   '/extensao-shopee-intelligence?section=concorrentes',
   '/extensao-shopee-intelligence?section=reanalises',
@@ -88,4 +89,16 @@ test('sidebar exibe a versao real informada pela extensao conectada',()=>{
   assert.match(shell,/meta\?\.content/);
   assert.match(shell,/extensionVersion/);
   assert.match(shell,/Extensão conectada/);
+});
+
+
+test('Pesquisa de Produtos integra inteligencia de mercado com coleta/importacao',()=>{
+  const page=read('app/pesquisa-produtos/MarketResearch.js');
+  assert.match(shell,/label:'Pesquisa de Produtos'/);
+  assert.match(shell,/href:'\/pesquisa-produtos'/);
+  assert.match(page,/marketplaceSearch/);
+  assert.match(page,/Importar coleta/);
+  assert.match(page,/opportunityScore/);
+  assert.match(page,/monthlySold/);
+  assert.match(page,/seller_location|shop_location/);
 });
