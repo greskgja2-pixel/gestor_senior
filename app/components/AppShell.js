@@ -253,9 +253,11 @@ function AppSidebar({active,onNavigate,onCloseMobile,account}){
   </aside>
 }
 
+const PUBLIC_PAGES=['/login','/cadastro','/apresentacao','/privacidade','/termos','/docs/tecnica','/status'];
+
 export default function AppShell({children}){
   const pathname=usePathname();
-  if(pathname==='/login'||pathname==='/cadastro')return children;
+  if(PUBLIC_PAGES.includes(pathname))return children;
   return <ProtectedAppShell pathname={pathname}>{children}</ProtectedAppShell>;
 }
 
