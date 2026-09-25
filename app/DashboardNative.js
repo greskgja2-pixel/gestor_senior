@@ -45,7 +45,7 @@ function Card({tone,icon,title,badge,value,description,href,cta}){
 }
 export default async function DashboardNative(){
   const shop=await getActiveShop();
-  if(!shop)return <div className={styles.page}><h1>Dashboard</h1><p>Nenhuma loja Shopee conectada.</p></div>;
+  if(!shop)return <div className={styles.page}><h1>Entre com sua loja Shopee</h1><p>Autorize sua própria loja pela página oficial da Shopee. Cada lojista acessa apenas os dados da loja que conectou.</p><p><Link href="/api/shopee/authorize">Entrar com minha loja Shopee →</Link></p></div>;
   const now=Date.now(),start14=now-14*86400000,start7=now-7*86400000;
   const [productsResult,ordersResult,reportsResult]=await Promise.allSettled([
     getProducts(shop),

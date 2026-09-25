@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "prebuild": "node --test tests/super-analysis-layout.test.mjs tests/sidebar-consistency.test.mjs tests/ai-provider-fallback.test.mjs tests/navigation-routes.test.mjs tests/roas-protection-page.test.mjs tests/async-state.test.mjs",
+    "prebuild": "node --test tests/super-analysis-layout.test.mjs tests/sidebar-consistency.test.mjs tests/ai-provider-fallback.test.mjs tests/navigation-routes.test.mjs tests/roas-protection-page.test.mjs tests/async-state.test.mjs tests/shop-session.test.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start"
