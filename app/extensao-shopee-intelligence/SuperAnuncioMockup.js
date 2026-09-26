@@ -296,7 +296,7 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
       const row=x.latest?.product_snapshot||{};
       return String(row.title||row.item_name||x.itemId||'').toLowerCase().includes(q);
     });
-    if(found){setSelectedId(found.itemId);setTab('overview');setEditorTab(null);setSearchMsg('');setShowList(false)}
+    if(found){setSelectedId(found.itemId);setDetailTab('content');setEditorTab('title');setSearchMsg('');setShowList(false)}
     else setSearchMsg(`Nenhum anúncio acompanhado corresponde a "${query.trim()}".`);
   }
 
@@ -352,7 +352,7 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
               <div><small>Potencial</small><b>{safePot==null?'—':Math.round(safePot)}</b><em>{gain==null?'Sem projeção':gain>0?`+${gain} pts de ganho`:'Sem ganho projetado'}</em></div>
             </div>
             <div className={styles.phase1Problem}><small>Principal ponto</small><b>{weak?.name||'Sem diagnóstico'}</b></div>
-            <button type="button" className={styles.phase1Open} onClick={()=>{setSelectedId(x.itemId);setShowList(false);setTab('overview');setEditorTab(null)}}><Icon name="file"/> Abrir análise <span>→</span></button>
+            <button type="button" className={styles.phase1Open} onClick={()=>{setSelectedId(x.itemId);setShowList(false);setDetailTab('content');setEditorTab('title')}}><Icon name="file"/> Abrir análise <span>→</span></button>
           </article>
         })}
       </section>
@@ -393,98 +393,123 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
   const statusText=p.status||p.item_status||'';
   const active=/active|normal|ativo/i.test(String(statusText));
 
+  const offerNow=arr(flashSales.offers)[0]||arr(flashSales.scheduled)[0]||null;
+  const offerPrice=n(offerNow?.price??offerNow?.min_price);
+  const offerStatus=arr(flashSales.offers).length?'Ativa':arr(flashSales.scheduled).length?'Agendada':flashSales.phase==='loading'?'Consultando…':flashSales.phase==='error'||flashSales.phase==='timeout'?'Erro de coleta':'—';
+  const offerPeriod=offerNow?(`${flashWhen(offerNow.start_time)} → ${flashWhen(offerNow.end_time)}`):'—';
+  const financialRows=[
+    ['Preço atual',dataText(price,money,p)],
+    ['Preço da oferta',offerPrice==null?'—':money(offerPrice)],
+    ['Custo do produto',dataText(cost,money,f)],
+    ['Margem',dataText(margin,pct,f)],
+    ['Gasto com Ads',dataText(pickAds('spend'),money,adsContext)],
+    ['ROAS atual',dataText(pickAds('roas'),num,adsContext)],
+    ['ROAS alvo',dataText(pickAds('targetRoas'),num,adsContext)],
+    ['Vendas',dataText(sold,v=>Number(v).toLocaleString('pt-BR'),p)],
+    ['GMV',dataText(pickAds('gmv'),money,adsContext)],
+    ['Custo por venda',dataText(metric(r,'cpa')??liveCampaign?.costPerOrder??(n(metric(r,'sales'))?n(metric(r,'spend'))/n(metric(r,'sales')):null),money,adsContext)]
+  ];
+  const areaMeta={
+    content:{label:'Conteúdo',icon:'file',description:'Título e descrição do anúncio.',subs:[['title','Título'],['description','Descrição']]},
+    media:{label:'Mídia',icon:'image',description:'Imagens e vídeo do anúncio.',subs:[['images','Imagens'],['video','Vídeo']]},
+    category:{label:'Categoria',icon:'tag',description:'Categoria, atributos e variações.',subs:[['category','Categoria do produto'],['variations','Atributos & variações']]},
+    financial:{label:'Financeiro',icon:'coins',description:'Preço, margem, Ads e ofertas.',subs:[['price','Preço, margem e oferta']]}
+  };
+  const activeArea=areaMeta[detailTab]||areaMeta.content;
+
   return <div className={styles.screen}>
     <ZoomModal src={zoomSrc} onClose={()=>setZoomSrc('')}/>
-    <main className={styles.main}>
-      <div className={styles.topbar}>
-        <div className={styles.breadcrumb}><Icon name="home"/><span>›</span><b>Super Anúncio</b></div>
-        <div className={styles.topTools}>
-          <form className={styles.searchBox} onSubmit={searchProduct}>
-            <Icon name="search"/>
-            <input ref={searchRef} value={query} onChange={e=>{setQuery(e.target.value);setSearchMsg('')}} placeholder="Buscar anúncio acompanhado..." aria-label="Buscar anúncio acompanhado"/>
-            <kbd>Ctrl + K</kbd>
-          </form>
-          <button type="button" className={styles.notify} aria-label="Ver prioridades e pendências" title="Ver prioridades e pendências" onClick={()=>router.push('/extensao-shopee-intelligence?section=prioridades')}><Icon name="bell"/>{arr(productTasks.rows).length>0&&<i/>}</button>
-          <div className={styles.account}><span className={styles.avatar}>GS</span><div><b>Gestor Sênior</b><small>Minha conta</small></div><Icon name="chevron"/></div>
+    <main className={`${styles.main} ${styles.detailMain}`}>
+      <header className={styles.detailHeader}>
+        <div>
+          <button type="button" className={styles.detailBackLink} onClick={()=>setShowList(true)}><Icon name="arrowLeft"/> Anúncios</button>
+          <h1>Super Anúncio</h1>
+          <p>Análise e otimizações para seu produto</p>
         </div>
-      </div>
-
-      {searchMsg&&<div className={styles.searchMsg} role="status">{searchMsg}<Link href="/produtos">Acompanhar outro anúncio</Link></div>}
-
-      <section className={styles.hero}>
-        <div className={styles.heroTitle}><span className={styles.heroIcon}><Icon name="megaphone"/></span><div><div className={styles.heroHeading}><h1>Super Anúncio</h1><div className={styles.scoreCompact}><b>{score==null?'—':Math.round(score)}</b><span>→</span><b>{safeAfterScore==null?'—':Math.round(safeAfterScore)}</b><em>{gain==null?'Sem projeção':gain>0?`+${gain} pts`:'sem perda'}</em><small>Nota geral</small></div></div><p>Acompanhe o anúncio, histórico, concorrentes e descubra oportunidades para vender mais na Shopee.</p></div></div>
-        <ClockBadge/>
-      </section>
-
-      <section className={styles.productBar}>
-        {imageOf(p)?<button type="button" className={styles.productImageButton} onClick={()=>setZoomSrc(imageOf(p))} title="Ampliar imagem"><img src={imageOf(p)} alt=""/><span>⌕</span></button>:<div className={styles.noImage}/>}
-        <div className={styles.productInfo}>
-          <span className={styles.sourceBadge}>Anúncio acompanhado</span>
-          <b>{p.title||p.item_name||`Produto ${item.itemId}`}</b>
-          <small>Categoria: {p.category||missingKind(p)}</small>
-          <div className={styles.productMeta}>
-            <span>Loja: <strong>{shopName||'Loja conectada'}</strong></span>
-            <span>SKU: <strong>{sku||'não coletado'}</strong></span>
-            <span className={styles.statusPill} data-active={active?'true':'false'}>{statusText||'Status não coletado'}</span>
-          </div>
-        </div>
-        <div className={styles.metrics}>
-          <Metric label="Preço" value={dataText(price,money,p)} icon="tag" primary/>
-          <Metric label="Custo" value={dataText(cost,money,f)} icon="coins" tone="amber" primary/>
-          <Metric label="Margem estimada" value={dataText(margin,pct,f)} good={margin!=null&&margin>=0} icon="chart" tone="green" primary/>
-          <Metric label="Vendas" value={dataText(sold,v=>Number(v).toLocaleString('pt-BR'),p)} icon="cart" tone="purple" primary/>
-          <Metric label="Avaliação" value={dataText(rating,v=>`${Number(v).toFixed(1)} ★`,p)} title={reviews!=null?`${reviews.toLocaleString('pt-BR')} avaliações`:missingKind(p)} icon="star" tone="gold"/>
-          <Metric label="Fotos" value={countText(p.imageCount,images,p)} icon="image"/>
-          <Metric label="Vídeo" value={boolText(p.hasVideo,p)} icon="play" tone="pink"/>
-          <Metric label="Variações" value={countText(p.variationCount,variations,p)} icon="grid" tone="slate"/>
-        </div>
-      </section>
-
-      <DecisionChain steps={chainSteps} verdict={verdict} onRegisterCost={()=>setEditorTab('price')}/>
+      </header>
 
       {deleteError&&<div className={styles.deleteError}>{deleteError}</div>}
 
-      <section className={styles.phase3Toolbar} aria-label="Ações do anúncio">
-        <button type="button" onClick={()=>setShowList(true)}><Icon name="arrowLeft"/> Voltar à lista</button>
-        <span className={styles.phase3Divider}/>
-        <button type="button" onClick={()=>router.refresh()}><Icon name="refresh"/> Reanalisar</button>
-        <div id="gs-editor-toolbar" className={styles.toolbarSlot}/>
-        <span className={styles.phase3Spacer}/>
-        <button type="button" className={styles.phase3Apply} disabled title="Será habilitado quando a publicação direta na Shopee estiver validada"><Icon name="external"/> Aplicar na Shopee</button>
-        <details className={styles.phase3More}><summary title="Mais ações"><Icon name="more"/></summary><div><button type="button" onClick={()=>{setTab('history');setEditorTab(null)}}>Ver histórico</button><Link href="/produtos">Ver produtos</Link></div></details>
+      <section className={styles.detailProductCard}>
+        {imageOf(p)?<button type="button" className={styles.detailProductImage} onClick={()=>setZoomSrc(imageOf(p))} title="Ampliar imagem"><img src={imageOf(p)} alt=""/><span>⌕</span></button>:<div className={styles.detailProductImageFallback}><Icon name="image"/></div>}
+        <div className={styles.detailIdentity}>
+          <small>Anúncio acompanhado</small>
+          <h2>{p.title||p.item_name||`Produto ${item.itemId}`}</h2>
+          <p>Última análise: <strong>{when(r.analyzed_at)}</strong></p>
+        </div>
+        <div className={styles.detailScores}>
+          <div><small>Nota atual</small><b>{score==null?'—':Math.round(score)}</b><span>/100</span></div>
+          <i>→</i>
+          <div data-potential="true"><small>Potencial</small><b>{safeAfterScore==null?'—':Math.round(safeAfterScore)}</b><span>{gain==null?'Sem projeção':gain>0?`+${gain} pts`:'sem perda'}</span></div>
+        </div>
       </section>
 
-      <nav className={styles.phase2Tabs} aria-label="Áreas do Super Anúncio">
-        <button type="button" data-active={!editorTab&&tab!=='history'?'true':'false'} onClick={()=>{setTab('overview');setEditorTab(null)}}><Icon name="home"/> Resumo</button>
-        <button type="button" data-done={optimizedAreas.content?'true':'false'} data-active={editorTab==='title'||editorTab==='description'||editorTab==='category'?'true':'false'} onClick={()=>{setTab('overview');setEditorTab('title')}}><Icon name="file"/> Conteúdo{optimizedAreas.content&&<span className={styles.phase5Done}>✓</span>}</button>
-        <button type="button" data-done={optimizedAreas.images?'true':'false'} data-active={editorTab==='images'?'true':'false'} onClick={()=>{setTab('overview');setEditorTab('images')}}><Icon name="image"/> Imagens{optimizedAreas.images&&<span className={styles.phase5Done}>✓</span>}</button>
-        <button type="button" data-active={editorTab==='competitors'?'true':'false'} onClick={()=>{setTab('competitors');setEditorTab('competitors')}}><Icon name="users"/> Concorrentes</button>
-        <button type="button" data-done={optimizedAreas.price?'true':'false'} data-active={editorTab==='price'?'true':'false'} onClick={()=>{setTab('overview');setEditorTab('price')}}><Icon name="coins"/> Preço{optimizedAreas.price&&<span className={styles.phase5Done}>✓</span>}</button>
-        <button type="button" data-active={tab==='history'?'true':'false'} onClick={()=>{setTab('history');setEditorTab(null)}}><Icon name="clock"/> Histórico</button>
+      <nav className={styles.detailTabs} aria-label="Áreas do Super Anúncio">
+        {Object.entries(areaMeta).map(([key,meta])=><button key={key} type="button" data-active={detailTab===key?'true':'false'} data-done={isOptimized(key)?'true':'false'} onClick={()=>{setDetailTab(key);setEditorTab(defaultEditorForGroup(key))}}>
+          <Icon name={meta.icon}/><span>{meta.label}</span>{isOptimized(key)&&<b>✓</b>}
+        </button>)}
       </nav>
 
-      <div className={styles.workspace}>
-        <section className={styles.content}>
-          {!editorTab&&tab!=='history'&&<><Overview item={item} price={price} prevPrice={prevPrice} sold={sold} prevSold={prevSold} margin={margin} ai={ai} flashSales={flashSales} productTasks={productTasks} onTaskAction={resolveProductTask} onReloadTasks={()=>loadProductTasks(item.itemId,{force:true})} onReloadFlash={()=>loadFlashSales(item.itemId)} onOpenPrice={()=>setEditorTab('price')}/><BottomCards item={item} competitors={competitors} score={score} afterScore={safeAfterScore}/></>}
-          {tab==='history'&&<HistoryPanel history={item.history||[r]}/>}
-          {editorTab==='competitors'&&<CompetitorsPanel competitors={competitors} collectedAt={r.analyzed_at} onZoom={setZoomSrc}/>}
-          {(editorTab==='title'||editorTab==='description'||editorTab==='category')&&<section className={styles.phase4Head}>
-            <div><b>Conteúdo do anúncio</b><p>Revise a versão atual, gere sugestões e aprove somente o que quiser alterar.</p></div>
-            <div className={styles.phase4Actions}>
-              <button type="button" className={styles.phase5Mark} onClick={()=>markOptimized('content')}>{optimizedAreas.content?'✓ Otimizado':'Marcar como otimizado'}</button>
-              <button type="button" data-active={editorTab==='title'?'true':'false'} onClick={()=>setEditorTab('title')}>Título</button>
-              <button type="button" data-active={editorTab==='description'?'true':'false'} onClick={()=>setEditorTab('description')}>Descrição</button>
-              <button type="button" data-active={editorTab==='category'?'true':'false'} onClick={()=>setEditorTab('category')}>Categoria</button>
+      <section className={styles.detailAreaIntro}>
+        <div><span><Icon name={activeArea.icon}/></span><div><h2>{activeArea.label}</h2><p>{activeArea.description}</p></div></div>
+        <div className={styles.detailSubtabs}>
+          {activeArea.subs.map(([key,label])=><button key={key} type="button" data-active={editorTab===key?'true':'false'} onClick={()=>setEditorTab(key)}>{label}</button>)}
+        </div>
+      </section>
+
+      {detailTab==='financial'&&<section className={styles.financeOverview}>
+        <div className={styles.financeHeading}><div><h2>Visão financeira</h2><p>Dados comerciais reunidos em um único lugar.</p></div><span>{offerStatus}</span></div>
+        <div className={styles.financeGrid}>{financialRows.map(([label,value])=><div key={label}><small>{label}</small><b>{value}</b></div>)}</div>
+        <div className={styles.offerSummary}>
+          <div><small>Status da Oferta Relâmpago</small><b>{offerStatus}</b></div>
+          <div><small>Período</small><b>{offerPeriod}</b></div>
+          <button type="button" onClick={()=>setEditorTab('price')}>Gerenciar oferta</button>
+        </div>
+        {(liveAds.phase==='error'||liveAds.phase==='timeout')&&<div className={styles.dataError}>{liveAds.error}<button type="button" onClick={()=>loadLiveAds(item.itemId)}>Tentar novamente</button></div>}
+      </section>}
+
+      <section className={styles.detailEditor}>
+        <div className={styles.detailActionsBar}>
+          <div className={styles.detailActionsTitle}><b>Ações</b><small>{activeArea.label}</small></div>
+          <button type="button" onClick={()=>setShowList(true)}><Icon name="arrowLeft"/> Voltar</button>
+          <div id="gs-editor-toolbar" className={styles.detailEditorToolbar}/>
+          <button type="button" className={styles.doneButton} data-done={isOptimized(detailTab)?'true':'false'} onClick={()=>markOptimized(detailTab)}>✓ {isOptimized(detailTab)?'Feito':'Feito'}</button>
+        </div>
+        <div className={styles.detailEditorBody}>
+          <SuperAnaliseInteligente key={`${r.id}-${editorTab}`} report={r} products={[]} initialTab={editorTab} embedded/>
+        </div>
+      </section>
+
+      <section className={styles.secondaryPanels} aria-label="Informações adicionais">
+        <details>
+          <summary><span><Icon name="bars"/></span><div><b>Resumo</b><small>Principais insights deste anúncio.</small></div><i>⌄</i></summary>
+          <div className={styles.accordionBody}>
+            <div className={styles.summaryGrid}>
+              <Fact label="Preço atual" value={dataText(price,money,p)} icon="tag"/>
+              <Fact label="Vendas acumuladas" value={sold==null?'—':sold.toLocaleString('pt-BR')} icon="cart"/>
+              <Fact label="Margem estimada" value={dataText(margin,pct,f)} icon="chart" tone="green"/>
+              <Fact label="Próxima rechecagem" value={when(item.schedule?.next_run_at||r.next_reanalysis_at)} icon="calendar"/>
             </div>
-          </section>}
-          {editorTab==='images'&&<section className={styles.phase4Head}>
-            <div><b>Imagens do anúncio</b><p>Revise a ordem e as recomendações visuais sem sair do Super Anúncio.</p></div>
-            <div className={styles.phase4Actions}><button type="button" className={styles.phase5Mark} onClick={()=>markOptimized('images')}>{optimizedAreas.images?'✓ Otimizado':'Marcar como otimizado'}</button><button type="button" className={styles.phase4Download} onClick={()=>{images.forEach((url,i)=>{const a=document.createElement('a');a.href=url;a.download=String(i+1).padStart(2,'0')+'-imagem';a.target='_blank';a.rel='noreferrer';a.click()})}}><Icon name="image"/> Baixar todas as imagens</button></div>
-          </section>}
-          {editorTab==='price'&&<section className={styles.phase4Head}><div><b>Preço & Oferta Relâmpago</b><p>Preço, margem e ações comerciais ficam concentrados nesta área.</p></div><button type="button" className={styles.phase5Mark} onClick={()=>markOptimized('price')}>{optimizedAreas.price?'✓ Otimizado':'Marcar como otimizado'}</button></section>}
-          {editorTab&&editorTab!=='competitors'&&<div className={styles.inlineEditor}><SuperAnaliseInteligente report={r} products={[]} initialTab={editorTab} embedded/></div>}
-        </section>
-      </div>
+            <DecisionChain steps={chainSteps} verdict={verdict} onRegisterCost={()=>{setDetailTab('financial');setEditorTab('price')}}/>
+          </div>
+        </details>
+
+        <details>
+          <summary><span><Icon name="users"/></span><div><b>Concorrentes</b><small>Análise dos principais concorrentes.</small></div><i>⌄</i></summary>
+          <div className={styles.accordionBody}><CompetitorsPanel competitors={competitors} collectedAt={r.analyzed_at} onZoom={setZoomSrc}/></div>
+        </details>
+
+        <details>
+          <summary><span><Icon name="clock"/></span><div><b>Histórico</b><small>Evolução das análises e alterações.</small></div><i>⌄</i></summary>
+          <div className={styles.accordionBody}><HistoryPanel history={item.history||[r]}/></div>
+        </details>
+
+        <details>
+          <summary><span><Icon name="file"/></span><div><b>Checklist</b><small>Itens que ainda podem ser otimizados.</small></div><i>⌄</i></summary>
+          <div className={styles.accordionBody}><NextActionsCard state={productTasks} itemId={item.itemId} onAction={resolveProductTask} onReload={()=>loadProductTasks(item.itemId,{force:true})}/></div>
+        </details>
+      </section>
+
       <section className={styles.manageZone}><span>Gerenciar análise deste anúncio</span><button type="button" className={styles.deleteBtn} onClick={deleteAnalysis} disabled={deleting}><Icon name="trash"/>{deleting?'Excluindo…':'Excluir análises'}</button></section>
     </main>
   </div>;
