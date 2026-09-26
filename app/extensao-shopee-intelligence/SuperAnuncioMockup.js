@@ -111,6 +111,9 @@ function Icon({name,className=''}) {
     case 'arrowUp': return <svg {...common}><path d="m5 12 7-7 7 7"/><path d="M12 5v14"/></svg>;
     case 'plus': return <svg {...common}><path d="M12 5v14M5 12h14"/></svg>;
     case 'trash': return <svg {...common}><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg>;
+    case 'arrowLeft': return <svg {...common}><path d="m15 18-6-6 6-6"/><path d="M9 12h11"/></svg>;
+    case 'external': return <svg {...common}><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 13v7H4V6h7"/></svg>;
+    case 'more': return <svg {...common}><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>;
     default: return <svg {...common}><circle cx="12" cy="12" r="8"/></svg>;
   }
 }
@@ -406,7 +409,15 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
       </section>
       {deleteError&&<div className={styles.deleteError}>{deleteError}</div>}
 
-      <div id="gs-editor-toolbar" className={styles.toolbarSlot}/>
+      <section className={styles.phase3Toolbar} aria-label="Ações do anúncio">
+        <button type="button" onClick={()=>setShowList(true)}><Icon name="arrowLeft"/> Voltar à lista</button>
+        <span className={styles.phase3Divider}/>
+        <button type="button" onClick={()=>router.refresh()}><Icon name="refresh"/> Reanalisar</button>
+        <div id="gs-editor-toolbar" className={styles.toolbarSlot}/>
+        <span className={styles.phase3Spacer}/>
+        <button type="button" className={styles.phase3Apply} disabled title="Será habilitado quando a publicação direta na Shopee estiver validada"><Icon name="external"/> Aplicar na Shopee</button>
+        <details className={styles.phase3More}><summary title="Mais ações"><Icon name="more"/></summary><div><button type="button" onClick={()=>{setTab('history');setEditorTab(null)}}>Ver histórico</button><Link href="/produtos">Ver produtos</Link></div></details>
+      </section>
 
       <nav className={styles.phase2Tabs} aria-label="Áreas do Super Anúncio">
         <button type="button" data-active={!editorTab&&tab!=='history'?'true':'false'} onClick={()=>{setTab('overview');setEditorTab(null)}}><Icon name="home"/> Resumo</button>
