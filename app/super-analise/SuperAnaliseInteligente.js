@@ -9,6 +9,8 @@ import {fetchJsonWithTimeout,classifyAsyncError} from '../lib/client-async';
 import ReminderButton from '../components/ReminderButton';
 
 const n=v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v))?null:Number(v);
+const decimal=v=>{if(v===null||v===undefined||v==='')return null;const raw=String(v).trim().replace(/\s/g,'');const normalized=raw.includes(',')?raw.replace(/\./g,'').replace(',','.'):raw;const value=Number(normalized);return Number.isFinite(value)?value:null};
+const decimalInput=v=>String(v??'').replace(/[^0-9,.]/g,'').replace(/([,.].*)[,.]/g,'$1');
 const money=v=>n(v)==null?'—':n(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const pct=v=>n(v)==null?'—':`${n(v).toLocaleString('pt-BR',{maximumFractionDigits:1})}%`;
 const arr=v=>Array.isArray(v)?v:[];
@@ -153,6 +155,8 @@ function ZoomModal({src,onClose}) {
 
 function FlashVariationModal({open,models,draft,setDraft,basePromo,onApplyAll,onClose,onConfirm,busy}) {
   if(!open)return null;
+  const ordered=[...selectedSlots].sort((a,b)=>Number(a?.start_time||0)-Number(b?.start_time||0));
+  const selectedLabel=ordered.length===1?flashSlotLabel(ordered[0]):ordered.length?`${flashSlotLabel(ordered[0])} → ${flashSlotLabel(ordered[ordered.length-1])}`:'—';
   return <div className={styles.flashVariationModal} role="dialog" aria-modal="true" aria-label="Preços da Oferta Relâmpago por variação" onClick={onClose}>
     <section className={styles.flashVariationDialog} onClick={e=>e.stopPropagation()}>
       <header>
@@ -171,7 +175,7 @@ function FlashVariationModal({open,models,draft,setDraft,basePromo,onApplyAll,on
           return <div key={id}>
             <span><b>{model.name||model.model_name||model.modelSku||('Variação '+(index+1))}</b>{model.sku&&<small>SKU: {model.sku}</small>}</span>
             <span>{money(model.current_price??model.price??model.original_price)}</span>
-            <label><input type="number" min="0.01" step="0.01" value={row.promoPrice??''} onChange={e=>setDraft(d=>({...d,[id]:{...(d[id]||{}),promoPrice:e.target.value}}))}/></label>
+            <label><input type="text" inputMode="decimal" value={row.promoPrice??''} onChange={e=>setDraft(d=>({...d,[id]:{...(d[id]||{}),promoPrice:decimalInput(e.target.value)}}))}/></label>
             <label><input type="number" min="1" step="1" value={row.stock??''} onChange={e=>setDraft(d=>({...d,[id]:{...(d[id]||{}),stock:e.target.value}}))}/>{model.available_stock!=null&&<small>Disponível: {Number(model.available_stock).toLocaleString('pt-BR')}</small>}</label>
           </div>
         })}
@@ -181,13 +185,13 @@ function FlashVariationModal({open,models,draft,setDraft,basePromo,onApplyAll,on
   </div>
 }
 
-function FlashConfirmModal({open,period,slotCount,models,variationDraft,flash,notify,setNotify,onClose,onConfirm,busy}) {
+function FlashConfirmModal({open,selectedSlots,slotCount,models,variationDraft,flash,notify,setNotify,onClose,onConfirm,busy}) {
   if(!open)return null;
   return <div className={styles.flashVariationModal} role="dialog" aria-modal="true" aria-label="Confirmar Ofertas Relâmpago" onClick={onClose}>
     <section className={styles.flashVariationDialog} onClick={e=>e.stopPropagation()}>
       <header><div><b>⚡ Confirmar criação das Ofertas Relâmpago</b><span>Confira o período e as notificações antes de enviar para a Shopee.</span></div><button type="button" onClick={onClose} aria-label="Fechar">×</button></header>
       <div className={styles.flashConfirmSummary}>
-        <div><small>Período</small><b>{dateRangeLabel(period)}</b></div>
+        <div><small>Horário selecionado</small><b>{selectedLabel}</b></div>
         <div><small>Horários oficiais encontrados</small><b>{slotCount}</b></div>
         <div><small>Produto</small><b>{models.length?models.length+' variações':'Preço único'}</b></div>
       </div>
@@ -552,13 +556,13 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
       const draftRows=ensureVariationDraft();
       for(const model of effectiveFlashModels){
         const id=String(model.model_id),row=draftRows[id]||{};
-        const promo=Number(row.promoPrice),reserved=Number(row.stock);
+        const promo=decimal(row.promoPrice),reserved=Number(row.stock);
         if(!(promo>0))return setFlashMessage('Defina o preço da oferta para todas as variações.');
         if(!(Number.isInteger(reserved)&&reserved>0))return setFlashMessage('Defina o estoque reservado de todas as variações.');
         if(n(model.available_stock)!=null&&reserved>Number(model.available_stock))return setFlashMessage('O estoque reservado de '+(model.name||'uma variação')+' excede o estoque disponível.');
       }
     }else{
-      if(!(Number(flash.promoPrice)>0))return setFlashMessage('Informe o preço promocional.');
+      if(!(decimal(flash.promoPrice)>0))return setFlashMessage('Informe o preço promocional.');
       if(!(Number.isInteger(Number(flash.stock))&&Number(flash.stock)>0))return setFlashMessage('Informe o estoque reservado.');
     }
     setFlashMessage('');
@@ -578,10 +582,10 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
       if(effectiveFlashModels.length){
         body.models=effectiveFlashModels.map(model=>{
           const row=flashVariationDraft[String(model.model_id)]||{};
-          return{model_id:Number(model.model_id),promo_price:Number(row.promoPrice),stock:Number(row.stock)};
+          return{model_id:Number(model.model_id),promo_price:decimal(row.promoPrice),stock:Number(row.stock)};
         });
       }else{
-        body.promo_price=Number(flash.promoPrice);
+        body.promo_price=decimal(flash.promoPrice);
         body.stock=Number(flash.stock);
       }
       const j=await fetchJsonWithTimeout('/api/shopee/flash-sale',{
@@ -609,7 +613,7 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
 
   return <div className={`${styles.screen} ${embedded?styles.embeddedScreen:''}`}>
     <ZoomModal src={zoomSrc} onClose={()=>setZoomSrc('')}/>
-    <FlashConfirmModal open={flashConfirmOpen} period={flashPeriod} slotCount={selectedSlots.length} models={effectiveFlashModels} variationDraft={flashVariationDraft} flash={flash} notify={flashNotify} setNotify={setFlashNotify} onClose={()=>!flashBusy&&setFlashConfirmOpen(false)} onConfirm={confirmFlashCreation} busy={flashBusy}/>
+    <FlashConfirmModal open={flashConfirmOpen} selectedSlots={selectedSlots} slotCount={selectedSlots.length} models={effectiveFlashModels} variationDraft={flashVariationDraft} flash={flash} notify={flashNotify} setNotify={setFlashNotify} onClose={()=>!flashBusy&&setFlashConfirmOpen(false)} onConfirm={confirmFlashCreation} busy={flashBusy}/>
     <main className={embedded?styles.embeddedMain:styles.main}>
       {!embedded&&<><header className={styles.header}><div className={styles.titleBlock}><div className={styles.titleRow}><h1>✦ Super Análise Inteligente</h1><div className={styles.scoreChip} title="Nota geral estimada do anúncio"><b>{overallBefore==null?'—':Math.round(overallBefore)}</b><span>→</span><b className={styles.scoreAfter}>{overallAfter==null?'—':Math.round(overallAfter)}</b><em>{overallDelta==null?'':overallDelta>0?`+${overallDelta} pontos`:'sem perda'}</em><small>Nota geral do anúncio</small></div></div><p>Compare os dados originais com a sugestão da IA e aplique apenas o que fizer sentido.</p></div><div className={styles.headerActions}><button type="button" data-gs-super-analysis onClick={openExtension}>↗ Abrir Motor Senior</button></div></header>
       <section className={styles.productBar}>
@@ -734,13 +738,13 @@ function PriceSection({costVariations=[],costValue=()=>'',setVarCost=()=>{},cost
 
 
       {models.length?<div className={styles.flashVariationInline}>
-        <div className={styles.flashVariationInlineHead}><div><b>Preço da oferta por variação</b><span>A Shopee exige um preço válido para cada variação.</span></div><div className={styles.flashApplyAll}><input type="number" min="0.01" step="0.01" placeholder="Preço para todas" value={flash.promoPrice} onChange={e=>setFlash(x=>({...x,promoPrice:e.target.value}))}/><button type="button" onClick={applyFlashPriceToAll}>Aplicar em todas</button></div></div>
+        <div className={styles.flashVariationInlineHead}><div><b>Preço da oferta por variação</b><span>A Shopee exige um preço válido para cada variação.</span></div><div className={styles.flashApplyAll}><input type="text" inputMode="decimal" placeholder="Preço para todas" value={flash.promoPrice} onChange={e=>setFlash(x=>({...x,promoPrice:decimalInput(e.target.value)}))}/><button type="button" onClick={applyFlashPriceToAll}>Aplicar em todas</button></div></div>
         <div className={styles.flashVariationInlineTable}>
           <div><b>Variação</b><b>Preço atual</b><b>Preço da oferta</b><b>Estoque reservado</b></div>
-          {models.map((model,index)=>{const id=String(model.model_id??index),row=variationDraft[id]||{};return <div key={id}><span><b>{model.name||('Variação '+(index+1))}</b>{model.sku&&<small>SKU: {model.sku}</small>}</span><span>{money(model.current_price??model.original_price)}</span><label><input type="number" min="0.01" step="0.01" value={row.promoPrice??''} onChange={e=>setVariationDraft(d=>({...d,[id]:{...(d[id]||{}),promoPrice:e.target.value}}))}/></label><label><input type="number" min="1" step="1" value={row.stock??''} onChange={e=>setVariationDraft(d=>({...d,[id]:{...(d[id]||{}),stock:e.target.value}}))}/>{model.available_stock!=null&&<small>Disponível: {Number(model.available_stock).toLocaleString('pt-BR')}</small>}</label></div>})}
+          {models.map((model,index)=>{const id=String(model.model_id??index),row=variationDraft[id]||{};return <div key={id}><span><b>{model.name||('Variação '+(index+1))}</b>{model.sku&&<small>SKU: {model.sku}</small>}</span><span>{money(model.current_price??model.original_price)}</span><label><input type="text" inputMode="decimal" value={row.promoPrice??''} onChange={e=>setVariationDraft(d=>({...d,[id]:{...(d[id]||{}),promoPrice:decimalInput(e.target.value)}}))}/></label><label><input type="number" min="1" step="1" value={row.stock??''} onChange={e=>setVariationDraft(d=>({...d,[id]:{...(d[id]||{}),stock:e.target.value}}))}/>{model.available_stock!=null&&<small>Disponível: {Number(model.available_stock).toLocaleString('pt-BR')}</small>}</label></div>})}
         </div>
         <label className={styles.flashPurchaseLimit}>Limite por comprador<input type="number" min="0" value={flash.purchaseLimit} onChange={e=>setFlash(x=>({...x,purchaseLimit:e.target.value}))}/></label>
-      </div>:<div className={styles.flashGrid}><label>Preço promocional<input type="number" step="0.01" value={flash.promoPrice} onChange={e=>setFlash(x=>({...x,promoPrice:e.target.value}))}/></label><label>Estoque reservado<input type="number" min="1" value={flash.stock} onChange={e=>setFlash(x=>({...x,stock:e.target.value}))}/></label><label>Limite por comprador<input type="number" min="0" value={flash.purchaseLimit} onChange={e=>setFlash(x=>({...x,purchaseLimit:e.target.value}))}/></label><div><small>Margem projetada</small><b>{pct(promoMargin)}</b></div></div>}
+      </div>:<div className={styles.flashGrid}><label>Preço promocional<input type="text" inputMode="decimal" value={flash.promoPrice} onChange={e=>setFlash(x=>({...x,promoPrice:decimalInput(e.target.value)}))}/></label><label>Estoque reservado<input type="number" min="1" value={flash.stock} onChange={e=>setFlash(x=>({...x,stock:e.target.value}))}/></label><label>Limite por comprador<input type="number" min="0" value={flash.purchaseLimit} onChange={e=>setFlash(x=>({...x,purchaseLimit:e.target.value}))}/></label><div><small>Margem projetada</small><b>{pct(promoMargin)}</b></div></div>}
 
       {slotError&&<div className={styles.message}>{slotError}</div>}
       <button type="button" className={styles.primary} onClick={createFlash} disabled={flashBusy||!selectedSlots.length}>{flashBusy?'Criando…':`⚡ Criar Ofertas Relâmpago (${selectedSlots.length})`}</button>
