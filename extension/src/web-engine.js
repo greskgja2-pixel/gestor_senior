@@ -223,6 +223,49 @@ async function syncProtectionStates(payload={}){
   }
 }
 
+async function marketplaceSearch(payload={}){
+  const query=String(payload?.query||'').trim();
+  if(!query)throw new Error('Digite uma palavra-chave para pesquisar.');
+  const pages=Math.max(1,Math.min(5,Number(payload?.pages)||3));
+  const gestorTabId=Number(payload?.gestorTabId)||null;
+  let tab=null;
+  const items=[],seen=new Set();
+  try{
+    tab=await chrome.tabs.create({url:'https://shopee.com.br/search?keyword='+encodeURIComponent(query)+'&page=0',active:true});
+    for(let page=0;page<pages;page++){
+      const url='https://shopee.com.br/search?keyword='+encodeURIComponent(query)+'&page='+page;
+      if(page>0)await chrome.tabs.update(tab.id,{url,active:true});
+      await waitTab(tab.id,22000);
+      await wait(900);
+      let response=null,lastError=null;
+      for(let attempt=0;attempt<4;attempt++){
+        try{
+          response=await chrome.tabs.sendMessage(tab.id,{type:'GS_COLLECT_SEARCH',options:{max:60,scrollSteps:7,delayMs:320}});
+          if(response?.ok&&Array.isArray(response.items))break;
+          lastError=new Error(response?.error||'A página ainda não respondeu.');
+        }catch(e){lastError=e;}
+        await wait(650);
+      }
+      if(!response?.ok||!Array.isArray(response.items))throw lastError||new Error('Não consegui coletar a página '+(page+1)+' da busca.');
+      for(const row of response.items){
+        const key=String(row?.itemId??row?.item_id??row?.itemid??'')||String(row?.url||row?.title||Math.random());
+        if(seen.has(key))continue;
+        seen.add(key);items.push({...row,searchPage:page+1});
+      }
+    }
+    return{query,pagesCollected:pages,items};
+  }finally{
+    if(tab?.id)await chrome.tabs.remove(tab.id).catch(()=>{});
+    if(gestorTabId){
+      const gestor=await chrome.tabs.get(gestorTabId).catch(()=>null);
+      if(gestor?.id){
+        await chrome.tabs.update(gestor.id,{active:true}).catch(()=>{});
+        if(gestor.windowId!=null)await chrome.windows.update(gestor.windowId,{focused:true}).catch(()=>{});
+      }
+    }
+  }
+}
+
 async function handleAction(action,payload={}){
   switch(action){
     case'ping':return{ok:true,version:chrome.runtime.getManifest().version};
@@ -234,6 +277,7 @@ async function handleAction(action,payload={}){
     case'pickerResult':return{ok:true,data:await pickerResult(payload||{})};
     case'reloadCompetitorPicker':return{ok:true,data:await reloadPicker(payload||{})};
     case'analyzeAll':return{ok:true,data:await analyzeAll(payload||{})};
+    case'marketplaceSearch':return{ok:true,data:await marketplaceSearch(payload||{})};
     default:throw new Error('Ação do Motor Senior não reconhecida.');
   }
 }
@@ -257,10 +301,16 @@ chrome.runtime.onMessage.addListener((msg,sender,sendResponse)=>{
 
 chrome.runtime.onConnect.addListener(port=>{
   if(port.name!=='GS_WEB_ENGINE_PORT')return;
+  let disconnected=false;
+  port.onDisconnect.addListener(()=>{disconnected=true;});
+  const safePost=message=>{if(disconnected)return false;try{port.postMessage(message);return true;}catch{return false;}};
   port.onMessage.addListener(msg=>{
     const requestId=String(msg?.requestId||'');
     const payload={...(msg?.payload||{})};
-    if(String(msg?.action||'')==='openCompetitorPicker'&&port.sender?.tab?.id)payload.gestorTabId=port.sender.tab.id;
-    handleAction(String(msg?.action||''),payload).then(result=>port.postMessage({requestId,result})).catch(e=>port.postMessage({requestId,result:{ok:false,error:String(e?.message||e)}}));
+    const action=String(msg?.action||'');
+    if(['openCompetitorPicker','marketplaceSearch'].includes(action)&&port.sender?.tab?.id)payload.gestorTabId=port.sender.tab.id;
+    handleAction(action,payload)
+      .then(result=>safePost({requestId,result}))
+      .catch(e=>safePost({requestId,result:{ok:false,error:String(e?.message||e)}}));
   });
 });
