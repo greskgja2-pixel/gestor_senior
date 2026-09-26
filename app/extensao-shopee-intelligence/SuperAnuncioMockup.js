@@ -433,14 +433,6 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
 
       <DecisionChain steps={chainSteps} verdict={verdict} onRegisterCost={()=>setEditorTab('price')}/>
 
-      <section className={styles.selector}>
-        <div className={styles.selectorGroup}>
-          <div className={styles.selectorField}><small>Anúncio atual</small><select value={selectedId} onChange={e=>{setSelectedId(e.target.value);setTab('overview');setEditorTab(null)}}>{items.map(x=><option key={x.itemId} value={x.itemId}>{x.latest?.product_snapshot?.title||x.latest?.product_snapshot?.item_name||`Produto ${x.itemId}`}</option>)}</select></div>
-        </div>
-        <div className={styles.selectorActions}>
-          <Link href="/produtos" className={styles.followBtn}><Icon name="plus"/> Acompanhar outro anúncio</Link>
-        </div>
-      </section>
       {deleteError&&<div className={styles.deleteError}>{deleteError}</div>}
 
       <section className={styles.phase3Toolbar} aria-label="Ações do anúncio">
