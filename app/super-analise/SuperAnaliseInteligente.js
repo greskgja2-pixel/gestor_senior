@@ -575,6 +575,7 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
       const body={
         item_id:report.item_id,
         timeslot_ids:selectedSlots.map(x=>Number(x.timeslot_id)).filter(Boolean),
+        selected_slots:selectedSlots.map(x=>({timeslot_id:Number(x.timeslot_id),start_time:Number(x.start_time),end_time:Number(x.end_time)})),
         purchase_limit:Number(flash.purchaseLimit||0),
         notify_app:flashNotify.app,
         notify_email:flashNotify.email
