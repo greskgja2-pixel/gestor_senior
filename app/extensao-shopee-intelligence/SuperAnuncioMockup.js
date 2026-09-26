@@ -408,20 +408,19 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
 
       <div id="gs-editor-toolbar" className={styles.toolbarSlot}/>
 
-      <div className={styles.quickActions}>
-        <button type="button" className={styles.quickLabel} onClick={()=>setEditorTab(null)}><Icon name="sparkles"/> Editar anúncio</button>
-        <button type="button" className={editorTab==='title'?styles.quickActive:''} onClick={()=>setEditorTab('title')}>Título</button>
-        <button type="button" className={editorTab==='description'?styles.quickActive:''} onClick={()=>setEditorTab('description')}>Descrição</button>
-        <button type="button" className={editorTab==='images'?styles.quickActive:''} onClick={()=>setEditorTab('images')}>Imagens</button>
-        <button type="button" className={editorTab==='category'?styles.quickActive:''} onClick={()=>setEditorTab('category')}>Categoria</button>
-        <button type="button" className={`${styles.quickPrimary} ${editorTab==='price'?styles.quickActive:''}`} onClick={()=>setEditorTab('price')}>Preço & Oferta Relâmpago</button>
-        <button type="button" className={editorTab==='competitors'?styles.quickActive:''} onClick={()=>setEditorTab('competitors')}><Icon name="users"/> Concorrentes</button>
-        <small>Você continua dentro do Super Anúncio. As alterações são salvas por área.</small>
-      </div>
+      <nav className={styles.phase2Tabs} aria-label="Áreas do Super Anúncio">
+        <button type="button" data-active={!editorTab&&tab!=='history'?'true':'false'} onClick={()=>{setTab('overview');setEditorTab(null)}}><Icon name="home"/> Resumo</button>
+        <button type="button" data-active={editorTab==='title'||editorTab==='description'||editorTab==='category'?'true':'false'} onClick={()=>{setTab('overview');setEditorTab('title')}}><Icon name="file"/> Conteúdo</button>
+        <button type="button" data-active={editorTab==='images'?'true':'false'} onClick={()=>{setTab('overview');setEditorTab('images')}}><Icon name="image"/> Imagens</button>
+        <button type="button" data-active={editorTab==='competitors'?'true':'false'} onClick={()=>{setTab('competitors');setEditorTab('competitors')}}><Icon name="users"/> Concorrentes</button>
+        <button type="button" data-active={editorTab==='price'?'true':'false'} onClick={()=>{setTab('overview');setEditorTab('price')}}><Icon name="coins"/> Preço</button>
+        <button type="button" data-active={tab==='history'?'true':'false'} onClick={()=>{setTab('history');setEditorTab(null)}}><Icon name="clock"/> Histórico</button>
+      </nav>
 
       <div className={styles.workspace}>
         <section className={styles.content}>
-          {!editorTab&&<><Overview item={item} price={price} prevPrice={prevPrice} sold={sold} prevSold={prevSold} margin={margin} ai={ai} flashSales={flashSales} productTasks={productTasks} onTaskAction={resolveProductTask} onReloadTasks={()=>loadProductTasks(item.itemId,{force:true})} onReloadFlash={()=>loadFlashSales(item.itemId)} onOpenPrice={()=>setEditorTab('price')}/><BottomCards item={item} competitors={competitors} score={score} afterScore={safeAfterScore}/></>}
+          {!editorTab&&tab!=='history'&&<><Overview item={item} price={price} prevPrice={prevPrice} sold={sold} prevSold={prevSold} margin={margin} ai={ai} flashSales={flashSales} productTasks={productTasks} onTaskAction={resolveProductTask} onReloadTasks={()=>loadProductTasks(item.itemId,{force:true})} onReloadFlash={()=>loadFlashSales(item.itemId)} onOpenPrice={()=>setEditorTab('price')}/><BottomCards item={item} competitors={competitors} score={score} afterScore={safeAfterScore}/></>}
+          {tab==='history'&&<HistoryPanel history={item.history||[r]}/>}
           {editorTab==='competitors'&&<CompetitorsPanel competitors={competitors} collectedAt={r.analyzed_at} onZoom={setZoomSrc}/>}
           {editorTab&&editorTab!=='competitors'&&<div className={styles.inlineEditor}><SuperAnaliseInteligente report={r} products={[]} initialTab={editorTab} embedded/></div>}
         </section>
