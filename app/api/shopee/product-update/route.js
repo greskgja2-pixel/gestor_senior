@@ -1,6 +1,6 @@
 import {NextResponse} from 'next/server';
 import {getActiveShop} from '../../../../lib/shop';
-import {getItemBaseInfo,updateItem,updateItemPrice} from '../../../../lib/shopee';
+import {getItemBaseInfo,updateItem} from '../../../../lib/shopee';
 
 export const dynamic='force-dynamic';
 export const runtime='nodejs';
@@ -18,8 +18,16 @@ export async function POST(request){
   if(!shop)return NextResponse.json({error:'Nenhuma loja Shopee conectada.'},{status:400});
 
   const requested=body?.changes&&typeof body.changes==='object'?body.changes:{};
+  const allowedKeys=new Set(['title','description']);
+  const unknownKeys=Object.keys(requested).filter(key=>!allowedKeys.has(key));
+  if(unknownKeys.length){
+    return NextResponse.json({
+      error:'Nesta primeira fase, somente Título e Descrição podem ser publicados diretamente na Shopee.',
+      unsupported:unknownKeys
+    },{status:409});
+  }
+
   const itemFields={};
-  let imagePlan=null;
   if(Object.prototype.hasOwnProperty.call(requested,'title')){
     const value=text(requested.title,120);
     if(!value)return NextResponse.json({error:'O título não pode ficar vazio.'},{status:400});
@@ -30,23 +38,8 @@ export async function POST(request){
     if(!value)return NextResponse.json({error:'A descrição não pode ficar vazia.'},{status:400});
     itemFields.description=value;
   }
-  if(Object.prototype.hasOwnProperty.call(requested,'images')){
-    if(!Array.isArray(requested.images)||requested.images.length<1||requested.images.length>9){
-      return NextResponse.json({error:'A galeria precisa ter de 1 a 9 imagens.'},{status:400});
-    }
-    imagePlan=requested.images;
-  }
-  if(Object.prototype.hasOwnProperty.call(requested,'categoryId')){
-    const categoryId=positiveInt(requested.categoryId);
-    if(!categoryId)return NextResponse.json({error:'Categoria Shopee inválida.'},{status:400});
-    itemFields.category_id=categoryId;
-  }
-  const price=Object.prototype.hasOwnProperty.call(requested,'price')?finite(requested.price):null;
-  if(Object.prototype.hasOwnProperty.call(requested,'price')&&!(price>0)){
-    return NextResponse.json({error:'O preço precisa ser maior que zero.'},{status:400});
-  }
-  if(!Object.keys(itemFields).length&&price==null&&!imagePlan){
-    return NextResponse.json({error:'Nenhuma alteração real para salvar.'},{status:400});
+  if(!Object.keys(itemFields).length){
+    return NextResponse.json({error:'Nenhuma alteração real de Título ou Descrição para salvar.'},{status:400});
   }
 
   try{
@@ -54,43 +47,31 @@ export async function POST(request){
     const current=base?.response?.item_list?.find(x=>Number(x?.item_id)===itemId);
     if(!current)return NextResponse.json({error:'O anúncio não pertence à loja conectada ou não está acessível pela Shopee.'},{status:404});
 
-    if(imagePlan){
-      const currentIds=current?.image?.image_id_list||current?.image_id_list||[];
-      const resolved=[];
-      for(const entry of imagePlan){
-        if(entry&&entry.source==='uploaded'&&String(entry.image_id||'').trim()){
-          resolved.push(String(entry.image_id));
-          continue;
-        }
-        const idx=Number(entry?.index);
-        if(entry&&entry.source==='existing'&&Number.isInteger(idx)&&idx>=0&&currentIds[idx]){
-          resolved.push(String(currentIds[idx]));
-          continue;
-        }
-        return NextResponse.json({error:'Não foi possível relacionar uma das imagens atuais com a galeria da Shopee. Recarregue a análise e tente novamente.'},{status:409});
-      }
-      itemFields.image={image_id_list:resolved};
+    await updateItem({shopId:shop.shop_id,accessToken:shop.access_token,itemId,fields:itemFields});
+
+    let verified=null;
+    for(let attempt=0;attempt<3;attempt++){
+      if(attempt>0)await new Promise(resolve=>setTimeout(resolve,700));
+      const check=await getItemBaseInfo({shopId:shop.shop_id,accessToken:shop.access_token,itemIdList:[itemId]});
+      const item=check?.response?.item_list?.find(x=>Number(x?.item_id)===itemId);
+      if(!item)continue;
+      const titleOk=itemFields.item_name===undefined||String(item?.item_name??'').trim()===String(itemFields.item_name).trim();
+      const descriptionOk=itemFields.description===undefined||String(item?.description??'').trim()===String(itemFields.description).trim();
+      verified={titleOk,descriptionOk};
+      if(titleOk&&descriptionOk)break;
     }
 
-    if(price!=null&&current?.has_model){
+    if(!verified?.titleOk||!verified?.descriptionOk){
       return NextResponse.json({
-        error:'Este anúncio possui variações. O preço precisa ser alterado por variação; nenhuma alteração foi enviada para evitar uma atualização parcial do anúncio.'
-      },{status:409});
+        error:'A Shopee recebeu a alteração, mas a confirmação de persistência ainda não bateu com o valor enviado. Recarregue o anúncio antes de tentar novamente.',
+        verification:{title:verified?.titleOk??false,description:verified?.descriptionOk??false}
+      },{status:502});
     }
 
     const applied=[];
-    if(Object.keys(itemFields).length){
-      await updateItem({shopId:shop.shop_id,accessToken:shop.access_token,itemId,fields:itemFields});
-      if(itemFields.item_name!==undefined)applied.push('title');
-      if(itemFields.description!==undefined)applied.push('description');
-      if(itemFields.category_id!==undefined)applied.push('categoryId');
-      if(itemFields.image!==undefined)applied.push('images');
-    }
-    if(price!=null){
-      await updateItemPrice({shopId:shop.shop_id,accessToken:shop.access_token,itemId,priceList:[{model_id:0,original_price:price}]});
-      applied.push('price');
-    }
-    return NextResponse.json({ok:true,item_id:itemId,applied});
+    if(itemFields.item_name!==undefined)applied.push('title');
+    if(itemFields.description!==undefined)applied.push('description');
+    return NextResponse.json({ok:true,item_id:itemId,applied,verified:true});
   }catch(error){
     return NextResponse.json({error:String(error?.message||error)},{status:502});
   }
