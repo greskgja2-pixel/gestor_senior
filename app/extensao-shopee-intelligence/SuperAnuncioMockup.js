@@ -21,6 +21,17 @@ const competitorUrl=c=>c?.url||c?.link||c?.productUrl||c?.product_url||(c?.shopI
 const competitorPrice=c=>{if(n(c?.price)!=null)return n(c.price);const m=String(c?.searchText||'').match(/R\$\s*\n?\s*([0-9.]+,[0-9]{2})/i);return m?Number(m[1].replace(/\./g,'').replace(',','.')):null};
 const competitorSold=c=>{if(n(c?.sold)!=null)return n(c.sold);const m=String(c?.searchText||'').match(/([0-9]+(?:[.,][0-9]+)?)\s*(mil)?\+?\s*Vendido/i);if(!m)return null;const base=Number(m[1].replace(',','.'));return Number.isFinite(base)?Math.round(base*(m[2]?1000:1)):null};
 const imageCandidates=obj=>{const fields=[obj?.imageUrl,obj?.image_url,obj?.thumbnail,obj?.thumbnailUrl,obj?.cover,...arr(obj?.imageUrls),...arr(obj?.image_urls),...arr(obj?.images),...arr(obj?.image?.image_url_list)];const clean=[...new Set(fields.map(v=>typeof v==='string'?v:(v?.url||v?.image_url||v?.src||'')).map(v=>String(v||'').trim()).filter(Boolean).map(v=>/^https?:\/\//i.test(v)?v:(/^[A-Za-z0-9_-]{16,}$/.test(v)?`https://down-br.img.susercontent.com/file/${v}`:'')).filter(Boolean))].filter(u=>!/\.svg(?:\?|$)/i.test(u)&&!/productdetailspage/i.test(u));const score=u=>{let s=0;if(/down-br\.img\.susercontent\.com\/file\//i.test(u))s+=3;if(/\/br-11134207-/i.test(u))s+=8;if(/_tn(?:\?|$)/i.test(u))s-=5;if(/_cover(?:\?|$)/i.test(u))s-=6;return s};return clean.map((u,i)=>({u,i,s:score(u)})).sort((a,b)=>b.s-a.s||a.i-b.i).map(x=>x.u)};
+const productTaskRequests=new Map();
+async function fetchProductTasksOnce(itemId,{force=false}={}){
+  const key=String(itemId||'');
+  if(!key)return{tasks:[]};
+  const now=Date.now(),cached=productTaskRequests.get(key);
+  if(!force&&cached&&now-cached.createdAt<1500)return cached.promise;
+  const promise=fetchJsonWithTimeout('/api/tasks?item_id='+encodeURIComponent(key),{cache:'no-store'},12000)
+    .finally(()=>setTimeout(()=>{const current=productTaskRequests.get(key);if(current?.promise===promise)productTaskRequests.delete(key)},1500));
+  productTaskRequests.set(key,{createdAt:now,promise});
+  return promise;
+}
 const TABS=[
   ['overview','Visão geral','home'],
   ['ads','Shopee Ads','megaphone'],
@@ -212,11 +223,11 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
     }
   }
 
-  async function loadProductTasks(targetItemId){
+  async function loadProductTasks(targetItemId,{force=false}={}){
     if(!targetItemId)return;
     setProductTasks({phase:'loading',rows:[],error:''});
     try{
-      const data=await fetchJsonWithTimeout('/api/tasks?item_id='+encodeURIComponent(targetItemId),{cache:'no-store'},12000);
+      const data=await fetchProductTasksOnce(targetItemId,{force});
       const rows=arr(data?.tasks);
       setProductTasks({phase:rows.length?'success':'empty',rows,error:''});
     }catch(error){
@@ -228,7 +239,7 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
   async function resolveProductTask(taskId,action='done',hours){
     try{
       await fetchJsonWithTimeout('/api/tasks',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:taskId,action,hours})},12000);
-      await loadProductTasks(item?.itemId);
+      await loadProductTasks(item?.itemId,{force:true});
     }catch(error){console.error('[Super Anúncio] ação de tarefa falhou',error)}
   }
 
@@ -373,7 +384,7 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
 
       <div className={styles.workspace}>
         <section className={styles.content}>
-          {!editorTab&&<><Overview item={item} price={price} prevPrice={prevPrice} sold={sold} prevSold={prevSold} margin={margin} ai={ai} flashSales={flashSales} productTasks={productTasks} onTaskAction={resolveProductTask} onReloadTasks={()=>loadProductTasks(item.itemId)} onReloadFlash={()=>loadFlashSales(item.itemId)} onOpenPrice={()=>setEditorTab('price')}/><BottomCards item={item} competitors={competitors} score={score} afterScore={safeAfterScore}/></>}
+          {!editorTab&&<><Overview item={item} price={price} prevPrice={prevPrice} sold={sold} prevSold={prevSold} margin={margin} ai={ai} flashSales={flashSales} productTasks={productTasks} onTaskAction={resolveProductTask} onReloadTasks={()=>loadProductTasks(item.itemId,{force:true})} onReloadFlash={()=>loadFlashSales(item.itemId)} onOpenPrice={()=>setEditorTab('price')}/><BottomCards item={item} competitors={competitors} score={score} afterScore={safeAfterScore}/></>}
           {editorTab==='competitors'&&<CompetitorsPanel competitors={competitors} collectedAt={r.analyzed_at} onZoom={setZoomSrc}/>}
           {editorTab&&editorTab!=='competitors'&&<div className={styles.inlineEditor}><SuperAnaliseInteligente report={r} products={[]} initialTab={editorTab} embedded/></div>}
         </section>
