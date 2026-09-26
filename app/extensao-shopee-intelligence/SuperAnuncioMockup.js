@@ -172,6 +172,7 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
   const [zoomSrc,setZoomSrc]=useState('');
   const [searchMsg,setSearchMsg]=useState('');
   const [showList,setShowList]=useState(!initialItemId);
+  const [listFilter,setListFilter]=useState('Todos');
   const [optimizedAreas,setOptimizedAreas]=useState({});
   const router=useRouter();
   const searchRef=useRef(null);
@@ -299,6 +300,15 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
       const ag=(aa!=null&&ar!=null)?aa-ar:0,bg=(ba!=null&&br!=null)?ba-br:0;
       return bg-ag||(ar??999)-(br??999);
     });
+    const visibleRows=ranked.filter(x=>{
+      const rr=x.latest||{},pp=rr.product_snapshot||{},sc=n(rr.score),pot=n(rr.report?.ai_analysis?.afterScore);
+      const safePot=pot==null?sc:(sc==null?pot:Math.max(sc,pot));
+      const gain=sc!=null&&safePot!=null?Math.round(safePot-sc):null;
+      const priority=(gain??0)>=25?'Alta':(gain??0)>=10?'Média':'Acompanhar';
+      const q=query.trim().toLowerCase();
+      const matchesQuery=!q||String(pp.title||pp.item_name||x.itemId).toLowerCase().includes(q);
+      return matchesQuery&&(listFilter==='Todos'||priority===listFilter);
+    });
     return <div className={styles.screen}><main className={styles.main}>
       <section className={styles.phase1Header}>
         <div><span className={styles.heroIcon}><Icon name="megaphone"/></span><div><h1>Super Anúncio</h1><p>Anúncios que já passaram pela Super Análise. Comece pelos que têm maior oportunidade de melhoria.</p></div></div>
@@ -306,10 +316,16 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
       </section>
       <section className={styles.phase1Filters}>
         <div className={styles.phase1Search}><Icon name="search"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar anúncio analisado..."/></div>
-        <span>{ranked.length} anúncio{ranked.length===1?'':'s'} analisado{ranked.length===1?'':'s'}</span>
+        <div className={styles.phase1FilterChips} role="group" aria-label="Filtrar anúncios por prioridade">
+          <button type="button" data-active={listFilter==='Todos'} onClick={()=>setListFilter('Todos')}><Icon name="grid"/> Todos <b>{ranked.length}</b></button>
+          <button type="button" data-active={listFilter==='Alta'} onClick={()=>setListFilter('Alta')}><Icon name="arrowUp"/> Alta</button>
+          <button type="button" data-active={listFilter==='Média'} onClick={()=>setListFilter('Média')}><Icon name="bars"/> Média</button>
+          <button type="button" data-active={listFilter==='Acompanhar'} onClick={()=>setListFilter('Acompanhar')}><Icon name="file"/> Acompanhar</button>
+        </div>
+        <span>{visibleRows.length} anúncio{visibleRows.length===1?'':'s'} exibido{visibleRows.length===1?'':'s'}</span>
       </section>
       <section className={styles.phase1List}>
-        {ranked.filter(x=>{const q=query.trim().toLowerCase();if(!q)return true;const pp=x.latest?.product_snapshot||{};return String(pp.title||pp.item_name||x.itemId).toLowerCase().includes(q)}).map((x,i)=>{
+        {visibleRows.map(x=>{
           const rr=x.latest||{},pp=rr.product_snapshot||{},sc=n(rr.score),pot=n(rr.report?.ai_analysis?.afterScore);
           const safePot=pot==null?sc:(sc==null?pot:Math.max(sc,pot));
           const gain=sc!=null&&safePot!=null?Math.round(safePot-sc):null;
@@ -317,11 +333,17 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
           const priority=(gain??0)>=25?'Alta':(gain??0)>=10?'Média':'Acompanhar';
           return <article key={x.itemId} className={styles.phase1Row}>
             {imageOf(pp)?<img src={imageOf(pp)} alt=""/>:<div className={styles.phase1NoImage}><Icon name="image"/></div>}
-            <div className={styles.phase1Identity}><b>{pp.title||pp.item_name||`Produto ${x.itemId}`}</b><small>Última análise: {when(rr.analyzed_at)}</small><span data-priority={priority}>{priority==='Alta'?'Prioridade alta':priority}</span></div>
-            <div className={styles.phase1Stat}><small>Nota atual</small><b>{sc==null?'—':Math.round(sc)}</b></div>
-            <div className={styles.phase1Stat} data-potential="true"><small>Potencial</small><b>{safePot==null?'—':Math.round(safePot)}</b><em>{gain==null?'Sem projeção':gain>0?`+${gain} pts`:'Sem ganho projetado'}</em></div>
+            <div className={styles.phase1Identity}><b>{pp.title||pp.item_name||`Produto ${x.itemId}`}</b><small><Icon name="calendar"/> Última análise: {when(rr.analyzed_at)}</small><span data-priority={priority}>{priority==='Alta'?'Prioridade alta':priority}</span></div>
+            <div className={styles.phase1Stat}>
+              <span className={styles.phase1StatIcon}><Icon name="star"/></span>
+              <div><small>Nota atual</small><b>{sc==null?'—':Math.round(sc)}</b></div>
+            </div>
+            <div className={styles.phase1Stat} data-potential="true">
+              <span className={styles.phase1StatIcon}><Icon name="arrowUp"/></span>
+              <div><small>Potencial</small><b>{safePot==null?'—':Math.round(safePot)}</b><em>{gain==null?'Sem projeção':gain>0?`+${gain} pts de ganho`:'Sem ganho projetado'}</em></div>
+            </div>
             <div className={styles.phase1Problem}><small>Principal ponto</small><b>{weak?.name||'Sem diagnóstico'}</b></div>
-            <button type="button" className={styles.phase1Open} onClick={()=>{setSelectedId(x.itemId);setShowList(false);setTab('overview');setEditorTab(null)}}>Abrir análise <span>→</span></button>
+            <button type="button" className={styles.phase1Open} onClick={()=>{setSelectedId(x.itemId);setShowList(false);setTab('overview');setEditorTab(null)}}><Icon name="file"/> Abrir análise <span>→</span></button>
           </article>
         })}
       </section>
