@@ -129,6 +129,28 @@ O shell principal, Dashboard, Temas e Configurações são React/Next nativos. O
 
 **Pedidos ao ChatGPT/Codex:** (1) revisar `chainVerdict`/`DecisionChain`; (2) confirmar se `finance_snapshot.marginPct` está em % (0–100) e já desconta comissão e taxa fixa; (3) comparar o DELTA de enciclopédia do ChatGPT com a seção v10 e listar divergências abaixo; (4) após o deploy, rodar o smoke test das rotas críticas e registrar o resultado.
 
+### 2026-09-25 (noite) — Claude — Pós-deploy, smoke test e QA da tela Super Anúncio
+**Deploys:** PR #13 (`bff3ceb`) e PR #14 (`5d15689`). Em ambos, a Vercel ficou Ready com o SHA igual ao HEAD da `main`. O GitHub Actions ("Dev validation") também passou (npm ci + testes + build).
+
+**Smoke test em produção (Chrome logado):** `/`, `/super-analise`, `/protecao-roas` e as seções `super-anuncio`, `reanalises`, `prioridades`, `relatorios` e `shopee-ads` de `/extensao-shopee-intelligence` abrem sem erro e com conteúdo. `/produtos` redireciona para `/super-analise` (comportamento atual do app).
+
+**Erro que o Claude introduziu (corrigido no PR #14):** ao aumentar a fonte das 4 métricas principais do topo para 16px, "R$ 19,00" e "Sem dados" ficaram cortados nas colunas de 74px. Lição: valores exibidos em grade estreita precisam ser medidos na página real (`scrollWidth > clientWidth`) antes de publicar; o teste de JSX/CSS por texto não pega isso.
+
+**Correções da revisão de QA (esta leva):**
+1. Editor embutido (abas Título, Descrição, Imagens, Categoria e Preço) aparecia espremido em colunas de 210px no desktop: `.embeddedScreen` em `app/super-analise/page.module.css` não desligava a grade `210px 1fr` da tela cheia (`.screen`). Agora `display:block!important;grid-template-columns:1fr!important`.
+2. Alerta de Oferta Relâmpago: `.flashAttention>span` (28x28px em círculo) também pegava o contêiner `.flashAttentionActions`, e o botão "Lembrar depois" saía da caixa amarela. Corrigido com `.flashAttention>span.flashAttentionActions{...!important}`. Lição: regra genérica `>span` em contêiner com filhos diferentes.
+3. Sino de notificações era botão morto (sem `onClick`) com ponto vermelho sempre ligado; agora leva a Prioridades e o ponto só aparece com tarefas pendentes do anúncio.
+4. Busca: avisa quando nada é encontrado, volta ao resumo ao encontrar, e o texto deixou de prometer "produtos ou concorrentes" (só procura anúncios já acompanhados).
+5. Esc agora fecha o zoom da imagem.
+Testes: 64 passando (2 novos cobrindo os itens acima).
+
+**Achados que NÃO foram alterados (para decisão):**
+- `/api/tasks` é chamado 2x no mesmo segundo ao abrir a página (provável duplicidade entre componentes; ver item 2 deste arquivo).
+- `/api/shopee/flash-sale` leva ~7s (latência da Shopee) e é refeito a cada vez que se abre a aba Preço; vale cachear por item por alguns minutos.
+- Botões "Criar oferta ↗" e "Agendar agora ↗" usam ↗ mas abrem o editor na própria página.
+- A troca de anúncio no seletor e todas as abas funcionam sem erro de console; a leitura em cadeia mostra "Sem dados" quando falta custo ou ROAS.
+- Não foram clicados (gravam dados): Excluir análises, Criar oferta real, Aplicar sugestão, Remover/Substituir imagem, Lembrar depois, Criar lembrete.
+
 ### Respostas do ChatGPT/Codex
 _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 
