@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Mapeador Automático — Motor Senior</title>
+  <link rel="stylesheet" href="mapper.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">MOTOR SENIOR</p>
+        <h1>Mapeador Automático</h1>
+        <p class="muted">Explora telas da Shopee, registra cliques, screenshots e chamadas capturadas.</p>
+      </div>
+      <a class="ghost" href="engine-status.html">Voltar</a>
+    </header>
+
+    <section class="card hero">
+      <div class="status-row">
+        <div>
+          <span id="statusBadge" class="badge idle">Parado</span>
+          <strong id="currentAction">Pronto para mapear</strong>
+        </div>
+        <strong id="percentText" class="percent">0%</strong>
+      </div>
+      <div class="progress"><div id="progressBar"></div></div>
+      <div class="stats">
+        <div><span>Descobertos</span><strong id="discovered">0</strong></div>
+        <div><span>Processados</span><strong id="processed">0</strong></div>
+        <div><span>Fila</span><strong id="remaining">0</strong></div>
+        <div><span>Prints</span><strong id="screenshots">0</strong></div>
+        <div><span>Páginas</span><strong id="pages">0</strong></div>
+        <div><span>APIs</span><strong id="apis">0</strong></div>
+      </div>
+      <p id="heartbeat" class="heartbeat">Nenhuma execução iniciada.</p>
+    </section>
+
+    <section class="card controls">
+      <div class="field-grid">
+        <label>Profundidade
+          <select id="maxDepth">
+            <option value="1">1 nível</option>
+            <option value="2" selected>2 níveis</option>
+            <option value="3">3 níveis</option>
+            <option value="4">4 níveis</option>
+          </select>
+        </label>
+        <label>Limite de ações
+          <select id="maxActions">
+            <option value="60">60</option>
+            <option value="120" selected>120</option>
+            <option value="250">250</option>
+            <option value="500">500</option>
+          </select>
+        </label>
+      </div>
+      <label class="check"><input id="captureScreens" type="checkbox" checked> Tirar screenshots antes e depois de cada ação</label>
+      <div class="button-row">
+        <button id="startBtn" class="primary">Iniciar mapeamento</button>
+        <button id="pauseBtn" disabled>Pausar</button>
+        <button id="resumeBtn" disabled>Continuar</button>
+        <button id="stopBtn" class="danger" disabled>Parar com segurança</button>
+      </div>
+    </section>
+
+    <section class="card radio-card">
+      <div class="section-title">
+        <div><span class="icon">♫</span><strong>Rádio online</strong></div>
+        <label class="mini-check"><input id="autoRadio" type="checkbox"> iniciar junto</label>
+      </div>
+      <select id="stationSelect">
+        <option value="https://ice5.somafm.com/groovesalad-128-mp3">Groove Salad</option>
+        <option value="https://ice5.somafm.com/gsclassic-128-mp3">Groove Salad Classic</option>
+        <option value="https://ice5.somafm.com/live-128-mp3">SomaFM Live</option>
+        <option value="https://ice5.somafm.com/brfm-128-mp3">Black Rock FM</option>
+      </select>
+      <audio id="radio" preload="none"></audio>
+      <div class="radio-controls">
+        <button id="playBtn">▶ Tocar</button>
+        <button id="nextBtn">⏭ Próxima</button>
+        <label>Volume <input id="volume" type="range" min="0" max="1" value="0.7" step="0.05"></label>
+      </div>
+      <p class="muted small">A rádio é independente do mapeamento e pode continuar tocando enquanto o painel estiver aberto.</p>
+    </section>
+
+    <section class="card export-card">
+      <div>
+        <strong>Pacote final</strong>
+        <p class="muted">Gera ZIP com mapa, resumo, APIs, logs e screenshots.</p>
+      </div>
+      <div class="button-row">
+        <button id="exportBtn" disabled>Baixar ZIP</button>
+        <button id="clearBtn" class="ghost-button">Limpar sessão</button>
+      </div>
+      <p id="message" class="message"></p>
+    </section>
+  </main>
+  <script src="mapper.js"></script>
+</body>
+</html>
