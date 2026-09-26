@@ -172,9 +172,21 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
   const [zoomSrc,setZoomSrc]=useState('');
   const [searchMsg,setSearchMsg]=useState('');
   const [showList,setShowList]=useState(!initialItemId);
+  const [optimizedAreas,setOptimizedAreas]=useState({});
   const router=useRouter();
   const searchRef=useRef(null);
   const item=useMemo(()=>items.find(x=>String(x.itemId)===String(selectedId))||items[0]||null,[items,selectedId]);
+
+  useEffect(()=>{
+    if(typeof window==='undefined'||!item?.itemId)return;
+    try{setOptimizedAreas(JSON.parse(localStorage.getItem('gs-super-anuncio-optimized-'+item.itemId)||'{}'))}catch{setOptimizedAreas({})}
+  },[item?.itemId]);
+
+  function markOptimized(area){
+    const next={...optimizedAreas,[area]:true};
+    setOptimizedAreas(next);
+    try{localStorage.setItem('gs-super-anuncio-optimized-'+item.itemId,JSON.stringify(next))}catch{}
+  }
 
   useEffect(()=>{
     const selected=items.find(x=>String(x.itemId)===String(initialItemId));
@@ -421,10 +433,10 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
 
       <nav className={styles.phase2Tabs} aria-label="Áreas do Super Anúncio">
         <button type="button" data-active={!editorTab&&tab!=='history'?'true':'false'} onClick={()=>{setTab('overview');setEditorTab(null)}}><Icon name="home"/> Resumo</button>
-        <button type="button" data-active={editorTab==='title'||editorTab==='description'||editorTab==='category'?'true':'false'} onClick={()=>{setTab('overview');setEditorTab('title')}}><Icon name="file"/> Conteúdo</button>
-        <button type="button" data-active={editorTab==='images'?'true':'false'} onClick={()=>{setTab('overview');setEditorTab('images')}}><Icon name="image"/> Imagens</button>
+        <button type="button" data-done={optimizedAreas.content?'true':'false'} data-active={editorTab==='title'||editorTab==='description'||editorTab==='category'?'true':'false'} onClick={()=>{setTab('overview');setEditorTab('title')}}><Icon name="file"/> Conteúdo{optimizedAreas.content&&<span className={styles.phase5Done}>✓</span>}</button>
+        <button type="button" data-done={optimizedAreas.images?'true':'false'} data-active={editorTab==='images'?'true':'false'} onClick={()=>{setTab('overview');setEditorTab('images')}}><Icon name="image"/> Imagens{optimizedAreas.images&&<span className={styles.phase5Done}>✓</span>}</button>
         <button type="button" data-active={editorTab==='competitors'?'true':'false'} onClick={()=>{setTab('competitors');setEditorTab('competitors')}}><Icon name="users"/> Concorrentes</button>
-        <button type="button" data-active={editorTab==='price'?'true':'false'} onClick={()=>{setTab('overview');setEditorTab('price')}}><Icon name="coins"/> Preço</button>
+        <button type="button" data-done={optimizedAreas.price?'true':'false'} data-active={editorTab==='price'?'true':'false'} onClick={()=>{setTab('overview');setEditorTab('price')}}><Icon name="coins"/> Preço{optimizedAreas.price&&<span className={styles.phase5Done}>✓</span>}</button>
         <button type="button" data-active={tab==='history'?'true':'false'} onClick={()=>{setTab('history');setEditorTab(null)}}><Icon name="clock"/> Histórico</button>
       </nav>
 
@@ -436,6 +448,7 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
           {(editorTab==='title'||editorTab==='description'||editorTab==='category')&&<section className={styles.phase4Head}>
             <div><b>Conteúdo do anúncio</b><p>Revise a versão atual, gere sugestões e aprove somente o que quiser alterar.</p></div>
             <div className={styles.phase4Actions}>
+              <button type="button" className={styles.phase5Mark} onClick={()=>markOptimized('content')}>{optimizedAreas.content?'✓ Otimizado':'Marcar como otimizado'}</button>
               <button type="button" data-active={editorTab==='title'?'true':'false'} onClick={()=>setEditorTab('title')}>Título</button>
               <button type="button" data-active={editorTab==='description'?'true':'false'} onClick={()=>setEditorTab('description')}>Descrição</button>
               <button type="button" data-active={editorTab==='category'?'true':'false'} onClick={()=>setEditorTab('category')}>Categoria</button>
@@ -443,9 +456,9 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
           </section>}
           {editorTab==='images'&&<section className={styles.phase4Head}>
             <div><b>Imagens do anúncio</b><p>Revise a ordem e as recomendações visuais sem sair do Super Anúncio.</p></div>
-            <button type="button" className={styles.phase4Download} onClick={()=>{images.forEach((url,i)=>{const a=document.createElement('a');a.href=url;a.download=String(i+1).padStart(2,'0')+'-imagem';a.target='_blank';a.rel='noreferrer';a.click()})}}><Icon name="image"/> Baixar todas as imagens</button>
+            <div className={styles.phase4Actions}><button type="button" className={styles.phase5Mark} onClick={()=>markOptimized('images')}>{optimizedAreas.images?'✓ Otimizado':'Marcar como otimizado'}</button><button type="button" className={styles.phase4Download} onClick={()=>{images.forEach((url,i)=>{const a=document.createElement('a');a.href=url;a.download=String(i+1).padStart(2,'0')+'-imagem';a.target='_blank';a.rel='noreferrer';a.click()})}}><Icon name="image"/> Baixar todas as imagens</button></div>
           </section>}
-          {editorTab==='price'&&<section className={styles.phase4Head}><div><b>Preço & Oferta Relâmpago</b><p>Preço, margem e ações comerciais ficam concentrados nesta área.</p></div></section>}
+          {editorTab==='price'&&<section className={styles.phase4Head}><div><b>Preço & Oferta Relâmpago</b><p>Preço, margem e ações comerciais ficam concentrados nesta área.</p></div><button type="button" className={styles.phase5Mark} onClick={()=>markOptimized('price')}>{optimizedAreas.price?'✓ Otimizado':'Marcar como otimizado'}</button></section>}
           {editorTab&&editorTab!=='competitors'&&<div className={styles.inlineEditor}><SuperAnaliseInteligente report={r} products={[]} initialTab={editorTab} embedded/></div>}
         </section>
       </div>
