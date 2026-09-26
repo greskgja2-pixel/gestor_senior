@@ -71,31 +71,25 @@ function normalizeTimeSlots(raw){
 async function loadOfficialTimeSlots({shop,startTime,endTime}){
   const safeStart=Math.max(Math.floor(Date.now()/1000)+120,Number(startTime)||0);
   const safeEnd=Math.max(safeStart+60,Number(endTime)||safeStart+7*24*3600);
-  const merged=new Map();
-  const oneDay=24*3600;
 
-  // Para lojas BR, consultas amplas podem voltar HTTP 200 sem response.
-  // Consultamos dia a dia no host brasileiro e agregamos apenas slots oficiais.
-  for(let cursor=safeStart;cursor<=safeEnd;cursor+=oneDay){
-    const chunkEnd=Math.min(safeEnd,cursor+oneDay-1);
-    const raw=await getFlashSaleTimeSlots({
-      shopId:shop.shop_id,accessToken:shop.access_token,startTime:cursor,endTime:chunkEnd
+  // A Central do Vendedor consulta uma janela contínua (agora -> fim do período).
+  // Não quebrar em blocos móveis de 24h: os timeslots BR começam à 00:00
+  // e podem atravessar a borda desses blocos, fazendo a Shopee retornar [].
+  const raw=await getFlashSaleTimeSlots({
+    shopId:shop.shop_id,accessToken:shop.access_token,startTime:safeStart,endTime:safeEnd
+  });
+  const rows=normalizeTimeSlots(raw)
+    .filter(slot=>Number(slot?.start_time)>=safeStart&&Number(slot?.end_time)<=safeEnd+1)
+    .sort((a,b)=>Number(a?.start_time||0)-Number(b?.start_time||0));
+
+  if(!rows.length){
+    console.warn('[flash-sale] janela contínua sem horários oficiais',{
+      startTime:safeStart,endTime:safeEnd,
+      shopeeError:raw?.error??null,message:raw?.message??null,
+      hasResponse:raw?.response!==undefined
     });
-    const rows=normalizeTimeSlots(raw);
-    for(const slot of rows){
-      const key=String(slot?.timeslot_id||`${slot?.start_time}:${slot?.end_time}`);
-      merged.set(key,slot);
-    }
-    if(!rows.length){
-      console.warn('[flash-sale] dia sem horários oficiais',{
-        startTime:cursor,endTime:chunkEnd,
-        shopeeError:raw?.error??null,message:raw?.message??null,
-        hasResponse:raw?.response!==undefined
-      });
-    }
   }
-
-  return [...merged.values()].sort((a,b)=>Number(a?.start_time||0)-Number(b?.start_time||0));
+  return rows;
 }
 
 function normalizeOfferItem(itemId,sale,raw){
