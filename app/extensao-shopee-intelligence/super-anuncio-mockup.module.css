@@ -508,3 +508,32 @@
 .flashAttentionActions>button{display:inline-flex;align-items:center;justify-content:center;padding:7px 9px;border-radius:7px;background:#fff;color:#885900;border:1px solid #ecd7a5;font-size:8px;font-weight:900;white-space:nowrap;cursor:pointer}
 .flashAttention[data-tone="ok"] .flashAttentionActions>button{color:#13784a;border-color:#bee8d0}
 @media(max-width:700px){.flashAttentionActions>button{flex:1}.flashInlineLink{width:100%}}
+
+/* ===== Leitura em cadeia, hierarquia e cores por função (25/09/2026) ===== */
+.chain{margin:12px 0 0;padding:12px 14px;background:#fff;border:1px solid #dfe8f2;border-left:4px solid #9fb3cc;border-radius:13px;box-shadow:0 7px 22px rgba(41,72,111,.04)}
+.chain[data-tone="green"]{border-left-color:#12945b}
+.chain[data-tone="amber"]{border-left-color:#e0a000}
+.chain[data-tone="red"]{border-left-color:#d64545}
+.chainSteps{display:flex;flex-wrap:wrap;align-items:stretch;gap:8px}
+.chainStep{min-width:92px;padding:8px 12px;border:1px solid #e3ebf4;border-radius:10px;background:#f8fbfe}
+.chainStep small{display:block;color:#74869e;font-size:9px}
+.chainStep b{display:block;margin-top:3px;color:#0f2d62;font-size:15px;white-space:nowrap}
+.chainStep em{display:block;margin-top:2px;color:#74869e;font-size:9px;font-style:normal}
+.chainStep[data-tone="green"] b{color:#12945b}
+.chainStep[data-tone="amber"] b{color:#b87900}
+.chainStep[data-tone="red"] b{color:#c93b3b}
+.chainArrow{align-self:center;color:#9fb3cc;font-size:16px}
+.chainVerdict{margin-top:10px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.chainTag{padding:2px 8px;border-radius:999px;background:#eef3f8;color:#57708e;font-size:9px;font-weight:700}
+.chainVerdict p{margin:0;flex:1 1 260px;color:#274a7d;font-size:12px;line-height:1.45}
+.chainVerdict button{padding:7px 12px;border:1px solid #f0c15a;border-radius:9px;background:#fff6dc;color:#8a5a00;font-weight:700;cursor:pointer}
+.metricPrimary b{font-size:16px}
+.metricSecondary b{font-size:12px;color:#5b6f8a}
+.metricSecondary .metricIcon{opacity:.75}
+.compare>.panel:nth-child(1){border-left:4px solid #2b6fe0}
+.compare>.panel:nth-child(2){border-left:4px solid #57708e}
+.flashActiveCard{border-left:4px solid #e0a000}
+.nextActionsCard{border-left:4px solid #e2603a}
+.explain{border-left:4px solid #12945b}
+.manageZone{margin:22px 0 8px;padding:10px 14px;border:1px dashed #e7c6c6;border-radius:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;color:#8a6a6a;font-size:11px}
+@media(max-width:560px){.chainStep{flex:1 1 40%}.chainArrow{display:none}}
