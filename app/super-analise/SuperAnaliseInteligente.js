@@ -155,8 +155,6 @@ function ZoomModal({src,onClose}) {
 
 function FlashVariationModal({open,models,draft,setDraft,basePromo,onApplyAll,onClose,onConfirm,busy}) {
   if(!open)return null;
-  const ordered=[...selectedSlots].sort((a,b)=>Number(a?.start_time||0)-Number(b?.start_time||0));
-  const selectedLabel=ordered.length===1?flashSlotLabel(ordered[0]):ordered.length?`${flashSlotLabel(ordered[0])} → ${flashSlotLabel(ordered[ordered.length-1])}`:'—';
   return <div className={styles.flashVariationModal} role="dialog" aria-modal="true" aria-label="Preços da Oferta Relâmpago por variação" onClick={onClose}>
     <section className={styles.flashVariationDialog} onClick={e=>e.stopPropagation()}>
       <header>
@@ -187,6 +185,8 @@ function FlashVariationModal({open,models,draft,setDraft,basePromo,onApplyAll,on
 
 function FlashConfirmModal({open,selectedSlots,slotCount,models,variationDraft,flash,notify,setNotify,onClose,onConfirm,busy}) {
   if(!open)return null;
+  const ordered=[...(selectedSlots||[])].sort((a,b)=>Number(a?.start_time||0)-Number(b?.start_time||0));
+  const selectedLabel=ordered.length===1?flashSlotLabel(ordered[0]):ordered.length?`${flashSlotLabel(ordered[0])} → ${flashSlotLabel(ordered[ordered.length-1])}`:'—';
   return <div className={styles.flashVariationModal} role="dialog" aria-modal="true" aria-label="Confirmar Ofertas Relâmpago" onClick={onClose}>
     <section className={styles.flashVariationDialog} onClick={e=>e.stopPropagation()}>
       <header><div><b>⚡ Confirmar criação das Ofertas Relâmpago</b><span>Confira o período e as notificações antes de enviar para a Shopee.</span></div><button type="button" onClick={onClose} aria-label="Fechar">×</button></header>
@@ -195,7 +195,7 @@ function FlashConfirmModal({open,selectedSlots,slotCount,models,variationDraft,f
         <div><small>Horários oficiais encontrados</small><b>{slotCount}</b></div>
         <div><small>Produto</small><b>{models.length?models.length+' variações':'Preço único'}</b></div>
       </div>
-      {models.length?<div className={styles.flashConfirmModels}>{models.map((model,index)=>{const id=String(model.model_id??index),row=variationDraft[id]||{};return <div key={id}><span>{model.name||('Variação '+(index+1))}</span><b>{money(row.promoPrice)}</b><small>Estoque {n(row.stock)?.toLocaleString('pt-BR')||'—'}</small></div>})}</div>:<div className={styles.flashConfirmSingle}><span>Preço promocional</span><b>{money(flash.promoPrice)}</b><small>Estoque {n(flash.stock)?.toLocaleString('pt-BR')||'—'}</small></div>}
+      {models.length?<div className={styles.flashConfirmModels}>{models.map((model,index)=>{const id=String(model.model_id??index),row=variationDraft[id]||{};return <div key={id}><span>{model.name||('Variação '+(index+1))}</span><b>{money(row.promoPrice)}</b><small>Estoque {n(row.stock)?.toLocaleString('pt-BR')||'—'}</small></div>})}</div>:<div className={styles.flashConfirmSingle}><span>Preço promocional</span><b>{money(decimal(flash.promoPrice))}</b><small>Estoque {n(flash.stock)?.toLocaleString('pt-BR')||'—'}</small></div>}
       <div className={styles.flashNotifyChoices}>
         <b>Quando esse período terminar:</b>
         <label><input type="checkbox" checked={notify.app} onChange={e=>setNotify(x=>({...x,app:e.target.checked}))}/> Mostrar aviso no Gestor</label>
