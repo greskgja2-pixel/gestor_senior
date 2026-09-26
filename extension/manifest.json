@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Motor Senior",
-  "version": "0.14.8",
-  "version_name": "0.14.8 - Mapeador Seguro + Checkpoints",
+  "version": "0.14.9",
+  "version_name": "0.14.9 - Pesquisa Automatizada + Bridge Móvel",
   "minimum_chrome_version": "114",
   "description": "Motor técnico do Gestor Sênior para coleta da Shopee, concorrentes, Ads, custos, Pesquisa de Produtos e mapeamento automático de telas.",
   "permissions": ["storage", "unlimitedStorage", "tabs", "alarms", "notifications", "sidePanel", "scripting", "downloads", "clipboardWrite"],
