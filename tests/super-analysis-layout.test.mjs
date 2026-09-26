@@ -252,3 +252,10 @@ test('Super Anuncio detalhe e mobile usam estrutura nova sem reusar toolbar lega
   assert.match(css,/\.detailScores b\{font-size:30px/);
   assert.match(css,/\.financeGrid\{grid-template-columns:1fr 1fr/);
 });
+
+
+test('Conteúdo do Super Anuncio permite copiar a sugestão sem alterar a tela standalone',()=>{
+  assert.match(view,/allowCopy=\{embedded\}/);
+  assert.match(view,/navigator\.clipboard\.writeText\(suggestion\)/);
+  assert.match(view,/Copiar sugestão/);
+});
