@@ -172,3 +172,13 @@ test('Oferta Relampago: get_time_slot_id envia intervalo obrigatorio no host bra
   assert.match(route,/startTime:safeStart,endTime:safeEnd/);
   assert.match(route,/normalizeTimeSlots\(raw\)/);
 });
+
+
+test('Oferta Relampago: modo simples remove calendario e oferece fallback para Seller Center',()=>{
+  assert.match(view,/Próximos horários oficiais/);
+  assert.match(view,/Modo de compatibilidade/);
+  assert.match(view,/seller\.shopee\.com\.br\/portal\/marketing\/shop-flash-sale\/list\?type=0/);
+  assert.doesNotMatch(view,/Período das ofertas/);
+  assert.doesNotMatch(view,/<FlashPeriodPicker/);
+  assert.match(view,/addLocalDays\(start,29\)/);
+});
