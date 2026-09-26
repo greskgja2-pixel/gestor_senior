@@ -271,7 +271,7 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
       const row=x.latest?.product_snapshot||{};
       return String(row.title||row.item_name||x.itemId||'').toLowerCase().includes(q);
     });
-    if(found){setSelectedId(found.itemId);setTab('overview');setEditorTab(null);setShowList(false);setSearchMsg('')}
+    if(found){setSelectedId(found.itemId);setTab('overview');setEditorTab(null);setSearchMsg('');setShowList(false)}
     else setSearchMsg(`Nenhum anúncio acompanhado corresponde a "${query.trim()}".`);
   }
 
