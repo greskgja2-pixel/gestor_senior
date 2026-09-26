@@ -97,6 +97,7 @@ export default function MarketResearch(){
   const [sort,setSort]=useState('score');
   const [minSold,setMinSold]=useState('');
   const [maxPrice,setMaxPrice]=useState('');
+  const [activeTab,setActiveTab]=useState('overview');
   const fileRef=useRef(null);
 
   const bench=useMemo(()=>stats(rows),[rows]);
@@ -126,8 +127,7 @@ export default function MarketResearch(){
       const data=await motorData('marketplaceSearch',{query:term,sort:'relevance',pages:3},55000);
       loadPayload(data,'busca ao vivo');
     }catch(error){
-      setMessage('A extensão atual ainda não respondeu à coleta de busca. Abri a Shopee para você; use o Coletor e importe o JSON aqui enquanto o handler ao vivo não estiver disponível.');
-      window.open('https://shopee.com.br/search?keyword='+encodeURIComponent(term),'_blank','noopener,noreferrer');
+      setMessage('Não consegui concluir a pesquisa automática: '+String(error?.message||error)+'. Verifique se o Motor Senior está conectado e tente novamente.');
     }finally{setBusy(false)}
   }
 
@@ -140,30 +140,52 @@ export default function MarketResearch(){
   }
 
   const top=filtered.slice(0,5);
+  const tabs=[
+    ['overview','Visão geral'],
+    ['results','Resultados'],
+    ['top','Top oportunidades'],
+    ['next','Próximas camadas']
+  ];
+
   return <div className={styles.page}>
     <header className={styles.header}>
-      <div><span className={styles.eyebrow}>INTELIGÊNCIA DE MERCADO</span><h1>Pesquisa de Produtos</h1><p>Descubra demanda, preço, força dos concorrentes e oportunidades usando dados coletados da Shopee.</p></div>
+      <div><span className={styles.eyebrow}>INTELIGÊNCIA DE MERCADO</span><h1>Pesquisa de Produtos</h1><p>Pesquise na Shopee de forma automática pelo Motor Senior e compare demanda, preço, concorrência e oportunidades.</p></div>
       <div className={styles.headerBadge}><b>{rows.length}</b><span>anúncios analisados</span></div>
     </header>
 
     <section className={styles.searchCard}>
       <div className={styles.searchLine}>
-        <div className={styles.searchBox}><span>⌕</span><input value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>e.key==='Enter'&&search()} placeholder="Ex.: kit para colorir infantil"/></div>
-        <button type="button" onClick={search} disabled={busy}>{busy?'Coletando…':'Pesquisar na Shopee'}</button>
+        <div className={styles.searchBox}><span>⌕</span><input value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>e.key==='Enter'&&!busy&&search()} placeholder="Ex.: TAG saída maternidade"/></div>
+        <button type="button" onClick={search} disabled={busy}>{busy?'Coletando automaticamente…':'Pesquisar automaticamente'}</button>
         <button type="button" className={styles.secondary} onClick={()=>fileRef.current?.click()}>Importar coleta</button>
         <input ref={fileRef} hidden type="file" accept="application/json,.json" onChange={e=>onFile(e.target.files?.[0])}/>
       </div>
       <div className={styles.message}>{message}</div>
     </section>
 
-    <section className={styles.kpis}>
-      <article><span>Preço mediano</span><strong>{rows.length?money(bench.priceMedian):'—'}</strong><small>Faixa dominante da pesquisa</small></article>
-      <article><span>Vendas medianas</span><strong>{rows.length?compact(bench.soldMedian):'—'}</strong><small>Vendas acumuladas por anúncio</small></article>
-      <article><span>Vendas 30 dias</span><strong>{bench.monthlyMedian?compact(bench.monthlyMedian):'—'}</strong><small>Quando a coleta fornece o campo</small></article>
-      <article><span>Origem mais comum</span><strong>{bench.mainLocation}</strong><small>Localização observada nos cards</small></article>
-    </section>
+    <nav className={styles.tabs} aria-label="Seções da Pesquisa de Produtos">
+      {tabs.map(([id,label])=><button key={id} type="button" className={activeTab===id?styles.activeTab:''} onClick={()=>setActiveTab(id)}>{label}</button>)}
+    </nav>
 
-    <section className={styles.panel}>
+    {activeTab==='overview'&&<>
+      <section className={styles.kpis}>
+        <article><span>Preço mediano</span><strong>{rows.length?money(bench.priceMedian):'—'}</strong><small>Faixa dominante da pesquisa</small></article>
+        <article><span>Vendas medianas</span><strong>{rows.length?compact(bench.soldMedian):'—'}</strong><small>Vendas acumuladas por anúncio</small></article>
+        <article><span>Vendas 30 dias</span><strong>{bench.monthlyMedian?compact(bench.monthlyMedian):'—'}</strong><small>Quando a coleta fornece o campo</small></article>
+        <article><span>Origem mais comum</span><strong>{bench.mainLocation}</strong><small>Localização observada nos cards</small></article>
+      </section>
+      <section className={styles.panel}>
+        <div className={styles.panelHead}><div><h2>Resumo da pesquisa</h2><p>Use as abas para navegar sem deixar a tela longa.</p></div></div>
+        <div className={styles.summaryGrid}>
+          <div><span>Anúncios coletados</span><b>{rows.length}</b></div>
+          <div><span>Com vendas 30 dias</span><b>{rows.filter(r=>r.monthlySold!=null).length}</b></div>
+          <div><span>Com localização</span><b>{rows.filter(r=>r.location).length}</b></div>
+          <div><span>Vendedor Indicado</span><b>{rows.filter(r=>r.preferred).length}</b></div>
+        </div>
+      </section>
+    </>}
+
+    {activeTab==='results'&&<section className={styles.panel}>
       <div className={styles.panelHead}>
         <div><h2>Radar de oportunidades</h2><p>O score é determinístico e usa somente os dados carregados; não é uma nota gerada por IA.</p></div>
         <div className={styles.filters}>
@@ -172,8 +194,7 @@ export default function MarketResearch(){
           <select value={sort} onChange={e=>setSort(e.target.value)}><option value="score">Melhor oportunidade</option><option value="sales">Mais vendidos</option><option value="monthly">Mais vendas 30d</option><option value="price">Menor preço</option></select>
         </div>
       </div>
-
-      {!filtered.length?<div className={styles.empty}>Faça uma pesquisa ou importe uma coleta para começar.</div>:
+      {!filtered.length?<div className={styles.empty}>Faça uma pesquisa automática ou importe uma coleta para começar.</div>:
       <div className={styles.tableWrap}><table><thead><tr><th>Produto</th><th>Preço</th><th>Vendas</th><th>30 dias</th><th>Avaliações</th><th>Local</th><th>Oportunidade</th><th></th></tr></thead><tbody>
         {filtered.map(r=><tr key={r.key}>
           <td><div className={styles.product}>{r.image?<img src={r.image} alt=""/>:<div className={styles.noImg}>▧</div>}<div><b title={r.title}>{r.title}</b><small>{r.preferred?'Vendedor Indicado · ':''}{r.itemId?'ID '+r.itemId:'ID não coletado'}</small></div></div></td>
@@ -186,15 +207,16 @@ export default function MarketResearch(){
           <td>{r.url?<a href={r.url} target="_blank" rel="noreferrer">Abrir ↗</a>:'—'}</td>
         </tr>)}
       </tbody></table></div>}
-    </section>
+    </section>}
 
-    <section className={styles.bottomGrid}>
-      <article className={styles.panel}><div className={styles.panelHead}><div><h2>Top oportunidades</h2><p>Os cinco anúncios que mais se destacam dentro da coleta atual.</p></div></div>
-        <div className={styles.topList}>{top.length?top.map((r,i)=><div key={r.key}><span>{i+1}</span><div><b>{r.title}</b><small>{money(r.price)} · {compact(r.sold)} vendidos</small></div><strong>{r.score}</strong></div>):<div className={styles.emptySmall}>Sem dados ainda.</div>}</div>
-      </article>
-      <article className={styles.panel}><div className={styles.panelHead}><div><h2>Próximas camadas</h2><p>Estrutura já preparada para evoluir sem refazer esta tela.</p></div></div>
-        <div className={styles.nextGrid}><div><b>1</b><span>Histórico de pesquisas</span></div><div><b>2</b><span>Salvar produto e monitorar</span></div><div><b>3</b><span>Mineração de avaliações</span></div><div><b>4</b><span>Pacote resumido para IA</span></div></div>
-      </article>
-    </section>
+    {activeTab==='top'&&<section className={styles.panel}>
+      <div className={styles.panelHead}><div><h2>Top oportunidades</h2><p>Os cinco anúncios que mais se destacam dentro da coleta atual.</p></div></div>
+      <div className={styles.topList}>{top.length?top.map((r,i)=><div key={r.key}><span>{i+1}</span><div><b>{r.title}</b><small>{money(r.price)} · {compact(r.sold)} vendidos</small></div><strong>{r.score}</strong></div>):<div className={styles.emptySmall}>Sem dados ainda.</div>}</div>
+    </section>}
+
+    {activeTab==='next'&&<section className={styles.panel}>
+      <div className={styles.panelHead}><div><h2>Próximas camadas</h2><p>Recursos planejados para aprofundar a pesquisa.</p></div></div>
+      <div className={styles.nextGrid}><div><b>1</b><span>Histórico de pesquisas</span></div><div><b>2</b><span>Salvar produto e monitorar</span></div><div><b>3</b><span>Mineração de avaliações</span></div><div><b>4</b><span>Pacote resumido para IA</span></div></div>
+    </section>}
   </div>;
 }
