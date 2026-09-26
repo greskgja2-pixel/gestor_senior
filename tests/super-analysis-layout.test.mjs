@@ -114,19 +114,17 @@ test('QA Super Anuncio: editor embutido nao herda a grade de 2 colunas da tela c
   assert.match(rule[0],/grid-template-columns:1fr!important/);
 });
 
-test('QA Super Anuncio: sino, busca, zoom e alerta de oferta sem controles mortos',()=>{
-  // sino navega para Prioridades e so mostra o ponto vermelho com pendencias reais
-  assert.match(superAnuncio,/className=\{styles\.notify\}[^>]*onClick=\{\(\)=>router\.push\('\/extensao-shopee-intelligence\?section=prioridades'\)\}/);
-  assert.match(superAnuncio,/arr\(productTasks\.rows\)\.length>0&&<i\/>/);
-  // busca avisa quando nao encontra e abre Conteúdo/Título quando encontra
+test('QA Super Anuncio: detalhe novo preserva lista, zoom e dados reais sem controles mortos',()=>{
   assert.match(superAnuncio,/Nenhum anúncio acompanhado corresponde a/);
   assert.match(superAnuncio,/setDetailTab\('content'\);setEditorTab\('title'\);setSearchMsg\(''\)/);
-  assert.doesNotMatch(superAnuncio,/placeholder="Buscar produtos, anúncios ou concorrentes/);
-  // Esc fecha o zoom
   assert.match(superAnuncio,/e\.key==='Escape'\)onClose\(\)/);
-  // contêiner dos botoes do alerta nao pode voltar a ser 28x28
+  assert.match(superAnuncio,/className=\{styles\.detailProductCard\}/);
+  assert.match(superAnuncio,/Última análise:/);
+  assert.match(superAnuncio,/Nota atual/);
+  assert.match(superAnuncio,/Potencial/);
   const css=read('app/extensao-shopee-intelligence/super-anuncio-mockup.module.css');
-  assert.match(css,/\.flashAttention>span\.flashAttentionActions\{width:auto!important;height:auto!important/);
+  assert.match(css,/\.detailProductCard\{/);
+  assert.match(css,/\.detailTabs\{/);
 });
 
 test('Preço e margem: custo tem botão próprio, usa manual-price e nunca vai para a Shopee',()=>{
