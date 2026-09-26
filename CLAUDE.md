@@ -2,6 +2,10 @@
 
 Este arquivo documenta bugs já encontrados (ou de alto risco) no projeto e como evitá-los. Sempre que corrigir um bug real de produção, adicione uma entrada aqui.
 
+## Registro entre IAs (Claude ⇄ ChatGPT/Codex)
+Este arquivo é o canal de aprendizado entre as IAs. Antes de alterar código, leia-o inteiro. Ao terminar uma sessão, acrescente no fim, em "Registro de sessões", o que mudou, como foi validado, os erros encontrados e o que ficou pendente. Nunca apague nem reescreva a entrada de outro agente. Nunca registrar tokens, cookies, `SPC_CDS`, `device_sz_fingerprint` ou dados pessoais de pedidos.
+Deploys: cada commit em qualquer branch (exceto as desligadas em `vercel.json`) gera deploy na Vercel e o plano Hobby permite ~100/dia. Prefira uma branch própria a partir da `main` atual, junte as mudanças em poucos commits e faça um único merge para a `main`. A branch `dev` não gera deploy, mas na data do registro abaixo estava 70 commits atrás da `main`.
+
 ## Regra de honestidade de dados (vale para todo o projeto)
 Nunca inventar/estimar dado onde a fonte não está funcionando ou não está conectada. Nesses casos exibir "sem dados" / "não disponível" em vez de qualquer número ou status inventado.
 
@@ -94,4 +98,37 @@ O shell principal, Dashboard, Temas e Configurações são React/Next nativos. O
 **Regra de exclusão:** arquivo/rota/API só pode ser removido depois de provar que não possui consumidor ativo e executar build + smoke test das rotas críticas definidas na Regra 16.
 
 **Estado pós-migração:** frontend legado removido do branch principal; validar sempre o deploy do HEAD antes de considerar a migração concluída.
+
+## Registro de sessões
+
+### 2026-09-25 — Claude — Super Anúncio: leitura em cadeia
+**Arquivos:** `app/extensao-shopee-intelligence/SuperAnuncioMockup.js`, `app/extensao-shopee-intelligence/super-anuncio-mockup.module.css`, `tests/super-analysis-layout.test.mjs` (2 testes novos), `docs/ENCICLOPEDIA_SHOPEE_GESTOR_SENIOR.md` (v10) e este arquivo. Branch: `claude/super-anuncio-cadeia`.
+
+**O que mudou (só acréscimos, sem trocar a hierarquia aprovada do mockup):**
+1. Faixa "leitura em cadeia" abaixo do resumo do anúncio: Custo → Preço → Margem → Vendas → ROAS atual, com cor e uma frase de leitura automática marcada como estimativa.
+2. Sem custo cadastrado: aviso na faixa e botão "Cadastrar custo" (abre a aba Preço & Oferta Relâmpago).
+3. Preço, Custo, Margem e Vendas viraram métricas principais (maiores); avaliação, fotos, vídeo e variações ficaram secundárias.
+4. Faixa de cor lateral por função nas seções (retrato, comparação, ofertas relâmpago, próximas ações, resumo).
+5. "Excluir análises" saiu de perto de "Acompanhar outro anúncio" e foi para "Gerenciar análise deste anúncio" no fim da página (o `window.confirm` foi mantido).
+6. Comparação: "Primeira coleta" virou "Sem comparação (só 1 coleta)" (não era bug; só havia 1 coleta).
+
+**Heurísticas (ajustáveis):** ROAS mínimo para não ter prejuízo com Ads = `100 / margem%` usando `finance_snapshot.marginPct` (margem após 20% Shopee, taxa fixa e custo); margem "apertada" abaixo de `MARGIN_TIGHT_PCT = 10`; ROAS "com folga" a partir de 1,3 × o mínimo. Tudo usa `dataText`/`missingKind`: sem dado aparece "Sem dados"/"Não coletado".
+
+**Como foi validado:** `npm test` com 62 testes passando (2 novos, incluindo simulação dos casos de `chainVerdict`); sintaxe JSX conferida com o compilador TypeScript. **O `next build` NÃO foi rodado pelo Claude** (o registro npm do sandbox dele bloqueia downloads com 403); o build real fica com o GitHub Actions (PR para `main`) e com a Vercel. **O Claude não viu a tela renderizada.**
+
+**Erros e atenções encontrados:**
+- O commit `d1f1e14` gravou em `docs/ENCICLOPEDIA_SHOPEE_GESTOR_SENIOR.md` apenas a mensagem "The requested file reference is not currently visible…" (156 bytes) em vez do documento. Ao salvar arquivos no GitHub, conferir o conteúdo do arquivo depois do commit.
+- `report.cpc` em `POST /api/pas/v1/homepage/query/` é custo **por pedido** (igual a `cpdc`), não por clique. CPC real = `cost / click`.
+- `statistics.view_count` (Meus Produtos) tem janela de tempo desconhecida e não bate com `sold_count`; não dividir vendas por visualizações.
+- Conflito aberto: `roi_target_setting.value` = 40,0 em `report/get_time_graph` enquanto a meta atual é 22,0.
+- `uv`/`pv` em `GET /api/mydata/v4/product/performance/` (visitas por produto) são candidatos, ainda sem confirmação na tela.
+- A branch `dev` está desatualizada (70 commits atrás da `main`, com 3 commits próprios); não foi usada.
+- O sandbox do Claude não faz push para o GitHub; o envio foi feito pelo Chrome do usuário.
+
+**Pendente:** painel de decisão com visitas (`uv`), conversão e qualidade do anúncio; tela de login com frase de valor e meta description (não adicionar "Esqueci minha senha" sem backend de recuperação, para não criar botão morto); seletor de anúncio junto do título só com aprovação explícita (regra em `docs/SUPER_ANALISE_LAYOUT_RULE.md`).
+
+**Pedidos ao ChatGPT/Codex:** (1) revisar `chainVerdict`/`DecisionChain`; (2) confirmar se `finance_snapshot.marginPct` está em % (0–100) e já desconta comissão e taxa fixa; (3) comparar o DELTA de enciclopédia do ChatGPT com a seção v10 e listar divergências abaixo; (4) após o deploy, rodar o smoke test das rotas críticas e registrar o resultado.
+
+### Respostas do ChatGPT/Codex
+_(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 

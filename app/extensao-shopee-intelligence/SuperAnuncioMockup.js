@@ -1,6 +1,6 @@
 'use client';
 
-import {useEffect,useMemo,useRef,useState} from 'react';
+import {Fragment,useEffect,useMemo,useRef,useState} from 'react';
 import Link from 'next/link';
 import styles from './super-anuncio-mockup.module.css';
 import ReminderButton from '../components/ReminderButton';
@@ -117,10 +117,30 @@ function ClockBadge(){
 
 function Gauge({score,label}){const s=n(score);const p=Math.max(0,Math.min(100,s??0));return <div className={styles.gaugeWrap}><div className={styles.gauge} style={{'--score':`${p*1.8}deg`}}><div><b>{s==null?'—':Math.round(s)}</b><small>/100</small></div></div><span>{label}</span></div>}
 function ZoomModal({src,onClose}){if(!src)return null;return <div className={styles.zoomModal} role="dialog" aria-modal="true" onClick={onClose}><button type="button" onClick={onClose}>×</button><img src={src} alt="Visualização ampliada" onClick={e=>e.stopPropagation()}/></div>}
-function Metric({label,value,good,title,icon,tone='blue'}){return <div className={styles.metric} title={title||''}><span className={styles.metricIcon} data-tone={tone}><Icon name={icon}/></span><small>{label}</small><b className={good?styles.good:''}>{value}</b></div>}
+function Metric({label,value,good,title,icon,tone='blue',primary=false}){return <div className={`${styles.metric} ${primary?styles.metricPrimary:styles.metricSecondary}`} title={title||''}><span className={styles.metricIcon} data-tone={tone}><Icon name={icon}/></span><small>{label}</small><b className={good?styles.good:''}>{value}</b></div>}
 function Fact({label,value,icon,tone='blue'}){return <div className={styles.fact}><span className={styles.factIcon} data-tone={tone}><Icon name={icon}/></span><span className={styles.factText}><small>{label}</small><b>{value}</b></span></div>}
 function PanelTitle({icon,title,subtitle,tone='blue'}){return <div className={styles.panelTitle}><span className={styles.panelIcon} data-tone={tone}><Icon name={icon}/></span><div><h2>{title}</h2>{subtitle&&<p>{subtitle}</p>}</div></div>}
 function Reason({icon,title,children}){return <article><div className={styles.reasonGridTop}><Icon name={icon}/><b>{title}</b></div><p>{children}</p></article>}
+
+// Margem abaixo deste valor (em %) é tratada como "apertada" na leitura em cadeia. Ajustável.
+const MARGIN_TIGHT_PCT=10;
+// ROAS mínimo para não ter prejuízo com Ads = 100 / margem% (margem líquida do produto antes dos anúncios).
+function chainVerdict({cost,margin,roas}){
+  const breakEven=margin!=null&&margin>0?100/margin:null;
+  if(cost==null)return{tone:'amber',needCost:true,breakEven,text:'Sem o custo cadastrado não dá para calcular a margem nem o ROAS mínimo deste anúncio.'};
+  if(margin==null)return{tone:'',needCost:false,breakEven,text:'O custo está registrado, mas a margem não pôde ser calculada (preço ou taxas não capturados).'};
+  if(margin<=0)return{tone:'red',needCost:false,breakEven,text:'A margem é zero ou negativa: cada venda dá prejuízo antes mesmo dos anúncios. Revise preço ou custo antes de investir em Ads.'};
+  if(roas==null)return{tone:'',needCost:false,breakEven,text:`Para não ter prejuízo com Ads, o ROAS precisa ficar acima de ${num(breakEven)}. Ainda não há ROAS coletado para comparar.`};
+  if(roas>=breakEven*1.3)return{tone:'green',needCost:false,breakEven,text:`O ROAS ${num(roas)} está bem acima do mínimo de ${num(breakEven)}: há folga para testar uma meta de ROAS menor e vender mais.`};
+  if(roas>=breakEven)return{tone:'amber',needCost:false,breakEven,text:`O ROAS ${num(roas)} está acima do mínimo de ${num(breakEven)}, mas com pouca folga. Mantenha a meta e acompanhe.`};
+  return{tone:'red',needCost:false,breakEven,text:`O ROAS ${num(roas)} está abaixo do mínimo de ${num(breakEven)}: as vendas por Ads não cobrem o custo. Suba a meta de ROAS ou revise preço e custo.`};
+}
+function DecisionChain({steps,verdict,onRegisterCost}){
+  return <section className={styles.chain} data-tone={verdict.tone} aria-label="Leitura do anúncio: custo, preço, margem, vendas e ROAS">
+    <div className={styles.chainSteps}>{steps.map((s,i)=><Fragment key={s.label}>{i>0&&<span className={styles.chainArrow} aria-hidden="true">→</span>}<div className={styles.chainStep} data-tone={s.tone||''}><small>{s.label}</small><b>{s.value}</b>{s.note&&<em>{s.note}</em>}</div></Fragment>)}</div>
+    <div className={styles.chainVerdict}><span className={styles.chainTag}>Leitura automática · estimativa</span><p>{verdict.text}</p>{verdict.needCost&&<button type="button" onClick={onRegisterCost}>Cadastrar custo</button>}</div>
+  </section>;
+}
 
 export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='',initialTab='overview'}){
   const initialSelected=items.find(x=>String(x.itemId)===String(initialItemId))||items[0]||null;
@@ -262,6 +282,15 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
   const adsContext=historicalAds||liveCampaign||(liveAds.phase==='error'||liveAds.phase==='timeout'?{collectionError:liveAds.error}:liveAds.phase==='empty'?{collectionStatus:'success'}:null);
   const pickAds=(historyKey,liveKey=historyKey)=>metric(r,historyKey)??liveCampaign?.[liveKey]??null;
   const ads=[['ROAS atual',dataText(pickAds('roas'),num,adsContext)],['ROAS alvo',dataText(pickAds('targetRoas'),num,adsContext)],['Gasto Ads',dataText(pickAds('spend'),money,adsContext)],['GMV',dataText(pickAds('gmv'),money,adsContext)],['Custo por venda',dataText(metric(r,'cpa')??liveCampaign?.costPerOrder??(n(metric(r,'sales'))?n(metric(r,'spend'))/n(metric(r,'sales')):null),money,adsContext)],['CTR',dataText(pickAds('ctr'),pct,adsContext)]];
+  const roasNow=n(pickAds('roas')),roasTarget=n(pickAds('targetRoas'));
+  const verdict=chainVerdict({cost,margin,roas:roasNow});
+  const chainSteps=[
+    {label:'Custo',value:dataText(cost,money,f),tone:''},
+    {label:'Preço de venda',value:dataText(price,money,p),tone:''},
+    {label:'Margem',value:dataText(margin,pct,f),tone:margin==null?'':margin<=0?'red':margin<MARGIN_TIGHT_PCT?'amber':'green',note:margin!=null&&margin>0&&margin<MARGIN_TIGHT_PCT?'apertada':''},
+    {label:'Vendas',value:dataText(sold,v=>Number(v).toLocaleString('pt-BR'),p),tone:''},
+    {label:'ROAS atual',value:dataText(roasNow,num,adsContext),tone:roasNow!=null&&verdict.breakEven!=null?(roasNow>=verdict.breakEven*1.3?'green':roasNow>=verdict.breakEven?'amber':'red'):'',note:[verdict.breakEven!=null?`mínimo ${num(verdict.breakEven)}`:'',roasTarget!=null?`meta ${num(roasTarget)}`:''].filter(Boolean).join(' · ')}
+  ];
   const sku=p.item_sku||p.itemSku||p.sku||null;
   const statusText=p.status||p.item_status||'';
   const active=/active|normal|ativo/i.test(String(statusText));
@@ -300,10 +329,10 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
           </div>
         </div>
         <div className={styles.metrics}>
-          <Metric label="Preço" value={dataText(price,money,p)} icon="tag"/>
-          <Metric label="Custo" value={dataText(cost,money,f)} icon="coins" tone="amber"/>
-          <Metric label="Margem estimada" value={dataText(margin,pct,f)} good={margin!=null&&margin>=0} icon="chart" tone="green"/>
-          <Metric label="Vendas" value={dataText(sold,v=>Number(v).toLocaleString('pt-BR'),p)} icon="cart" tone="purple"/>
+          <Metric label="Preço" value={dataText(price,money,p)} icon="tag" primary/>
+          <Metric label="Custo" value={dataText(cost,money,f)} icon="coins" tone="amber" primary/>
+          <Metric label="Margem estimada" value={dataText(margin,pct,f)} good={margin!=null&&margin>=0} icon="chart" tone="green" primary/>
+          <Metric label="Vendas" value={dataText(sold,v=>Number(v).toLocaleString('pt-BR'),p)} icon="cart" tone="purple" primary/>
           <Metric label="Avaliação" value={dataText(rating,v=>`${Number(v).toFixed(1)} ★`,p)} title={reviews!=null?`${reviews.toLocaleString('pt-BR')} avaliações`:missingKind(p)} icon="star" tone="gold"/>
           <Metric label="Fotos" value={countText(p.imageCount,images,p)} icon="image"/>
           <Metric label="Vídeo" value={boolText(p.hasVideo,p)} icon="play" tone="pink"/>
@@ -311,13 +340,14 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
         </div>
       </section>
 
+      <DecisionChain steps={chainSteps} verdict={verdict} onRegisterCost={()=>setEditorTab('price')}/>
+
       <section className={styles.selector}>
         <div className={styles.selectorGroup}>
           <div className={styles.selectorField}><small>Anúncio atual</small><select value={selectedId} onChange={e=>{setSelectedId(e.target.value);setTab('overview');setEditorTab(null)}}>{items.map(x=><option key={x.itemId} value={x.itemId}>{x.latest?.product_snapshot?.title||x.latest?.product_snapshot?.item_name||`Produto ${x.itemId}`}</option>)}</select></div>
         </div>
         <div className={styles.selectorActions}>
           <Link href="/produtos" className={styles.followBtn}><Icon name="plus"/> Acompanhar outro anúncio</Link>
-          <button type="button" className={styles.deleteBtn} onClick={deleteAnalysis} disabled={deleting}><Icon name="trash"/>{deleting?'Excluindo…':'Excluir análises'}</button>
         </div>
       </section>
       {deleteError&&<div className={styles.deleteError}>{deleteError}</div>}
@@ -340,6 +370,7 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
           {editorTab&&editorTab!=='competitors'&&<div className={styles.inlineEditor}><SuperAnaliseInteligente report={r} products={[]} initialTab={editorTab} embedded/></div>}
         </section>
       </div>
+      <section className={styles.manageZone}><span>Gerenciar análise deste anúncio</span><button type="button" className={styles.deleteBtn} onClick={deleteAnalysis} disabled={deleting}><Icon name="trash"/>{deleting?'Excluindo…':'Excluir análises'}</button></section>
     </main>
   </div>;
 }
@@ -359,8 +390,8 @@ function Overview({item,price,prevPrice,sold,prevSold,margin,ai,flashSales,produ
     <article className={`${styles.panel} ${styles.overviewPanel}`}>
       <div className={styles.panelHead}><PanelTitle icon="refresh" title="Comparação com a análise anterior" subtitle="Veja como o anúncio evoluiu em relação à última análise."/><span>Histórico</span></div>
       <div className={styles.changeList}>
-        <div><Icon name="tag"/><span>Preço</span><b>{prevPrice==null?'Primeira coleta':`${money(prevPrice)} → ${money(price)}`}</b><em>{deltaPct(price,prevPrice)}</em></div>
-        <div><Icon name="chart"/><span>Vendas</span><b>{prevSold==null?'Primeira coleta':`${prevSold.toLocaleString('pt-BR')} → ${sold?.toLocaleString('pt-BR')||'—'}`}</b><em>{deltaPct(sold,prevSold)}</em></div>
+        <div><Icon name="tag"/><span>Preço</span><b>{prevPrice==null?'Sem comparação (só 1 coleta)':`${money(prevPrice)} → ${money(price)}`}</b><em>{deltaPct(price,prevPrice)}</em></div>
+        <div><Icon name="chart"/><span>Vendas</span><b>{prevSold==null?'Sem comparação (só 1 coleta)':`${prevSold.toLocaleString('pt-BR')} → ${sold?.toLocaleString('pt-BR')||'—'}`}</b><em>{deltaPct(sold,prevSold)}</em></div>
         <div><Icon name="calendar"/><span>Próxima rechecagem</span><b>{when(item.schedule?.next_run_at||r.next_reanalysis_at)}</b><em> </em></div>
         <div><Icon name="sparkles"/><span>IA</span><b>{ai?.afterScore!=null?'Sugestões disponíveis':'Sem nova projeção'}</b><em>›</em></div>
       </div>
