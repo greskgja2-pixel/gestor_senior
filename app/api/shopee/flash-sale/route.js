@@ -69,48 +69,31 @@ function normalizeTimeSlots(raw){
 }
 
 async function loadOfficialTimeSlots({shop,startTime,endTime}){
-  const fetchRange=async(start,end)=>{
-    const raw=await getFlashSaleTimeSlots({
-      shopId:shop.shop_id,accessToken:shop.access_token,startTime:start,endTime:end
+  const raw=await getFlashSaleTimeSlots({
+    shopId:shop.shop_id,accessToken:shop.access_token
+  });
+  const all=normalizeTimeSlots(raw);
+  if(!all.length){
+    console.warn('[flash-sale] get_time_slot_id retornou vazio',{
+      responseType:Array.isArray(raw?.response)?'array':typeof raw?.response,
+      responseKeys:raw?.response&&typeof raw.response==='object'&&!Array.isArray(raw.response)?Object.keys(raw.response):[],
+      topLevelKeys:raw&&typeof raw==='object'?Object.keys(raw):[],
+      shopeeError:raw?.error??null,
+      message:raw?.message??null,
+      warning:raw?.warning??null
     });
-    const normalized=normalizeTimeSlots(raw);
-    if(!normalized.length){
-      console.warn('[flash-sale] get_time_slot_id retornou vazio',{
-        startTime:start,endTime:end,
-        responseType:Array.isArray(raw?.response)?'array':typeof raw?.response,
-        responseKeys:raw?.response&&typeof raw.response==='object'&&!Array.isArray(raw.response)?Object.keys(raw.response):[],
-        topLevelKeys:raw&&typeof raw==='object'?Object.keys(raw):[],
-        shopeeError:raw?.error??null,
-        message:raw?.message??null,
-        warning:raw?.warning??null
-      });
-    }
-    return normalized;
-  };
-
-  const direct=await fetchRange(startTime,endTime);
-  if(direct.length)return direct;
-
-  // O endpoint pode devolver vazio para janelas maiores mesmo quando existem horários.
-  // Retry conservador: consulta no máximo 24h por chamada e agrega somente slots oficiais.
-  // Isso também cobre períodos de 1 dia, nos quais o retry antigo não acontecia.
-  const merged=new Map();
-  const oneDay=24*3600;
-  for(let cursor=startTime;cursor<=endTime;cursor+=oneDay){
-    const chunkEnd=Math.min(endTime,cursor+oneDay-1);
-    const rows=await fetchRange(cursor,chunkEnd);
-    for(const slot of rows){
-      const key=String(slot.timeslot_id||`${slot.start_time}:${slot.end_time}`);
-      merged.set(key,slot);
-    }
+    return[];
   }
-  const rows=[...merged.values()].sort((a,b)=>Number(a?.start_time||0)-Number(b?.start_time||0));
-  if(!rows.length){
-    console.warn('[flash-sale] nenhum timeslot oficial após retry diário',{
-      startTime,endTime,attempts:Math.max(1,Math.ceil((endTime-startTime+1)/oneDay))
-    });
-  }
-  return rows;
+  const from=Number(startTime),to=Number(endTime);
+  return all
+    .filter(slot=>{
+      const start=Number(slot?.start_time),end=Number(slot?.end_time);
+      if(!Number.isFinite(start)||!Number.isFinite(end))return false;
+      if(Number.isFinite(from)&&end<from)return false;
+      if(Number.isFinite(to)&&start>to)return false;
+      return true;
+    })
+    .sort((a,b)=>Number(a?.start_time||0)-Number(b?.start_time||0));
 }
 
 function normalizeOfferItem(itemId,sale,raw){
