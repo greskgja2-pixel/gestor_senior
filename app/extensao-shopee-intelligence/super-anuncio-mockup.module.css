@@ -527,7 +527,7 @@
 .chainTag{padding:2px 8px;border-radius:999px;background:#eef3f8;color:#57708e;font-size:9px;font-weight:700}
 .chainVerdict p{margin:0;flex:1 1 260px;color:#274a7d;font-size:12px;line-height:1.45}
 .chainVerdict button{padding:7px 12px;border:1px solid #f0c15a;border-radius:9px;background:#fff6dc;color:#8a5a00;font-weight:700;cursor:pointer}
-.metricPrimary b{font-size:16px}
+.metricPrimary b{font-size:14px}
 .metricSecondary b{font-size:12px;color:#5b6f8a}
 .metricSecondary .metricIcon{opacity:.75}
 .compare>.panel:nth-child(1){border-left:4px solid #2b6fe0}
@@ -537,3 +537,5 @@
 .explain{border-left:4px solid #12945b}
 .manageZone{margin:22px 0 8px;padding:10px 14px;border:1px dashed #e7c6c6;border-radius:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;color:#8a6a6a;font-size:11px}
 @media(max-width:560px){.chainStep{flex:1 1 40%}.chainArrow{display:none}}
+/* Colunas maiores para as 4 métricas principais (evita cortar "R$ 19,00" e "Sem dados"); telas até 900px mantêm as regras responsivas anteriores. */
+@media(min-width:901px){.metrics{grid-template-columns:repeat(4,minmax(86px,1.35fr)) repeat(4,minmax(56px,.85fr))}}
