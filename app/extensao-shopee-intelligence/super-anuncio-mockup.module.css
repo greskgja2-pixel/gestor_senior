@@ -576,3 +576,10 @@
 .phase1Open{height:33px;padding:0 11px;border:0;border-radius:8px;background:#1769e8;color:#fff;font-size:7px;font-weight:900;cursor:pointer;white-space:nowrap}.phase1Open span{margin-left:4px}
 @media(max-width:900px){.phase1Row{grid-template-columns:58px minmax(200px,1fr) 65px 80px auto}.phase1Problem{display:none}}
 @media(max-width:650px){.phase1Header{align-items:flex-start;flex-direction:column}.phase1Header .followBtn{width:100%;justify-content:center}.phase1Filters{align-items:stretch;flex-direction:column}.phase1Search{width:100%}.phase1Row{grid-template-columns:54px minmax(0,1fr) auto;gap:9px}.phase1Row>img,.phase1NoImage{width:52px;height:52px}.phase1Stat{grid-row:2}.phase1Stat:first-of-type{grid-column:2}.phase1Stat[data-potential="true"]{grid-column:3}.phase1Open{grid-column:1/-1;width:100%}}
+
+/* Super Anúncio — Fase 2: navegação interna */
+.phase2Tabs{display:flex;align-items:flex-end;gap:2px;margin:10px 0 14px;border-bottom:1px solid #dfe7f0;overflow-x:auto}
+.phase2Tabs button{position:relative;height:44px;display:inline-flex;align-items:center;gap:6px;padding:0 13px;border:0;background:transparent;color:#667b92;font-size:8px;font-weight:850;white-space:nowrap;cursor:pointer}
+.phase2Tabs button svg{width:14px;height:14px}.phase2Tabs button:hover{color:#285d91;background:#f6f9fc}
+.phase2Tabs button[data-active="true"]{color:#1769e8}.phase2Tabs button[data-active="true"]:after{content:"";position:absolute;left:8px;right:8px;bottom:-1px;height:2px;border-radius:2px;background:#1769e8}
+@media(max-width:650px){.phase2Tabs{margin-top:8px}.phase2Tabs button{height:42px;padding:0 11px}}
