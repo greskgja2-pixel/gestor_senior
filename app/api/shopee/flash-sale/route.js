@@ -91,20 +91,26 @@ async function loadOfficialTimeSlots({shop,startTime,endTime}){
   const direct=await fetchRange(startTime,endTime);
   if(direct.length)return direct;
 
-  // Algumas contas/regiões da Shopee devolvem lista vazia em consultas longas.
-  // Refaz em blocos menores e junta apenas slots oficiais retornados pela própria API.
-  if(endTime-startTime<=24*3600)return[];
+  // O endpoint pode devolver vazio para janelas maiores mesmo quando existem horários.
+  // Retry conservador: consulta no máximo 24h por chamada e agrega somente slots oficiais.
+  // Isso também cobre períodos de 1 dia, nos quais o retry antigo não acontecia.
   const merged=new Map();
-  const chunk=3*24*3600;
-  for(let cursor=startTime;cursor<endTime;cursor+=chunk){
-    const chunkEnd=Math.min(endTime,cursor+chunk-1);
+  const oneDay=24*3600;
+  for(let cursor=startTime;cursor<=endTime;cursor+=oneDay){
+    const chunkEnd=Math.min(endTime,cursor+oneDay-1);
     const rows=await fetchRange(cursor,chunkEnd);
     for(const slot of rows){
       const key=String(slot.timeslot_id||`${slot.start_time}:${slot.end_time}`);
       merged.set(key,slot);
     }
   }
-  return[...merged.values()].sort((a,b)=>Number(a?.start_time||0)-Number(b?.start_time||0));
+  const rows=[...merged.values()].sort((a,b)=>Number(a?.start_time||0)-Number(b?.start_time||0));
+  if(!rows.length){
+    console.warn('[flash-sale] nenhum timeslot oficial após retry diário',{
+      startTime,endTime,attempts:Math.max(1,Math.ceil((endTime-startTime+1)/oneDay))
+    });
+  }
+  return rows;
 }
 
 function normalizeOfferItem(itemId,sale,raw){

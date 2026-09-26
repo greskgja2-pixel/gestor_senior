@@ -149,3 +149,19 @@ test('Barra de ações do editor fica acima do card Editar anúncio e separa Sho
   for(const token of ['↶ Desfazer','↷ Refazer','⟳ Restaurar original','💾 Salvar custo','▣ Salvar na Shopee'])assert.ok(view.includes(token),'faltando: '+token);
   assert.match(view,/embedded&&toolbarSlot/);
 });
+
+
+test('Super Anuncio: agrupa consultas simultaneas de tarefas do mesmo item',()=>{
+  assert.match(superAnuncio,/const productTaskRequests=new Map\(\)/);
+  assert.match(superAnuncio,/now-cached\.createdAt<1500/);
+  assert.match(superAnuncio,/fetchProductTasksOnce\(targetItemId,\{force\}\)/);
+  assert.match(superAnuncio,/loadProductTasks\(item\.itemId,\{force:true\}\)/);
+});
+
+test('Oferta Relampago: retry de horarios oficiais usa janelas de no maximo 24h',()=>{
+  const route=read('app/api/shopee/flash-sale/route.js');
+  assert.match(route,/const oneDay=24\*3600/);
+  assert.match(route,/cursor\+=oneDay/);
+  assert.match(route,/chunkEnd=Math\.min\(endTime,cursor\+oneDay-1\)/);
+  assert.doesNotMatch(route,/const chunk=3\*24\*3600/);
+});
