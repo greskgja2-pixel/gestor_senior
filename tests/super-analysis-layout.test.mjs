@@ -144,7 +144,7 @@ test('Preço e margem: custo tem botão próprio, usa manual-price e nunca vai p
 
 test('Barra de ações do editor fica acima do card Editar anúncio e separa Shopee de custo',()=>{
   assert.match(superAnuncio,/id="gs-editor-toolbar"/);
-  assert.ok(superAnuncio.indexOf('id="gs-editor-toolbar"')<superAnuncio.indexOf('className={styles.quickActions}'),'a barra deve vir antes do card Editar anúncio');
+  assert.ok(superAnuncio.indexOf('id="gs-editor-toolbar"')<superAnuncio.indexOf('className={styles.phase2Tabs}'),'a barra deve vir antes da navegação interna do anúncio');
   assert.match(view,/createPortal\(<EditorToolbar/);
   for(const token of ['↶ Desfazer','↷ Refazer','⟳ Restaurar original','💾 Salvar custo','▣ Salvar na Shopee'])assert.ok(view.includes(token),'faltando: '+token);
   assert.match(view,/embedded&&toolbarSlot/);
