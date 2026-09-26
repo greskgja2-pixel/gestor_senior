@@ -208,3 +208,21 @@ test('Oferta Relampago: POST revalida somente a janela dos horarios selecionados
   assert.match(route,/startTime:revalidateStart/);
   assert.doesNotMatch(route,/endTime:Math\.floor\(Date\.now\(\)\/1000\)\+46\*24\*3600/);
 });
+
+
+test('Oferta Relampago: confirmacao calcula label no modal correto sem crash no cliente',()=>{
+  const variationStart=view.indexOf('function FlashVariationModal');
+  const confirmStart=view.indexOf('function FlashConfirmModal');
+  const variation=view.slice(variationStart,confirmStart);
+  const confirm=view.slice(confirmStart,view.indexOf('function FlashPeriodPicker',confirmStart));
+  assert.doesNotMatch(variation,/selectedSlots/);
+  assert.doesNotMatch(variation,/selectedLabel/);
+  assert.match(confirm,/selectedSlots/);
+  assert.match(confirm,/const selectedLabel=/);
+  assert.match(confirm,/Horário selecionado/);
+});
+
+test('Oferta Relampago: preco com virgula tambem alimenta margem e resumo',()=>{
+  assert.match(view,/const promoMargin=currentMargin\(decimal\(flash\.promoPrice\),cost\)/);
+  assert.match(view,/money\(decimal\(flash\.promoPrice\)\)/);
+});
