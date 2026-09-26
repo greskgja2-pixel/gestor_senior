@@ -162,7 +162,11 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
   const allowedTabs=useMemo(()=>new Set(TABS.map(([key])=>key)),[]);
   const [selectedId,setSelectedId]=useState(initialSelected?.itemId||'');
   const [tab,setTab]=useState(allowedTabs.has(initialTab)?initialTab:'overview');
-  const [editorTab,setEditorTab]=useState(null);
+  const groupForEditor=key=>key==='images'||key==='video'?'media':key==='category'||key==='variations'?'category':key==='price'?'financial':'content';
+  const defaultEditorForGroup=group=>group==='media'?'images':group==='category'?'category':group==='financial'?'price':'title';
+  const initialEditor=['title','description','images','video','category','price','variations'].includes(initialTab)?initialTab:'title';
+  const [detailTab,setDetailTab]=useState(groupForEditor(initialEditor));
+  const [editorTab,setEditorTab]=useState(initialEditor);
   const [liveAds,setLiveAds]=useState({phase:'idle',campaign:null,error:''});
   const [flashSales,setFlashSales]=useState({phase:'idle',offers:[],scheduled:[],automation:null,planning:null,error:''});
   const [productTasks,setProductTasks]=useState({phase:'idle',rows:[],error:''});
@@ -184,16 +188,21 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
   },[item?.itemId]);
 
   function markOptimized(area){
-    const next={...optimizedAreas,[area]:true};
+    const legacy=area==='media'?'images':area==='financial'?'price':area;
+    const next={...optimizedAreas,[area]:true,[legacy]:true};
     setOptimizedAreas(next);
     try{localStorage.setItem('gs-super-anuncio-optimized-'+item.itemId,JSON.stringify(next))}catch{}
   }
+  const isOptimized=area=>Boolean(optimizedAreas?.[area]||(area==='media'&&optimizedAreas?.images)||(area==='financial'&&optimizedAreas?.price));
 
   useEffect(()=>{
     const selected=items.find(x=>String(x.itemId)===String(initialItemId));
     if(selected)setSelectedId(selected.itemId);
     if(allowedTabs.has(initialTab))setTab(initialTab);
-    if(['title','description','images','category','price','competitors'].includes(initialTab))setEditorTab(initialTab);
+    if(['title','description','images','video','category','price','variations'].includes(initialTab)){
+      setEditorTab(initialTab);
+      setDetailTab(groupForEditor(initialTab));
+    }
   },[items,initialItemId,initialTab,allowedTabs]);
 
   useEffect(()=>{
