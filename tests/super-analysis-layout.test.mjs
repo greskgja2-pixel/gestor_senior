@@ -128,3 +128,24 @@ test('QA Super Anuncio: sino, busca, zoom e alerta de oferta sem controles morto
   const css=read('app/extensao-shopee-intelligence/super-anuncio-mockup.module.css');
   assert.match(css,/\.flashAttention>span\.flashAttentionActions\{width:auto!important;height:auto!important/);
 });
+
+test('Preço e margem: custo tem botão próprio, usa manual-price e nunca vai para a Shopee',()=>{
+  assert.match(view,/\/api\/extension-intelligence\/manual-price/);
+  assert.match(view,/method:'PATCH'/);
+  assert.match(view,/product_cost:c/);
+  assert.match(view,/variation_costs:rows/);
+  assert.match(view,/router\.refresh\(\)/);
+  assert.match(view,/💾 Salvar custo/);
+  assert.match(view,/não é enviado à Shopee/);
+  const saveTab=view.slice(view.indexOf('async function saveTab()'),view.indexOf('const activeBefore'));
+  assert.ok(saveTab.length>50,'saveTab nao encontrada');
+  assert.doesNotMatch(saveTab,/cost/i);
+});
+
+test('Barra de ações do editor fica acima do card Editar anúncio e separa Shopee de custo',()=>{
+  assert.match(superAnuncio,/id="gs-editor-toolbar"/);
+  assert.ok(superAnuncio.indexOf('id="gs-editor-toolbar"')<superAnuncio.indexOf('className={styles.quickActions}'),'a barra deve vir antes do card Editar anúncio');
+  assert.match(view,/createPortal\(<EditorToolbar/);
+  for(const token of ['↶ Desfazer','↷ Refazer','⟳ Restaurar original','💾 Salvar custo','▣ Salvar na Shopee'])assert.ok(view.includes(token),'faltando: '+token);
+  assert.match(view,/embedded&&toolbarSlot/);
+});
