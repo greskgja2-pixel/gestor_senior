@@ -167,7 +167,7 @@
 /* GS_EMBEDDED_SUPER_ANALYSIS_2026_09_24 */
 .embeddedScreen{display:block!important;grid-template-columns:1fr!important;position:relative!important;inset:auto!important;z-index:auto!important;min-height:0!important;height:auto!important;background:transparent!important;overflow:visible!important}
 .embeddedMain{width:100%;min-height:0;padding:0;background:transparent}
-.embeddedScreen .tabWorkspace{margin-top:0}
+.embeddedScreen .tabWorkspace{margin-top:0;grid-template-columns:minmax(0,1fr)}
 .embeddedScreen .tabContent{min-width:0}
 .embeddedScreen .actionPanel{margin-top:10px}
 
@@ -313,22 +313,22 @@
 .costMsg{margin-top:8px;padding:8px 10px;border-radius:8px;background:#edf5ff;color:#345477;font-size:9px;line-height:1.4}
 @media(max-width:560px){.costRow{grid-template-columns:1fr 90px}.costRow em{grid-column:1/-1;text-align:left}}
 
-/* Barra de ações fixa acima do card "Editar anúncio" (montada por portal a partir do editor embutido) */
+/* Barra compacta de ações usada quando a Super Análise está embutida no Super Anúncio. */
 .topToolbar{
-  width:100%;min-height:52px;box-sizing:border-box;
-  display:flex;flex-wrap:nowrap;align-items:center;gap:8px 12px;
-  padding:9px 12px;background:#fff;border:1px solid #cfe0f5;border-radius:12px;
-  box-shadow:0 8px 24px rgba(23,105,232,.10);overflow:hidden
+  width:auto;min-width:0;display:flex;align-items:center;gap:7px;flex-wrap:wrap;
+  padding:0;background:transparent;border:0;box-shadow:none;overflow:visible
 }
-.toolbarTab{flex:0 0 108px;min-width:108px;font-size:10px;color:#5b6f8a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.toolbarTab b{color:#0f2d62}
-.toolbarGroup{display:flex;flex:0 0 auto;flex-wrap:nowrap;gap:6px}
-.topToolbar button{height:34px;box-sizing:border-box;padding:0 11px;border-radius:8px;border:1px solid #d6e0ec;background:#fff;color:#235799;font-size:10px;font-weight:800;cursor:pointer;white-space:nowrap}
+.topToolbar button{height:38px;box-sizing:border-box;padding:0 12px;border-radius:9px;border:1px solid #d4dfed;background:#fff;color:#214d86;font-size:10px;font-weight:800;cursor:pointer;white-space:nowrap}
+.topToolbar button:hover:not(:disabled){border-color:#9db9dc;background:#f7fbff}
 .topToolbar button:disabled{opacity:.42;cursor:not-allowed}
 .topToolbar .saveShopee{background:#1769e8;color:#fff;border-color:#1769e8}
-.topToolbar .saveCost{background:#12945b;color:#fff;border-color:#12945b}
-.topToolbar>small{flex:1 1 auto;min-width:120px;font-size:9px;font-weight:800;margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.toolbarMsg{flex:0 1 260px;min-width:0;max-width:260px;padding:7px 10px;border-radius:8px;background:#edf5ff;color:#345477;font-size:9px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.toolbarMore{position:relative}
+.toolbarMore>summary{list-style:none;height:38px;min-width:40px;display:grid;place-items:center;border:1px solid #d4dfed;border-radius:9px;background:#fff;color:#526b89;font-weight:900;cursor:pointer}
+.toolbarMore>summary::-webkit-details-marker{display:none}
+.toolbarMore>div{position:absolute;right:0;top:43px;z-index:30;min-width:170px;padding:7px;border:1px solid #d8e3ef;border-radius:9px;background:#fff;box-shadow:0 12px 30px rgba(32,58,92,.16)}
+.toolbarMore>div button{width:100%}
+.toolbarMore>div small{display:block;padding:7px 5px 2px;color:#6d7f96;font-size:8px}
+.toolbarMsg{flex:1 1 220px;min-width:160px;padding:7px 10px;border-radius:8px;background:#edf5ff;color:#345477;font-size:8px;line-height:1.4}
 @media(max-width:900px){
   .topToolbar{overflow-x:auto;scrollbar-width:none}
   .topToolbar::-webkit-scrollbar{display:none}
