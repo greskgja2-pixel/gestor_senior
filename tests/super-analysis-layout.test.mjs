@@ -169,9 +169,10 @@ test('Oferta Relampago: get_time_slot_id envia intervalo obrigatorio no host bra
   assert.match(fn,/end_time: safeEnd/);
   assert.match(fn,/openplatform\.shopee\.com\.br/);
   assert.match(fn,/Date\.now\(\)\/1000\)\+120/);
-  assert.match(route,/for\(let cursor=safeStart;cursor<=safeEnd;cursor\+=oneDay\)/);
-  assert.match(route,/startTime:cursor,endTime:chunkEnd/);
+  assert.doesNotMatch(route,/cursor\+=oneDay/);
+  assert.match(route,/startTime:safeStart,endTime:safeEnd/);
   assert.match(route,/normalizeTimeSlots\(raw\)/);
+  assert.match(route,/janela contínua/);
 });
 
 
