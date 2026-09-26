@@ -105,3 +105,26 @@ test('leitura em cadeia: ROAS minimo = 100 / margem e mensagens por caso',()=>{
   assert.equal(chainVerdict({cost:10,margin:20,roas:6.5}).tone,'green');
   assert.equal(chainVerdict({cost:10,margin:null,roas:6.5}).tone,'');
 });
+
+test('QA Super Anuncio: editor embutido nao herda a grade de 2 colunas da tela cheia',()=>{
+  const css=read('app/super-analise/page.module.css');
+  const rule=css.match(/\.embeddedScreen\{[^}]*\}/);
+  assert.ok(rule,'regra .embeddedScreen nao encontrada');
+  assert.match(rule[0],/display:block!important/);
+  assert.match(rule[0],/grid-template-columns:1fr!important/);
+});
+
+test('QA Super Anuncio: sino, busca, zoom e alerta de oferta sem controles mortos',()=>{
+  // sino navega para Prioridades e so mostra o ponto vermelho com pendencias reais
+  assert.match(superAnuncio,/className=\{styles\.notify\}[^>]*onClick=\{\(\)=>router\.push\('\/extensao-shopee-intelligence\?section=prioridades'\)\}/);
+  assert.match(superAnuncio,/arr\(productTasks\.rows\)\.length>0&&<i\/>/);
+  // busca avisa quando nao encontra e volta ao resumo quando encontra
+  assert.match(superAnuncio,/Nenhum anúncio acompanhado corresponde a/);
+  assert.match(superAnuncio,/setEditorTab\(null\);setSearchMsg\(''\)/);
+  assert.doesNotMatch(superAnuncio,/placeholder="Buscar produtos, anúncios ou concorrentes/);
+  // Esc fecha o zoom
+  assert.match(superAnuncio,/e\.key==='Escape'\)onClose\(\)/);
+  // contêiner dos botoes do alerta nao pode voltar a ser 28x28
+  const css=read('app/extensao-shopee-intelligence/super-anuncio-mockup.module.css');
+  assert.match(css,/\.flashAttention>span\.flashAttentionActions\{width:auto!important;height:auto!important/);
+});

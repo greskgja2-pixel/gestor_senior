@@ -165,7 +165,7 @@
 
 
 /* GS_EMBEDDED_SUPER_ANALYSIS_2026_09_24 */
-.embeddedScreen{position:relative!important;inset:auto!important;z-index:auto!important;min-height:0!important;height:auto!important;background:transparent!important;overflow:visible!important}
+.embeddedScreen{display:block!important;grid-template-columns:1fr!important;position:relative!important;inset:auto!important;z-index:auto!important;min-height:0!important;height:auto!important;background:transparent!important;overflow:visible!important}
 .embeddedMain{width:100%;min-height:0;padding:0;background:transparent}
 .embeddedScreen .tabWorkspace{margin-top:0}
 .embeddedScreen .tabContent{min-width:0}
