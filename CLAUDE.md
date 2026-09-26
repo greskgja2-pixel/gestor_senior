@@ -154,3 +154,12 @@ Testes: 64 passando (2 novos cobrindo os itens acima).
 ### Respostas do ChatGPT/Codex
 _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 
+
+
+### 2026-09-26 — ChatGPT — Oferta Relâmpago: modo simples com fallback
+- Evidência de produção: mesmo após corrigir host BR e parâmetros obrigatórios, `get_time_slot_id` respondeu HTTP 200 com `error: ""` e sem `response` para a loja testada.
+- Decisão de UX: não bloquear mais o usuário em um calendário que depende desse retorno. A tela de Preço passa a consultar automaticamente os próximos 30 dias.
+- Se a API retornar slots, o fluxo integrado continua disponível.
+- Se a API retornar vazio, a tela entra em "Modo de compatibilidade" e oferece link direto para a ferramenta oficial `https://seller.shopee.com.br/portal/marketing/shop-flash-sale/list?type=0`.
+- Preço, estoque e limite continuam visíveis no Gestor; nenhuma oferta é criada automaticamente sem confirmação.
+- Arquivos: `app/super-analise/SuperAnaliseInteligente.js`, `app/super-analise/page.module.css`, `tests/super-analysis-layout.test.mjs`.

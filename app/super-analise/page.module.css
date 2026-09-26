@@ -189,6 +189,11 @@
 .flashPeriodResult{display:grid;gap:3px;margin-top:9px;padding:8px 9px;border:1px dashed #c9d8e8;border-radius:8px;background:#fff}
 .flashPeriodResult b{font-size:8.5px;color:#234c79}
 .flashPeriodResult span{font-size:7.5px;color:#74859a;line-height:1.45}
+.flashCompatibilityActions{display:flex;gap:7px;flex-wrap:wrap;align-items:center;grid-column:1/-1;margin-top:4px}
+.flashCompatibilityActions button,.flashCompatibilityActions a{min-height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:7px;padding:7px 10px;font-size:8px;font-weight:900;text-decoration:none;cursor:pointer}
+.flashCompatibilityActions button{border:1px solid #c5d8ec;background:#fff;color:#1763c4}
+.flashCompatibilityActions a{border:1px solid #1769e8;background:#1769e8;color:#fff}
+
 
 .flashVariationInline{margin-top:10px;padding:10px;border:1px solid #dce7f2;border-radius:10px;background:#fff}
 .flashVariationInlineHead{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:8px}

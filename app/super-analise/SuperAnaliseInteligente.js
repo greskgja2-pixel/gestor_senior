@@ -273,7 +273,7 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
   const [flashModels,setFlashModels]=useState([]);
   const [flashVariationOpen,setFlashVariationOpen]=useState(false);
   const [flashVariationDraft,setFlashVariationDraft]=useState({});
-  const [flashPeriod,setFlashPeriod]=useState(()=>{const start=localYmd(new Date());return{start,end:addLocalDays(start,7)}});
+  const [flashPeriod,setFlashPeriod]=useState(()=>{const start=localYmd(new Date());return{start,end:addLocalDays(start,29)}});
   const [flashConfirmOpen,setFlashConfirmOpen]=useState(false);
   const [flashNotify,setFlashNotify]=useState({app:true,email:false});
   const [flashBusy,setFlashBusy]=useState(false);
@@ -329,7 +329,7 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
     setBaseline({draft:nextDraft,gallery:nextGallery,chosenCategory:categoryId});
     setHistory({past:[],future:[]});setMessage('');
     setFlash(x=>({...x,promoPrice:basePrice?String(basePrice):'',stock:String(p.stock??'')}));
-    setFlashVariationOpen(false);setFlashVariationDraft({});setFlashModels([]);setFlashConfirmOpen(false);const today=localYmd(new Date());setFlashPeriod({start:today,end:addLocalDays(today,7)});
+    setFlashVariationOpen(false);setFlashVariationDraft({});setFlashModels([]);setFlashConfirmOpen(false);const today=localYmd(new Date());setFlashPeriod({start:today,end:addLocalDays(today,29)});
   },[report?.id]);
 
   async function loadFlashMeta(days=flashDays,period=flashPeriod){
@@ -678,12 +678,10 @@ function CategoryComparison({current,competitors,dominant,aligned,onApply,select
 
 
 function PriceSection({costVariations=[],costValue=()=>'',setVarCost=()=>{},costDirty=false,costSaving=false,costMsg='',onSaveCost=()=>{},price,cost,setPrice,setCost,margin,competitors,plan,onPlan,before,after,blocked,setZoomSrc,slots,selectedSlots,slotError,flash,setFlash,createFlash,flashBusy,flashMessage,flashDays,setFlashDays,flashInsight,reloadFlash,useRecommendedSlot,flashPeriod,setFlashPeriod,setFlashPreset,models,variationDraft,setVariationDraft,applyFlashPriceToAll}){
-  const [periodPickerOpen,setPeriodPickerOpen]=useState(false);
   const promoMargin=currentMargin(flash.promoPrice,cost);
   const rec=flashInsight?.recommendation;
   const dayNames=['domingo','segunda-feira','terça-feira','quarta-feira','quinta-feira','sexta-feira','sábado'];
   const confidence={high:'alta',medium:'média',low:'baixa',insufficient:'dados insuficientes'}[rec?.confidence]||'—';
-  const rangeDays=flashPeriod?.start&&flashPeriod?.end?Math.max(1,Math.round((new Date(flashPeriod.end+'T12:00:00')-new Date(flashPeriod.start+'T12:00:00'))/86400000)+1):0;
   return <>
     <section className={styles.priceTopGrid}>
       <article className={styles.panel}><div className={styles.panelHead}><h2>Preço e margem atuais</h2><span>✎ Editável</span></div><div className={styles.priceGrid}><label>Preço<input type="number" step="0.01" value={price} onChange={e=>setPrice(e.target.value)}/></label>{costVariations.length?<div><small>Custo</small><b>por variação ↓</b></div>:<label>Custo<input type="number" step="0.01" min="0" value={cost} onChange={e=>setCost(e.target.value)}/></label>}<div><small>Margem recalculada</small><b>{pct(margin)}</b></div></div><div className={styles.formula}>Conta resumida: preço de venda {money(price)} − 20% Shopee − R$ 4,50 de taxa fixa − custo {money(cost)} = margem estimada. <small>Ads é acompanhado separadamente e não reduz esta margem do produto.</small></div><div className={styles.costBox}>
@@ -696,7 +694,7 @@ function PriceSection({costVariations=[],costValue=()=>'',setVarCost=()=>{},cost
 
     <section className={styles.flashCard}>
       <div className={styles.panelHead}><h2>⚡ Oferta Relâmpago real</h2><span>Horários oficiais da Shopee</span></div>
-      <p>Escolha um período no calendário. O Gestor encontra os horários oficiais da Shopee dentro desse período e cria as ofertas somente depois da sua confirmação.</p>
+      <p>O Gestor consulta automaticamente os próximos 30 dias. Se a API da Shopee não liberar horários para esta loja, você pode continuar pela Central do Vendedor sem ficar preso nesta tela.</p>
 
       <div className={styles.flashRecommendation}>
         <div className={styles.flashRecommendationMain}>
@@ -709,17 +707,25 @@ function PriceSection({costVariations=[],costValue=()=>'',setVarCost=()=>{},cost
       </div>
 
       <div className={styles.flashPeriodCard}>
-        <div className={styles.flashPeriodHead}><div><b>📅 Período das ofertas</b><span>Selecione o intervalo em um calendário.</span></div><strong>{rangeDays?rangeDays+' dia'+(rangeDays===1?'':'s'):'—'}</strong></div>
-        <button type="button" className={styles.flashRangeButton} onClick={()=>setPeriodPickerOpen(true)}><span>{flashPeriod?.start?new Date(flashPeriod.start+'T12:00:00').toLocaleDateString('pt-BR'):'Data inicial'}</span><em>→</em><span>{flashPeriod?.end?new Date(flashPeriod.end+'T12:00:00').toLocaleDateString('pt-BR'):'Data final'}</span><b>▾</b></button>
-        <div className={styles.flashPeriodPresets}>
-          <button type="button" onClick={()=>setFlashPreset('today')}>Hoje</button>
-          <button type="button" onClick={()=>setFlashPreset('7')}>Próximos 7 dias</button>
-          <button type="button" onClick={()=>setFlashPreset('30')}>Próximos 30 dias</button>
-          <button type="button" onClick={()=>setFlashPreset('month')}>Este mês</button>
-        </div>
-        <div className={styles.flashPeriodResult}><b>{selectedSlots.length} horário{selectedSlots.length===1?'':'s'} oficial{selectedSlots.length===1?'':'is'} encontrado{selectedSlots.length===1?'':'s'}</b><span>{selectedSlots.length?selectedSlots.slice(0,3).map(flashSlotLabel).join(' · '):flashInsight?.phase==='loading'?'Consultando os horários oficiais da Shopee…':flashPeriod?.start&&flashPeriod?.end?'A Shopee não retornou horários oficiais disponíveis neste período. Tente atualizar ou escolher outro intervalo.':'Escolha um período para consultar os horários oficiais da Shopee.'}</span><button type="button" onClick={reloadFlash} disabled={flashInsight?.phase==='loading'}>{flashInsight?.phase==='loading'?'↻ Consultando…':'↻ Atualizar horários'}</button></div>
+        <div className={styles.flashPeriodHead}><div><b>⚡ Próximos horários oficiais</b><span>O Gestor consulta automaticamente os próximos 30 dias.</span></div><strong>{slots.length?slots.length+' disponível'+(slots.length===1?'':'is'):'—'}</strong></div>
+        {slots.length?
+          <div className={styles.flashPeriodResult}>
+            <b>{slots.length} horário{slots.length===1?'':'s'} encontrado{slots.length===1?'':'s'}</b>
+            <span>{slots.slice(0,6).map(flashSlotLabel).join(' · ')}</span>
+            <button type="button" onClick={()=>reloadFlash({start:localYmd(new Date()),end:addLocalDays(localYmd(new Date()),29)})} disabled={flashInsight?.phase==='loading'}>{flashInsight?.phase==='loading'?'↻ Consultando…':'↻ Atualizar horários'}</button>
+          </div>
+        :
+          <div className={styles.flashPeriodResult}>
+            <b>Modo de compatibilidade</b>
+            <span>A Shopee não liberou horários pela API desta loja. Para não bloquear sua criação, abra a ferramenta oficial da Central do Vendedor e conclua a oferta por lá.</span>
+            <div className={styles.flashCompatibilityActions}>
+              <button type="button" onClick={()=>reloadFlash({start:localYmd(new Date()),end:addLocalDays(localYmd(new Date()),29)})} disabled={flashInsight?.phase==='loading'}>{flashInsight?.phase==='loading'?'↻ Consultando…':'↻ Tentar novamente'}</button>
+              <a className={styles.primary} href="https://seller.shopee.com.br/portal/marketing/shop-flash-sale/list?type=0" target="_blank" rel="noreferrer">Abrir Oferta Relâmpago na Shopee ↗</a>
+            </div>
+          </div>
+        }
       </div>
-      {periodPickerOpen&&<FlashPeriodPicker value={flashPeriod} onChange={setFlashPeriod} onApply={period=>{setFlashPeriod(period);reloadFlash(period)}} onClose={()=>setPeriodPickerOpen(false)}/>} 
+
 
       {models.length?<div className={styles.flashVariationInline}>
         <div className={styles.flashVariationInlineHead}><div><b>Preço da oferta por variação</b><span>A Shopee exige um preço válido para cada variação.</span></div><div className={styles.flashApplyAll}><input type="number" min="0.01" step="0.01" placeholder="Preço para todas" value={flash.promoPrice} onChange={e=>setFlash(x=>({...x,promoPrice:e.target.value}))}/><button type="button" onClick={applyFlashPriceToAll}>Aplicar em todas</button></div></div>
@@ -731,7 +737,7 @@ function PriceSection({costVariations=[],costValue=()=>'',setVarCost=()=>{},cost
       </div>:<div className={styles.flashGrid}><label>Preço promocional<input type="number" step="0.01" value={flash.promoPrice} onChange={e=>setFlash(x=>({...x,promoPrice:e.target.value}))}/></label><label>Estoque reservado<input type="number" min="1" value={flash.stock} onChange={e=>setFlash(x=>({...x,stock:e.target.value}))}/></label><label>Limite por comprador<input type="number" min="0" value={flash.purchaseLimit} onChange={e=>setFlash(x=>({...x,purchaseLimit:e.target.value}))}/></label><div><small>Margem projetada</small><b>{pct(promoMargin)}</b></div></div>}
 
       {slotError&&<div className={styles.message}>{slotError}</div>}
-      <button type="button" className={styles.primary} onClick={createFlash} disabled={flashBusy||!selectedSlots.length}>{flashBusy?'Criando…':`⚡ Criar Ofertas Relâmpago (${selectedSlots.length})`}</button>
+      {selectedSlots.length?<button type="button" className={styles.primary} onClick={createFlash} disabled={flashBusy}>{flashBusy?'Criando…':`⚡ Criar Ofertas Relâmpago (${selectedSlots.length})`}</button>:<a className={styles.primary} href="https://seller.shopee.com.br/portal/marketing/shop-flash-sale/list?type=0" target="_blank" rel="noreferrer">⚡ Criar Oferta Relâmpago na Shopee ↗</a>}
       <small className={styles.recommendNote}>Antes de criar, o Gestor abre uma confirmação com o período, preços e opção para avisar quando as ofertas terminarem.</small>
       {flashMessage&&<div className={styles.message}>{flashMessage}</div>}
     </section>
