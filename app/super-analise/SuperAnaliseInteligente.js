@@ -128,20 +128,12 @@ function ActionsPanel({canUndo,canRedo,dirtyCount,onUndo,onRedo,onRestore,onSave
   </aside>
 }
 
-function EditorToolbar({tabName,canUndo,canRedo,onUndo,onRedo,onRestore,shopeeDirty,onSaveShopee,shopeeSaving,shopeeDisabled,showCost,costDirty,costSaving,onSaveCost,message}) {
-  const parts=[];if(shopeeDirty)parts.push(`${shopeeDirty} para a Shopee`);if(costDirty)parts.push('custo');
+function EditorToolbar({tabName,canUndo,canRedo,onUndo,onRedo,onRestore,shopeeDirty,onSaveShopee,shopeeSaving,shopeeDisabled,message}) {
   return <div className={styles.topToolbar} role="toolbar" aria-label="Ações de edição do anúncio">
-    <span className={styles.toolbarTab}>Editando: <b>{tabName}</b></span>
-    <div className={styles.toolbarGroup}>
-      <button type="button" onClick={onUndo} disabled={!canUndo}>↶ Desfazer</button>
-      <button type="button" onClick={onRedo} disabled={!canRedo}>↷ Refazer</button>
-      <button type="button" onClick={onRestore}>⟳ Restaurar original</button>
-    </div>
-    <small className={parts.length?styles.pending:styles.noPending}>● {parts.length?`Pendente: ${parts.join(' + ')}`:'Nenhuma alteração pendente'}</small>
-    <div className={styles.toolbarGroup}>
-      {showCost&&<button type="button" className={styles.saveCost} onClick={onSaveCost} disabled={!costDirty||costSaving}>{costSaving?'Salvando custo…':'💾 Salvar custo'}</button>}
-      <button type="button" className={styles.saveShopee} onClick={onSaveShopee} disabled={shopeeDisabled||shopeeDirty===0||shopeeSaving}>{shopeeSaving?'Salvando…':'▣ Salvar na Shopee'}</button>
-    </div>
+    <button type="button" onClick={onUndo} disabled={!canUndo} title="Desfazer última alteração">↶ Desfazer</button>
+    <button type="button" onClick={onRedo} disabled={!canRedo} title="Refazer alteração">↷ Refazer</button>
+    <button type="button" className={styles.saveShopee} onClick={onSaveShopee} disabled={shopeeDisabled||shopeeDirty===0||shopeeSaving} title={shopeeDirty?'Salvar alteração real na Shopee':'Nenhuma alteração para salvar'}>{shopeeSaving?'Salvando…':'▣ Salvar'}</button>
+    <details className={styles.toolbarMore}><summary title="Mais ações">•••</summary><div><button type="button" onClick={onRestore}>⟳ Restaurar original</button><small>Editando: {tabName}</small></div></details>
     {message&&<div className={styles.toolbarMsg} role="status">{message}</div>}
   </div>
 }
@@ -634,10 +626,10 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
           {tab==='price'&&<PriceSection costVariations={costVariations} costValue={costFieldValue} setVarCost={(id,v)=>setVarCosts(x=>({...x,[id]:v}))} costDirty={costDirty} costSaving={costSaving} costMsg={costMsg} onSaveCost={saveCost} price={draft.price} cost={draft.cost} setPrice={v=>setField('price',v)} setCost={v=>setField('cost',v)} margin={liveMargin} competitors={competitors} plan={suggestionImproves?draft.pricePlan:''} onPlan={v=>setField('pricePlan',v)} before={activeBefore} after={guardedAfter} blocked={!suggestionImproves} setZoomSrc={setZoomSrc} slots={slots} selectedSlots={selectedSlots} flashSelectedIds={flashSelectedIds} setFlashSelectedIds={setFlashSelectedIds} slotError={slotError} flash={flash} setFlash={setFlash} createFlash={prepareFlashCreation} flashBusy={flashBusy} flashMessage={flashMessage} flashDays={flashDays} setFlashDays={setFlashDays} flashInsight={flashInsight} reloadFlash={period=>loadFlashMeta(flashDays,period||flashPeriod)} useRecommendedSlot={useRecommendedSlot} flashPeriod={flashPeriod} setFlashPeriod={setFlashPeriod} setFlashPreset={setFlashPreset} models={effectiveFlashModels} variationDraft={flashVariationDraft} setVariationDraft={setFlashVariationDraft} applyFlashPriceToAll={applyFlashPriceToAll}/>}
           {tab==='variations'&&<VariationsSection product={p} plan={suggestionImproves?draft.variationsPlan:''} onPlan={v=>setField('variationsPlan',v)} before={activeBefore} after={guardedAfter} blocked={!suggestionImproves}/>}
           {(tab==='images'||tab==='video')&&<div className={styles.reminderStrip}><span>{tab==='images'?'Quer revisar essas imagens mais tarde?':'Quer voltar depois para adicionar ou atualizar o vídeo?'}</span><ReminderButton itemId={report.item_id} taskType={tab} priority="medium" title={tab==='images'?'Revisar imagens do anúncio':'Adicionar ou atualizar vídeo do anúncio'} description={tab==='images'?'Revisar e melhorar as imagens deste produto.':'Revisar a necessidade de adicionar ou atualizar o vídeo deste produto.'} actionUrl={'/super-analise?item_id='+report.item_id+'&tab='+tab}/></div>}
-          {tab!=='category'&&<><WhyBlock analysis={analysis} tab={tab}/><BottomSummary tab={tab} before={activeBefore} after={guardedAfter} analysis={analysis} blocked={!suggestionImproves}/></>}
+          {!embedded&&tab!=='category'&&<><WhyBlock analysis={analysis} tab={tab}/><BottomSummary tab={tab} before={activeBefore} after={guardedAfter} analysis={analysis} blocked={!suggestionImproves}/></>}
         </section>
         {!(embedded&&toolbarSlot)&&<ActionsPanel canUndo={history.past.length>0} canRedo={history.future.length>0} dirtyCount={dirtyForTab} onUndo={undo} onRedo={redo} onRestore={restoreOriginal} onSave={saveTab} saving={saving} saveDisabled={!['title','description'].includes(tab)} message={message}/>}
-        {embedded&&toolbarSlot&&createPortal(<EditorToolbar tabName={TAB_LABEL[tab]||tab} canUndo={history.past.length>0} canRedo={history.future.length>0} onUndo={undo} onRedo={redo} onRestore={()=>{restoreOriginal();setVarCosts({});setCostMsg('')}} shopeeDirty={dirtyForTab} onSaveShopee={saveTab} shopeeSaving={saving} shopeeDisabled={!['title','description'].includes(tab)} showCost={tab==='price'} costDirty={costDirty} costSaving={costSaving} onSaveCost={saveCost} message={message}/>,toolbarSlot)}
+        {embedded&&toolbarSlot&&createPortal(<EditorToolbar tabName={TAB_LABEL[tab]||tab} canUndo={history.past.length>0} canRedo={history.future.length>0} onUndo={undo} onRedo={redo} onRestore={()=>{restoreOriginal();setVarCosts({});setCostMsg('')}} shopeeDirty={dirtyForTab} onSaveShopee={saveTab} shopeeSaving={saving} shopeeDisabled={!['title','description','images','category','price'].includes(tab)} message={message}/>,toolbarSlot)}
       </div>
     </main>
   </div>
