@@ -71,21 +71,31 @@ function normalizeTimeSlots(raw){
 async function loadOfficialTimeSlots({shop,startTime,endTime}){
   const safeStart=Math.max(Math.floor(Date.now()/1000)+120,Number(startTime)||0);
   const safeEnd=Math.max(safeStart+60,Number(endTime)||safeStart+7*24*3600);
-  const raw=await getFlashSaleTimeSlots({
-    shopId:shop.shop_id,accessToken:shop.access_token,startTime:safeStart,endTime:safeEnd
-  });
-  const rows=normalizeTimeSlots(raw);
-  if(!rows.length){
-    console.warn('[flash-sale] get_time_slot_id sem horários',{
-      startTime:safeStart,endTime:safeEnd,
-      responseType:Array.isArray(raw?.response)?'array':typeof raw?.response,
-      responseKeys:raw?.response&&typeof raw.response==='object'&&!Array.isArray(raw.response)?Object.keys(raw.response):[],
-      topLevelKeys:raw&&typeof raw==='object'?Object.keys(raw):[],
-      shopeeError:raw?.error??null,
-      message:raw?.message??null
+  const merged=new Map();
+  const oneDay=24*3600;
+
+  // Para lojas BR, consultas amplas podem voltar HTTP 200 sem response.
+  // Consultamos dia a dia no host brasileiro e agregamos apenas slots oficiais.
+  for(let cursor=safeStart;cursor<=safeEnd;cursor+=oneDay){
+    const chunkEnd=Math.min(safeEnd,cursor+oneDay-1);
+    const raw=await getFlashSaleTimeSlots({
+      shopId:shop.shop_id,accessToken:shop.access_token,startTime:cursor,endTime:chunkEnd
     });
+    const rows=normalizeTimeSlots(raw);
+    for(const slot of rows){
+      const key=String(slot?.timeslot_id||`${slot?.start_time}:${slot?.end_time}`);
+      merged.set(key,slot);
+    }
+    if(!rows.length){
+      console.warn('[flash-sale] dia sem horários oficiais',{
+        startTime:cursor,endTime:chunkEnd,
+        shopeeError:raw?.error??null,message:raw?.message??null,
+        hasResponse:raw?.response!==undefined
+      });
+    }
   }
-  return rows;
+
+  return [...merged.values()].sort((a,b)=>Number(a?.start_time||0)-Number(b?.start_time||0));
 }
 
 function normalizeOfferItem(itemId,sale,raw){
