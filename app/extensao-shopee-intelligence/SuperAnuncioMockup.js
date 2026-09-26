@@ -168,6 +168,7 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
   const [deleteError,setDeleteError]=useState('');
   const [zoomSrc,setZoomSrc]=useState('');
   const [searchMsg,setSearchMsg]=useState('');
+  const [showList,setShowList]=useState(!initialItemId);
   const router=useRouter();
   const searchRef=useRef(null);
   const item=useMemo(()=>items.find(x=>String(x.itemId)===String(selectedId))||items[0]||null,[items,selectedId]);
@@ -270,11 +271,47 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
       const row=x.latest?.product_snapshot||{};
       return String(row.title||row.item_name||x.itemId||'').toLowerCase().includes(q);
     });
-    if(found){setSelectedId(found.itemId);setTab('overview');setEditorTab(null);setSearchMsg('')}
+    if(found){setSelectedId(found.itemId);setTab('overview');setEditorTab(null);setShowList(false);setSearchMsg('')}
     else setSearchMsg(`Nenhum anúncio acompanhado corresponde a "${query.trim()}".`);
   }
 
   if(!item)return <div className={styles.screen}><main className={styles.empty}><h1>Super Anúncio</h1><p>Nenhum anúncio analisado ainda. Comece em Produtos → Enviar para Super Análise.</p></main></div>;
+
+  if(showList){
+    const ranked=[...items].sort((a,b)=>{
+      const ar=n(a.latest?.score),br=n(b.latest?.score);
+      const aa=n(a.latest?.report?.ai_analysis?.afterScore),ba=n(b.latest?.report?.ai_analysis?.afterScore);
+      const ag=(aa!=null&&ar!=null)?aa-ar:0,bg=(ba!=null&&br!=null)?ba-br:0;
+      return bg-ag||(ar??999)-(br??999);
+    });
+    return <div className={styles.screen}><main className={styles.main}>
+      <section className={styles.phase1Header}>
+        <div><span className={styles.heroIcon}><Icon name="megaphone"/></span><div><h1>Super Anúncio</h1><p>Anúncios que já passaram pela Super Análise. Comece pelos que têm maior oportunidade de melhoria.</p></div></div>
+        <Link href="/produtos" className={styles.followBtn}><Icon name="plus"/> Nova análise</Link>
+      </section>
+      <section className={styles.phase1Filters}>
+        <div className={styles.phase1Search}><Icon name="search"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar anúncio analisado..."/></div>
+        <span>{ranked.length} anúncio{ranked.length===1?'':'s'} analisado{ranked.length===1?'':'s'}</span>
+      </section>
+      <section className={styles.phase1List}>
+        {ranked.filter(x=>{const q=query.trim().toLowerCase();if(!q)return true;const pp=x.latest?.product_snapshot||{};return String(pp.title||pp.item_name||x.itemId).toLowerCase().includes(q)}).map((x,i)=>{
+          const rr=x.latest||{},pp=rr.product_snapshot||{},sc=n(rr.score),pot=n(rr.report?.ai_analysis?.afterScore);
+          const safePot=pot==null?sc:(sc==null?pot:Math.max(sc,pot));
+          const gain=sc!=null&&safePot!=null?Math.round(safePot-sc):null;
+          const dims=arr(rr.report?.dimensions),weak=[...dims].sort((a,b)=>(n(a.score)??999)-(n(b.score)??999))[0];
+          const priority=(gain??0)>=25?'Alta':(gain??0)>=10?'Média':'Acompanhar';
+          return <article key={x.itemId} className={styles.phase1Row}>
+            {imageOf(pp)?<img src={imageOf(pp)} alt=""/>:<div className={styles.phase1NoImage}><Icon name="image"/></div>}
+            <div className={styles.phase1Identity}><b>{pp.title||pp.item_name||`Produto ${x.itemId}`}</b><small>Última análise: {when(rr.analyzed_at)}</small><span data-priority={priority}>{priority==='Alta'?'Prioridade alta':priority}</span></div>
+            <div className={styles.phase1Stat}><small>Nota atual</small><b>{sc==null?'—':Math.round(sc)}</b></div>
+            <div className={styles.phase1Stat} data-potential="true"><small>Potencial</small><b>{safePot==null?'—':Math.round(safePot)}</b><em>{gain==null?'Sem projeção':gain>0?`+${gain} pts`:'Sem ganho projetado'}</em></div>
+            <div className={styles.phase1Problem}><small>Principal ponto</small><b>{weak?.name||'Sem diagnóstico'}</b></div>
+            <button type="button" className={styles.phase1Open} onClick={()=>{setSelectedId(x.itemId);setShowList(false);setTab('overview');setEditorTab(null)}}>Abrir análise <span>→</span></button>
+          </article>
+        })}
+      </section>
+    </main></div>;
+  }
 
   const r=item.latest||{},prev=item.previous||{},p=r.product_snapshot||{},f=r.finance_snapshot||{},ai=r.report?.ai_analysis||{};
   const price=n(metric(r,'price')??p.price??p.currentPrice);
