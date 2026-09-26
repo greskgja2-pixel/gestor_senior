@@ -358,6 +358,8 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
       </section>
       {deleteError&&<div className={styles.deleteError}>{deleteError}</div>}
 
+      <div id="gs-editor-toolbar" className={styles.toolbarSlot}/>
+
       <div className={styles.quickActions}>
         <button type="button" className={styles.quickLabel} onClick={()=>setEditorTab(null)}><Icon name="sparkles"/> Editar anúncio</button>
         <button type="button" className={editorTab==='title'?styles.quickActive:''} onClick={()=>setEditorTab('title')}>Título</button>
