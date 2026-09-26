@@ -74,3 +74,34 @@ test('Super Analise formata avaliacao e mostra formula resumida da margem',()=>{
   assert.match(flow,/Margem estimada/);
   assert.doesNotMatch(flow,/passe o mouse para conferir a conta/);
 });
+
+test('Super Anuncio tem leitura em cadeia sem inventar dados e com excluir afastado',()=>{
+  assert.match(superAnuncio,/function DecisionChain\(/);
+  assert.match(superAnuncio,/<DecisionChain steps=\{chainSteps\}/);
+  assert.match(superAnuncio,/Cadastrar custo/);
+  assert.match(superAnuncio,/label:'Custo',value:dataText\(cost,money,f\)/);
+  assert.match(superAnuncio,/label:'ROAS atual',value:dataText\(roasNow,num,adsContext\)/);
+  assert.match(superAnuncio,/Gerenciar análise deste anúncio/);
+  assert.doesNotMatch(superAnuncio,/selectorActions[^]*?Excluir análises[^]*?<\/div>\s*<\/section>\s*\{deleteError/);
+});
+
+test('leitura em cadeia: ROAS minimo = 100 / margem e mensagens por caso',()=>{
+  const start=superAnuncio.indexOf('function chainVerdict');
+  const end=superAnuncio.indexOf('function DecisionChain');
+  assert.ok(start>0&&end>start,'chainVerdict nao encontrado');
+  const num=v=>Number(v).toLocaleString('pt-BR',{maximumFractionDigits:2});
+  const chainVerdict=new Function('num',superAnuncio.slice(start,end)+'\nreturn chainVerdict;')(num);
+  const semCusto=chainVerdict({cost:null,margin:null,roas:8});
+  assert.equal(semCusto.needCost,true);
+  assert.equal(semCusto.breakEven,null);
+  const negativa=chainVerdict({cost:10,margin:-5,roas:8});
+  assert.equal(negativa.tone,'red');
+  assert.equal(negativa.breakEven,null);
+  const semRoas=chainVerdict({cost:10,margin:20,roas:null});
+  assert.equal(semRoas.breakEven,5);
+  assert.equal(semRoas.tone,'');
+  assert.equal(chainVerdict({cost:10,margin:20,roas:4}).tone,'red');
+  assert.equal(chainVerdict({cost:10,margin:20,roas:5.5}).tone,'amber');
+  assert.equal(chainVerdict({cost:10,margin:20,roas:6.5}).tone,'green');
+  assert.equal(chainVerdict({cost:10,margin:null,roas:6.5}).tone,'');
+});
