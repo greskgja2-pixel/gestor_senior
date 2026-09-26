@@ -33,11 +33,9 @@ async function fetchProductTasksOnce(itemId,{force=false}={}){
   return promise;
 }
 const TABS=[
-  ['overview','Resumo','home'],
-  ['content','Conteúdo','file'],
-  ['images','Imagens','image'],
+  ['overview','Visão geral','home'],
+  ['ads','Shopee Ads','megaphone'],
   ['competitors','Concorrentes','users'],
-  ['price','Preço','coins'],
   ['history','Histórico','clock']
 ];
 const ATTRIBUTE_BLOCKS=[
@@ -113,13 +111,6 @@ function Icon({name,className=''}) {
     case 'arrowUp': return <svg {...common}><path d="m5 12 7-7 7 7"/><path d="M12 5v14"/></svg>;
     case 'plus': return <svg {...common}><path d="M12 5v14M5 12h14"/></svg>;
     case 'trash': return <svg {...common}><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg>;
-    case 'undo': return <svg {...common}><path d="M9 7 4 12l5 5"/><path d="M5 12h8a6 6 0 0 1 6 6"/></svg>;
-    case 'redo': return <svg {...common}><path d="m15 7 5 5-5 5"/><path d="M19 12h-8a6 6 0 0 0-6 6"/></svg>;
-    case 'save': return <svg {...common}><path d="M5 3h12l2 2v16H5z"/><path d="M8 3v6h8V3M8 21v-7h8v7"/></svg>;
-    case 'arrowLeft': return <svg {...common}><path d="m15 18-6-6 6-6"/><path d="M9 12h11"/></svg>;
-    case 'external': return <svg {...common}><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 13v7H4V6h7"/></svg>;
-    case 'more': return <svg {...common}><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>;
-    case 'check': return <svg {...common}><path d="m5 12 4 4L19 6"/></svg>;
     default: return <svg {...common}><circle cx="12" cy="12" r="8"/></svg>;
   }
 }
@@ -177,9 +168,6 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
   const [deleteError,setDeleteError]=useState('');
   const [zoomSrc,setZoomSrc]=useState('');
   const [searchMsg,setSearchMsg]=useState('');
-  const [showList,setShowList]=useState(!initialItemId);
-  const [optimized,setOptimized]=useState(()=>({content:false,images:false,price:false}));
-  const [changeCount,setChangeCount]=useState(0);
   const router=useRouter();
   const searchRef=useRef(null);
   const item=useMemo(()=>items.find(x=>String(x.itemId)===String(selectedId))||items[0]||null,[items,selectedId]);
@@ -282,49 +270,11 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
       const row=x.latest?.product_snapshot||{};
       return String(row.title||row.item_name||x.itemId||'').toLowerCase().includes(q);
     });
-    if(found){setSelectedId(found.itemId);setTab('overview');setEditorTab(null);setShowList(false);setSearchMsg('')}
+    if(found){setSelectedId(found.itemId);setTab('overview');setEditorTab(null);setSearchMsg('')}
     else setSearchMsg(`Nenhum anúncio acompanhado corresponde a "${query.trim()}".`);
   }
 
   if(!item)return <div className={styles.screen}><main className={styles.empty}><h1>Super Anúncio</h1><p>Nenhum anúncio analisado ainda. Comece em Produtos → Enviar para Super Análise.</p></main></div>;
-
-  if(showList){
-    const ranked=[...items].sort((a,b)=>{
-      const ar=n(a.latest?.score), br=n(b.latest?.score);
-      const aa=n(a.latest?.report?.ai_analysis?.afterScore), ba=n(b.latest?.report?.ai_analysis?.afterScore);
-      const ag=(aa!=null&&ar!=null)?aa-ar:0, bg=(ba!=null&&br!=null)?ba-br:0;
-      return bg-ag || (ar??999)-(br??999);
-    });
-    return <div className={styles.screen}><main className={styles.main}>
-      <div className={styles.listHeader}>
-        <div><span className={styles.heroIcon}><Icon name="megaphone"/></span><div><h1>Super Anúncio</h1><p>Escolha qual anúncio merece atenção agora.</p></div></div>
-        <Link href="/produtos" className={styles.followBtn}><Icon name="plus"/> Nova análise</Link>
-      </div>
-      <div className={styles.listFilters}>
-        <div className={styles.listSearch}><Icon name="search"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar anúncio analisado..."/></div>
-        <span>{ranked.length} anúncio{ranked.length===1?'':'s'} analisado{ranked.length===1?'':'s'}</span>
-      </div>
-      <section className={styles.analysisList}>
-        {ranked.filter(x=>{const q=query.trim().toLowerCase();if(!q)return true;const pp=x.latest?.product_snapshot||{};return String(pp.title||pp.item_name||x.itemId).toLowerCase().includes(q)}).map((x,i)=>{
-          const rr=x.latest||{}, pp=rr.product_snapshot||{}, sc=n(rr.score), pot=n(rr.report?.ai_analysis?.afterScore);
-          const safePot=pot==null?sc:(sc==null?pot:Math.max(sc,pot));
-          const g=sc!=null&&safePot!=null?Math.round(safePot-sc):null;
-          const dims=arr(rr.report?.dimensions);
-          const weakest=[...dims].sort((a,b)=>(n(a.score)??999)-(n(b.score)??999))[0];
-          const priority=(g??0)>=25?'Alta':(g??0)>=10?'Média':'Acompanhar';
-          return <article key={x.itemId} className={styles.analysisRow}>
-            <div className={styles.analysisRank}>{String(i+1).padStart(2,'0')}</div>
-            {imageOf(pp)?<img src={imageOf(pp)} alt=""/>:<div className={styles.listNoImage}><Icon name="image"/></div>}
-            <div className={styles.analysisIdentity}><b>{pp.title||pp.item_name||`Produto ${x.itemId}`}</b><small>Última análise: {when(rr.analyzed_at)}</small><span data-priority={priority}>{priority==='Alta'?'Prioridade alta':priority}</span></div>
-            <div className={styles.analysisScore}><small>Nota atual</small><b>{sc==null?'—':Math.round(sc)}</b></div>
-            <div className={styles.analysisPotential}><small>Potencial</small><b>{safePot==null?'—':Math.round(safePot)}</b><em>{g==null?'Sem projeção':g>0?`+${g} pts`:'Sem ganho projetado'}</em></div>
-            <div className={styles.analysisProblem}><small>Principal ponto</small><b>{weakest?.name||'Sem diagnóstico'}</b></div>
-            <button type="button" className={styles.openAnalysis} onClick={()=>{setSelectedId(x.itemId);setShowList(false);setTab('overview');setEditorTab(null)}}>Abrir análise <span>→</span></button>
-          </article>
-        })}
-      </section>
-    </main></div>;
-  }
 
   const r=item.latest||{},prev=item.previous||{},p=r.product_snapshot||{},f=r.finance_snapshot||{},ai=r.report?.ai_analysis||{};
   const price=n(metric(r,'price')??p.price??p.currentPrice);
@@ -409,42 +359,34 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
 
       <DecisionChain steps={chainSteps} verdict={verdict} onRegisterCost={()=>setEditorTab('price')}/>
 
-      <section className={styles.workbenchToolbar}>
-        <button type="button" onClick={()=>setShowList(true)}><Icon name="arrowLeft"/> Voltar à lista</button>
-        <span className={styles.toolbarDivider}/>
-        <button type="button" title="Desfazer a última edição" disabled><Icon name="undo"/> Desfazer</button>
-        <button type="button" title="Refazer a última edição" disabled><Icon name="redo"/> Refazer</button>
-        <button type="button" onClick={()=>router.refresh()}><Icon name="refresh"/> Reanalisar</button>
-        <span className={styles.toolbarSpacer}/>
-        {changeCount>0&&<span className={styles.changeCounter}>{changeCount} alteração{changeCount===1?'':'ões'} aprovada{changeCount===1?'':'s'}</span>}
-        <button type="button" className={styles.saveAction}><Icon name="save"/> Salvar alterações</button>
-        <button type="button" className={styles.publishAction} disabled title="Publicação direta será habilitada quando a escrita na Shopee estiver validada"><Icon name="external"/> Aplicar na Shopee</button>
-        <button type="button" className={styles.moreAction} title="Mais ações"><Icon name="more"/></button>
+      <section className={styles.selector}>
+        <div className={styles.selectorGroup}>
+          <div className={styles.selectorField}><small>Anúncio atual</small><select value={selectedId} onChange={e=>{setSelectedId(e.target.value);setTab('overview');setEditorTab(null)}}>{items.map(x=><option key={x.itemId} value={x.itemId}>{x.latest?.product_snapshot?.title||x.latest?.product_snapshot?.item_name||`Produto ${x.itemId}`}</option>)}</select></div>
+        </div>
+        <div className={styles.selectorActions}>
+          <Link href="/produtos" className={styles.followBtn}><Icon name="plus"/> Acompanhar outro anúncio</Link>
+        </div>
       </section>
-
-      <nav className={styles.workbenchTabs} aria-label="Áreas do anúncio">
-        {TABS.map(([key,label,icon])=>{
-          const done=(key==='content'&&optimized.content)||(key==='images'&&optimized.images)||(key==='price'&&optimized.price);
-          return <button type="button" key={key} data-active={tab===key?'true':'false'} data-done={done?'true':'false'} onClick={()=>{
-            setTab(key);
-            if(key==='content')setEditorTab('title');
-            else if(key==='images')setEditorTab('images');
-            else if(key==='price')setEditorTab('price');
-            else if(key==='competitors')setEditorTab('competitors');
-            else setEditorTab(null);
-          }}><Icon name={done?'check':icon}/>{label}{done&&<span>Otimizado</span>}</button>
-        })}
-      </nav>
+      {deleteError&&<div className={styles.deleteError}>{deleteError}</div>}
 
       <div id="gs-editor-toolbar" className={styles.toolbarSlot}/>
+
+      <div className={styles.quickActions}>
+        <button type="button" className={styles.quickLabel} onClick={()=>setEditorTab(null)}><Icon name="sparkles"/> Editar anúncio</button>
+        <button type="button" className={editorTab==='title'?styles.quickActive:''} onClick={()=>setEditorTab('title')}>Título</button>
+        <button type="button" className={editorTab==='description'?styles.quickActive:''} onClick={()=>setEditorTab('description')}>Descrição</button>
+        <button type="button" className={editorTab==='images'?styles.quickActive:''} onClick={()=>setEditorTab('images')}>Imagens</button>
+        <button type="button" className={editorTab==='category'?styles.quickActive:''} onClick={()=>setEditorTab('category')}>Categoria</button>
+        <button type="button" className={`${styles.quickPrimary} ${editorTab==='price'?styles.quickActive:''}`} onClick={()=>setEditorTab('price')}>Preço & Oferta Relâmpago</button>
+        <button type="button" className={editorTab==='competitors'?styles.quickActive:''} onClick={()=>setEditorTab('competitors')}><Icon name="users"/> Concorrentes</button>
+        <small>Você continua dentro do Super Anúncio. As alterações são salvas por área.</small>
+      </div>
+
       <div className={styles.workspace}>
         <section className={styles.content}>
-          {tab==='overview'&&<><Overview item={item} price={price} prevPrice={prevPrice} sold={sold} prevSold={prevSold} margin={margin} ai={ai} flashSales={flashSales} productTasks={productTasks} onTaskAction={resolveProductTask} onReloadTasks={()=>loadProductTasks(item.itemId,{force:true})} onReloadFlash={()=>loadFlashSales(item.itemId)} onOpenPrice={()=>{setTab('price');setEditorTab('price')}}/><BottomCards item={item} competitors={competitors} score={score} afterScore={safeAfterScore}/></>}
-          {tab==='competitors'&&<CompetitorsPanel competitors={competitors} collectedAt={r.analyzed_at} onZoom={setZoomSrc}/>}
-          {tab==='history'&&<HistoryPanel history={item.history||[r]}/>}
-          {tab==='content'&&<section className={styles.optimizationShell}><div className={styles.optimizationHead}><div><b>Conteúdo do anúncio</b><p>Otimize título e descrição e acompanhe o que já foi revisado.</p></div><button type="button" onClick={()=>{setOptimized(v=>({...v,content:true}));setChangeCount(v=>v+1)}}><Icon name="sparkles"/> Marcar otimização como concluída</button></div><div className={styles.inlineEditor}><SuperAnaliseInteligente report={r} products={[]} initialTab="title" embedded/></div></section>}
-          {tab==='images'&&<section className={styles.optimizationShell}><div className={styles.optimizationHead}><div><b>Imagens</b><p>Revise a ordem e as melhorias visuais do anúncio.</p></div><div className={styles.optimizationActions}><button type="button" onClick={()=>{images.forEach((url,i)=>{const a=document.createElement('a');a.href=url;a.download=String(i+1).padStart(2,'0')+'-imagem';a.target='_blank';a.click()})}}><Icon name="image"/> Baixar todas as imagens</button><button type="button" onClick={()=>{setOptimized(v=>({...v,images:true}));setChangeCount(v=>v+1)}}><Icon name="check"/> Marcar como otimizado</button></div></div><div className={styles.inlineEditor}><SuperAnaliseInteligente report={r} products={[]} initialTab="images" embedded/></div></section>}
-          {tab==='price'&&<section className={styles.optimizationShell}><div className={styles.optimizationHead}><div><b>Preço</b><p>Preço, margem e Oferta Relâmpago em uma única área.</p></div><button type="button" onClick={()=>{setOptimized(v=>({...v,price:true}));setChangeCount(v=>v+1)}}><Icon name="check"/> Marcar como otimizado</button></div><div className={styles.inlineEditor}><SuperAnaliseInteligente report={r} products={[]} initialTab="price" embedded/></div></section>}
+          {!editorTab&&<><Overview item={item} price={price} prevPrice={prevPrice} sold={sold} prevSold={prevSold} margin={margin} ai={ai} flashSales={flashSales} productTasks={productTasks} onTaskAction={resolveProductTask} onReloadTasks={()=>loadProductTasks(item.itemId,{force:true})} onReloadFlash={()=>loadFlashSales(item.itemId)} onOpenPrice={()=>setEditorTab('price')}/><BottomCards item={item} competitors={competitors} score={score} afterScore={safeAfterScore}/></>}
+          {editorTab==='competitors'&&<CompetitorsPanel competitors={competitors} collectedAt={r.analyzed_at} onZoom={setZoomSrc}/>}
+          {editorTab&&editorTab!=='competitors'&&<div className={styles.inlineEditor}><SuperAnaliseInteligente report={r} products={[]} initialTab={editorTab} embedded/></div>}
         </section>
       </div>
       <section className={styles.manageZone}><span>Gerenciar análise deste anúncio</span><button type="button" className={styles.deleteBtn} onClick={deleteAnalysis} disabled={deleting}><Icon name="trash"/>{deleting?'Excluindo…':'Excluir análises'}</button></section>
