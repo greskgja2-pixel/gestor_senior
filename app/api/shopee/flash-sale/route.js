@@ -224,6 +224,7 @@ export async function POST(request){
   const itemId=int(body?.item_id),timeslotId=int(body?.timeslot_id),promo=num(body?.promo_price),stock=int(body?.stock),purchaseLimit=int(body?.purchase_limit??0);
   const timeslotIds=(Array.isArray(body?.timeslot_ids)?body.timeslot_ids:[timeslotId]).map(int).filter(Boolean);
   const submittedModels=Array.isArray(body?.models)?body.models:[];
+  const selectedSlotMeta=(Array.isArray(body?.selected_slots)?body.selected_slots:[]).map(slot=>({timeslot_id:int(slot?.timeslot_id),start_time:int(slot?.start_time),end_time:int(slot?.end_time)})).filter(slot=>slot.timeslot_id&&slot.start_time&&slot.end_time);
   const notifyApp=body?.notify_app!==false,notifyEmail=body?.notify_email===true;
   if(!(itemId>0&&timeslotIds.length>0&&purchaseLimit>=0))return NextResponse.json({error:'Preencha produto, período/horário e limite de compra corretamente.'},{status:400});
   if(timeslotIds.length>45)return NextResponse.json({error:'Selecione no máximo 45 horários oficiais por criação.'},{status:400});
@@ -254,14 +255,17 @@ export async function POST(request){
       flashItem={item_id:itemId,purchase_limit:purchaseLimit,item_input_promo_price:promo,item_stock:stock};
     }
 
+    const selectedEnds=selectedSlotMeta.filter(slot=>timeslotIds.includes(Number(slot.timeslot_id))).map(slot=>Number(slot.end_time)).filter(Boolean);
+    const revalidateStart=Math.floor(Date.now()/1000)+30;
+    const revalidateEnd=selectedEnds.length?Math.max(...selectedEnds):revalidateStart+8*24*3600;
     const official=await loadOfficialTimeSlots({
       shop,
-      startTime:Math.floor(Date.now()/1000)+30,
-      endTime:Math.floor(Date.now()/1000)+46*24*3600
+      startTime:revalidateStart,
+      endTime:Math.max(revalidateStart+60,revalidateEnd)
     });
     const byId=new Map(official.map(slot=>[Number(slot?.timeslot_id),slot]));
     const invalid=timeslotIds.filter(id=>!byId.has(Number(id)));
-    if(invalid.length)return NextResponse.json({error:'Um ou mais horários escolhidos não estão mais disponíveis na Shopee. Atualize os horários e tente novamente.',invalid_timeslot_ids:invalid},{status:409});
+    if(invalid.length){console.warn('[flash-sale] revalidação rejeitou horários',{timeslotIds,invalid,revalidateStart,revalidateEnd,officialCount:official.length});return NextResponse.json({error:'Um ou mais horários escolhidos não estão mais disponíveis na Shopee. Atualize os horários e tente novamente.',invalid_timeslot_ids:invalid},{status:409})}
 
     const createdOffers=[],failures=[];
     for(const id of timeslotIds){
