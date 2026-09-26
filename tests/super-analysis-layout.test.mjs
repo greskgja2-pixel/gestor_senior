@@ -118,9 +118,9 @@ test('QA Super Anuncio: sino, busca, zoom e alerta de oferta sem controles morto
   // sino navega para Prioridades e so mostra o ponto vermelho com pendencias reais
   assert.match(superAnuncio,/className=\{styles\.notify\}[^>]*onClick=\{\(\)=>router\.push\('\/extensao-shopee-intelligence\?section=prioridades'\)\}/);
   assert.match(superAnuncio,/arr\(productTasks\.rows\)\.length>0&&<i\/>/);
-  // busca avisa quando nao encontra e volta ao resumo quando encontra
+  // busca avisa quando nao encontra e abre Conteúdo/Título quando encontra
   assert.match(superAnuncio,/Nenhum anúncio acompanhado corresponde a/);
-  assert.match(superAnuncio,/setEditorTab\(null\);setSearchMsg\(''\)/);
+  assert.match(superAnuncio,/setDetailTab\('content'\);setEditorTab\('title'\);setSearchMsg\(''\)/);
   assert.doesNotMatch(superAnuncio,/placeholder="Buscar produtos, anúncios ou concorrentes/);
   // Esc fecha o zoom
   assert.match(superAnuncio,/e\.key==='Escape'\)onClose\(\)/);
@@ -142,12 +142,16 @@ test('Preço e margem: custo tem botão próprio, usa manual-price e nunca vai p
   assert.doesNotMatch(saveTab,/cost/i);
 });
 
-test('Barra de ações do editor fica acima do card Editar anúncio e separa Shopee de custo',()=>{
+test('Super Anuncio refatorado usa barra Ações curta e preserva edição real',()=>{
   assert.match(superAnuncio,/id="gs-editor-toolbar"/);
-  assert.ok(superAnuncio.indexOf('id="gs-editor-toolbar"')<superAnuncio.indexOf('className={styles.phase2Tabs}'),'a barra deve vir antes da navegação interna do anúncio');
+  assert.match(superAnuncio,/className=\{styles\.detailActionsBar\}/);
+  assert.match(superAnuncio,/<b>Ações<\/b>/);
+  assert.match(superAnuncio,/className=\{styles\.doneButton\}/);
   assert.match(view,/createPortal\(<EditorToolbar/);
-  for(const token of ['↶ Desfazer','↷ Refazer','⟳ Restaurar original','💾 Salvar custo','▣ Salvar na Shopee'])assert.ok(view.includes(token),'faltando: '+token);
+  for(const token of ['↶ Desfazer','↷ Refazer','▣ Salvar','⟳ Restaurar original'])assert.ok(view.includes(token),'faltando: '+token);
   assert.match(view,/embedded&&toolbarSlot/);
+  assert.match(view,/💾 Salvar custo/);
+  assert.match(view,/\/api\/extension-intelligence\/manual-price/);
 });
 
 
@@ -225,4 +229,28 @@ test('Oferta Relampago: confirmacao calcula label no modal correto sem crash no 
 test('Oferta Relampago: preco com virgula tambem alimenta margem e resumo',()=>{
   assert.match(view,/const promoMargin=currentMargin\(decimal\(flash\.promoPrice\),cost\)/);
   assert.match(view,/money\(decimal\(flash\.promoPrice\)\)/);
+});
+
+
+test('Super Anuncio detalhe tem somente quatro areas principais e secundarios recolhidos',()=>{
+  for(const token of ["label:'Conteúdo'","label:'Mídia'","label:'Categoria'","label:'Financeiro'"])assert.ok(superAnuncio.includes(token),'área ausente: '+token);
+  assert.match(superAnuncio,/className=\{styles\.detailTabs\}/);
+  assert.match(superAnuncio,/className=\{styles\.secondaryPanels\}/);
+  for(const token of ['<b>Resumo</b>','<b>Concorrentes</b>','<b>Histórico</b>','<b>Checklist</b>'])assert.ok(superAnuncio.includes(token),'painel ausente: '+token);
+  assert.doesNotMatch(superAnuncio,/<details open/);
+});
+
+test('Financeiro unifica preço oferta custo margem Ads ROAS vendas GMV e custo por venda',()=>{
+  for(const token of ['Preço atual','Preço da oferta','Custo do produto','Margem','Gasto com Ads','ROAS atual','ROAS alvo','Vendas','GMV','Custo por venda'])assert.ok(superAnuncio.includes(token),'financeiro ausente: '+token);
+  assert.match(superAnuncio,/Status da Oferta Relâmpago/);
+  assert.match(superAnuncio,/Período/);
+});
+
+test('Super Anuncio detalhe e mobile usam estrutura nova sem reusar toolbar legado',()=>{
+  const css=read('app/extensao-shopee-intelligence/super-anuncio-mockup.module.css');
+  assert.match(css,/\.detailMain\{max-width:1440px/);
+  assert.match(css,/@media\(max-width:760px\)/);
+  assert.match(css,/@media\(max-width:430px\)/);
+  assert.match(css,/\.detailScores b\{font-size:30px/);
+  assert.match(css,/\.financeGrid\{grid-template-columns:1fr 1fr/);
 });
