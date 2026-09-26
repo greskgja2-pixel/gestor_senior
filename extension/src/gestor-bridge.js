@@ -54,6 +54,13 @@
       return;
     }
     try { enginePort.postMessage({ requestId, action, payload: event.data.payload || {} }); }
-    catch (error) { window.postMessage({ source: 'GS_EXTENSION', type: 'GS_ENGINE_RESPONSE', requestId, result: { ok:false, error:String(error?.message || error) } }, location.origin); }
+    catch (error) {
+      port = null;
+      const retryPort = getPort();
+      if (retryPort) {
+        try { retryPort.postMessage({ requestId, action, payload: event.data.payload || {} }); return; } catch {}
+      }
+      window.postMessage({ source: 'GS_EXTENSION', type: 'GS_ENGINE_RESPONSE', requestId, result: { ok:false, error:'A conexão com o Motor Senior foi reiniciada. Tente novamente.' } }, location.origin);
+    }
   });
 })();
