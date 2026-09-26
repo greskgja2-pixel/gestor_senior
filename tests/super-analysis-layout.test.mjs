@@ -169,16 +169,21 @@ test('Oferta Relampago: get_time_slot_id envia intervalo obrigatorio no host bra
   assert.match(fn,/end_time: safeEnd/);
   assert.match(fn,/openplatform\.shopee\.com\.br/);
   assert.match(fn,/Date\.now\(\)\/1000\)\+120/);
-  assert.match(route,/startTime:safeStart,endTime:safeEnd/);
+  assert.match(route,/for\(let cursor=safeStart;cursor<=safeEnd;cursor\+=oneDay\)/);
+  assert.match(route,/startTime:cursor,endTime:chunkEnd/);
   assert.match(route,/normalizeTimeSlots\(raw\)/);
 });
 
 
-test('Oferta Relampago: modo simples remove calendario e oferece fallback para Seller Center',()=>{
-  assert.match(view,/Próximos horários oficiais/);
-  assert.match(view,/Modo de compatibilidade/);
-  assert.match(view,/seller\.shopee\.com\.br\/portal\/marketing\/shop-flash-sale\/list\?type=0/);
-  assert.doesNotMatch(view,/Período das ofertas/);
+test('Oferta Relampago: lista dias e horarios selecionaveis sem calendario',()=>{
+  assert.match(view,/Dias e horários disponíveis/);
+  assert.match(view,/flashDayList/);
+  assert.match(view,/Selecionar dia/);
+  assert.match(view,/type="checkbox"/);
+  assert.match(view,/flashSelectedIds/);
+  assert.match(view,/toggleSlot\(slot\.timeslot_id\)/);
+  assert.match(view,/Criar Ofertas Relâmpago/);
+  assert.doesNotMatch(view,/Abrir Oferta Relâmpago na Shopee/);
   assert.doesNotMatch(view,/<FlashPeriodPicker/);
-  assert.match(view,/addLocalDays\(start,29\)/);
+  assert.match(view,/addLocalDays\(start,6\)/);
 });
