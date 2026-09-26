@@ -601,3 +601,9 @@
 .phase4Actions{display:flex;gap:5px}.phase4Actions button,.phase4Download{height:31px;display:inline-flex;align-items:center;gap:5px;padding:0 9px;border:1px solid #d5e0eb;border-radius:7px;background:#fff;color:#41627f;font-size:7px;font-weight:850;cursor:pointer}
 .phase4Actions button[data-active="true"]{border-color:#9fc0ea;background:#eef6ff;color:#1769e8}.phase4Download svg{width:13px;height:13px}
 @media(max-width:650px){.phase4Head{align-items:flex-start;flex-direction:column}.phase4Actions{width:100%;overflow-x:auto}.phase4Download{width:100%;justify-content:center}}
+
+/* Super Anúncio — Fase 5: status e acabamento */
+.phase2Tabs button[data-done="true"]{color:#138452}.phase5Done{width:15px;height:15px;display:inline-grid;place-items:center;margin-left:2px;border-radius:50%;background:#dff5e8;color:#138452;font-size:8px;font-weight:1000}
+.phase5Mark{border-color:#b9dcc9!important;color:#137a49!important}.phase5Mark:hover{background:#edf9f2!important}
+.phase2Tabs button[data-done="true"][data-active="true"]:after{background:#138452}
+@media(max-width:650px){.phase5Done{width:14px;height:14px}.phase5Mark{flex:0 0 auto}}
