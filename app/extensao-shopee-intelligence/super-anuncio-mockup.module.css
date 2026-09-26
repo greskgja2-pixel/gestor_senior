@@ -594,3 +594,10 @@
 .phase3More>div{position:absolute;right:0;top:38px;min-width:140px;padding:6px;border:1px solid #dce6f0;border-radius:9px;background:#fff;box-shadow:0 10px 28px rgba(28,58,96,.14)}
 .phase3More>div button,.phase3More>div a{width:100%;height:30px;display:flex;align-items:center;padding:0 9px;border:0;border-radius:6px;background:transparent;color:#315779;text-decoration:none;font-size:7px;font-weight:800;cursor:pointer}.phase3More>div button:hover,.phase3More>div a:hover{background:#f1f6fc}
 @media(max-width:650px){.phase3Toolbar{top:4px;overflow:visible}.phase3Divider,.phase3Spacer{display:none}.phase3Toolbar>button{flex:0 0 auto}.phase3Toolbar .toolbarSlot{overflow-x:auto;flex:1}}
+
+/* Super Anúncio — Fase 4: fluxo de otimização */
+.phase4Head{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:9px;padding:12px 13px;border:1px solid #dfe7f0;border-radius:10px;background:#fff}
+.phase4Head b{display:block;color:#173b70;font-size:11px}.phase4Head p{margin:3px 0 0;color:#778ba2;font-size:7px;line-height:1.4}
+.phase4Actions{display:flex;gap:5px}.phase4Actions button,.phase4Download{height:31px;display:inline-flex;align-items:center;gap:5px;padding:0 9px;border:1px solid #d5e0eb;border-radius:7px;background:#fff;color:#41627f;font-size:7px;font-weight:850;cursor:pointer}
+.phase4Actions button[data-active="true"]{border-color:#9fc0ea;background:#eef6ff;color:#1769e8}.phase4Download svg{width:13px;height:13px}
+@media(max-width:650px){.phase4Head{align-items:flex-start;flex-direction:column}.phase4Actions{width:100%;overflow-x:auto}.phase4Download{width:100%;justify-content:center}}

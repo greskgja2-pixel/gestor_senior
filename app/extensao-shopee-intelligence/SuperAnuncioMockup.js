@@ -433,6 +433,19 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
           {!editorTab&&tab!=='history'&&<><Overview item={item} price={price} prevPrice={prevPrice} sold={sold} prevSold={prevSold} margin={margin} ai={ai} flashSales={flashSales} productTasks={productTasks} onTaskAction={resolveProductTask} onReloadTasks={()=>loadProductTasks(item.itemId,{force:true})} onReloadFlash={()=>loadFlashSales(item.itemId)} onOpenPrice={()=>setEditorTab('price')}/><BottomCards item={item} competitors={competitors} score={score} afterScore={safeAfterScore}/></>}
           {tab==='history'&&<HistoryPanel history={item.history||[r]}/>}
           {editorTab==='competitors'&&<CompetitorsPanel competitors={competitors} collectedAt={r.analyzed_at} onZoom={setZoomSrc}/>}
+          {(editorTab==='title'||editorTab==='description'||editorTab==='category')&&<section className={styles.phase4Head}>
+            <div><b>Conteúdo do anúncio</b><p>Revise a versão atual, gere sugestões e aprove somente o que quiser alterar.</p></div>
+            <div className={styles.phase4Actions}>
+              <button type="button" data-active={editorTab==='title'?'true':'false'} onClick={()=>setEditorTab('title')}>Título</button>
+              <button type="button" data-active={editorTab==='description'?'true':'false'} onClick={()=>setEditorTab('description')}>Descrição</button>
+              <button type="button" data-active={editorTab==='category'?'true':'false'} onClick={()=>setEditorTab('category')}>Categoria</button>
+            </div>
+          </section>}
+          {editorTab==='images'&&<section className={styles.phase4Head}>
+            <div><b>Imagens do anúncio</b><p>Revise a ordem e as recomendações visuais sem sair do Super Anúncio.</p></div>
+            <button type="button" className={styles.phase4Download} onClick={()=>{images.forEach((url,i)=>{const a=document.createElement('a');a.href=url;a.download=String(i+1).padStart(2,'0')+'-imagem';a.target='_blank';a.rel='noreferrer';a.click()})}}><Icon name="image"/> Baixar todas as imagens</button>
+          </section>}
+          {editorTab==='price'&&<section className={styles.phase4Head}><div><b>Preço & Oferta Relâmpago</b><p>Preço, margem e ações comerciais ficam concentrados nesta área.</p></div></section>}
           {editorTab&&editorTab!=='competitors'&&<div className={styles.inlineEditor}><SuperAnaliseInteligente report={r} products={[]} initialTab={editorTab} embedded/></div>}
         </section>
       </div>
