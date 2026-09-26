@@ -1,6 +1,8 @@
 :root{
   --sidebar-width:218px;
   --gs-sidebar-width:var(--sidebar-width);
+  --gs-shell-max-width:1440px;
+  --gs-shell-frame:#090d13;
   --gs-shell-bg:var(--gs-theme-page,#f4f7fb);
   --gs-shell-side:var(--gs-theme-sidebar,#fbfdff);
   --gs-shell-card:var(--gs-theme-card,#fff);
@@ -14,8 +16,8 @@
 }
 html,body{margin:0;min-height:100%;box-sizing:border-box}
 *,*::before,*::after{box-sizing:inherit}
-body{background:var(--gs-shell-bg)!important;background-image:none!important;color:var(--gs-shell-text)!important}
-.gs-app-shell{min-height:100vh;display:grid;grid-template-columns:var(--sidebar-width) minmax(0,1fr);background:var(--gs-shell-bg);color:var(--gs-shell-text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+body{background:var(--gs-shell-frame)!important;background-image:none!important;color:var(--gs-shell-text)!important}
+.gs-app-shell{width:min(100%,var(--gs-shell-max-width));min-height:100vh;margin:0 auto;display:grid;grid-template-columns:var(--sidebar-width) minmax(0,1fr);background:var(--gs-shell-bg);color:var(--gs-shell-text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;box-shadow:0 0 0 1px rgba(255,255,255,.02),0 18px 80px rgba(0,0,0,.24)}
 .gs-sidebar{position:sticky;top:0;height:100vh;width:var(--sidebar-width);min-width:var(--sidebar-width);max-width:var(--sidebar-width);display:flex;flex-direction:column;background:var(--gs-shell-side);border-right:1px solid var(--gs-shell-border);padding:18px 14px;overflow:hidden;z-index:1000}
 .gs-sidebar-brand{display:flex;align-items:center;gap:10px;margin:0 3px 24px;min-height:38px}
 .gs-logo-mark{width:38px;height:38px;flex:0 0 38px;display:grid;place-items:center;border-radius:11px;background:#07192d;color:#f2cb3f;border:1px solid #e4bd3d;font-size:14px;font-weight:900;box-shadow:0 4px 14px rgba(18,42,72,.08)}
@@ -45,7 +47,8 @@ body{background:var(--gs-shell-bg)!important;background-image:none!important;col
 .gs-page{width:100%;padding:18px 20px 34px}.gs-page-header{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:14px}.gs-page-header h1{margin:0;color:var(--gs-shell-text);font-size:26px}.gs-page-header p{margin:4px 0 0;color:var(--gs-shell-muted);font-size:11px}.gs-panel{background:var(--gs-shell-card);border:1px solid var(--gs-shell-border);border-radius:13px;padding:14px;box-shadow:0 4px 16px rgba(25,56,91,.04)}.gs-panel table{color:var(--gs-shell-text)}.gs-panel th,.gs-panel td{border-color:var(--gs-shell-border)}.gs-muted{color:var(--gs-shell-muted);font-size:11px}.gs-empty-state{padding:28px;text-align:center;color:var(--gs-shell-muted);border:1px dashed var(--gs-shell-border);border-radius:10px;background:var(--gs-shell-soft)}.gs-error-state{padding:10px 12px;border:1px solid #efc5c5;border-radius:9px;background:#fff3f3;color:#a53e3e;font-size:10px}.gs-action{border:1px solid var(--gs-shell-border);border-radius:9px;background:var(--gs-shell-card);color:var(--gs-shell-accent);padding:8px 11px;font-weight:800;font-size:10px;cursor:pointer}.gs-action:disabled{opacity:.5;cursor:wait}
 
 @media(max-width:900px){
-  .gs-app-shell{grid-template-columns:1fr;padding-top:56px}
+  body{background:var(--gs-shell-bg)!important}
+  .gs-app-shell{width:100%;max-width:none;margin:0;grid-template-columns:1fr;padding-top:56px;box-shadow:none}
   .gs-sidebar{position:fixed;left:0;top:0;bottom:0;transform:translateX(-102%);transition:transform .18s ease;width:min(310px,88vw);min-width:0;max-width:none;height:100vh;box-shadow:0 18px 60px rgba(14,31,49,.22);z-index:2200}
   .gs-app-shell[data-drawer="open"] .gs-sidebar{transform:translateX(0)}
   .gs-mobile-close{display:grid;place-items:center;margin-left:auto;width:30px;height:30px;border:0;border-radius:8px;background:var(--gs-shell-soft);color:var(--gs-shell-text);font-size:18px}
