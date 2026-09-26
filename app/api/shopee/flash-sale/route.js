@@ -69,31 +69,23 @@ function normalizeTimeSlots(raw){
 }
 
 async function loadOfficialTimeSlots({shop,startTime,endTime}){
+  const safeStart=Math.max(Math.floor(Date.now()/1000)+120,Number(startTime)||0);
+  const safeEnd=Math.max(safeStart+60,Number(endTime)||safeStart+7*24*3600);
   const raw=await getFlashSaleTimeSlots({
-    shopId:shop.shop_id,accessToken:shop.access_token
+    shopId:shop.shop_id,accessToken:shop.access_token,startTime:safeStart,endTime:safeEnd
   });
-  const all=normalizeTimeSlots(raw);
-  if(!all.length){
-    console.warn('[flash-sale] get_time_slot_id retornou vazio',{
+  const rows=normalizeTimeSlots(raw);
+  if(!rows.length){
+    console.warn('[flash-sale] get_time_slot_id sem horários',{
+      startTime:safeStart,endTime:safeEnd,
       responseType:Array.isArray(raw?.response)?'array':typeof raw?.response,
       responseKeys:raw?.response&&typeof raw.response==='object'&&!Array.isArray(raw.response)?Object.keys(raw.response):[],
       topLevelKeys:raw&&typeof raw==='object'?Object.keys(raw):[],
       shopeeError:raw?.error??null,
-      message:raw?.message??null,
-      warning:raw?.warning??null
+      message:raw?.message??null
     });
-    return[];
   }
-  const from=Number(startTime),to=Number(endTime);
-  return all
-    .filter(slot=>{
-      const start=Number(slot?.start_time),end=Number(slot?.end_time);
-      if(!Number.isFinite(start)||!Number.isFinite(end))return false;
-      if(Number.isFinite(from)&&end<from)return false;
-      if(Number.isFinite(to)&&start>to)return false;
-      return true;
-    })
-    .sort((a,b)=>Number(a?.start_time||0)-Number(b?.start_time||0));
+  return rows;
 }
 
 function normalizeOfferItem(itemId,sale,raw){

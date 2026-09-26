@@ -158,17 +158,17 @@ test('Super Anuncio: agrupa consultas simultaneas de tarefas do mesmo item',()=>
   assert.match(superAnuncio,/loadProductTasks\(item\.itemId,\{force:true\}\)/);
 });
 
-test('Oferta Relampago: get_time_slot_id nao envia intervalo e filtra periodo localmente',()=>{
+test('Oferta Relampago: get_time_slot_id envia intervalo obrigatorio no host brasileiro',()=>{
   const route=read('app/api/shopee/flash-sale/route.js');
   const shopee=read('lib/shopee.js');
   const start=shopee.indexOf('export async function getFlashSaleTimeSlots');
   const end=shopee.indexOf('export async function getShopFlashSaleList',start);
   const fn=shopee.slice(start,end);
   assert.ok(fn.length>50,'getFlashSaleTimeSlots nao encontrada');
-  assert.doesNotMatch(fn,/start_time|end_time|startTime|endTime/);
-  assert.match(fn,/shopGet\("\/api\/v2\/shop_flash_sale\/get_time_slot_id"/);
-  assert.match(route,/const all=normalizeTimeSlots\(raw\)/);
-  assert.match(route,/end<from/);
-  assert.match(route,/start>to/);
-  assert.doesNotMatch(route,/retry diário|oneDay|cursor\+=/);
+  assert.match(fn,/start_time: safeStart/);
+  assert.match(fn,/end_time: safeEnd/);
+  assert.match(fn,/openplatform\.shopee\.com\.br/);
+  assert.match(fn,/Date\.now\(\)\/1000\)\+120/);
+  assert.match(route,/startTime:safeStart,endTime:safeEnd/);
+  assert.match(route,/normalizeTimeSlots\(raw\)/);
 });
