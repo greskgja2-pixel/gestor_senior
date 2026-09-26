@@ -2,6 +2,8 @@
 
 import {useEffect,useMemo,useRef,useState} from 'react';
 import Link from 'next/link';
+import {useRouter} from 'next/navigation';
+import {createPortal} from 'react-dom';
 import styles from './page.module.css';
 import {fetchJsonWithTimeout,classifyAsyncError} from '../lib/client-async';
 import ReminderButton from '../components/ReminderButton';
@@ -124,6 +126,23 @@ function ActionsPanel({canUndo,canRedo,dirtyCount,onUndo,onRedo,onRestore,onSave
   </aside>
 }
 
+function EditorToolbar({tabName,canUndo,canRedo,onUndo,onRedo,onRestore,shopeeDirty,onSaveShopee,shopeeSaving,shopeeDisabled,showCost,costDirty,costSaving,onSaveCost,message}) {
+  const parts=[];if(shopeeDirty)parts.push(`${shopeeDirty} para a Shopee`);if(costDirty)parts.push('custo');
+  return <div className={styles.topToolbar} role="toolbar" aria-label="Ações de edição do anúncio">
+    <span className={styles.toolbarTab}>Editando: <b>{tabName}</b></span>
+    <div className={styles.toolbarGroup}>
+      <button type="button" onClick={onUndo} disabled={!canUndo}>↶ Desfazer</button>
+      <button type="button" onClick={onRedo} disabled={!canRedo}>↷ Refazer</button>
+      <button type="button" onClick={onRestore}>⟳ Restaurar original</button>
+    </div>
+    <small className={parts.length?styles.pending:styles.noPending}>● {parts.length?`Pendente: ${parts.join(' + ')}`:'Nenhuma alteração pendente'}</small>
+    <div className={styles.toolbarGroup}>
+      {showCost&&<button type="button" className={styles.saveCost} onClick={onSaveCost} disabled={!costDirty||costSaving}>{costSaving?'Salvando custo…':'💾 Salvar custo'}</button>}
+      <button type="button" className={styles.saveShopee} onClick={onSaveShopee} disabled={shopeeDisabled||shopeeDirty===0||shopeeSaving}>{shopeeSaving?'Salvando…':'▣ Salvar na Shopee'}</button>
+    </div>
+    {message&&<div className={styles.toolbarMsg} role="status">{message}</div>}
+  </div>
+}
 function ZoomModal({src,onClose}) {
   if(!src)return null;
   return <div className={styles.zoomModal} role="dialog" aria-modal="true" onClick={onClose}>
@@ -265,6 +284,12 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
   const [automationBusy,setAutomationBusy]=useState(false);
   const [automationMessage,setAutomationMessage]=useState('');
   const uploadRef=useRef(null);
+  const router=useRouter();
+  const [varCosts,setVarCosts]=useState({});
+  const [costSaving,setCostSaving]=useState(false);
+  const [costMsg,setCostMsg]=useState('');
+  const [toolbarSlot,setToolbarSlot]=useState(null);
+  useEffect(()=>{if(embedded)setToolbarSlot(document.getElementById('gs-editor-toolbar'))},[embedded]);
 
   const p=report?.product_snapshot||{};
   const f=report?.finance_snapshot||{};
@@ -276,6 +301,12 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
   const baseCost=n(f.productCost??p.referenceCost);
   const marginCalc=shopeeMarginCalc(basePrice,baseCost);
   const marginNow=marginCalc?.marginPct??null;
+  const costVariations=arr(p.models||p.variations).map((v,i)=>{
+    const id=String(v?.modelId??v?.model_id??v?.id??i);
+    const saved=arr(p.variationCosts).find(c=>String(c?.modelId??c?.model_id)===id);
+    return {id,name:v?.name||v?.modelName||v?.model_name||v?.variation||`Variação ${i+1}`,price:n(v?.price??v?.currentPrice??v?.current_price),cost:n(v?.cost??saved?.cost)};
+  });
+  const costFieldValue=id=>varCosts[id]!==undefined?varCosts[id]:(costVariations.find(x=>x.id===id)?.cost??'');
   const marginProof=marginCalc?`Preço ${money(marginCalc.price)} − 20% Shopee (${money(marginCalc.commission)}) − taxa fixa ${money(marginCalc.fixedFee)} − custo ${money(marginCalc.cost)} = lucro ${money(marginCalc.profit)} · margem ${pct(marginCalc.marginPct)}`:'Margem indisponível: preço ou custo não capturado.';
   const overallBefore=n(report?.score);
   const overallSuggested=n(analysis?.afterScore);
@@ -432,7 +463,35 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
   const categoryLeaf=value=>String(value||'').split(/>|\/|→/).map(x=>x.trim()).filter(Boolean).pop()?.toLowerCase()||'';
   const categoryAligned=Boolean(dominantCategory&&currentCategory&&categoryLeaf(dominantCategory[0])===categoryLeaf(currentCategory));
 
-  const liveMargin=currentMargin(draft.price,draft.cost);
+  const liveVarMargins=costVariations.map(v=>currentMargin(v.price,n(costFieldValue(v.id)))).filter(x=>x!=null);
+  const liveMargin=costVariations.length?(liveVarMargins.length===costVariations.length?Math.min(...liveVarMargins):null):currentMargin(draft.price,draft.cost);
+  const costDirty=costVariations.length?costVariations.some(v=>varCosts[v.id]!==undefined&&n(varCosts[v.id])!==v.cost):(baseline?n(draft.cost)!==n(baseline.draft.cost):false);
+  // Custo é dado do lojista (a Shopee não tem esse campo): salvo em manual-price e NUNCA enviado a /api/shopee/product-update.
+  async function saveCost(){
+    if(!report?.id||costSaving)return;
+    let body;
+    if(costVariations.length){
+      const rows=[];
+      for(const v of costVariations){
+        const raw=varCosts[v.id];if(raw===undefined)continue;
+        const c=n(raw);if(c==null||c<0){setCostMsg(`Custo inválido em “${v.name}”.`);return}
+        rows.push({model_id:Number(v.id),cost:c});
+      }
+      if(!rows.length)return;
+      body={report_id:report.id,variation_costs:rows};
+    }else{
+      const c=n(draft.cost);
+      if(c==null||c<0){setCostMsg('Informe um custo válido (zero ou maior).');return}
+      body={report_id:report.id,product_cost:c};
+    }
+    setCostSaving(true);setCostMsg('');
+    try{
+      await fetchJsonWithTimeout('/api/extension-intelligence/manual-price',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)},20000);
+      setVarCosts({});
+      setCostMsg('Custo salvo. Margem e leitura do anúncio recalculadas.');
+      router.refresh();
+    }catch(e){setCostMsg(String(e?.message||e))}finally{setCostSaving(false)}
+  }
   const reportFlashModels=arr(p.models||p.variations).map((m,index)=>({
     model_id:m?.model_id??m?.modelId??m?.id,
     name:m?.name||m?.model_name||m?.modelName||('Variação '+(index+1)),
@@ -569,12 +628,13 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
           {tab==='images'&&<ImagesSection gallery={gallery} competitors={competitors} plan={suggestionImproves?draft.imagePlan:''} onPlan={v=>setField('imagePlan',v)} before={activeBefore} after={guardedAfter} blocked={!suggestionImproves} setZoomSrc={setZoomSrc} downloadImage={downloadImage} removeImage={removeImage} moveImage={moveImage} uploadRef={uploadRef} onUploadFiles={onUploadFiles}/>}
           {tab==='video'&&<PlanSection title="Vídeo" original={p.hasVideo?'O anúncio possui vídeo.':'O anúncio não possui vídeo.'} plan={suggestionImproves?draft.videoPlan:''} onPlan={v=>setField('videoPlan',v)} before={activeBefore} after={guardedAfter} blocked={!suggestionImproves}/>}
           {tab==='category'&&<CategoryComparison current={currentCategory||'—'} competitors={compCategoryRows} dominant={dominantCategory} aligned={categoryAligned} onApply={()=>{if(dominantRow?.id)mutate(()=>setChosenCategory(String(dominantRow.id)));else setMessage('A categoria predominante foi identificada, mas o ID oficial não foi coletado. Nenhuma alteração será enviada sem um ID real da Shopee.')}} selected={chosenCategory} setZoomSrc={setZoomSrc}/>}
-          {tab==='price'&&<PriceSection price={draft.price} cost={draft.cost} setPrice={v=>setField('price',v)} setCost={v=>setField('cost',v)} margin={liveMargin} competitors={competitors} plan={suggestionImproves?draft.pricePlan:''} onPlan={v=>setField('pricePlan',v)} before={activeBefore} after={guardedAfter} blocked={!suggestionImproves} setZoomSrc={setZoomSrc} slots={slots} selectedSlots={selectedSlots} slotError={slotError} flash={flash} setFlash={setFlash} createFlash={prepareFlashCreation} flashBusy={flashBusy} flashMessage={flashMessage} flashDays={flashDays} setFlashDays={setFlashDays} flashInsight={flashInsight} reloadFlash={period=>loadFlashMeta(flashDays,period||flashPeriod)} useRecommendedSlot={useRecommendedSlot} flashPeriod={flashPeriod} setFlashPeriod={setFlashPeriod} setFlashPreset={setFlashPreset} models={effectiveFlashModels} variationDraft={flashVariationDraft} setVariationDraft={setFlashVariationDraft} applyFlashPriceToAll={applyFlashPriceToAll}/>}
+          {tab==='price'&&<PriceSection costVariations={costVariations} costValue={costFieldValue} setVarCost={(id,v)=>setVarCosts(x=>({...x,[id]:v}))} costDirty={costDirty} costSaving={costSaving} costMsg={costMsg} onSaveCost={saveCost} price={draft.price} cost={draft.cost} setPrice={v=>setField('price',v)} setCost={v=>setField('cost',v)} margin={liveMargin} competitors={competitors} plan={suggestionImproves?draft.pricePlan:''} onPlan={v=>setField('pricePlan',v)} before={activeBefore} after={guardedAfter} blocked={!suggestionImproves} setZoomSrc={setZoomSrc} slots={slots} selectedSlots={selectedSlots} slotError={slotError} flash={flash} setFlash={setFlash} createFlash={prepareFlashCreation} flashBusy={flashBusy} flashMessage={flashMessage} flashDays={flashDays} setFlashDays={setFlashDays} flashInsight={flashInsight} reloadFlash={period=>loadFlashMeta(flashDays,period||flashPeriod)} useRecommendedSlot={useRecommendedSlot} flashPeriod={flashPeriod} setFlashPeriod={setFlashPeriod} setFlashPreset={setFlashPreset} models={effectiveFlashModels} variationDraft={flashVariationDraft} setVariationDraft={setFlashVariationDraft} applyFlashPriceToAll={applyFlashPriceToAll}/>}
           {tab==='variations'&&<VariationsSection product={p} plan={suggestionImproves?draft.variationsPlan:''} onPlan={v=>setField('variationsPlan',v)} before={activeBefore} after={guardedAfter} blocked={!suggestionImproves}/>}
           {(tab==='images'||tab==='video')&&<div className={styles.reminderStrip}><span>{tab==='images'?'Quer revisar essas imagens mais tarde?':'Quer voltar depois para adicionar ou atualizar o vídeo?'}</span><ReminderButton itemId={report.item_id} taskType={tab} priority="medium" title={tab==='images'?'Revisar imagens do anúncio':'Adicionar ou atualizar vídeo do anúncio'} description={tab==='images'?'Revisar e melhorar as imagens deste produto.':'Revisar a necessidade de adicionar ou atualizar o vídeo deste produto.'} actionUrl={'/super-analise?item_id='+report.item_id+'&tab='+tab}/></div>}
           {tab!=='category'&&<><WhyBlock analysis={analysis} tab={tab}/><BottomSummary tab={tab} before={activeBefore} after={guardedAfter} analysis={analysis} blocked={!suggestionImproves}/></>}
         </section>
-        <ActionsPanel canUndo={history.past.length>0} canRedo={history.future.length>0} dirtyCount={dirtyForTab} onUndo={undo} onRedo={redo} onRestore={restoreOriginal} onSave={saveTab} saving={saving} saveDisabled={!['title','description','images','category','price'].includes(tab)} message={message}/>
+        {!(embedded&&toolbarSlot)&&<ActionsPanel canUndo={history.past.length>0} canRedo={history.future.length>0} dirtyCount={dirtyForTab} onUndo={undo} onRedo={redo} onRestore={restoreOriginal} onSave={saveTab} saving={saving} saveDisabled={!['title','description','images','category','price'].includes(tab)} message={message}/>}
+        {embedded&&toolbarSlot&&createPortal(<EditorToolbar tabName={TAB_LABEL[tab]||tab} canUndo={history.past.length>0} canRedo={history.future.length>0} onUndo={undo} onRedo={redo} onRestore={()=>{restoreOriginal();setVarCosts({});setCostMsg('')}} shopeeDirty={dirtyForTab} onSaveShopee={saveTab} shopeeSaving={saving} shopeeDisabled={!['title','description','images','category','price'].includes(tab)} showCost={tab==='price'} costDirty={costDirty} costSaving={costSaving} onSaveCost={saveCost} message={message}/>,toolbarSlot)}
       </div>
     </main>
   </div>
@@ -617,7 +677,7 @@ function CategoryComparison({current,competitors,dominant,aligned,onApply,select
 }
 
 
-function PriceSection({price,cost,setPrice,setCost,margin,competitors,plan,onPlan,before,after,blocked,setZoomSrc,slots,selectedSlots,slotError,flash,setFlash,createFlash,flashBusy,flashMessage,flashDays,setFlashDays,flashInsight,reloadFlash,useRecommendedSlot,flashPeriod,setFlashPeriod,setFlashPreset,models,variationDraft,setVariationDraft,applyFlashPriceToAll}){
+function PriceSection({costVariations=[],costValue=()=>'',setVarCost=()=>{},costDirty=false,costSaving=false,costMsg='',onSaveCost=()=>{},price,cost,setPrice,setCost,margin,competitors,plan,onPlan,before,after,blocked,setZoomSrc,slots,selectedSlots,slotError,flash,setFlash,createFlash,flashBusy,flashMessage,flashDays,setFlashDays,flashInsight,reloadFlash,useRecommendedSlot,flashPeriod,setFlashPeriod,setFlashPreset,models,variationDraft,setVariationDraft,applyFlashPriceToAll}){
   const [periodPickerOpen,setPeriodPickerOpen]=useState(false);
   const promoMargin=currentMargin(flash.promoPrice,cost);
   const rec=flashInsight?.recommendation;
@@ -626,7 +686,11 @@ function PriceSection({price,cost,setPrice,setCost,margin,competitors,plan,onPla
   const rangeDays=flashPeriod?.start&&flashPeriod?.end?Math.max(1,Math.round((new Date(flashPeriod.end+'T12:00:00')-new Date(flashPeriod.start+'T12:00:00'))/86400000)+1):0;
   return <>
     <section className={styles.priceTopGrid}>
-      <article className={styles.panel}><div className={styles.panelHead}><h2>Preço e margem atuais</h2><span>✎ Editável</span></div><div className={styles.priceGrid}><label>Preço<input type="number" step="0.01" value={price} onChange={e=>setPrice(e.target.value)}/></label><label>Custo<input type="number" step="0.01" value={cost} onChange={e=>setCost(e.target.value)}/></label><div><small>Margem recalculada</small><b>{pct(margin)}</b></div></div><div className={styles.formula}>Conta resumida: preço de venda {money(price)} − 20% Shopee − R$ 4,50 de taxa fixa − custo {money(cost)} = margem estimada. <small>Ads é acompanhado separadamente e não reduz esta margem do produto.</small></div><div className={styles.scoreFloat}><Gauge score={before} label="Atual"/></div></article>
+      <article className={styles.panel}><div className={styles.panelHead}><h2>Preço e margem atuais</h2><span>✎ Editável</span></div><div className={styles.priceGrid}><label>Preço<input type="number" step="0.01" value={price} onChange={e=>setPrice(e.target.value)}/></label>{costVariations.length?<div><small>Custo</small><b>por variação ↓</b></div>:<label>Custo<input type="number" step="0.01" min="0" value={cost} onChange={e=>setCost(e.target.value)}/></label>}<div><small>Margem recalculada</small><b>{pct(margin)}</b></div></div><div className={styles.formula}>Conta resumida: preço de venda {money(price)} − 20% Shopee − R$ 4,50 de taxa fixa − custo {money(cost)} = margem estimada. <small>Ads é acompanhado separadamente e não reduz esta margem do produto.</small></div><div className={styles.costBox}>
+        {costVariations.length>0&&<div className={styles.costRows}><b>Custo por variação</b>{costVariations.map(v=>{const c=n(costValue(v.id));const m=currentMargin(v.price,c);return <label key={v.id} className={styles.costRow}><span>{v.name}<small>{money(v.price)}</small></span><input type="number" step="0.01" min="0" value={costValue(v.id)} onChange={e=>setVarCost(v.id,e.target.value)} aria-label={`Custo de ${v.name}`}/><em>{m==null?'margem —':`margem ${pct(m)}`}</em></label>})}</div>}
+        <div className={styles.costActions}><button type="button" className={styles.saveCost} onClick={onSaveCost} disabled={!costDirty||costSaving}>{costSaving?'Salvando custo…':'💾 Salvar custo'}</button><small>O custo fica guardado no Gestor e não é enviado à Shopee.</small></div>
+        {costMsg&&<div className={styles.costMsg} role="status">{costMsg}</div>}
+      </div><div className={styles.scoreFloat}><Gauge score={before} label="Atual"/></div></article>
       <article className={styles.panel}><div className={styles.panelHead}><h2>✦ Estratégia de preço e concorrência</h2><span>✎ Editável</span></div>{blocked?<div className={styles.preserveBox}>A alteração sugerida reduziria a nota estimada. O preço atual foi preservado.</div>:<textarea rows={9} value={plan} onChange={e=>onPlan(e.target.value)} placeholder="A IA não encontrou uma mudança necessária no preço."/>}<div className={styles.applyLine}><Gauge score={after} label={blocked?'Preservado':'Depois'}/></div></article>
     </section>
 
