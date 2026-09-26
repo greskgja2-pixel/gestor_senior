@@ -188,3 +188,23 @@ test('Oferta Relampago: lista dias e horarios selecionaveis sem calendario',()=>
   assert.doesNotMatch(view,/<FlashPeriodPicker/);
   assert.match(view,/addLocalDays\(start,6\)/);
 });
+
+
+test('Oferta Relampago: aceita preco com virgula no mobile e confirma o horario selecionado',()=>{
+  assert.match(view,/const decimal=v=>/);
+  assert.match(view,/inputMode="decimal"/);
+  assert.match(view,/decimalInput\(e\.target\.value\)/);
+  assert.match(view,/body\.promo_price=decimal\(flash\.promoPrice\)/);
+  assert.match(view,/Horário selecionado/);
+  assert.match(view,/selectedSlots=\{selectedSlots\}/);
+  assert.doesNotMatch(view,/<FlashConfirmModal open=\{flashConfirmOpen\} period=/);
+});
+
+test('Oferta Relampago: POST revalida somente a janela dos horarios selecionados',()=>{
+  const route=read('app/api/shopee/flash-sale/route.js');
+  assert.match(route,/selected_slots/);
+  assert.match(route,/selectedEnds/);
+  assert.match(route,/revalidateEnd=selectedEnds\.length\?Math\.max/);
+  assert.match(route,/startTime:revalidateStart/);
+  assert.doesNotMatch(route,/endTime:Math\.floor\(Date\.now\(\)\/1000\)\+46\*24\*3600/);
+});
