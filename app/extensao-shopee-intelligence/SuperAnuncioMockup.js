@@ -2,6 +2,7 @@
 
 import {Fragment,useEffect,useMemo,useRef,useState} from 'react';
 import Link from 'next/link';
+import {useRouter} from 'next/navigation';
 import styles from './super-anuncio-mockup.module.css';
 import ReminderButton from '../components/ReminderButton';
 import SuperAnaliseInteligente from '../super-analise/SuperAnaliseInteligente';
@@ -116,7 +117,7 @@ function ClockBadge(){
 }
 
 function Gauge({score,label}){const s=n(score);const p=Math.max(0,Math.min(100,s??0));return <div className={styles.gaugeWrap}><div className={styles.gauge} style={{'--score':`${p*1.8}deg`}}><div><b>{s==null?'—':Math.round(s)}</b><small>/100</small></div></div><span>{label}</span></div>}
-function ZoomModal({src,onClose}){if(!src)return null;return <div className={styles.zoomModal} role="dialog" aria-modal="true" onClick={onClose}><button type="button" onClick={onClose}>×</button><img src={src} alt="Visualização ampliada" onClick={e=>e.stopPropagation()}/></div>}
+function ZoomModal({src,onClose}){useEffect(()=>{if(!src)return undefined;const onKey=e=>{if(e.key==='Escape')onClose()};window.addEventListener('keydown',onKey);return()=>window.removeEventListener('keydown',onKey)},[src,onClose]);if(!src)return null;return <div className={styles.zoomModal} role="dialog" aria-modal="true" onClick={onClose}><button type="button" onClick={onClose}>×</button><img src={src} alt="Visualização ampliada" onClick={e=>e.stopPropagation()}/></div>}
 function Metric({label,value,good,title,icon,tone='blue',primary=false}){return <div className={`${styles.metric} ${primary?styles.metricPrimary:styles.metricSecondary}`} title={title||''}><span className={styles.metricIcon} data-tone={tone}><Icon name={icon}/></span><small>{label}</small><b className={good?styles.good:''}>{value}</b></div>}
 function Fact({label,value,icon,tone='blue'}){return <div className={styles.fact}><span className={styles.factIcon} data-tone={tone}><Icon name={icon}/></span><span className={styles.factText}><small>{label}</small><b>{value}</b></span></div>}
 function PanelTitle({icon,title,subtitle,tone='blue'}){return <div className={styles.panelTitle}><span className={styles.panelIcon} data-tone={tone}><Icon name={icon}/></span><div><h2>{title}</h2>{subtitle&&<p>{subtitle}</p>}</div></div>}
@@ -155,6 +156,8 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
   const [deleting,setDeleting]=useState(false);
   const [deleteError,setDeleteError]=useState('');
   const [zoomSrc,setZoomSrc]=useState('');
+  const [searchMsg,setSearchMsg]=useState('');
+  const router=useRouter();
   const searchRef=useRef(null);
   const item=useMemo(()=>items.find(x=>String(x.itemId)===String(selectedId))||items[0]||null,[items,selectedId]);
 
@@ -256,7 +259,8 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
       const row=x.latest?.product_snapshot||{};
       return String(row.title||row.item_name||x.itemId||'').toLowerCase().includes(q);
     });
-    if(found){setSelectedId(found.itemId);setTab('overview')}
+    if(found){setSelectedId(found.itemId);setTab('overview');setEditorTab(null);setSearchMsg('')}
+    else setSearchMsg(`Nenhum anúncio acompanhado corresponde a "${query.trim()}".`);
   }
 
   if(!item)return <div className={styles.screen}><main className={styles.empty}><h1>Super Anúncio</h1><p>Nenhum anúncio analisado ainda. Comece em Produtos → Enviar para Super Análise.</p></main></div>;
@@ -303,13 +307,15 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
         <div className={styles.topTools}>
           <form className={styles.searchBox} onSubmit={searchProduct}>
             <Icon name="search"/>
-            <input ref={searchRef} value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar produtos, anúncios ou concorrentes..." aria-label="Buscar produtos, anúncios ou concorrentes"/>
+            <input ref={searchRef} value={query} onChange={e=>{setQuery(e.target.value);setSearchMsg('')}} placeholder="Buscar anúncio acompanhado..." aria-label="Buscar anúncio acompanhado"/>
             <kbd>Ctrl + K</kbd>
           </form>
-          <button type="button" className={styles.notify} aria-label="Notificações"><Icon name="bell"/><i/></button>
+          <button type="button" className={styles.notify} aria-label="Ver prioridades e pendências" title="Ver prioridades e pendências" onClick={()=>router.push('/extensao-shopee-intelligence?section=prioridades')}><Icon name="bell"/>{arr(productTasks.rows).length>0&&<i/>}</button>
           <div className={styles.account}><span className={styles.avatar}>GS</span><div><b>Gestor Sênior</b><small>Minha conta</small></div><Icon name="chevron"/></div>
         </div>
       </div>
+
+      {searchMsg&&<div className={styles.searchMsg} role="status">{searchMsg}<Link href="/produtos">Acompanhar outro anúncio</Link></div>}
 
       <section className={styles.hero}>
         <div className={styles.heroTitle}><span className={styles.heroIcon}><Icon name="megaphone"/></span><div><div className={styles.heroHeading}><h1>Super Anúncio</h1><div className={styles.scoreCompact}><b>{score==null?'—':Math.round(score)}</b><span>→</span><b>{safeAfterScore==null?'—':Math.round(safeAfterScore)}</b><em>{gain==null?'Sem projeção':gain>0?`+${gain} pts`:'sem perda'}</em><small>Nota geral</small></div></div><p>Acompanhe o anúncio, histórico, concorrentes e descubra oportunidades para vender mais na Shopee.</p></div></div>
