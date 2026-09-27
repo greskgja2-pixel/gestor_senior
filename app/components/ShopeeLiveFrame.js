@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-const VERSION = "20260915-14";
+const VERSION = "20260927-01";
 const FRAME_SRC = `/shopeeos-live.html?v=full-live-${VERSION}`;
 
 const STYLES = [
