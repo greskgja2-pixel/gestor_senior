@@ -217,3 +217,17 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 6. Preferência de modo fica em `localStorage` apenas neste navegador.
 
 **Segurança de decisão:** preço exato só aparece como teste quando o preço próprio, a mediana de concorrentes e uma margem cadastrada compatível dão suporte; caso contrário, o valor é apresentado como alvo de mercado que precisa de validação de margem.
+
+
+### 2026-09-27 — ChatGPT — Funil visual baseado no mockup aprovado
+**Arquivos:** `app/funil/page.js`, `app/funil/funil.module.css`, testes e este arquivo. Branch: `feature/funnel-visual-mockup`.
+
+**O que mudou:**
+1. A aba Funil da Loja agora usa um funil visual vertical real, com 7 faixas afunilando: Impressões → Cliques → Visitantes → Carrinho → Pedido criado → Pago → Confirmado.
+2. As taxas entre etapas aparecem ao lado do funil e a menor taxa válida é destacada automaticamente como **Maior gargalo**, com a perda calculada.
+3. Abaixo do funil há cinco KPIs visuais: CTR, Visita→Carrinho, Carrinho→Pedido, Pedido→Pago e Pago→Confirmado. Nenhum delta histórico foi inventado.
+4. O Plano de Destrave passou a aparecer também na aba principal, mostrando automaticamente o produto de maior prioridade, com o seletor Padrão/Específico já implementado.
+5. O cabeçalho mostra **Hoje · tempo real**, porque os endpoints MyData históricos ainda não foram confirmados; o mockup tinha 30 dias, mas isso não foi reproduzido como dado falso.
+6. Layout responsivo: no mobile o funil permanece vertical, as taxas viram cartões e os KPIs empilham.
+
+**Regra mantida:** não inventar períodos, tendências ou conversões ausentes. O destaque do gargalo só usa taxas numéricas entre 0 e 1 que estejam realmente disponíveis.
