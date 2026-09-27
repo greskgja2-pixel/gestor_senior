@@ -32,9 +32,12 @@ async function collectShopeeSearchResults(tabId){
     const sleep=ms=>new Promise(r=>setTimeout(r,ms));
     const startY=window.scrollY;
     let stable=0,lastHeight=0;
+    const live=(detail)=>{try{document.dispatchEvent(new CustomEvent('GS_MAPPER_LIVE_PROGRESS',{detail}));}catch{}};
+    live({label:'Preparando a pesquisa da Shopee…',detail:'Posicionando a página no início.',percent:4,products:0});
     window.scrollTo(0,0);
     await sleep(350);
     for(let i=0;i<36;i++){
+      live({label:'Carregando resultados da pesquisa',detail:'Percorrendo a lista '+(i+1)+'/36',percent:Math.min(72,8+Math.round(((i+1)/36)*64)),products:0});
       const h=Math.max(document.body.scrollHeight,document.documentElement.scrollHeight);
       window.scrollBy(0,Math.max(520,Math.round(window.innerHeight*.82)));
       await sleep(260);
@@ -44,6 +47,7 @@ async function collectShopeeSearchResults(tabId){
       if(stable>=3)break;
     }
     window.scrollTo(0,startY);
+    live({label:'Identificando os cards de produtos…',detail:'A página terminou de carregar os resultados visíveis.',percent:78,products:0});
     await sleep(180);
 
     const clean=v=>String(v||'').replace(/\s+/g,' ').trim();
@@ -67,7 +71,10 @@ async function collectShopeeSearchResults(tabId){
     const stateNames=['Acre','Alagoas','Amapá','Amazonas','Bahia','Ceará','Distrito Federal','Espírito Santo','Goiás','Maranhão','Mato Grosso','Mato Grosso do Sul','Minas Gerais','Pará','Paraíba','Paraná','Pernambuco','Piauí','Rio de Janeiro','Rio Grande do Norte','Rio Grande do Sul','Rondônia','Roraima','Santa Catarina','São Paulo','Sergipe','Tocantins'];
     const anchors=[...document.querySelectorAll('a[href]')].filter(a=>/-i\.\d+\.\d+|\/product\/\d+\/\d+/i.test(a.href||''));
     const seen=new Set(),products=[];
+    live({label:'Extraindo dados dos anúncios…',detail:anchors.length+' links candidatos encontrados.',percent:82,products:0});
+    let anchorIndex=0;
     for(const a of anchors){
+      anchorIndex++;
       const ids=parseIds(a.href);
       const key=ids.itemId?(String(ids.shopId||'')+':'+String(ids.itemId)):a.href.split('?')[0];
       if(seen.has(key))continue;
@@ -111,12 +118,15 @@ async function collectShopeeSearchResults(tabId){
         cardAttributes:attrs(card),
         rect:{x:Math.round(rect.x),y:Math.round(rect.y+window.scrollY),w:Math.round(rect.width),h:Math.round(rect.height)}
       });
+      if(products.length===1||products.length%10===0)live({label:'Extraindo dados dos anúncios…',detail:products.length+' produtos únicos coletados.',percent:Math.min(94,82+Math.round((anchorIndex/Math.max(anchors.length,1))*12)),products:products.length});
     }
+    live({label:'Finalizando dados da pesquisa…',detail:products.length+' produtos únicos encontrados.',percent:95,products:products.length});
     const controls=[...document.querySelectorAll('input,select,button,[role="button"],[role="checkbox"],[role="radio"],[role="tab"]')]
       .map(el=>({tag:el.tagName.toLowerCase(),type:el.getAttribute('type'),role:el.getAttribute('role'),text:clean(el.innerText||el.value||el.getAttribute('aria-label')||el.title).slice(0,220),name:el.getAttribute('name'),value:el.value||el.getAttribute('value'),checked:'checked'in el?!!el.checked:null,attributes:attrs(el)}))
       .filter(x=>x.text||x.name||x.value).slice(0,350);
     const jsonLd=[...document.querySelectorAll('script[type="application/ld+json"]')].map(x=>x.textContent||'').filter(Boolean).map(x=>x.slice(0,100000)).slice(0,20);
     const u=new URL(location.href);
+    live({label:'Coleta da pesquisa concluída',detail:products.length+' produtos prontos para salvar.',percent:97,products:products.length});
     return{
       capturedAt:new Date().toISOString(),
       url:location.href,
@@ -219,11 +229,20 @@ async function startMapper(options={}){
     await waitTab(tab.id,15000);
     await sleep(1200);
     state.searchResearch=await collectShopeeSearchResults(tab.id);
+    state.currentAction={label:'Salvando resultados e evidências',pageUrl:tab.url,at:now()};
+    state.percent=97;
+    await writeState(state);
     state.pages.push({url:pageKey(tab.url),title:state.searchResearch.title||tab.title||'',depth:0,firstSeenAt:now(),elements:state.searchResearch.productCount||0,region:'shopee-search-results'});
     state.discovered=state.searchResearch.productCount||0;
     state.processed=state.searchResearch.productCount||0;
     state.logs.push({at:now(),type:'search-results-capture',products:state.searchResearch.productCount||0,url:state.searchResearch.url});
+    state.currentAction={label:'Capturando screenshot final',pageUrl:tab.url,at:now()};
+    state.percent=98;
+    await writeState(state);
     await capture(tab.id,state,'resultados-pesquisa');
+    state.currentAction={label:'Conferindo APIs observadas',pageUrl:tab.url,at:now()};
+    state.percent=99;
+    await writeState(state);
     state.apiCount=await apiCount();
     return await finish(state,'completed');
   }
