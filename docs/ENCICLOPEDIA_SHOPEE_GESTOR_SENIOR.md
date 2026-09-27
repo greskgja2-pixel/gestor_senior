@@ -2350,3 +2350,29 @@ A tela do Gestor deve ter quatro blocos:
 - Fontes de tráfego estruturadas: **Card/Busca, Live, Vídeo, Afiliados e Shopee Ads**.
 - Pendência principal: confirmar parâmetros históricos dos endpoints MyData além de `period=real_time`.
 - Etapa não encontrada: **início de checkout**.
+
+
+## 11.9 Camada de orientação — Plano de Destrave
+
+**Status:** regra determinística do Gestor Sênior construída sobre métricas confirmadas; não é diagnóstico oficial da Shopee.
+
+A página de Análise de Funil deve traduzir o gargalo em uma ordem prática de revisão, sempre mostrando a evidência que acionou a recomendação.
+
+### Regras atuais
+
+- **Poucos dados:** menos de 100 impressões ou menos de 10 visitantes → não concluir gargalo; pedir mais volume.
+- **Antes do clique:** CTR < 60% da mediana da própria loja, com pelo menos 100 impressões → revisar primeiro capa, início do título, preço percebido e competitividade na busca.
+- **Visita → carrinho:** `uv_to_add_to_cart_rate` < 60% da mediana, com pelo menos 10 UV → revisar imagens secundárias, oferta, variações, frete, reviews e descrição.
+- **Carrinho → pedido:** razão `placed_buyers / add_to_cart_buyers` < 60% da mediana e pelo menos 5 compradores no carrinho → revisar preço final, concorrência, frete, prazo, cupom e estoque.
+- **Pedido → pago:** razão `paid_buyers / placed_buyers` < 60% da mediana e pelo menos 5 pedidos → investigar fechamento/pagamento, preço final, cupom, frete/prazo e cancelamentos; não priorizar capa.
+- **Pago → confirmado:** razão `confirmed_buyers / paid_buyers` < 60% da mediana e pelo menos 5 pagos → priorizar operação, ruptura, cancelamento e expedição; não priorizar título/capa.
+- **Saudável:** nenhuma condição forte acima → manter e usar como referência interna.
+
+### Guardrails
+
+- comparação sempre com a mediana da própria loja, não benchmark universal;
+- limiar de 60% é heurística interna ajustável, não regra da Shopee;
+- cada card deve exibir a amostra que disparou a orientação;
+- recomendações são ações para verificar/revisar, não garantias de resultado;
+- não sugerir mudança de título/capa quando o gargalo ocorre depois do pedido;
+- não transformar ausência de dado em zero.
