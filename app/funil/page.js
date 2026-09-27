@@ -12,6 +12,8 @@ const money=v=>num(v)==null?'—':Number(v).toLocaleString('pt-BR',{style:'curre
 const val=x=>num(x?.value??x);
 const arr=v=>Array.isArray(v)?v:[];
 const median=values=>{const a=values.filter(v=>Number.isFinite(v)).sort((x,y)=>x-y);if(!a.length)return null;const m=Math.floor(a.length/2);return a.length%2?a[m]:(a[m-1]+a[m])/2};
+const cleanText=v=>String(v||'').replace(/\s+/g,' ').trim();
+const pickSuggestion=(list,re)=>arr(list).map(cleanText).find(x=>re.test(x))||null;
 
 async function getJson(url){
   const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),30000);
@@ -86,18 +88,69 @@ function productPlan(p,med){
   };
 }
 
-function ProductActionCard({p,med}){
-  const plan=productPlan(p,med);
+function specificPlan(p,med,context){
+  const base=productPlan(p,med),ctx=context?.[String(p.id)]||null;
+  if(!ctx)return{...base,specific:false,specificNote:'Ainda não há Super Análise/concorrentes vinculados para deixar esta orientação específica.'};
+
+  const competitors=arr(ctx.competitors).filter(x=>x&&((x.price!=null)||x.url));
+  const prices=competitors.map(x=>num(x.price)).filter(x=>x!=null);
+  const marketMedian=median(prices),ownPrice=num(ctx.price),margin=num(ctx.marginPct),cost=num(ctx.cost);
+  const priceGap=ownPrice!=null&&marketMedian>0?(ownPrice-marketMedian)/marketMedian:null;
+  const imageSuggestion=pickSuggestion(ctx.suggestions,/imagem|foto|capa|thumbnail|visual/i);
+  const titleSuggestion=pickSuggestion(ctx.suggestions,/t[ií]tulo|palavra.?chave|keyword/i);
+  const offerSuggestion=pickSuggestion(ctx.suggestions,/pre[cç]o|cupom|frete|oferta|desconto/i);
+  const actions=[...base.actions];
+  const facts=[];
+
+  if(ownPrice!=null)facts.push('Seu preço: '+money(ownPrice));
+  if(marketMedian!=null)facts.push('Mediana dos concorrentes vinculados: '+money(marketMedian));
+  if(margin!=null)facts.push('Margem cadastrada: '+margin.toLocaleString('pt-BR',{maximumFractionDigits:1})+'%');
+  if(cost!=null)facts.push('Custo cadastrado: '+money(cost));
+
+  if(base.title.includes('antes do clique')){
+    if(imageSuggestion)actions[0]='Imagem principal: '+imageSuggestion;
+    else actions[0]='Imagem principal: abra os concorrentes abaixo e compare enquadramento, quantidade visível, texto e benefício principal; use a estrutura mais clara como referência, sem copiar a arte.';
+    if(titleSuggestion)actions[1]='Título: '+titleSuggestion;
+    if(priceGap!=null&&priceGap>.05)actions[2]=`Preço: você está ${(priceGap*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}% acima da mediana dos concorrentes. Antes de mexer em outras áreas, teste uma oferta próxima de ${money(marketMedian)} se a margem continuar positiva.`;
+  }else if(base.title.includes('não coloca no carrinho')){
+    if(offerSuggestion)actions[0]='Oferta: '+offerSuggestion;
+    if(imageSuggestion)actions[1]='Imagens internas: '+imageSuggestion;
+    if(priceGap!=null&&priceGap>.05)actions[2]=`Teste de preço: aproxime a oferta de ${money(marketMedian)} e acompanhe Visita→Carrinho. Não aplique se o custo/margem não comportar.`;
+  }else if(base.title.includes('desiste antes do pedido')){
+    if(priceGap!=null&&priceGap>.05){
+      const safeExact=margin!=null&&margin>=20&&marketMedian>=ownPrice*.9;
+      actions[0]=safeExact
+        ?`Teste específico: reduza temporariamente de ${money(ownPrice)} para ${money(marketMedian)} e acompanhe Carrinho→Pedido por 3 dias. A margem cadastrada atual é ${margin.toLocaleString('pt-BR',{maximumFractionDigits:1})}%.`
+        :`Seu preço está acima da mediana (${money(ownPrice)} vs. ${money(marketMedian)}). Use ${money(marketMedian)} como alvo de mercado, mas confirme custo e margem antes de aplicar.`;
+    }else if(ownPrice!=null&&marketMedian!=null){
+      actions[0]=`Preço não aparece como principal suspeito: ${money(ownPrice)} está próximo da mediana ${money(marketMedian)}. Priorize frete, prazo, cupom e disponibilidade.`;
+    }
+    if(offerSuggestion)actions[1]='Ação de oferta: '+offerSuggestion;
+  }else if(base.title.includes('poucos viram pagamento')){
+    actions[0]='Não altere capa nem título agora: o cliente já criou o pedido.';
+    if(offerSuggestion)actions[1]='Revise no fechamento: '+offerSuggestion;
+  }else if(base.title.includes('antes da confirmação')){
+    actions[0]='Não mexa no anúncio para tentar resolver esta etapa. Priorize estoque, cancelamentos, separação e expedição.';
+  }
+
+  return{...base,actions,specific:true,specificNote:facts.join(' · '),competitors,marketMedian,ownPrice};
+}
+
+function ProductActionCard({p,med,mode,context}){
+  const plan=mode==='specific'?specificPlan(p,med,context):productPlan(p,med);
   return <article className={styles.actionCard} data-priority={plan.priority}>
     <div className={styles.actionTop}>
       <div className={styles.product}><img src={p.image||'/favicon.ico'} alt=""/><div><b>{p.name||'Produto'}</b><small>ID {p.id||'—'}</small></div></div>
       <span>{plan.label}</span>
     </div>
     <div className={styles.actionBody}>
-      <div><h3>{plan.title}</h3><p>{plan.why}</p><small className={styles.evidence}>{plan.evidence}</small></div>
-      <div className={styles.actionSteps}><strong>O que fazer primeiro</strong><ol>{plan.actions.map((a,i)=><li key={i}>{a}</li>)}</ol></div>
+      <div><h3>{plan.title}</h3><p>{plan.why}</p><small className={styles.evidence}>{plan.evidence}</small>
+        {mode==='specific'&&<div className={styles.specificEvidence}><strong>Base da sugestão específica</strong><p>{plan.specificNote}</p></div>}
+      </div>
+      <div className={styles.actionSteps}><strong>{mode==='specific'?'Faça assim':'O que fazer primeiro'}</strong><ol>{plan.actions.map((a,i)=><li key={i}>{a}</li>)}</ol></div>
     </div>
-    <div className={styles.actionFooter}><Link href={plan.href}>{plan.action} →</Link><small>Recomendação baseada no gargalo observado, não em promessa de resultado.</small></div>
+    {mode==='specific'&&arr(plan.competitors).length>0&&<div className={styles.competitorRefs}><strong>Concorrentes usados como referência</strong><div>{plan.competitors.map((comp,i)=><a key={i} href={comp.url||'#'} target={comp.url?'_blank':undefined} rel={comp.url?'noreferrer':undefined} data-disabled={!comp.url?'true':'false'}>{comp.image?<img src={comp.image} alt=""/>:null}<span><b>{comp.title||('Concorrente '+(i+1))}</b><small>{comp.price!=null?money(comp.price):'Preço não coletado'}{comp.sold!=null?' · '+int(comp.sold)+' vendidos':''}</small></span></a>)}</div></div>}
+    <div className={styles.actionFooter}><Link href={plan.href}>{plan.action} →</Link><small>{mode==='specific'?'Siga como teste controlado e confira o funil depois; nenhuma mudança é aplicada automaticamente.':'Recomendação baseada no gargalo observado, não em promessa de resultado.'}</small></div>
   </article>
 }
 
@@ -118,6 +171,8 @@ function normalizeAdsCampaign(c){
 
 export default function FunilPage(){
   const [tab,setTab]=useState('loja');
+  const [guidanceMode,setGuidanceMode]=useState('standard');
+  const [context,setContext]=useState({});
   const [state,setState]=useState({loading:true,error:'',seller:null,ads:null});
   const load=async()=>{
     setState(s=>({...s,loading:true,error:''}));
@@ -130,9 +185,31 @@ export default function FunilPage(){
     const errors=[];
     if(sellerR.status==='rejected')errors.push('Funil completo: '+String(sellerR.reason?.message||sellerR.reason));
     if(adsR.status==='rejected')errors.push('Shopee Ads: '+String(adsR.reason?.message||adsR.reason));
+    if(seller){
+      const ids=arr(seller.products).map(x=>String(x?.id||'').trim()).filter(Boolean).slice(0,100);
+      if(ids.length){
+        try{
+          const extra=await getJson('/api/funnel/context?item_ids='+encodeURIComponent(ids.join(',')));
+          setContext(extra?.items||{});
+        }catch(error){
+          errors.push('Contexto específico: '+String(error?.message||error));
+          setContext({});
+        }
+      }else setContext({});
+    }else setContext({});
     setState({loading:false,error:errors.join(' · '),seller,ads});
   };
-  useEffect(()=>{load()},[]);
+  useEffect(()=>{
+    try{
+      const saved=localStorage.getItem('gs_funnel_guidance_mode');
+      if(saved==='standard'||saved==='specific')setGuidanceMode(saved);
+    }catch{}
+    load();
+  },[]);
+  const chooseGuidance=mode=>{
+    setGuidanceMode(mode);
+    try{localStorage.setItem('gs_funnel_guidance_mode',mode)}catch{}
+  };
 
   const model=useMemo(()=>{
     const s=state.seller||{},k=s.keyMetrics||{},rt=s.realtime?.key_metrics||{};
@@ -222,11 +299,19 @@ export default function FunilPage(){
     </>}
 
     {tab==='produto'&&<section className={styles.panel}>
-      <div className={styles.sectionHead}><div><h2>Funil por Produto</h2><p>O Gestor aponta onde cada anúncio trava e dá uma ordem prática do que revisar primeiro.</p></div><span>{model.products.length} produtos</span></div>
+      <div className={styles.sectionHead}><div><h2>Funil por Produto</h2><p>Escolha se quer entender o problema ou receber uma receita mais direta do que testar.</p></div><span>{model.products.length} produtos</span></div>
+      <div className={styles.guidanceMode}>
+        <div><strong>Como você quer receber as sugestões?</strong><small>Sua escolha fica salva neste navegador.</small></div>
+        <div role="group" aria-label="Modo de orientação">
+          <button type="button" data-active={guidanceMode==='standard'} onClick={()=>chooseGuidance('standard')}><b>Padrão</b><span>Mostre o problema e o que revisar</span></button>
+          <button type="button" data-active={guidanceMode==='specific'} onClick={()=>chooseGuidance('specific')}><b>Específico · me diga o que fazer</b><span>Cruze concorrentes, preço, margem e Super Análise</span></button>
+        </div>
+      </div>
+      {guidanceMode==='specific'&&<div className={styles.modeNotice}><b>Modo específico ligado.</b> Quando houver evidência suficiente, o Gestor dá um teste concreto e mostra os concorrentes/dados usados. Se faltar custo, margem ou concorrentes, ele avisa em vez de inventar.</div>}
       {!model.products.length?<div className={styles.empty}>Sem dados de produto no momento.</div>:<>
-        <div className={styles.actionIntro}><b>Plano de destrave</b><span>Prioridade: primeiro os produtos com gargalo mais forte. Produtos com pouco volume ficam separados para evitar conclusões precipitadas.</span></div>
+        <div className={styles.actionIntro}><b>Plano de destrave</b><span>{guidanceMode==='specific'?'Siga os passos como teste controlado; nenhuma alteração é aplicada sozinha.':'Prioridade: primeiro os produtos com gargalo mais forte. Produtos com pouco volume ficam separados para evitar conclusões precipitadas.'}</span></div>
         <div className={styles.actionList}>
-          {[...model.products].sort((a,b)=>productPlan(a,model.med).rank-productPlan(b,model.med).rank).map(p=><ProductActionCard key={'plan-'+p.id} p={p} med={model.med}/>)}
+          {[...model.products].sort((a,b)=>productPlan(a,model.med).rank-productPlan(b,model.med).rank).map(p=><ProductActionCard key={'plan-'+p.id} p={p} med={model.med} mode={guidanceMode} context={context}/>)}
         </div>
         <details className={styles.rawDetails}><summary>Ver tabela completa de números</summary><div className={styles.tableWrap}><table><thead><tr><th>Produto</th><th>Impressões</th><th>Cliques</th><th>CTR</th><th>Visitantes</th><th>Carrinho</th><th>Pedido</th><th>Pago</th><th>Confirmado</th><th>Status</th></tr></thead><tbody>{model.products.map(p=><ProductRow key={p.id} p={p} med={model.med}/>)}</tbody></table></div></details>
       </>}
