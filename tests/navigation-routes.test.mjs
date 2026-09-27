@@ -103,3 +103,14 @@ test('Pesquisa de Produtos integra inteligencia de mercado com coleta/importacao
   assert.match(page,/monthlySold/);
   assert.match(page,/seller_location|shop_location/);
 });
+
+
+test('Análise de Funil usa o Motor Sênior e preserva fallback de Ads',()=>{
+  const funnel=read('app/funil/page.js');
+  assert.match(funnel,/motorData\('sellerFunnel'/);
+  for(const token of ['Impressões','Cliques','Visitantes','Carrinho','Pedido criado','Pago','Confirmado'])assert.ok(funnel.includes(token),'etapa ausente: '+token);
+  assert.match(funnel,/Fontes de Tráfego/);
+  assert.match(funnel,/Histórico Ads/);
+  assert.match(funnel,/\/api\/shopee\/ads\?days=7/);
+  assert.match(funnel,/versão 0\.17\.1/);
+});
