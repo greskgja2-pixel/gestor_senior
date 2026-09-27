@@ -1,8 +1,9 @@
 (function(){
 'use strict';
-const SIMPLE=['dashboard','pedidos','produtos','loja','atendimento','preco','financeiro','promocoes','estoque','ads'];
+const SIMPLE=['dashboard','insights','pedidos','produtos','loja','atendimento','preco','financeiro','promocoes','estoque','ads'];
 const PAGES=[
 {id:'dashboard',page:'home',icon:'🏠',label:'Início',live:true,desc:'Resumo real da loja conectada.'},
+{id:'insights',icon:'🧠',label:'Insights da Loja',live:true,desc:'Diagnósticos automáticos e próximos passos com dados reais.'},
 {id:'estrategias',icon:'🧭',label:'Estratégias',live:true,desc:'Estratégias calculadas com dados reais da loja.'},
 {id:'produtos',page:'products',icon:'🗂️',label:'Produtos',live:true,desc:'Catálogo real da Shopee.'},
 {id:'pedidos',page:'orders',icon:'📦',label:'Meus Pedidos',live:true,desc:'Pedidos reais retornados pela Shopee.'},
