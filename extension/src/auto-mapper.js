@@ -24,6 +24,13 @@ function calcPercent(s){const total=(s.processed||0)+(s.queue?.length||0);if(!to
 async function apiCount(){const x=await chrome.storage.local.get(CAPTURE_KEY);return Array.isArray(x[CAPTURE_KEY])?x[CAPTURE_KEY].length:0;}
 async function waitTab(tabId,timeout=12000){const start=Date.now();while(Date.now()-start<timeout){const tab=await chrome.tabs.get(tabId).catch(()=>null);if(!tab)return null;if(tab.status==='complete')return tab;await sleep(250);}return chrome.tabs.get(tabId).catch(()=>null);}
 async function activate(tabId){const tab=await chrome.tabs.get(tabId);await chrome.tabs.update(tabId,{active:true}).catch(()=>{});await chrome.windows.update(tab.windowId,{focused:true}).catch(()=>{});await sleep(120);return tab;}
+
+async function ensureFloatingMonitor(tabId){
+  try{
+    await chrome.scripting.executeScript({target:{tabId},files:['src/mapper-floating-monitor.js'],world:'ISOLATED'});
+    return true;
+  }catch(e){return false;}
+}
 async function capture(tabId,state,label){if(!state.settings.captureScreens)return null;try{const tab=await activate(tabId);const dataUrl=await chrome.tabs.captureVisibleTab(tab.windowId,{format:'png'});const screens=(await chrome.storage.local.get(SCREEN_KEY))[SCREEN_KEY]||[];const index=screens.length+1;const name=`screenshots/${String(index).padStart(4,'0')}-${label}.png`;screens.push({name,dataUrl,url:tab.url,title:tab.title||'',at:now(),label});await chrome.storage.local.set({[SCREEN_KEY]:screens});state.screenshots=screens.length;return name;}catch(e){state.errors.push({at:now(),stage:'screenshot',error:String(e)});return null;}}
 
 
@@ -189,7 +196,7 @@ async function processTask(state,task){
   if(task.dangerous){state.skipped++;state.protectedSkipped=(state.protectedSkipped||0)+1;state.logs.push({at:now(),type:'skip-protected',reason:task.riskReason||'ação potencialmente mutável',task});return;}
   if(task.href&&!allowedUrl(task.href)){state.skipped++;state.logs.push({at:now(),type:'skip-external',task});return;}
   let tab=await chrome.tabs.get(state.rootTabId).catch(()=>null);if(!tab)throw new Error('A aba principal foi fechada.');
-  if(pageKey(tab.url||'')!==pageKey(task.pageUrl)){await chrome.tabs.update(tab.id,{url:task.pageUrl});tab=await waitTab(tab.id);await sleep(500);}
+  if(pageKey(tab.url||'')!==pageKey(task.pageUrl)){await chrome.tabs.update(tab.id,{url:task.pageUrl});tab=await waitTab(tab.id);await ensureFloatingMonitor(tab.id);await sleep(500);}
   if(!tab||!allowedUrl(tab.url||task.pageUrl)){state.skipped++;return;}
   await capture(tab.id,state,'antes');
   const beforeTabs=await chrome.tabs.query({windowId:tab.windowId});const beforeIds=new Set(beforeTabs.map(t=>t.id));
@@ -201,7 +208,7 @@ async function processTask(state,task){
   let target=child||await chrome.tabs.get(tab.id).catch(()=>null);
   if(target){target=await waitTab(target.id,9000)||target;await capture(target.id,state,'depois');if(allowedUrl(target.url||'')){const page=await scan(target.id).catch(()=>null);if(page&&task.depth<state.settings.maxDepth)enqueueFromScan(state,page,task.depth+1,taskKey(task));}}
   state.logs.push({at:now(),type:'click',task,result:{url:target?.url||null,newTab:!!child}});
-  if(child){await chrome.tabs.remove(child.id).catch(()=>{});await activate(tab.id).catch(()=>{});}else{const current=await chrome.tabs.get(tab.id).catch(()=>null);if(current&&pageKey(current.url||'')!==pageKey(task.pageUrl)){await chrome.tabs.update(tab.id,{url:task.pageUrl});await waitTab(tab.id);await sleep(350);}else if(current){await chrome.tabs.reload(tab.id).catch(()=>{});await waitTab(tab.id,8000).catch(()=>{});await sleep(250);}}
+  if(child){await chrome.tabs.remove(child.id).catch(()=>{});await activate(tab.id).catch(()=>{});}else{const current=await chrome.tabs.get(tab.id).catch(()=>null);if(current&&pageKey(current.url||'')!==pageKey(task.pageUrl)){await chrome.tabs.update(tab.id,{url:task.pageUrl});await waitTab(tab.id);await ensureFloatingMonitor(tab.id);await sleep(350);}else if(current){await chrome.tabs.reload(tab.id).catch(()=>{});await waitTab(tab.id,8000).catch(()=>{});await ensureFloatingMonitor(tab.id);await sleep(250);}}
 }
 
 async function finish(state,status='completed',error=null){state.status=status;state.currentAction=null;state.apiCount=await apiCount();if(error)state.errors.push({at:now(),stage:'run',error:String(error)});if(status==='completed')state.percent=100;const captureRestore=state.previousResearchCapture===true;await chrome.storage.local.set({gsResearchCapture:captureRestore});return writeState(state);}
@@ -220,6 +227,7 @@ async function runLoop(){
 async function startMapper(options={}){
   const [tab]=await chrome.tabs.query({active:true,lastFocusedWindow:true});if(!tab?.id)throw new Error('Nenhuma aba ativa.');if(!allowedUrl(tab.url||''))throw new Error('Abra uma página da Shopee ou Seller Center antes de iniciar.');
   const prev=(await chrome.storage.local.get('gsResearchCapture')).gsResearchCapture===true;await chrome.storage.local.set({gsResearchCapture:true,[SCREEN_KEY]:[],[CAPTURE_KEY]:[]});
+  await ensureFloatingMonitor(tab.id);
   const settings={...DEFAULTS,...options};const state={sessionId:'map-'+Date.now(),status:'running',startedAt:now(),updatedAt:now(),rootTabId:tab.id,rootWindowId:tab.windowId,rootUrl:tab.url,settings,previousResearchCapture:prev,queue:[],queued:{},visited:{},pages:[],logs:[],errors:[],discovered:0,processed:0,skipped:0,protectedSkipped:0,screenshots:0,apiCount:0,currentAction:null,percent:0,lastHeartbeat:now(),lastCheckpointAt:now(),checkpointCount:0,storedBytes:0,searchResearch:null};
 
   if(settings.regionMode==='shopee-search-results'){
@@ -227,6 +235,7 @@ async function startMapper(options={}){
     await writeState(state);
     await chrome.tabs.reload(tab.id).catch(()=>{});
     await waitTab(tab.id,15000);
+    await ensureFloatingMonitor(tab.id);
     await sleep(1200);
     state.searchResearch=await collectShopeeSearchResults(tab.id);
     state.currentAction={label:'Salvando resultados e evidências',pageUrl:tab.url,at:now()};
