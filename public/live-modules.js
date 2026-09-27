@@ -1,7 +1,7 @@
 (function(){
 'use strict';
 const C={};let active='';
-const supported=new Set(['dashboard','dashboard-geral','ads','financeiro','saude','estrategias','estoque','logistica','promocoes','historico','preco','config']);
+const supported=new Set(['dashboard','dashboard-geral','insights','ads','financeiro','saude','estrategias','estoque','logistica','promocoes','historico','preco','config']);
 const money=n=>(Number(n)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});const nfmt=n=>(Number(n)||0).toLocaleString('pt-BR',{maximumFractionDigits:2});const pct=n=>`${(Number(n)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}%`;
 const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 async function api(url,key,ttl=120000){if(C[key]&&Date.now()-C[key].at<ttl)return C[key].data;const r=await fetch(url,{cache:'no-store'}),j=await r.json();if(!r.ok||j.error)throw new Error(j.error||`HTTP ${r.status}`);C[key]={at:Date.now(),data:j};return j;}
@@ -24,6 +24,64 @@ function productStock(p){return Number(p.stock_info_v2?.summary_info?.total_avai
 function productImage(p){return p.image?.image_url_list?.[0]||''}
 function orderByHour(os,itemId){const hours=Array.from({length:24},(_,h)=>({hour:h,orders:0,qty:0,gmv:0}));for(const o of os){const d=new Date((Number(o.create_time)||0)*1000),h=d.getHours();if(itemId){const matches=(o.item_list||[]).filter(i=>String(i.item_id)===String(itemId));if(!matches.length)continue;hours[h].orders++;for(const i of matches){hours[h].qty+=Number(i.model_quantity_purchased||1);hours[h].gmv+=Number(i.model_discounted_price||i.model_original_price||0)*Number(i.model_quantity_purchased||1)}}else{hours[h].orders++;hours[h].gmv+=Number(o.total_amount||0);hours[h].qty+=(o.item_list||[]).reduce((s,i)=>s+Number(i.model_quantity_purchased||1),0)}}return hours}
 function statusCampaign(s){const m={ongoing:'Em andamento',closed:'Encerrada',ended:'Encerrada',scheduled:'Programada',paused:'Pausada'};return m[s]||s||'—'}
+
+function insightCard(x){
+  const tone=x.tone||'info';
+  return `<article class="lm-insight ${tone}">
+    <div class="lm-insight-icon">${x.icon||'💡'}</div>
+    <div class="lm-insight-main">
+      <div class="lm-insight-top"><span class="lm-insight-kicker">${esc(x.kicker||'Insight')}</span><span class="lm-pill ${tone==='bad'?'bad':tone==='warn'?'warn':tone==='good'?'good':''}">${esc(x.status||'Analisar')}</span></div>
+      <h3>${esc(x.title)}</h3>
+      <p>${esc(x.desc)}</p>
+      ${x.detail?`<div class="lm-insight-detail">${esc(x.detail)}</div>`:''}
+      <div class="lm-insight-actions">${(x.actions||[]).map(a=>`<button class="lm-btn ${a.primary?'primary':''}" data-insight-target="${esc(a.target)}">${esc(a.label)}</button>`).join('')}</div>
+    </div>
+  </article>`;
+}
+async function renderInsights(){
+  const name='Insights da Loja';loading(name);
+  try{
+    const [ps,os,a]=await Promise.all([products(),orders(),ads(7)]);
+    const settings=settingsRows(a),ph=productHourlyRows(a);
+    const orderItems=orderItemRows(os);
+    const soldByItem=new Map();
+    orderItems.forEach(x=>{const id=String(x.item.item_id||'');if(!id)return;const qty=Number(x.item.model_quantity_purchased||1);const gmv=Number(x.item.model_discounted_price||x.item.model_original_price||0)*qty;const cur=soldByItem.get(id)||{qty:0,gmv:0};cur.qty+=qty;cur.gmv+=gmv;soldByItem.set(id,cur)});
+    const campaignByItem=new Map();
+    settings.forEach(c=>(c.common_info?.item_id_list||[]).forEach(id=>campaignByItem.set(String(id),c)));
+    const metricsByCampaign=new Map();
+    ph.forEach(c=>{const t=(c.metrics_list||[]).reduce((s,m)=>({imp:s.imp+(+m.impression||0),click:s.click+(+m.clicks||0),spend:s.spend+(+m.expense||0),gmv:s.gmv+(+m.broad_gmv||0),orders:s.orders+(+m.broad_order||0),sold:s.sold+(+m.broad_item_sold||0)}),{imp:0,click:0,spend:0,gmv:0,orders:0,sold:0});metricsByCampaign.set(String(c.campaign_id),t)});
+    const rows=ps.map(p=>{const sold=soldByItem.get(String(p.item_id))||{qty:0,gmv:0},camp=campaignByItem.get(String(p.item_id)),am=camp?metricsByCampaign.get(String(camp.campaign_id)):null;return{p,sold,camp,am}});
+    const clickNoSale=rows.filter(x=>x.am&&x.am.click>=10&&x.am.orders===0).sort((a,b)=>b.am.click-a.am.click);
+    const organic=rows.filter(x=>x.sold.qty>0&&!x.camp).sort((a,b)=>b.sold.qty-a.sold.qty);
+    const waste=rows.filter(x=>x.am&&x.am.spend>0&&x.am.gmv<=0).sort((a,b)=>b.am.spend-a.am.spend);
+    const noVideo=rows.filter(x=>!(x.p.video_info&&x.p.video_info.length));
+    const lowStock=rows.filter(x=>x.sold.qty>0&&productStock(x.p)>0&&(productStock(x.p)/(x.sold.qty/15))<7).sort((a,b)=>(productStock(a.p)/(a.sold.qty/15))-(productStock(b.p)/(b.sold.qty/15)));
+    const totalGmv=rows.reduce((s,x)=>s+x.sold.gmv,0),top=[...rows].sort((a,b)=>b.sold.gmv-a.sold.gmv)[0],share=totalGmv&&top?top.sold.gmv/totalGmv*100:0;
+    const activeAds=settings.filter(c=>c.common_info?.campaign_status==='ongoing').length;
+    const insights=[];
+    if(clickNoSale.length)insights.push({icon:'🖱️',kicker:'Conversão',status:'Atenção',tone:'bad',title:`${clickNoSale.length} produto(s) recebem cliques em Ads e não geram pedidos`,desc:'Há tráfego pago chegando, mas sem conversão atribuída no período.',detail:clickNoSale.slice(0,3).map(x=>`${x.p.item_name}: ${nfmt(x.am.click)} cliques · ${money(x.am.spend)} gastos`).join(' | '),actions:[{label:'Ver Shopee Ads',target:'ads',primary:true},{label:'Ver Produtos',target:'products'}]});
+    else insights.push({icon:'✅',kicker:'Conversão',status:'OK',tone:'good',title:'Nenhum caso forte de clique sem venda foi detectado',desc:'Com os dados de Ads disponíveis, não há campanha com 10+ cliques e zero pedido atribuído.',actions:[{label:'Ver Shopee Ads',target:'ads'}]});
+    if(organic.length)insights.push({icon:'🌱',kicker:'Oportunidade',status:'Potencial',tone:'good',title:`${organic.length} produto(s) venderam sem campanha de Ads vinculada`,desc:'Esses produtos já demonstraram procura orgânica e podem merecer teste controlado de mídia.',detail:organic.slice(0,3).map(x=>`${x.p.item_name}: ${x.sold.qty} un.`).join(' | '),actions:[{label:'Ver Produtos',target:'products',primary:true},{label:'Estratégias',target:'estrategias'}]});
+    if(waste.length)insights.push({icon:'💸',kicker:'Ads',status:'Revisar',tone:'bad',title:`${waste.length} campanha(s) gastaram sem GMV atribuído`,desc:'O Gestor não altera nada automaticamente; o objetivo é destacar onde revisar orçamento, criativo ou ROAS.',detail:waste.slice(0,3).map(x=>`${x.p.item_name}: ${money(x.am.spend)}`).join(' | '),actions:[{label:'Revisar Ads',target:'ads',primary:true},{label:'ADS Seguro',target:'estrategias'}]});
+    if(noVideo.length)insights.push({icon:'🎬',kicker:'Conteúdo',status:'Melhorar',tone:'warn',title:`${noVideo.length} anúncio(s) sem vídeo retornado pela Shopee`,desc:'Vídeo não garante venda, mas estes anúncios têm uma oportunidade clara de enriquecimento de conteúdo.',detail:noVideo.slice(0,3).map(x=>x.p.item_name).join(' | '),actions:[{label:'Ver Produtos',target:'products',primary:true}]});
+    if(lowStock.length)insights.push({icon:'📦',kicker:'Estoque',status:'Urgente',tone:'bad',title:`${lowStock.length} produto(s) com menos de 7 dias de cobertura estimada`,desc:'Cobertura calculada usando estoque atual e unidades vendidas nos pedidos carregados.',detail:lowStock.slice(0,3).map(x=>`${x.p.item_name}: ~${nfmt(productStock(x.p)/(x.sold.qty/15))} dias`).join(' | '),actions:[{label:'Abrir Estoque',target:'estoque',primary:true}]});
+    if(top&&share>=35)insights.push({icon:'⚠️',kicker:'Risco',status:'Concentração',tone:'warn',title:`${pct(share)} do GMV dos pedidos carregados está concentrado em 1 produto`,desc:'Uma dependência alta de um único produto aumenta o impacto de ruptura, queda de ranking ou concorrência.',detail:top.p.item_name,actions:[{label:'Produtos Campeões',target:'estrategias',primary:true}]});
+    const priority=insights.filter(x=>x.tone==='bad').length,attention=insights.filter(x=>x.tone==='warn').length,good=insights.filter(x=>x.tone==='good').length;
+    content().innerHTML=`<div class="lm-wrap">${head(name,'Diagnósticos automáticos com os dados reais já conectados ao Gestor Sênior.')}
+      <div class="lm-grid">${kpi('Prioridade alta',nfmt(priority),'Insights que pedem revisão',priority?'bad':'good')}${kpi('Acompanhar',nfmt(attention),'Oportunidades / riscos','warn')}${kpi('Sinais positivos',nfmt(good),'Oportunidades ou situações OK','good')}${kpi('Campanhas ativas',nfmt(activeAds),'Shopee Ads')}</div>
+      <div class="lm-insights-head"><div><h2>O que merece sua atenção agora</h2><p>O Gestor explica primeiro e leva você até a ferramenta certa para agir.</p></div><button class="lm-btn" data-insight-refresh="1">↻ Recalcular</button></div>
+      <div class="lm-insights-list">${insights.map(insightCard).join('')}</div>
+      <div class="lm-note">Os diagnósticos usam somente dados disponíveis: catálogo, pedidos carregados e Shopee Ads. Visitantes/conversão orgânica ainda não são inferidos quando a Shopee não fornece a métrica.</div>
+    </div>`;
+    content().querySelector('[data-insight-refresh]')?.addEventListener('click',()=>{Object.keys(C).forEach(k=>delete C[k]);renderInsights()});
+    content().querySelectorAll('[data-insight-target]').forEach(b=>b.addEventListener('click',()=>{
+      const target=b.dataset.insightTarget;
+      if(target==='products'){document.querySelector('#nav [data-shell-id="produtos"]')?.click();return;}
+      render(target);
+    }));
+  }catch(e){fail(name,e)}
+}
+
 async function renderAds(){const name='Shopee Ads';loading(name);try{const a=await ads(7),d=dailyRows(a),st=settingsRows(a),imp=sum(d,'impression'),click=sum(d,'clicks'),spend=sum(d,'expense'),gmv=sum(d,'broad_gmv'),ordersN=sum(d,'broad_order'),sold=sum(d,'broad_item_sold'),ctr=imp?click/imp*100:0,roas=spend?gmv/spend:0,activeC=st.filter(c=>c.common_info?.campaign_status==='ongoing');content().innerHTML=`<div class="lm-wrap">${head(name,'Desempenho real dos anúncios pagos — dados oficiais da sua conta.')}
 <div class="lm-toolbar"><button class="lm-btn" data-lm-refresh="ads">↻ Atualizar</button><span class="lm-pill good">${activeC.length} campanhas em andamento</span></div><div class="lm-grid">${kpi('Impressões',nfmt(imp),'Últimos 7 dias')}${kpi('Cliques',nfmt(click),'Últimos 7 dias')}${kpi('CTR',pct(ctr),'Cliques ÷ impressões')}${kpi('Pedidos atribuídos',nfmt(ordersN),'Broad order')}${kpi('Itens vendidos',nfmt(sold),'Atribuídos aos Ads')}${kpi('Vendas / GMV',money(gmv),'Receita atribuída')}${kpi('Investimento',money(spend),'Gasto em Ads')}${kpi('ROAS',nfmt(roas),'GMV ÷ investimento',roas>=8?'good':roas>=4?'warn':'bad')}</div>
 <div class="lm-cols"><div class="lm-card"><div class="lm-card-head"><h3>Desempenho diário</h3><span>GMV atribuído</span></div><div class="lm-card-body">${chart(d,'broad_gmv')}</div></div><div class="lm-card"><div class="lm-card-head"><h3>Investimento diário</h3><span>R$</span></div><div class="lm-card-body">${chart(d,'expense',{orange:true})}</div></div></div>
@@ -71,7 +129,7 @@ async function renderPricing(){loading('Precificação e Lucro');try{const ps=aw
 function renderConfig(){const themes=[['dark','Gestor Senior','#061524'],['warm','Aurora','#e8dfd2'],['win11','Windows 11','#dce7f2'],['classic','Windows XP','#7ca7de'],['ubuntu','Ubuntu','#77216f'],['light','Claro','#ffffff']];let cur=localStorage.getItem('gs_theme')||'dark';content().innerHTML=`<div class="lm-wrap">${head('Configurações','Preferências visuais e modo de exibição do Gestor Senior.','')}<div class="lm-card"><div class="lm-card-head"><h3>Tema visual</h3><span>recuperado do painel original</span></div><div class="lm-card-body"><div class="lm-theme-grid">${themes.map(t=>`<button class="lm-theme ${cur===t[0]?'active':''}" data-theme="${t[0]}"><div class="lm-theme-preview" style="background:${t[2]}"></div><strong>${t[1]}</strong></button>`).join('')}</div></div></div><div class="lm-note">O seletor Simples / Avançado continua no topo do menu lateral e também fica salvo no navegador.</div></div>`;content().querySelectorAll('[data-theme]').forEach(b=>b.onclick=()=>{cur=b.dataset.theme;localStorage.setItem('gs_theme',cur);applyTheme();renderConfig()})}
 function applyTheme(){const t=localStorage.getItem('gs_theme')||'dark';document.body.dataset.gsTheme=t}
 function bindRefresh(){content().querySelectorAll('[data-lm-refresh]').forEach(b=>b.onclick=()=>{Object.keys(C).filter(k=>k.startsWith(b.dataset.lmRefresh)).forEach(k=>delete C[k]);render(active)})}
-async function render(id){active=id;activate(id);applyTheme();const map={dashboard:renderDashboard,'dashboard-geral':renderDashboard,ads:renderAds,financeiro:renderFinance,saude:renderHealth,estrategias:renderStrategies,estoque:renderStock,logistica:renderLogistics,promocoes:renderPromotions,historico:renderHistory,preco:renderPricing,config:renderConfig};if(map[id])return map[id]();}
+async function render(id){active=id;activate(id);applyTheme();const map={dashboard:renderDashboard,'dashboard-geral':renderDashboard,insights:renderInsights,ads:renderAds,financeiro:renderFinance,saude:renderHealth,estrategias:renderStrategies,estoque:renderStock,logistica:renderLogistics,promocoes:renderPromotions,historico:renderHistory,preco:renderPricing,config:renderConfig};if(map[id])return map[id]();}
 function enhanceProducts(){if(!document.querySelector('.products'))return;document.querySelectorAll('.product[data-item]').forEach(card=>{if(card.querySelector('.lm-product-actions'))return;const id=card.dataset.item,old=card.querySelector('.editBtn');if(!old)return;old.classList.add('wide');const wrap=document.createElement('div');wrap.className='lm-product-actions';old.parentNode.insertBefore(wrap,old);wrap.appendChild(old);const buttons=[['✨ IA','melhoria'],['📣 Ads','ads'],['💰 Preço','preco'],['🕵️ Concorrentes','concorrencia']];buttons.forEach(([lab,page])=>{const b=document.createElement('button');b.className='btn';b.textContent=lab;b.onclick=e=>{e.preventDefault();e.stopPropagation();if(page==='concorrencia'){window.dispatchEvent(new CustomEvent('gs-open-competitors',{detail:{itemId:id}}));return}render(page)};wrap.appendChild(b)})})}
 const mo=new MutationObserver(()=>enhanceProducts());mo.observe(document.documentElement,{subtree:true,childList:true});
 applyTheme();window.GestorLiveModules={supports:id=>supported.has(id),render,enhanceProducts,orderByHour};
