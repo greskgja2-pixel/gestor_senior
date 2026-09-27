@@ -2,7 +2,7 @@ const STATE_KEY='gsAutoMapperStateV1';
 const SCREEN_KEY='gsAutoMapperScreensV1';
 const CAPTURE_KEY='gsAutoMapperCapturesV1';
 const SETTINGS_KEY='gsAutoMapperSettingsV1';
-const DEFAULTS={maxDepth:2,maxActions:120,settleMs:1400,captureScreens:true};
+const DEFAULTS={maxDepth:2,maxActions:120,settleMs:1400,captureScreens:true,regionMode:'all'};
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
 function now(){return new Date().toISOString();}
@@ -25,6 +25,113 @@ async function apiCount(){const x=await chrome.storage.local.get(CAPTURE_KEY);re
 async function waitTab(tabId,timeout=12000){const start=Date.now();while(Date.now()-start<timeout){const tab=await chrome.tabs.get(tabId).catch(()=>null);if(!tab)return null;if(tab.status==='complete')return tab;await sleep(250);}return chrome.tabs.get(tabId).catch(()=>null);}
 async function activate(tabId){const tab=await chrome.tabs.get(tabId);await chrome.tabs.update(tabId,{active:true}).catch(()=>{});await chrome.windows.update(tab.windowId,{focused:true}).catch(()=>{});await sleep(120);return tab;}
 async function capture(tabId,state,label){if(!state.settings.captureScreens)return null;try{const tab=await activate(tabId);const dataUrl=await chrome.tabs.captureVisibleTab(tab.windowId,{format:'png'});const screens=(await chrome.storage.local.get(SCREEN_KEY))[SCREEN_KEY]||[];const index=screens.length+1;const name=`screenshots/${String(index).padStart(4,'0')}-${label}.png`;screens.push({name,dataUrl,url:tab.url,title:tab.title||'',at:now(),label});await chrome.storage.local.set({[SCREEN_KEY]:screens});state.screenshots=screens.length;return name;}catch(e){state.errors.push({at:now(),stage:'screenshot',error:String(e)});return null;}}
+
+
+async function collectShopeeSearchResults(tabId){
+  const [{result}]=await chrome.scripting.executeScript({target:{tabId},world:'ISOLATED',func:async()=>{
+    const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+    const startY=window.scrollY;
+    let stable=0,lastHeight=0;
+    window.scrollTo(0,0);
+    await sleep(350);
+    for(let i=0;i<36;i++){
+      const h=Math.max(document.body.scrollHeight,document.documentElement.scrollHeight);
+      window.scrollBy(0,Math.max(520,Math.round(window.innerHeight*.82)));
+      await sleep(260);
+      const nh=Math.max(document.body.scrollHeight,document.documentElement.scrollHeight);
+      if(nh===lastHeight&&window.scrollY+window.innerHeight>=nh-80)stable++;else stable=0;
+      lastHeight=nh;
+      if(stable>=3)break;
+    }
+    window.scrollTo(0,startY);
+    await sleep(180);
+
+    const clean=v=>String(v||'').replace(/\\s+/g,' ').trim();
+    const money=v=>[...String(v||'').matchAll(/R\\$\\s*([\\d\\.]+(?:,\\d{1,2})?)/g)].map(m=>m[0]);
+    const textLines=el=>String(el?.innerText||'').split(/\\n+/).map(clean).filter(Boolean).slice(0,80);
+    const attrs=el=>{const o={};if(!el)return o;for(const n of el.getAttributeNames().slice(0,40)){const v=el.getAttribute(n);if(v!=null&&String(v).length<=500)o[n]=v;}return o;};
+    const findCard=a=>{
+      let cur=a,best=a;
+      for(let i=0;cur&&i<7;i++,cur=cur.parentElement){
+        const r=cur.getBoundingClientRect();
+        if(r.width>=140&&r.width<=520&&r.height>=180&&r.height<=760)best=cur;
+      }
+      return best;
+    };
+    const parseIds=href=>{
+      let m=String(href||'').match(/-i\\.(\\d+)\\.(\\d+)(?:[/?#]|$)/i);
+      if(m)return{shopId:m[1],itemId:m[2]};
+      m=String(href||'').match(/\\/product\\/(\\d+)\\/(\\d+)(?:[/?#]|$)/i);
+      return m?{shopId:m[1],itemId:m[2]}:{shopId:null,itemId:null};
+    };
+    const stateNames=['Acre','Alagoas','Amapá','Amazonas','Bahia','Ceará','Distrito Federal','Espírito Santo','Goiás','Maranhão','Mato Grosso','Mato Grosso do Sul','Minas Gerais','Pará','Paraíba','Paraná','Pernambuco','Piauí','Rio de Janeiro','Rio Grande do Norte','Rio Grande do Sul','Rondônia','Roraima','Santa Catarina','São Paulo','Sergipe','Tocantins'];
+    const anchors=[...document.querySelectorAll('a[href]')].filter(a=>/-i\\.\\d+\\.\\d+|\\/product\\/\\d+\\/\\d+/i.test(a.href||''));
+    const seen=new Set(),products=[];
+    for(const a of anchors){
+      const ids=parseIds(a.href);
+      const key=ids.itemId?(String(ids.shopId||'')+':'+String(ids.itemId)):a.href.split('?')[0];
+      if(seen.has(key))continue;
+      seen.add(key);
+      const card=findCard(a),lines=textLines(card),rawText=clean(card?.innerText||'');
+      const imgs=[...card.querySelectorAll('img')].map(img=>img.currentSrc||img.src||img.getAttribute('data-src')).filter(Boolean).filter((v,i,arr)=>arr.indexOf(v)===i).slice(0,5);
+      const shortTexts=[...card.querySelectorAll('span,div')].map(x=>clean(x.innerText)).filter(x=>x&&x.length<=60).filter((v,i,arr)=>arr.indexOf(v)===i).slice(0,80);
+      const title=clean(
+        card.querySelector('[data-sqe="name"]')?.innerText||
+        card.querySelector('[title]')?.getAttribute('title')||
+        card.querySelector('img[alt]')?.getAttribute('alt')||
+        lines.find(x=>x.length>18&&!/^R\\$/i.test(x))||''
+      ).slice(0,500);
+      const soldRaw=lines.find(x=>/\\bvendid[oa]s?\\b/i.test(x))||null;
+      const ratingRaw=lines.find(x=>/(^|\\s)[0-5](?:[.,]\\d)\\s*(?:\\/\\s*5)?($|\\s)/.test(x))||null;
+      const discountRaw=lines.find(x=>/\\d{1,3}%\\s*(?:OFF|desconto)?/i.test(x))||null;
+      const locationRaw=lines.find(x=>stateNames.some(s=>x.toLowerCase().includes(s.toLowerCase())))||null;
+      const sponsoredRaw=shortTexts.find(x=>/^(patrocinado|anúncio|ads?)$/i.test(x))||null;
+      const rect=card.getBoundingClientRect();
+      products.push({
+        rank:products.length+1,
+        itemId:ids.itemId,
+        shopId:ids.shopId,
+        title,
+        href:a.href,
+        prices:money(rawText),
+        soldRaw,
+        ratingRaw,
+        discountRaw,
+        locationRaw,
+        sponsoredRaw,
+        preferredSeller:/\\bindicado\\b/i.test(rawText),
+        mall:/shopee\\s*mall|\\bmall\\b/i.test(rawText),
+        freeShipping:/frete\\s*gr[aá]tis/i.test(rawText),
+        coupon:/cupom/i.test(rawText),
+        images:imgs,
+        badges:shortTexts,
+        textLines:lines,
+        rawText:rawText.slice(0,6000),
+        anchorAttributes:attrs(a),
+        cardAttributes:attrs(card),
+        rect:{x:Math.round(rect.x),y:Math.round(rect.y+window.scrollY),w:Math.round(rect.width),h:Math.round(rect.height)}
+      });
+    }
+    const controls=[...document.querySelectorAll('input,select,button,[role="button"],[role="checkbox"],[role="radio"],[role="tab"]')]
+      .map(el=>({tag:el.tagName.toLowerCase(),type:el.getAttribute('type'),role:el.getAttribute('role'),text:clean(el.innerText||el.value||el.getAttribute('aria-label')||el.title).slice(0,220),name:el.getAttribute('name'),value:el.value||el.getAttribute('value'),checked:'checked'in el?!!el.checked:null,attributes:attrs(el)}))
+      .filter(x=>x.text||x.name||x.value).slice(0,350);
+    const jsonLd=[...document.querySelectorAll('script[type="application/ld+json"]')].map(x=>x.textContent||'').filter(Boolean).map(x=>x.slice(0,100000)).slice(0,20);
+    const u=new URL(location.href);
+    return{
+      capturedAt:new Date().toISOString(),
+      url:location.href,
+      title:document.title,
+      query:Object.fromEntries(u.searchParams.entries()),
+      pageText:clean(document.body?.innerText||'').slice(0,60000),
+      productCount:products.length,
+      products,
+      controls,
+      jsonLd,
+      document:{scrollHeight:Math.max(document.body.scrollHeight,document.documentElement.scrollHeight),viewport:{w:innerWidth,h:innerHeight},links:document.links.length,images:document.images.length}
+    };
+  }});
+  return result||{capturedAt:now(),url:'',title:'',query:{},pageText:'',productCount:0,products:[],controls:[],jsonLd:[]};
+}
 
 async function scan(tabId){
   const [{result}]=await chrome.scripting.executeScript({target:{tabId},world:'ISOLATED',func:()=>{
@@ -103,7 +210,24 @@ async function runLoop(){
 async function startMapper(options={}){
   const [tab]=await chrome.tabs.query({active:true,lastFocusedWindow:true});if(!tab?.id)throw new Error('Nenhuma aba ativa.');if(!allowedUrl(tab.url||''))throw new Error('Abra uma página da Shopee ou Seller Center antes de iniciar.');
   const prev=(await chrome.storage.local.get('gsResearchCapture')).gsResearchCapture===true;await chrome.storage.local.set({gsResearchCapture:true,[SCREEN_KEY]:[],[CAPTURE_KEY]:[]});
-  const settings={...DEFAULTS,...options};const state={sessionId:`map-${Date.now()}`,status:'running',startedAt:now(),updatedAt:now(),rootTabId:tab.id,rootWindowId:tab.windowId,rootUrl:tab.url,settings,previousResearchCapture:prev,queue:[],queued:{},visited:{},pages:[],logs:[],errors:[],discovered:0,processed:0,skipped:0,protectedSkipped:0,screenshots:0,apiCount:0,currentAction:null,percent:0,lastHeartbeat:now(),lastCheckpointAt:now(),checkpointCount:0,storedBytes:0};
+  const settings={...DEFAULTS,...options};const state={sessionId:'map-'+Date.now(),status:'running',startedAt:now(),updatedAt:now(),rootTabId:tab.id,rootWindowId:tab.windowId,rootUrl:tab.url,settings,previousResearchCapture:prev,queue:[],queued:{},visited:{},pages:[],logs:[],errors:[],discovered:0,processed:0,skipped:0,protectedSkipped:0,screenshots:0,apiCount:0,currentAction:null,percent:0,lastHeartbeat:now(),lastCheckpointAt:now(),checkpointCount:0,storedBytes:0,searchResearch:null};
+
+  if(settings.regionMode==='shopee-search-results'){
+    state.currentAction={label:'Capturando resultados de pesquisa da Shopee',pageUrl:tab.url,at:now()};
+    await writeState(state);
+    await chrome.tabs.reload(tab.id).catch(()=>{});
+    await waitTab(tab.id,15000);
+    await sleep(1200);
+    state.searchResearch=await collectShopeeSearchResults(tab.id);
+    state.pages.push({url:pageKey(tab.url),title:state.searchResearch.title||tab.title||'',depth:0,firstSeenAt:now(),elements:state.searchResearch.productCount||0,region:'shopee-search-results'});
+    state.discovered=state.searchResearch.productCount||0;
+    state.processed=state.searchResearch.productCount||0;
+    state.logs.push({at:now(),type:'search-results-capture',products:state.searchResearch.productCount||0,url:state.searchResearch.url});
+    await capture(tab.id,state,'resultados-pesquisa');
+    state.apiCount=await apiCount();
+    return await finish(state,'completed');
+  }
+
   const page=await scan(tab.id);enqueueFromScan(state,page,0,null);await capture(tab.id,state,'inicio');await writeState(state);runLoop();return state;
 }
 
