@@ -7,6 +7,54 @@ let lastLive=null,lastState=null,hideTimer=null;
 function statusLabel(s){
   return ({running:'Mapeando',paused:'Pausado',stopping:'Parando',stopped:'Parado',completed:'Concluído',error:'Erro',interrupted:'Interrompido'})[s]||'Mapeador';
 }
+
+const enc=new TextEncoder();
+function crc32(bytes){let c=0xffffffff;for(const b of bytes){c^=b;for(let k=0;k<8;k++)c=(c>>>1)^((c&1)?0xedb88320:0);}return(c^0xffffffff)>>>0;}
+function u16(n){return[n&255,(n>>>8)&255]}function u32(n){return[n&255,(n>>>8)&255,(n>>>16)&255,(n>>>24)&255]}
+function concat(parts){const size=parts.reduce((a,p)=>a+p.length,0),out=new Uint8Array(size);let o=0;for(const p of parts){out.set(p,o);o+=p.length;}return out;}
+function dataUrlBytes(dataUrl){const b64=String(dataUrl||'').split(',')[1]||'',bin=atob(b64),out=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)out[i]=bin.charCodeAt(i);return out;}
+function zipStore(files){
+  const locals=[],centrals=[];let offset=0;
+  for(const f of files){
+    const name=enc.encode(f.name),data=f.bytes instanceof Uint8Array?f.bytes:enc.encode(String(f.text||'')),crc=crc32(data);
+    const local=concat([new Uint8Array([80,75,3,4]),new Uint8Array(u16(20)),new Uint8Array(u16(0)),new Uint8Array(u16(0)),new Uint8Array(u16(0)),new Uint8Array(u16(0)),new Uint8Array(u32(crc)),new Uint8Array(u32(data.length)),new Uint8Array(u32(data.length)),new Uint8Array(u16(name.length)),new Uint8Array(u16(0)),name,data]);locals.push(local);
+    const central=concat([new Uint8Array([80,75,1,2]),new Uint8Array(u16(20)),new Uint8Array(u16(20)),new Uint8Array(u16(0)),new Uint8Array(u16(0)),new Uint8Array(u16(0)),new Uint8Array(u16(0)),new Uint8Array(u32(crc)),new Uint8Array(u32(data.length)),new Uint8Array(u32(data.length)),new Uint8Array(u16(name.length)),new Uint8Array(u16(0)),new Uint8Array(u16(0)),new Uint8Array(u16(0)),new Uint8Array(u16(0)),new Uint8Array(u32(0)),new Uint8Array(u32(offset)),name]);centrals.push(central);offset+=local.length;
+  }
+  const body=concat(locals),central=concat(centrals),end=concat([new Uint8Array([80,75,5,6]),new Uint8Array(u16(0)),new Uint8Array(u16(0)),new Uint8Array(u16(files.length)),new Uint8Array(u16(files.length)),new Uint8Array(u32(central.length)),new Uint8Array(u32(body.length)),new Uint8Array(u16(0))]);
+  return new Blob([body,central,end],{type:'application/zip'});
+}
+async function exportZip(auto=false){
+  const host=document.getElementById(HOST_ID),root=host?.shadowRoot,btn=root?.getElementById('export');
+  if(btn){btn.disabled=true;btn.textContent=auto?'Preparando download…':'Montando ZIP…';}
+  try{
+    const r=await chrome.runtime.sendMessage({type:'GS_MAPPER_EXPORT'});
+    if(!r?.ok)throw new Error(r?.error||'Falha ao exportar');
+    const {state,screens,apis}=r.data||{};
+    if(!state)throw new Error('Nenhuma sessão de mapeamento encontrada');
+    const summary={sessionId:state.sessionId,status:state.status,startedAt:state.startedAt,finishedAt:state.updatedAt,progress:state.percent,regionMode:state.settings?.regionMode||'all',searchProducts:state.searchResearch?.products?.length||0,discovered:state.discovered,processed:state.processed,skipped:state.skipped,screenshots:screens?.length||0,pages:state.pages?.length||0,apis:apis?.length||0,errors:state.errors?.length||0};
+    const files=[
+      {name:'resumo.json',text:JSON.stringify(summary,null,2)},
+      {name:'mapa.json',text:JSON.stringify({...state,queue:state.queue||[]},null,2)},
+      {name:'apis.json',text:JSON.stringify(apis||[],null,2)},
+      {name:'logs/execucao.json',text:JSON.stringify(state.logs||[],null,2)},
+      {name:'logs/erros.json',text:JSON.stringify(state.errors||[],null,2)}
+    ];
+    if(state.searchResearch)files.push({name:'pesquisa-shopee/resultados-pesquisa.json',text:JSON.stringify(state.searchResearch,null,2)});
+    for(const s of screens||[])if(s.dataUrl)files.push({name:s.name||('screenshots/'+Date.now()+'.png'),bytes:dataUrlBytes(s.dataUrl)});
+    const blob=zipStore(files),url=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=url;a.download='Motor-Senior-Mapeamento-'+new Date().toISOString().slice(0,10)+'.zip';
+    (document.body||document.documentElement).appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),15000);
+    await chrome.storage.local.set({gsMapperLastExportedSessionV1:state.sessionId});
+    if(btn){btn.textContent='✓ ZIP baixado — baixar novamente';btn.disabled=false;}
+    text('sub','Exportação concluída. A coleta continua salva até você limpar a sessão.');
+    return true;
+  }catch(e){
+    if(btn){btn.textContent='⬇ Exportar ZIP';btn.disabled=false;}
+    text('sub','Falha no download automático. Toque em Exportar ZIP.');
+    return false;
+  }
+}
+
 function ensure(){
   let host=document.getElementById(HOST_ID);
   if(host)return host;
@@ -25,7 +73,7 @@ function ensure(){
       .pct{font-size:18px;font-weight:900}.action{margin:8px 0 9px;font-size:12px;line-height:1.35;color:#dcecff;min-height:32px}.sub{font-size:10px;color:#8ca5b9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
       .bar{height:7px;background:#102b40;border-radius:99px;overflow:hidden;margin:9px 0}.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#1b76ff,#43d2ff);border-radius:99px;transition:width .25s ease}
       .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:9px}.stat{padding:7px;border-radius:9px;background:#0c2940;text-align:center}.stat b{display:block;font-size:14px}.stat span{display:block;font-size:8px;color:#89a4b9;margin-top:1px}
-      .buttons{display:flex;gap:7px;margin-top:10px}.buttons button{flex:1;border:1px solid #2d5475;background:#12334d;color:#e9f6ff;border-radius:9px;padding:8px;font-size:10px;font-weight:800}.buttons .stop{border-color:#693846;background:#3d202a;color:#ffdce2}
+      .buttons{display:flex;gap:7px;margin-top:10px;flex-wrap:wrap}.buttons button{flex:1;border:1px solid #2d5475;background:#12334d;color:#e9f6ff;border-radius:9px;padding:8px;font-size:10px;font-weight:800}.buttons .stop{border-color:#693846;background:#3d202a;color:#ffdce2}.buttons .export{display:none;flex-basis:100%;background:#1769e8;border-color:#2c83ff;color:#fff;padding:10px}.completed .buttons .export{display:block}
       .done{color:#7fe2aa}.hiddenBody .body{display:none}.hiddenBody .head{border-bottom:0}
       @keyframes pulse{from{opacity:.55;transform:scale(.88)}to{opacity:1;transform:scale(1.08)}}
       @media(max-width:520px){.box{border-radius:14px}.head{padding:9px 10px}.body{padding:10px}.stats{gap:4px}.stat{padding:6px 4px}}
@@ -42,7 +90,7 @@ function ensure(){
           <div class="stat"><b id="apis">0</b><span>APIs</span></div>
           <div class="stat"><b id="screens">0</b><span>CAPTURAS</span></div>
         </div>
-        <div class="buttons"><button id="pause">Pausar</button><button class="stop" id="stop">Parar</button></div>
+        <div class="buttons"><button id="pause">Pausar</button><button class="stop" id="stop">Parar</button><button class="export" id="export">⬇ Exportar ZIP</button></div>
       </div>
     </div>`;
   document.documentElement.appendChild(host);
@@ -54,6 +102,7 @@ function ensure(){
     else chrome.runtime.sendMessage({type:'GS_MAPPER_PAUSE'}).catch(()=>{});
   };
   root.getElementById('stop').onclick=()=>chrome.runtime.sendMessage({type:'GS_MAPPER_STOP'}).catch(()=>{});
+  root.getElementById('export').onclick=()=>exportZip(false);
   return host;
 }
 function remove(){const h=document.getElementById(HOST_ID);if(h)h.remove();}
@@ -80,7 +129,14 @@ function render(state,live=null){
   if(s==='completed'){
     root.querySelector('.badge').classList.add('done');
     clearTimeout(hideTimer);
-    hideTimer=setTimeout(()=>{const cur=lastState?.status;if(cur==='completed')remove();},12000);
+    text('sub','Mapeamento concluído. O ZIP será baixado automaticamente e continuará disponível aqui.');
+    chrome.storage.local.get('gsMapperLastExportedSessionV1').then(x=>{
+      if(x.gsMapperLastExportedSessionV1!==state?.sessionId)exportZip(true);
+      else{
+        const btn=root.getElementById('export');
+        if(btn)btn.textContent='⬇ Baixar ZIP novamente';
+      }
+    }).catch(()=>{});
   }
 }
 async function sync(){
