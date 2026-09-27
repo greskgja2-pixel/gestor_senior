@@ -30,17 +30,84 @@ function Step({label,value,sub,rate,tone='blue'}){
   </div>
 }
 
+function productPlan(p,med){
+  const impressions=num(p.product_card_impressions),clicks=num(p.product_card_clicks),uv=num(p.uv),carts=num(p.add_to_cart_buyers),placed=num(p.placed_buyers),paid=num(p.paid_buyers),confirmed=num(p.confirmed_buyers);
+  const ctr=num(p.ctr),cartRate=num(p.uv_to_add_to_cart_rate),placedRate=num(p.uv_to_placed_buyers_rate),paidRate=num(p.uv_to_paid_buyers_rate);
+  const cartPlaced=carts>0&&placed!=null?placed/carts:null,placedPaid=placed>0&&paid!=null?paid/placed:null,paidConfirmed=paid>0&&confirmed!=null?confirmed/paid:null;
+  const low=(value,medianValue,minBase)=>value!=null&&medianValue!=null&&minBase&&value<medianValue*.6;
+  if((impressions??0)<100||(uv??0)<10)return{
+    priority:'data',rank:4,label:'POUCOS DADOS',title:'Ainda não dá para culpar uma etapa',
+    why:'O volume deste produto ainda é pequeno para separar um problema real de uma oscilação normal.',
+    evidence:`${int(impressions)} impressões · ${int(uv)} visitantes`,
+    actions:['Espere mais tráfego antes de mudar várias coisas ao mesmo tempo.','Se estiver usando Ads, confira se a campanha está realmente entregando impressões.','Faça uma alteração por vez para saber o que funcionou.'],
+    href:'/extensao-shopee-intelligence?section=shopee-ads',action:'Ver Shopee Ads'
+  };
+  if(low(ctr,med.ctr,impressions>=100))return{
+    priority:'bad',rank:0,label:'FAÇA AGORA',title:'Está travando antes do clique',
+    why:'O produto aparece, mas recebe proporcionalmente menos cliques que o padrão da sua própria loja.',
+    evidence:`CTR ${pct(ctr)} · mediana da loja ${pct(med.ctr)} · ${int(impressions)} impressões`,
+    actions:['Troque ou melhore a imagem principal antes de mexer na descrição.','Compare título, preço e oferta com os concorrentes que aparecem junto na busca.','Veja se o benefício principal do produto fica claro já na capa e no começo do título.'],
+    href:'/extensao-shopee-intelligence?section=super-anuncio',action:'Revisar capa e título'
+  };
+  if(low(cartRate,med.cart,uv>=10))return{
+    priority:'bad',rank:0,label:'FAÇA AGORA',title:'O cliente entra, mas não coloca no carrinho',
+    why:'A vitrine consegue trazer visitantes, porém o anúncio perde força quando a pessoa vê os detalhes.',
+    evidence:`Visita→carrinho ${pct(cartRate)} · mediana ${pct(med.cart)} · ${int(uv)} visitantes`,
+    actions:['Revise as imagens secundárias: medidas, quantidade, variações e benefícios precisam ficar óbvios.','Confira preço, frete, prazo, estoque das variações e avaliações recentes.','Melhore a descrição para responder dúvidas que aparecem nas avaliações e nos concorrentes.'],
+    href:'/extensao-shopee-intelligence?section=super-anuncio',action:'Revisar o anúncio'
+  };
+  if(low(cartPlaced,med.cartPlaced,carts>=5))return{
+    priority:'bad',rank:0,label:'FAÇA AGORA',title:'O cliente coloca no carrinho e desiste antes do pedido',
+    why:'Existe intenção de compra, mas uma parte grande não transforma o carrinho em pedido.',
+    evidence:`Carrinho→pedido ${pct(cartPlaced)} · mediana ${pct(med.cartPlaced)} · ${int(carts)} compradores no carrinho`,
+    actions:['Compare o preço final com os concorrentes, não só o preço de vitrine.','Revise frete, prazo e possibilidade de cupom/oferta; aqui eles pesam mais do que trocar título.','Confirme estoque e disponibilidade das variações mais procuradas.'],
+    href:'/pesquisa-produtos',action:'Comparar mercado'
+  };
+  if(low(placedPaid,med.placedPaid,placed>=5))return{
+    priority:'warn',rank:1,label:'REVISAR',title:'Muitos pedidos são criados, mas poucos viram pagamento',
+    why:'O gargalo está depois da intenção e da criação do pedido, perto do fechamento.',
+    evidence:`Pedido→pago ${pct(placedPaid)} · mediana ${pct(med.placedPaid)} · ${int(placed)} compradores com pedido`,
+    actions:['Não comece pela capa: o cliente já chegou longe no funil.','Revise preço final, cupom, frete/prazo e possíveis motivos de cancelamento do pedido.','Acompanhe se o problema se repete por alguns dias antes de fazer mudanças grandes.'],
+    href:'/insights',action:'Ver outros sinais'
+  };
+  if(low(paidConfirmed,med.paidConfirmed,paid>=5))return{
+    priority:'warn',rank:1,label:'REVISAR',title:'A venda é paga, mas perde força antes da confirmação',
+    why:'A aquisição funcionou; o ponto de atenção está na etapa operacional depois do pagamento.',
+    evidence:`Pago→confirmado ${pct(paidConfirmed)} · mediana ${pct(med.paidConfirmed)} · ${int(paid)} compradores pagos`,
+    actions:['Cheque cancelamentos, ruptura de estoque e problemas de expedição antes de mudar o anúncio.','Confirme se as variações vendidas realmente têm estoque disponível.','Priorize a operação; mexer em título ou capa não resolve este gargalo.'],
+    href:'/produtos',action:'Ver produto'
+  };
+  return{
+    priority:'good',rank:3,label:'SAUDÁVEL',title:'Nenhum gargalo forte apareceu agora',
+    why:'As principais taxas deste produto estão próximas ou acima do padrão da sua própria loja.',
+    evidence:`CTR ${pct(ctr)} · visita→carrinho ${pct(cartRate)} · visita→pago ${pct(paidRate)}`,
+    actions:['Evite mudanças grandes sem motivo.','Use este anúncio como referência para comparar produtos que estão travando.','Se houver margem e estoque, avalie aumentar tráfego de forma controlada.'],
+    href:'/extensao-shopee-intelligence?section=shopee-ads',action:'Avaliar tráfego'
+  };
+}
+
+function ProductActionCard({p,med}){
+  const plan=productPlan(p,med);
+  return <article className={styles.actionCard} data-priority={plan.priority}>
+    <div className={styles.actionTop}>
+      <div className={styles.product}><img src={p.image||'/favicon.ico'} alt=""/><div><b>{p.name||'Produto'}</b><small>ID {p.id||'—'}</small></div></div>
+      <span>{plan.label}</span>
+    </div>
+    <div className={styles.actionBody}>
+      <div><h3>{plan.title}</h3><p>{plan.why}</p><small className={styles.evidence}>{plan.evidence}</small></div>
+      <div className={styles.actionSteps}><strong>O que fazer primeiro</strong><ol>{plan.actions.map((a,i)=><li key={i}>{a}</li>)}</ol></div>
+    </div>
+    <div className={styles.actionFooter}><Link href={plan.href}>{plan.action} →</Link><small>Recomendação baseada no gargalo observado, não em promessa de resultado.</small></div>
+  </article>
+}
+
 function ProductRow({p,med}){
-  const ctr=num(p.ctr),cartRate=num(p.uv_to_add_to_cart_rate),paidRate=num(p.uv_to_paid_buyers_rate);
-  const flags=[];
-  if(num(p.product_card_impressions)>=100&&ctr!=null&&med.ctr!=null&&ctr<med.ctr*.6)flags.push('CTR baixo');
-  if(num(p.uv)>=10&&cartRate!=null&&med.cart!=null&&cartRate<med.cart*.6)flags.push('Pouco carrinho');
-  if(num(p.uv)>=10&&paidRate!=null&&med.paid!=null&&paidRate<med.paid*.6)flags.push('Conversão baixa');
+  const plan=productPlan(p,med);
   return <tr>
     <td><div className={styles.product}><img src={p.image||'/favicon.ico'} alt=""/><div><b>{p.name||'Produto'}</b><small>ID {p.id||'—'}</small></div></div></td>
-    <td>{int(p.product_card_impressions)}</td><td>{int(p.product_card_clicks)}</td><td>{pct(ctr)}</td>
+    <td>{int(p.product_card_impressions)}</td><td>{int(p.product_card_clicks)}</td><td>{pct(num(p.ctr))}</td>
     <td>{int(p.uv)}</td><td>{int(p.add_to_cart_buyers)}</td><td>{int(p.placed_buyers)}</td><td>{int(p.paid_buyers)}</td><td>{int(p.confirmed_buyers)}</td>
-    <td><span className={styles.flag} data-ok={flags.length?'false':'true'}>{flags.length?flags.join(' · '):'Sem alerta forte'}</span></td>
+    <td><span className={styles.flag} data-priority={plan.priority}>{plan.label}</span></td>
   </tr>
 }
 
@@ -88,7 +155,14 @@ export default function FunilPage(){
       placedPaid:totals.placed>0&&totals.paid!=null?totals.paid/totals.placed:null,
       paidConfirmed:totals.paid>0&&totals.confirmed!=null?totals.confirmed/totals.paid:null
     };
-    const med={ctr:median(products.map(p=>num(p.ctr))),cart:median(products.map(p=>num(p.uv_to_add_to_cart_rate))),paid:median(products.map(p=>num(p.uv_to_paid_buyers_rate)))};
+    const med={
+      ctr:median(products.map(p=>num(p.ctr))),
+      cart:median(products.map(p=>num(p.uv_to_add_to_cart_rate))),
+      paid:median(products.map(p=>num(p.uv_to_paid_buyers_rate))),
+      cartPlaced:median(products.map(p=>{const a=num(p.add_to_cart_buyers),b=num(p.placed_buyers);return a>0&&b!=null?b/a:null})),
+      placedPaid:median(products.map(p=>{const a=num(p.placed_buyers),b=num(p.paid_buyers);return a>0&&b!=null?b/a:null})),
+      paidConfirmed:median(products.map(p=>{const a=num(p.paid_buyers),b=num(p.confirmed_buyers);return a>0&&b!=null?b/a:null}))
+    };
     const sources=[];
     const tr=s.traffic||{};
     for(const [key,label] of [['product_card','Card de produto / Busca'],['live','Live'],['video','Vídeo'],['affiliate','Afiliados'],['paid_ads','Shopee Ads']]){
@@ -148,8 +222,14 @@ export default function FunilPage(){
     </>}
 
     {tab==='produto'&&<section className={styles.panel}>
-      <div className={styles.sectionHead}><div><h2>Funil por Produto</h2><p>Compara cada anúncio com a mediana da sua própria loja, sem benchmark inventado.</p></div><span>{model.products.length} produtos</span></div>
-      {!model.products.length?<div className={styles.empty}>Sem dados de produto no momento.</div>:<div className={styles.tableWrap}><table><thead><tr><th>Produto</th><th>Impressões</th><th>Cliques</th><th>CTR</th><th>Visitantes</th><th>Carrinho</th><th>Pedido</th><th>Pago</th><th>Confirmado</th><th>Diagnóstico</th></tr></thead><tbody>{model.products.map(p=><ProductRow key={p.id} p={p} med={model.med}/>)}</tbody></table></div>}
+      <div className={styles.sectionHead}><div><h2>Funil por Produto</h2><p>O Gestor aponta onde cada anúncio trava e dá uma ordem prática do que revisar primeiro.</p></div><span>{model.products.length} produtos</span></div>
+      {!model.products.length?<div className={styles.empty}>Sem dados de produto no momento.</div>:<>
+        <div className={styles.actionIntro}><b>Plano de destrave</b><span>Prioridade: primeiro os produtos com gargalo mais forte. Produtos com pouco volume ficam separados para evitar conclusões precipitadas.</span></div>
+        <div className={styles.actionList}>
+          {[...model.products].sort((a,b)=>productPlan(a,model.med).rank-productPlan(b,model.med).rank).map(p=><ProductActionCard key={'plan-'+p.id} p={p} med={model.med}/>)}
+        </div>
+        <details className={styles.rawDetails}><summary>Ver tabela completa de números</summary><div className={styles.tableWrap}><table><thead><tr><th>Produto</th><th>Impressões</th><th>Cliques</th><th>CTR</th><th>Visitantes</th><th>Carrinho</th><th>Pedido</th><th>Pago</th><th>Confirmado</th><th>Status</th></tr></thead><tbody>{model.products.map(p=><ProductRow key={p.id} p={p} med={model.med}/>)}</tbody></table></div></details>
+      </>}
     </section>}
 
     {tab==='trafego'&&<section className={styles.panel}>
