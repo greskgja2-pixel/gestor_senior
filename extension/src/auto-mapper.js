@@ -46,9 +46,9 @@ async function collectShopeeSearchResults(tabId){
     window.scrollTo(0,startY);
     await sleep(180);
 
-    const clean=v=>String(v||'').replace(/\\s+/g,' ').trim();
-    const money=v=>[...String(v||'').matchAll(/R\\$\\s*([\\d\\.]+(?:,\\d{1,2})?)/g)].map(m=>m[0]);
-    const textLines=el=>String(el?.innerText||'').split(/\\n+/).map(clean).filter(Boolean).slice(0,80);
+    const clean=v=>String(v||'').replace(/\s+/g,' ').trim();
+    const money=v=>[...String(v||'').matchAll(/R\$\s*([\d\.]+(?:,\d{1,2})?)/g)].map(m=>m[0]);
+    const textLines=el=>String(el?.innerText||'').split(/\n+/).map(clean).filter(Boolean).slice(0,80);
     const attrs=el=>{const o={};if(!el)return o;for(const n of el.getAttributeNames().slice(0,40)){const v=el.getAttribute(n);if(v!=null&&String(v).length<=500)o[n]=v;}return o;};
     const findCard=a=>{
       let cur=a,best=a;
@@ -59,13 +59,13 @@ async function collectShopeeSearchResults(tabId){
       return best;
     };
     const parseIds=href=>{
-      let m=String(href||'').match(/-i\\.(\\d+)\\.(\\d+)(?:[/?#]|$)/i);
+      let m=String(href||'').match(/-i\.(\d+)\.(\d+)(?:[/?#]|$)/i);
       if(m)return{shopId:m[1],itemId:m[2]};
-      m=String(href||'').match(/\\/product\\/(\\d+)\\/(\\d+)(?:[/?#]|$)/i);
+      m=String(href||'').match(/\/product\/(\d+)\/(\d+)(?:[/?#]|$)/i);
       return m?{shopId:m[1],itemId:m[2]}:{shopId:null,itemId:null};
     };
     const stateNames=['Acre','Alagoas','Amapá','Amazonas','Bahia','Ceará','Distrito Federal','Espírito Santo','Goiás','Maranhão','Mato Grosso','Mato Grosso do Sul','Minas Gerais','Pará','Paraíba','Paraná','Pernambuco','Piauí','Rio de Janeiro','Rio Grande do Norte','Rio Grande do Sul','Rondônia','Roraima','Santa Catarina','São Paulo','Sergipe','Tocantins'];
-    const anchors=[...document.querySelectorAll('a[href]')].filter(a=>/-i\\.\\d+\\.\\d+|\\/product\\/\\d+\\/\\d+/i.test(a.href||''));
+    const anchors=[...document.querySelectorAll('a[href]')].filter(a=>/-i\.\d+\.\d+|\/product\/\d+\/\d+/i.test(a.href||''));
     const seen=new Set(),products=[];
     for(const a of anchors){
       const ids=parseIds(a.href);
@@ -79,11 +79,11 @@ async function collectShopeeSearchResults(tabId){
         card.querySelector('[data-sqe="name"]')?.innerText||
         card.querySelector('[title]')?.getAttribute('title')||
         card.querySelector('img[alt]')?.getAttribute('alt')||
-        lines.find(x=>x.length>18&&!/^R\\$/i.test(x))||''
+        lines.find(x=>x.length>18&&!/^R\$/i.test(x))||''
       ).slice(0,500);
-      const soldRaw=lines.find(x=>/\\bvendid[oa]s?\\b/i.test(x))||null;
-      const ratingRaw=lines.find(x=>/(^|\\s)[0-5](?:[.,]\\d)\\s*(?:\\/\\s*5)?($|\\s)/.test(x))||null;
-      const discountRaw=lines.find(x=>/\\d{1,3}%\\s*(?:OFF|desconto)?/i.test(x))||null;
+      const soldRaw=lines.find(x=>/\bvendid[oa]s?\b/i.test(x))||null;
+      const ratingRaw=lines.find(x=>/(^|\s)[0-5](?:[.,]\d)\s*(?:\/\s*5)?($|\s)/.test(x))||null;
+      const discountRaw=lines.find(x=>/\d{1,3}%\s*(?:OFF|desconto)?/i.test(x))||null;
       const locationRaw=lines.find(x=>stateNames.some(s=>x.toLowerCase().includes(s.toLowerCase())))||null;
       const sponsoredRaw=shortTexts.find(x=>/^(patrocinado|anúncio|ads?)$/i.test(x))||null;
       const rect=card.getBoundingClientRect();
@@ -99,9 +99,9 @@ async function collectShopeeSearchResults(tabId){
         discountRaw,
         locationRaw,
         sponsoredRaw,
-        preferredSeller:/\\bindicado\\b/i.test(rawText),
-        mall:/shopee\\s*mall|\\bmall\\b/i.test(rawText),
-        freeShipping:/frete\\s*gr[aá]tis/i.test(rawText),
+        preferredSeller:/\bindicado\b/i.test(rawText),
+        mall:/shopee\s*mall|\bmall\b/i.test(rawText),
+        freeShipping:/frete\s*gr[aá]tis/i.test(rawText),
         coupon:/cupom/i.test(rawText),
         images:imgs,
         badges:shortTexts,
