@@ -14,6 +14,7 @@ const superWorkspace=read('app/super-analise/SuperAnaliseWorkspace.js');
 const superAnalysis=read('app/super-analise/SuperAnaliseInteligente.js');
 
 const routes=[
+  '/funil',
   '/super-analise',
   '/pesquisa-produtos',
   '/extensao-shopee-intelligence?section=super-anuncio',
