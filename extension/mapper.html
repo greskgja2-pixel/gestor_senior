@@ -33,6 +33,7 @@
         <div><span>Prints</span><strong id="screenshots">0</strong></div>
         <div><span>Páginas</span><strong id="pages">0</strong></div>
         <div><span>APIs</span><strong id="apis">0</strong></div>
+        <div><span>Produtos pesquisa</span><strong id="searchProducts">0</strong></div>
       </div>
       <div class="checkpoint-grid">
         <div><span>Último checkpoint</span><strong id="checkpoint">—</strong></div>
@@ -45,6 +46,12 @@
 
     <section class="card controls">
       <div class="field-grid">
+        <label>Região para mapear
+          <select id="mapRegion">
+            <option value="all">Página inteira / modo normal</option>
+            <option value="shopee-search-results" selected>Resultados de pesquisa da Shopee</option>
+          </select>
+        </label>
         <label>Profundidade
           <select id="maxDepth">
             <option value="1">1 nível</option>
@@ -62,6 +69,7 @@
           </select>
         </label>
       </div>
+      <p class="region-help"><strong>Resultados de pesquisa:</strong> recarrega a busca com captura ativa, percorre a listagem para carregar os cards e salva produtos, posições, preços, vendas, avaliações, localização, badges, IDs, links, imagens, filtros, texto bruto e APIs observadas.</p>
       <label class="check"><input id="captureScreens" type="checkbox" checked> Tirar screenshots antes e depois de cada ação</label>
       <div class="button-row">
         <button id="startBtn" class="primary">Iniciar mapeamento</button>
