@@ -7,6 +7,7 @@ import {fetchJsonWithTimeout,motorData} from '../lib/client-async';
 
 const MENU=[
   {type:'item',label:'Dashboard',icon:'⌂',tone:'violet',href:'/'},
+  {type:'item',label:'Insights da Loja',icon:'✦',tone:'orange',href:'/insights'},
   {type:'item',label:'Super Análise',icon:'▤',tone:'indigo',href:'/super-analise'},
   {type:'item',label:'Pesquisa de Produtos',icon:'⌕',tone:'green',href:'/pesquisa-produtos'},
   {type:'item',label:'Super Anúncio',icon:'▣',tone:'cyan',href:'/extensao-shopee-intelligence?section=super-anuncio'},
@@ -47,6 +48,7 @@ function routeState(pathname,section){
     if(section==='config')return{label:'Configurações'};
     return{label:'Dashboard'};
   }
+  if(pathname.startsWith('/insights'))return{label:'Insights da Loja'};
   if(pathname.startsWith('/produtos'))return{label:'Super Análise',group:'products'};
   if(pathname.startsWith('/pesquisa-produtos'))return{label:'Pesquisa de Produtos'};
   if(pathname.startsWith('/pedidos'))return{label:'Pedidos'};
