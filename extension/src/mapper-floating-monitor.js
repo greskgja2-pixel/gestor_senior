@@ -1,0 +1,92 @@
+(()=>{
+'use strict';
+const STATE_KEY='gsAutoMapperStateV1';
+const HOST_ID='gs-mapper-floating-monitor';
+let lastLive=null,lastState=null,hideTimer=null;
+
+function statusLabel(s){
+  return ({running:'Mapeando',paused:'Pausado',stopping:'Parando',stopped:'Parado',completed:'Concluído',error:'Erro',interrupted:'Interrompido'})[s]||'Mapeador';
+}
+function ensure(){
+  let host=document.getElementById(HOST_ID);
+  if(host)return host;
+  host=document.createElement('div');host.id=HOST_ID;
+  host.style.cssText='all:initial;position:fixed;z-index:2147483647;right:10px;bottom:12px;width:min(360px,calc(100vw - 20px));font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;color:#eaf4ff;pointer-events:auto;';
+  const root=host.attachShadow({mode:'open'});
+  root.innerHTML=`
+    <style>
+      *{box-sizing:border-box}button{font:inherit}
+      .box{background:rgba(5,20,35,.97);border:1px solid #2d5475;border-radius:16px;box-shadow:0 14px 45px rgba(0,0,0,.38);overflow:hidden;backdrop-filter:blur(10px)}
+      .head{display:flex;align-items:center;gap:10px;padding:11px 12px;border-bottom:1px solid #17344d}
+      .logo{width:34px;height:34px;display:grid;place-items:center;border-radius:10px;background:#0f2e49;color:#68d4ff;font-weight:900;font-size:12px}
+      .titles{min-width:0;flex:1}.titles b{display:block;font-size:13px;color:#f5faff}.titles span{display:block;font-size:10px;color:#8ea9bd;margin-top:1px}
+      .mini{border:0;background:#173650;color:#c9eaff;width:31px;height:31px;border-radius:9px;font-size:18px;font-weight:900}
+      .body{padding:12px}.status{display:flex;align-items:center;justify-content:space-between;gap:8px}.badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:900;color:#72dbff}.dot{width:8px;height:8px;border-radius:99px;background:#48d68c;box-shadow:0 0 0 4px rgba(72,214,140,.12);animation:pulse 1s infinite alternate}.paused .dot{background:#f0b84a}.error .dot{background:#ff6d7b}.completed .dot{background:#63dca0;animation:none}
+      .pct{font-size:18px;font-weight:900}.action{margin:8px 0 9px;font-size:12px;line-height:1.35;color:#dcecff;min-height:32px}.sub{font-size:10px;color:#8ca5b9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .bar{height:7px;background:#102b40;border-radius:99px;overflow:hidden;margin:9px 0}.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#1b76ff,#43d2ff);border-radius:99px;transition:width .25s ease}
+      .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:9px}.stat{padding:7px;border-radius:9px;background:#0c2940;text-align:center}.stat b{display:block;font-size:14px}.stat span{display:block;font-size:8px;color:#89a4b9;margin-top:1px}
+      .buttons{display:flex;gap:7px;margin-top:10px}.buttons button{flex:1;border:1px solid #2d5475;background:#12334d;color:#e9f6ff;border-radius:9px;padding:8px;font-size:10px;font-weight:800}.buttons .stop{border-color:#693846;background:#3d202a;color:#ffdce2}
+      .done{color:#7fe2aa}.hiddenBody .body{display:none}.hiddenBody .head{border-bottom:0}
+      @keyframes pulse{from{opacity:.55;transform:scale(.88)}to{opacity:1;transform:scale(1.08)}}
+      @media(max-width:520px){.box{border-radius:14px}.head{padding:9px 10px}.body{padding:10px}.stats{gap:4px}.stat{padding:6px 4px}}
+    </style>
+    <div class="box">
+      <div class="head"><div class="logo">GS</div><div class="titles"><b>Mapeador Motor Sênior</b><span id="region">Acompanhamento ao vivo</span></div><button class="mini" id="mini" aria-label="Minimizar">−</button></div>
+      <div class="body">
+        <div class="status"><span class="badge"><i class="dot"></i><span id="status">Mapeando</span></span><b class="pct" id="pct">0%</b></div>
+        <div class="action" id="action">Preparando mapeamento…</div>
+        <div class="sub" id="sub">Aguarde enquanto a página é analisada.</div>
+        <div class="bar"><i id="bar"></i></div>
+        <div class="stats">
+          <div class="stat"><b id="products">0</b><span>PRODUTOS</span></div>
+          <div class="stat"><b id="apis">0</b><span>APIs</span></div>
+          <div class="stat"><b id="screens">0</b><span>CAPTURAS</span></div>
+        </div>
+        <div class="buttons"><button id="pause">Pausar</button><button class="stop" id="stop">Parar</button></div>
+      </div>
+    </div>`;
+  document.documentElement.appendChild(host);
+  const box=root.querySelector('.box');
+  root.getElementById('mini').onclick=()=>{box.classList.toggle('hiddenBody');root.getElementById('mini').textContent=box.classList.contains('hiddenBody')?'＋':'−';};
+  root.getElementById('pause').onclick=async()=>{
+    const s=lastState?.status;
+    if(s==='paused')chrome.runtime.sendMessage({type:'GS_MAPPER_RESUME'}).catch(()=>{});
+    else chrome.runtime.sendMessage({type:'GS_MAPPER_PAUSE'}).catch(()=>{});
+  };
+  root.getElementById('stop').onclick=()=>chrome.runtime.sendMessage({type:'GS_MAPPER_STOP'}).catch(()=>{});
+  return host;
+}
+function remove(){const h=document.getElementById(HOST_ID);if(h)h.remove();}
+function text(id,v){const h=document.getElementById(HOST_ID),el=h?.shadowRoot?.getElementById(id);if(el)el.textContent=String(v??'');}
+function render(state,live=null){
+  lastState=state||lastState;if(live)lastLive=live;
+  const s=state?.status||'idle';
+  if(!['running','paused','stopping','completed','error','interrupted'].includes(s)){remove();return;}
+  const host=ensure(),root=host.shadowRoot,box=root.querySelector('.box');
+  box.classList.toggle('paused',s==='paused');box.classList.toggle('error',s==='error'||s==='interrupted');box.classList.toggle('completed',s==='completed');
+  const basePct=Number(state?.percent)||0;
+  const livePct=Number(lastLive?.percent);
+  const pct=s==='completed'?100:(Number.isFinite(livePct)?Math.max(basePct,Math.min(99,livePct)):basePct);
+  text('status',statusLabel(s));text('pct',pct+'%');root.getElementById('bar').style.width=pct+'%';
+  const region=state?.settings?.regionMode==='shopee-search-results'?'Resultados de pesquisa Shopee':'Mapeamento da página';
+  text('region',region);
+  const action=lastLive?.label||state?.currentAction?.label||(s==='completed'?'Mapeamento concluído':s==='paused'?'Mapeamento pausado':'Analisando página…');
+  text('action',action);
+  text('sub',lastLive?.detail||(s==='completed'?'Dados prontos para exportar na extensão.':'Você pode continuar vendo a página enquanto o Motor trabalha.'));
+  const products=lastLive?.products??state?.searchResearch?.products?.length??state?.searchResearch?.productCount??0;
+  text('products',products);text('apis',state?.apiCount||0);text('screens',state?.screenshots||0);
+  const pause=root.getElementById('pause');pause.textContent=s==='paused'?'Continuar':'Pausar';pause.disabled=!['running','paused'].includes(s);
+  root.getElementById('stop').disabled=!['running','paused'].includes(s);
+  if(s==='completed'){
+    root.querySelector('.badge').classList.add('done');
+    clearTimeout(hideTimer);
+    hideTimer=setTimeout(()=>{const cur=lastState?.status;if(cur==='completed')remove();},12000);
+  }
+}
+async function sync(){
+  try{const x=await chrome.storage.local.get(STATE_KEY);render(x[STATE_KEY]||null);}catch{}
+}
+document.addEventListener('GS_MAPPER_LIVE_PROGRESS',e=>{if(e?.detail)render(lastState,e.detail);});
+chrome.storage.onChanged.addListener((changes,area)=>{if(area==='local'&&changes[STATE_KEY]){lastLive=null;render(changes[STATE_KEY].newValue||null);}});
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',sync,{once:true});else sync();
+})();
