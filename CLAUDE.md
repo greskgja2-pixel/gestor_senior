@@ -193,3 +193,13 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 **Extensão correspondente:** Motor Sênior v0.17.1. A coleta ocorre dentro de `seller.shopee.com.br`; cookies/tokens/`SPC_CDS` não são retornados ao Gestor nem documentados.
 
 **Pendência:** os endpoints MyData foram confirmados com `period=real_time`. Não automatizar histórico 7/14/30 neles até mapear os parâmetros corretos; por isso o histórico continua vindo da integração Ads já existente.
+
+
+### 2026-09-27 — ChatGPT — Plano de Destrave no Funil
+**Arquivos:** `app/funil/page.js`, `app/funil/funil.module.css`, `tests/navigation-routes.test.mjs`, `docs/ENCICLOPEDIA_SHOPEE_GESTOR_SENIOR.md` e este arquivo. Branch: `feature/funnel-action-plan`.
+
+**O que mudou:** a aba Por Produto agora ordena produtos por prioridade e mostra “onde travou → por quê → evidência → o que fazer primeiro”, cobrindo atração (CTR), visita→carrinho, carrinho→pedido, pedido→pago e pago→confirmado. Produtos com baixo volume não recebem diagnóstico forte. A tabela numérica continua disponível recolhida.
+
+**Heurística:** gargalo = taxa < 60% da mediana da própria loja, respeitando amostras mínimas (100 impressões para CTR; 10 UV para carrinho; 5 eventos nas etapas finais). O limiar é interno e ajustável, não oficial da Shopee.
+
+**Regra de UX:** ações recomendadas devem corresponder à etapa. Ex.: gargalo pós-pagamento prioriza operação/estoque/expedição, não capa/título. Nenhuma recomendação promete resultado.

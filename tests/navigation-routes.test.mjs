@@ -114,3 +114,14 @@ test('Análise de Funil usa o Motor Sênior e preserva fallback de Ads',()=>{
   assert.match(funnel,/\/api\/shopee\/ads\?days=7/);
   assert.match(funnel,/versão 0\.17\.1/);
 });
+
+
+test('Análise de Funil oferece plano de destrave por produto',()=>{
+  const funnel=read('app/funil/page.js');
+  assert.match(funnel,/function productPlan/);
+  assert.match(funnel,/Plano de destrave/);
+  for(const token of ['Está travando antes do clique','não coloca no carrinho','desiste antes do pedido','poucos viram pagamento','antes da confirmação','O que fazer primeiro'])assert.ok(funnel.includes(token),'orientação ausente: '+token);
+  assert.match(funnel,/med\.cartPlaced/);
+  assert.match(funnel,/med\.placedPaid/);
+  assert.match(funnel,/med\.paidConfirmed/);
+});
