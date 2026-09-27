@@ -2376,3 +2376,38 @@ A página de Análise de Funil deve traduzir o gargalo em uma ordem prática de 
 - recomendações são ações para verificar/revisar, não garantias de resultado;
 - não sugerir mudança de título/capa quando o gargalo ocorre depois do pedido;
 - não transformar ausência de dado em zero.
+
+
+## 11.10 Modos de orientação do Funil
+
+A Análise de Funil oferece dois níveis de orientação:
+
+- **Padrão:** mostra o gargalo e a lista de pontos a revisar.
+- **Específico — me diga o que fazer:** cruza o gargalo com a última Super Análise disponível, concorrentes vinculados, preço, custo e margem cadastrada.
+
+### Contexto específico
+
+O Gestor lê o contexto mais recente de `extension_analysis_reports` por `item_id`, incluindo:
+- `product_snapshot`;
+- `finance_snapshot.productCost`;
+- `finance_snapshot.marginPct`;
+- até 3 `competitors`;
+- sugestões previamente registradas pela Super Análise.
+
+O endpoint interno do Gestor é:
+
+```text
+GET /api/funnel/context?item_ids=<ids>
+```
+
+Ele não busca concorrentes novos nem altera a Shopee; somente reaproveita dados já coletados para a loja autenticada.
+
+### Regras do modo específico
+
+1. Nunca inventar preço, margem, concorrente ou recomendação visual.
+2. Se não houver Super Análise/concorrentes, avisar que a orientação específica está limitada.
+3. Preço de teste só pode ser sugerido quando houver preço próprio e preços reais de concorrentes vinculados; a mediana desses concorrentes deve aparecer como evidência.
+4. Se o preço sugerido puder comprometer a margem ou a margem não estiver disponível, apresentar o valor apenas como **alvo de mercado a validar**, não como alteração segura.
+5. Concorrentes usados na recomendação devem aparecer com link quando o link real estiver disponível.
+6. Sugestões específicas são testes controlados; nenhuma alteração é aplicada automaticamente.
+7. Gargalos pós-pedido/pós-pagamento não devem recomendar capa/título como primeira ação.

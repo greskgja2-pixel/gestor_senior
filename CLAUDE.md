@@ -203,3 +203,17 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 **Heurística:** gargalo = taxa < 60% da mediana da própria loja, respeitando amostras mínimas (100 impressões para CTR; 10 UV para carrinho; 5 eventos nas etapas finais). O limiar é interno e ajustável, não oficial da Shopee.
 
 **Regra de UX:** ações recomendadas devem corresponder à etapa. Ex.: gargalo pós-pagamento prioriza operação/estoque/expedição, não capa/título. Nenhuma recomendação promete resultado.
+
+
+### 2026-09-27 — ChatGPT — Modos Padrão e Específico no Funil
+**Arquivos:** `app/funil/page.js`, `app/funil/funil.module.css`, `app/api/funnel/context/route.js`, testes, Enciclopédia e este arquivo. Branch: `feature/funnel-guidance-modes`.
+
+**O que mudou:**
+1. A aba Por Produto ganhou seletor persistente: **Padrão** ou **Específico · me diga o que fazer**.
+2. O modo específico cruza o gargalo com a última Super Análise do mesmo `item_id`, até 3 concorrentes vinculados, preço, custo, margem e sugestões já coletadas.
+3. Quando houver evidência suficiente, o card mostra um teste concreto, os valores usados e links dos concorrentes de referência.
+4. Se faltar margem/custo/concorrentes, o sistema declara a limitação e não inventa um valor.
+5. Nenhuma alteração de preço, anúncio ou Ads é aplicada automaticamente; são testes recomendados para o usuário executar.
+6. Preferência de modo fica em `localStorage` apenas neste navegador.
+
+**Segurança de decisão:** preço exato só aparece como teste quando o preço próprio, a mediana de concorrentes e uma margem cadastrada compatível dão suporte; caso contrário, o valor é apresentado como alvo de mercado que precisa de validação de margem.

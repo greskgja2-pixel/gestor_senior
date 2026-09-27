@@ -125,3 +125,22 @@ test('Análise de Funil oferece plano de destrave por produto',()=>{
   assert.match(funnel,/med\.placedPaid/);
   assert.match(funnel,/med\.paidConfirmed/);
 });
+
+
+test('Análise de Funil possui modos padrão e específico com evidências reais',()=>{
+  const funnel=read('app/funil/page.js');
+  const contextApi=read('app/api/funnel/context/route.js');
+  assert.match(funnel,/guidanceMode/);
+  assert.match(funnel,/Padrão/);
+  assert.match(funnel,/Específico · me diga o que fazer/);
+  assert.match(funnel,/function specificPlan/);
+  assert.match(funnel,/\/api\/funnel\/context\?item_ids=/);
+  assert.match(funnel,/Concorrentes usados como referência/);
+  assert.match(funnel,/Base da sugestão específica/);
+  assert.match(funnel,/nenhuma alteração é aplicada/i);
+  assert.match(contextApi,/extension_analysis_reports/);
+  assert.match(contextApi,/competitors/);
+  assert.match(contextApi,/finance_snapshot/);
+  assert.match(contextApi,/marginPct/);
+  assert.match(contextApi,/productCost/);
+});
