@@ -176,3 +176,20 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 5. Página inclui explicação simples do que cada vazamento costuma significar e links para Shopee Ads, Super Anúncio, Produtos e Pesquisa de Produtos.
 
 **Validação planejada:** prebuild/testes via PR e preview Vercel antes de merge em `main`. Não foram criadas APIs novas nem números estimados.
+
+
+### 2026-09-27 — ChatGPT — Funil completo via Informações Gerenciais
+**Arquivos:** `app/funil/page.js`, `app/funil/funil.module.css`, `tests/navigation-routes.test.mjs`, `docs/ENCICLOPEDIA_SHOPEE_GESTOR_SENIOR.md` (v11) e este arquivo. Branch: `feature/funnel-sellercenter-v2`.
+
+**O que mudou:**
+1. A página de Funil passou a pedir `sellerFunnel` ao Motor Sênior e usar os endpoints estruturados MyData da sessão normal do Seller Center.
+2. Funil completo confirmado para hoje/tempo real: Impressões → Cliques → Visitantes → Carrinho → Pedido criado → Pago → Confirmado.
+3. Nova aba por produto com diagnóstico relativo à mediana da própria loja; sem benchmark universal.
+4. Nova aba de Fontes de Tráfego para Card/Busca, Live, Vídeo, Afiliados e Shopee Ads.
+5. Histórico Ads de 7 dias foi mantido como camada complementar e fallback.
+6. A UI avisa explicitamente quando a extensão ainda não suporta `sellerFunnel`; não preenche métricas ausentes com zero.
+7. Enciclopédia promovida para v11 com os endpoints `key-metrics`, `realtime_metrics`, `product-rankings`, `traffic-sources`, `product-contribution` e `contribution-trend`.
+
+**Extensão correspondente:** Motor Sênior v0.17.1. A coleta ocorre dentro de `seller.shopee.com.br`; cookies/tokens/`SPC_CDS` não são retornados ao Gestor nem documentados.
+
+**Pendência:** os endpoints MyData foram confirmados com `period=real_time`. Não automatizar histórico 7/14/30 neles até mapear os parâmetros corretos; por isso o histórico continua vindo da integração Ads já existente.
