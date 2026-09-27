@@ -163,3 +163,16 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 - Se a API retornar vazio, a tela entra em "Modo de compatibilidade" e oferece link direto para a ferramenta oficial `https://seller.shopee.com.br/portal/marketing/shop-flash-sale/list?type=0`.
 - Preço, estoque e limite continuam visíveis no Gestor; nenhuma oferta é criada automaticamente sem confirmação.
 - Arquivos: `app/super-analise/SuperAnaliseInteligente.js`, `app/super-analise/page.module.css`, `tests/super-analysis-layout.test.mjs`.
+
+
+### 2026-09-27 — ChatGPT — Análise de Funil nativa
+**Arquivos:** `app/funil/page.js`, `app/funil/funil.module.css`, `app/components/AppShell.js`, testes de navegação/sidebar e este arquivo. Branch: `feature/funnel-analysis`.
+
+**O que mudou:**
+1. Nova rota nativa `/funil` e item “Análise de Funil” no menu, sem alterar espaçamento/altura da sidebar.
+2. Funil por período (7/14/30 dias) usando apenas `/api/shopee/ads` e `/api/shopee/orders` já existentes; métricas ausentes aparecem como “—”.
+3. Etapas: Impressões → Cliques → Carrinho (somente se a fonte trouxer) → Pedidos Ads; taxas CTR, clique→pedido, carrinho→pedido e impressão→pedido.
+4. Diagnósticos não usam benchmark universal: comparam campanhas com a mediana da própria conta, além de sinalizar clique sem pedido.
+5. Página inclui explicação simples do que cada vazamento costuma significar e links para Shopee Ads, Super Anúncio, Produtos e Pesquisa de Produtos.
+
+**Validação planejada:** prebuild/testes via PR e preview Vercel antes de merge em `main`. Não foram criadas APIs novas nem números estimados.
