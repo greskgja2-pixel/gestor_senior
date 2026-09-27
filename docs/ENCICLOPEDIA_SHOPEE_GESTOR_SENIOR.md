@@ -1,7 +1,7 @@
 # Enciclopédia Shopee Seller Center → Gestor Sênior
 
-**Versão:** 10.0 (v9 intacta + seção v10 da curadoria Claude, pendente de comparação com o DELTA do ChatGPT)  
-**Origem:** consolidação das sessões do Shopee Seller Auto Mapper + validações visuais + mapeamentos do Seller Center e Marketplace público até 24/09/2026  
+**Versão:** 11.0 (v10 consolidada + Informações Gerenciais / Funil confirmadas em 27/09/2026)  
+**Origem:** consolidação das sessões do Shopee Seller Auto Mapper + validações visuais + mapeamentos do Seller Center e Marketplace público até 27/09/2026  
 **Uso:** referência técnica para ChatGPT, Claude e desenvolvimento do Gestor Sênior.
 
 ## Regra principal
@@ -1857,3 +1857,496 @@ Se um dado não estiver confirmado, classificá-lo explicitamente como candidato
 - Resolver `roi_target_setting.value` = 40,0 em `get_time_graph`.
 - Entender os 2 produtos a menos (23 x 25) e o 1 anúncio cujo `campaign_id` não bateu.
 - Validar `is_cold_start=true` em um anúncio novo.
+
+
+---
+
+# Atualização v11 — Informações Gerenciais, Funil completo e Fontes de Tráfego
+
+**Data:** 27/09/2026  
+**Origem:** captura real da página `Seller Center → Dados → Informações Gerenciais → Visão Geral`, com o Motor Sênior, mais validação visual da tela enviada pelo usuário.  
+**Status:** CONFIRMADO para os endpoints/estruturas abaixo. Nenhum cookie, `SPC_CDS`, token de chat ou credencial deve ser persistido no Gestor.
+
+## 11.1 Métricas principais da loja — tempo real
+
+**Endpoint**
+
+```text
+GET /api/mydata/v3/dashboard/key-metrics/
+```
+
+**Query observada**
+
+```text
+start_time=<epoch>
+end_time=<epoch>
+period=real_time
+fetag=fetag
+```
+
+**Campos estruturados confirmados em `result`**
+
+```text
+shop_pv
+shop_uv
+product_clicks
+hybrid_uv
+paid_gmv
+place_gmv
+paid_orders
+place_orders
+paid_sales_per_order
+place_sales_per_order
+shop_uv_to_paid_buyers_rate
+shop_uv_to_placed_buyers_rate
+confirmed_gmv
+confirmed_orders
+confirmed_sales_per_order
+shop_uv_to_confirmed_buyers_rate
+product_clicks_to_placed_orders_rate
+product_clicks_to_paid_orders_rate
+product_clicks_to_confirmed_orders_rate
+paid_gmv_without_shopee_rebate
+place_gmv_without_shopee_rebate
+confirmed_gmv_without_shopee_rebate
+```
+
+Cada métrica observada tem a estrutura:
+
+```text
+{
+  value,
+  chain_ratio,
+  points:[{timestamp,value}]
+}
+```
+
+### Semântica para o Gestor
+
+- `shop_pv` = visualizações da loja/páginas no período.
+- `shop_uv` = visitantes únicos da loja no período.
+- `product_clicks` = cliques nos produtos.
+- `place_orders` = pedidos criados.
+- `paid_orders` = pedidos pagos.
+- `confirmed_orders` = pedidos confirmados.
+- `place_gmv`, `paid_gmv`, `confirmed_gmv` = valores correspondentes às fases do pedido.
+- taxas `*_rate` são razões decimais e devem ser exibidas em porcentagem apenas na camada de apresentação.
+
+### Aplicações
+
+- Funil da loja;
+- série temporal;
+- comparação período a período;
+- taxa visitante → pedido;
+- separação pedido criado / pago / confirmado.
+
+---
+
+## 11.2 Painel em tempo real — resumo de hoje
+
+**Endpoint**
+
+```text
+GET /api/mydata/v2/campaign_board/realtime_metrics/
+```
+
+**Query observada**
+
+```text
+event=paid
+```
+
+**Campos confirmados**
+
+```text
+data.key_metrics.uv
+data.key_metrics.hybrid_uv
+data.key_metrics.pv
+data.key_metrics.product_clicks
+data.key_metrics.orders
+data.key_metrics.uv_to_buyers_rate
+data.key_metrics.product_clicks_to_orders_rate
+data.key_metrics.units
+data.key_metrics.buyers
+data.key_metrics.sales
+data.top_sales_items[]
+data.sales_hourly[]
+data.time
+```
+
+### Regra
+
+Usar como camada de tempo real/resumo. Não substituir automaticamente as métricas detalhadas de `key-metrics` quando ambas estiverem disponíveis; manter a origem de cada número.
+
+---
+
+## 11.3 Funil completo por produto — descoberta principal
+
+**Endpoint confirmado**
+
+```text
+GET /api/mydata/v3/dashboard/product-rankings/
+```
+
+**Query observada**
+
+```text
+start_time=<epoch>
+end_time=<epoch>
+period=real_time
+category_type=shopee
+category_id=-1
+page_size=5
+page_num=<n>
+order_type=paid
+order_by=paid_sales.desc
+```
+
+**Paginação:** `result.total` + `result.items[]`.
+
+### Identificação do produto
+
+```text
+id
+name
+image
+status
+display_tag_label
+models
+```
+
+### Aquisição / descoberta
+
+```text
+product_card_impressions
+unique_product_card_impressions
+product_card_clicks
+unique_product_card_clicks
+ctr
+search_clicks
+```
+
+### Visita / interesse
+
+```text
+uv
+pv
+likes
+bounce_visitors
+bounce_rate
+```
+
+### Carrinho
+
+```text
+add_to_cart_units
+add_to_cart_buyers
+uv_to_add_to_cart_rate
+```
+
+### Pedido criado
+
+```text
+placed_sales
+placed_units
+placed_buyers
+placed_orders
+placed_sales_per_order
+placed_order_conversion_rate
+uv_to_placed_buyers_rate
+```
+
+### Pedido pago
+
+```text
+paid_sales
+paid_units
+paid_buyers
+paid_orders
+paid_sales_per_order
+paid_order_conversion_rate
+uv_to_paid_buyers_rate
+placed_to_paid_buyers_rate
+```
+
+### Pedido confirmado
+
+```text
+confirmed_sales
+confirmed_units
+confirmed_buyers
+confirmed_orders
+confirmed_sales_per_order
+confirmed_order_conversion_rate
+uv_to_confirmed_buyers_rate
+placed_buyers_to_confirmed_buyers_rate
+```
+
+### Recompra / recorrência
+
+```text
+repeat_placed_order_rate
+average_days_to_repeat_placed_order
+repeat_paid_order_rate
+average_days_to_repeat_paid_order
+repeat_confirmed_order_rate
+average_days_to_repeat_confirmed_order
+```
+
+### Funil oficial recomendado no Gestor
+
+```text
+Impressões
+→ Cliques no produto
+→ Visitantes únicos (UV)
+→ Adicionaram ao carrinho
+→ Pedido criado
+→ Pedido pago
+→ Pedido confirmado
+```
+
+**Não foi encontrado um estágio explícito equivalente a “iniciou checkout”.** Não inventar essa etapa.
+
+### Regras de diagnóstico
+
+- comparar CTR, `uv_to_add_to_cart_rate`, `uv_to_placed_buyers_rate`, `uv_to_paid_buyers_rate` e `uv_to_confirmed_buyers_rate`;
+- preferir comparação com a mediana da própria loja quando não houver benchmark oficial da Shopee;
+- mostrar tamanho da amostra junto de taxas com baixo volume;
+- não tratar zero como “ruim” quando o campo estiver ausente ou a fonte tiver falhado;
+- para análise por produto, usar `id` como chave do anúncio e preservar o período exato.
+
+### Correção da seção v10.5
+
+A antiga entrada `GET /api/mydata/v4/product/performance/` continua registrada como mapeamento anterior. A coleta de 27/09 confirmou que a tela atual também usa `GET /api/mydata/v3/dashboard/product-rankings/` com um conjunto mais completo de campos de funil. Para a implementação atual do Gestor, priorizar o endpoint v3 observado nesta sessão e manter v4 apenas como fonte histórica/candidata até nova reconfirmação.
+
+---
+
+## 11.4 Fontes de Tráfego
+
+**Endpoint**
+
+```text
+GET /api/mydata/v1/dashboard/traffic-sources/
+```
+
+**Query observada**
+
+```text
+start_time=<epoch>
+end_time=<epoch>
+period=real_time
+order_type=paid
+need_paid_ads_data=false
+```
+
+**Estrutura principal**
+
+```text
+result.overview
+result.product_card
+result.live
+result.video
+result.affiliate
+result.paid_ads
+```
+
+Cada fonte pode conter `total` e `breakdown`.
+
+### Métricas observadas nas fontes orgânicas/conteúdo
+
+```text
+sales
+orders
+units
+buyers
+product_clicks
+unique_product_clicks
+product_impressions
+unique_product_impressions
+sales_per_order
+ctr
+product_clicks_to_orders_rate
+*_pct_diff
+```
+
+Campos específicos também aparecem conforme a fonte:
+
+```text
+live_views
+live_viewers
+video_views
+video_viewers
+content_views
+content_viewers
+```
+
+### Shopee Ads dentro de Fontes de Tráfego
+
+`result.paid_ads.total` contém:
+
+```text
+sales
+orders
+units
+product_impressions
+product_clicks
+ads_expense
+ads_roas
+live_views
+video_views
+ctr
+conversion
+*_pct_diff
+```
+
+### Aplicações
+
+- participação de Ads versus tráfego não pago;
+- contribuição de busca/card de produto;
+- contribuição de Live;
+- contribuição de Vídeo;
+- contribuição de Afiliados;
+- diagnóstico “este produto depende de Ads”;
+- análise de diversificação de aquisição.
+
+---
+
+## 11.5 Contribuição por produto e por origem
+
+**Endpoint**
+
+```text
+GET /api/mydata/v1/dashboard/traffic-sources/product-contribution/
+```
+
+**Campos em `result.item[]`**
+
+```text
+id
+name
+image
+status
+display_tag_label
+show_boost_traffic
+view_ads
+campaign_id
+is_boost_with_ads
+sales_ratio
+sales
+orders
+units
+buyers
+product_clicks
+unique_product_clicks
+product_impressions
+unique_product_impressions
+sales_per_order
+ctr
+product_clicks_to_orders_rate
+*_pct_diff
+```
+
+Esse endpoint permite ligar contribuição comercial, tráfego e presença de Ads ao produto.
+
+---
+
+## 11.6 Tendência de uma fonte específica
+
+**Endpoint**
+
+```text
+GET /api/mydata/v1/dashboard/traffic-sources/contribution-trend/
+```
+
+**Exemplo observado**
+
+```text
+l1_source=psd_label_product_card
+l2_source=psd_label_search
+```
+
+**Campos de `result.time_series[]`**
+
+```text
+t
+source
+sales_ratio
+orders_ratio
+product_clicks_ratio
+product_impressions_ratio
+sales
+orders
+units
+buyers
+product_clicks
+unique_product_clicks
+sales_per_order
+ctr
+product_clicks_to_orders_rate
+product_impressions
+unique_product_impressions
+```
+
+### Aplicação
+
+Usar para gráfico temporal da contribuição da Busca ou outra subfonte quando a UI exigir análise de tendência.
+
+---
+
+## 11.7 Arquitetura de coleta para o Funil no Gestor Sênior
+
+Como esses endpoints são internos do Seller Center e dependem da sessão normal do navegador, a implementação aprovada é:
+
+```text
+Gestor Sênior
+→ solicita "sellerFunnel" ao Motor Sênior
+→ extensão usa a sessão já autenticada do usuário no Seller Center
+→ fetch ocorre dentro da própria página seller.shopee.com.br
+→ extensão devolve apenas JSON de negócio normalizado
+→ nenhum cookie/token/SPC_CDS é salvo no Gestor
+```
+
+### Regra de segurança
+
+- nunca enviar cookies, `SPC_CDS`, CSRF ou tokens para o backend do Gestor;
+- nunca persistir credenciais no ZIP/enciclopédia;
+- abrir a página oficial do Seller Center se não houver aba já aberta;
+- somente leitura;
+- falhas de endpoint devem virar `sem dados`, nunca zero inventado.
+
+### Regra de período
+
+Nesta sessão, `period=real_time` foi confirmado. Períodos históricos de 7/14/30 dias nesses endpoints internos ainda devem ser reconfirmados antes de automatizar parâmetros diferentes. Enquanto isso, o Gestor pode combinar:
+- funil completo de **Hoje / tempo real** pelo Seller Center;
+- histórico de **Shopee Ads** pelas APIs já mapeadas e autorizadas.
+
+---
+
+## 11.8 Impacto direto na página Análise de Funil
+
+A tela do Gestor deve ter quatro blocos:
+
+1. **Funil da Loja** — Impressões → Cliques → Visitantes → Carrinho → Pedido criado → Pago → Confirmado.
+2. **Por Produto** — o mesmo funil por `item_id`, com diagnóstico relativo à mediana da própria loja.
+3. **Fontes de Tráfego** — Card/Busca, Live, Vídeo, Afiliados e Shopee Ads.
+4. **Histórico Ads** — visão complementar de 7/14/30 dias usando a integração de Ads já existente.
+
+### O que não fazer
+
+- não criar “checkout iniciado” sem fonte;
+- não misturar pedidos Ads com pedidos totais sem rotular;
+- não usar benchmark externo como regra universal;
+- não somar UV de produtos e chamar de UV da loja sem identificar a diferença de escopo;
+- não substituir `null` por zero;
+- não inferir causalidade apenas de correlação entre queda de taxa e algum atributo do anúncio.
+
+---
+
+## Resumo da curadoria v11
+
+- Endpoints de negócio novos/promovidos: **6**.
+- Principal nova capacidade: **funil completo por produto**.
+- Etapas novas utilizáveis no Gestor: **UV, PV, carrinho, pedido criado, pago e confirmado**.
+- Fontes de tráfego estruturadas: **Card/Busca, Live, Vídeo, Afiliados e Shopee Ads**.
+- Pendência principal: confirmar parâmetros históricos dos endpoints MyData além de `period=real_time`.
+- Etapa não encontrada: **início de checkout**.
