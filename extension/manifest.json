@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Motor Senior",
-  "version": "0.15.0",
-  "version_name": "0.15.0 - Mapeamento de Resultados de Pesquisa Shopee",
+  "version": "0.15.1",
+  "version_name": "0.15.1 - Monitor flutuante do mapeamento",
   "minimum_chrome_version": "114",
   "description": "Motor técnico do Gestor Sênior para coleta da Shopee, concorrentes, Ads, custos, Pesquisa de Produtos e mapeamento automático de telas.",
   "permissions": [
@@ -112,6 +112,18 @@
       "run_at": "document_start",
       "world": "ISOLATED",
       "all_frames": true
+    },
+    {
+      "matches": [
+        "https://shopee.com.br/*",
+        "https://*.shopee.com.br/*",
+        "https://seller.shopee.com.br/*"
+      ],
+      "js": [
+        "src/mapper-floating-monitor.js"
+      ],
+      "run_at": "document_start",
+      "world": "ISOLATED"
     }
   ],
   "web_accessible_resources": [
