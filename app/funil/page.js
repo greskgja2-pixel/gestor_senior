@@ -32,6 +32,69 @@ function Step({label,value,sub,rate,tone='blue'}){
   </div>
 }
 
+function funnelSummary(totals,rates){
+  const transitions=[
+    {id:'ctr',from:'Impressões',to:'Cliques',rate:num(rates.ctr)},
+    {id:'clickVisit',from:'Cliques',to:'Visitantes',rate:num(rates.clickVisit)},
+    {id:'visitCart',from:'Visitantes',to:'Carrinho',rate:num(rates.visitCart)},
+    {id:'cartPlaced',from:'Carrinho',to:'Pedido',rate:num(rates.cartPlaced)},
+    {id:'placedPaid',from:'Pedido',to:'Pago',rate:num(rates.placedPaid)},
+    {id:'paidConfirmed',from:'Pago',to:'Confirmado',rate:num(rates.paidConfirmed)}
+  ];
+  const valid=transitions.filter(x=>x.rate!=null&&x.rate>=0&&x.rate<=1);
+  const worst=valid.length?[...valid].sort((a,b)=>a.rate-b.rate)[0]:null;
+  const stages=[
+    {key:'impressions',label:'Impressões',value:totals.impressions,icon:'◉'},
+    {key:'clicks',label:'Cliques',value:totals.clicks,icon:'↗'},
+    {key:'visitors',label:'Visitantes',value:totals.visitors,icon:'●'},
+    {key:'carts',label:'Carrinho',value:totals.carts,icon:'▣'},
+    {key:'placed',label:'Pedido criado',value:totals.placed,icon:'▤'},
+    {key:'paid',label:'Pago',value:totals.paid,icon:'▰'},
+    {key:'confirmed',label:'Confirmado',value:totals.confirmed,icon:'✓'}
+  ];
+  return{stages,transitions,worst};
+}
+
+function FunnelVisual({totals,rates}){
+  const {stages,transitions,worst}=funnelSummary(totals,rates);
+  return <section className={styles.visualFunnelCard}>
+    <div className={styles.funnelVisualWrap}>
+      <div className={styles.realFunnel} aria-label="Funil de vendas">
+        {stages.map((stage,index)=><div key={stage.key} className={styles.funnelLayer} data-index={index} data-missing={stage.value==null?'true':'false'}>
+          <span className={styles.funnelIcon}>{stage.icon}</span>
+          <span><small>{stage.label}</small><strong>{int(stage.value)}</strong></span>
+        </div>)}
+      </div>
+      <div className={styles.conversionRail}>
+        {transitions.map(t=><div key={t.id} className={styles.conversionRow} data-worst={worst?.id===t.id?'true':'false'}>
+          <span className={styles.conversionArrow}>↓</span>
+          <div><strong>{pct(t.rate)}</strong><small>de {t.from.toLowerCase()} → {t.to.toLowerCase()}</small></div>
+          {worst?.id===t.id&&<em>Maior gargalo</em>}
+        </div>)}
+      </div>
+    </div>
+    <aside className={styles.bottleneckCallout} data-empty={!worst?'true':'false'}>
+      <span className={styles.bottleneckIcon}>↗</span>
+      {worst?<div><small>MAIOR PERDA DO FUNIL</small><h3>{worst.from} → {worst.to}</h3><strong>Perda de {pct(1-worst.rate)}</strong><p>Esta é a etapa com menor passagem entre as métricas disponíveis agora. Comece a investigação por aqui.</p></div>:<div><small>GARGALO</small><h3>Dados insuficientes</h3><p>Assim que as etapas estiverem disponíveis, o Gestor destaca automaticamente onde há a maior perda.</p></div>}
+    </aside>
+  </section>
+}
+
+function KpiStrip({totals,rates}){
+  const worst=funnelSummary(totals,rates).worst;
+  const cards=[
+    {id:'ctr',label:'CTR',sub:'Impressão → Clique',rate:rates.ctr,desc:rates.ctr!=null?`A cada 100 impressões, cerca de ${Math.round(rates.ctr*100)} viram cliques.`:'Sem dados suficientes.'},
+    {id:'visitCart',label:'Visita → Carrinho',sub:'Intenção de compra',rate:rates.visitCart,desc:rates.visitCart!=null?`A cada 100 visitantes, cerca de ${Math.round(rates.visitCart*100)} adicionam ao carrinho.`:'Sem dados suficientes.'},
+    {id:'cartPlaced',label:'Carrinho → Pedido',sub:'Fechamento do carrinho',rate:rates.cartPlaced,desc:rates.cartPlaced!=null?`A cada 100 carrinhos, cerca de ${Math.round(rates.cartPlaced*100)} viram pedido.`:'Sem dados suficientes.'},
+    {id:'placedPaid',label:'Pedido → Pago',sub:'Pagamento',rate:rates.placedPaid,desc:rates.placedPaid!=null?`A cada 100 pedidos, cerca de ${Math.round(rates.placedPaid*100)} são pagos.`:'Sem dados suficientes.'},
+    {id:'paidConfirmed',label:'Pago → Confirmado',sub:'Confirmação final',rate:rates.paidConfirmed,desc:rates.paidConfirmed!=null?`A cada 100 pagos, cerca de ${Math.round(rates.paidConfirmed*100)} são confirmados.`:'Sem dados suficientes.'}
+  ];
+  return <section className={styles.kpiStrip}>{cards.map(card=><article key={card.id} data-worst={worst?.id===card.id?'true':'false'}>
+    <span className={styles.kpiDot}>{card.id==='ctr'?'◉':card.id==='visitCart'?'●':card.id==='cartPlaced'?'▣':card.id==='placedPaid'?'▤':'✓'}</span>
+    <div><small>{card.label}</small><b>{pct(card.rate)}</b><em>{card.sub}</em><p>{card.desc}</p></div>
+  </article>)}</section>
+}
+
 function productPlan(p,med){
   const impressions=num(p.product_card_impressions),clicks=num(p.product_card_clicks),uv=num(p.uv),carts=num(p.add_to_cart_buyers),placed=num(p.placed_buyers),paid=num(p.paid_buyers),confirmed=num(p.confirmed_buyers);
   const ctr=num(p.ctr),cartRate=num(p.uv_to_add_to_cart_rate),placedRate=num(p.uv_to_placed_buyers_rate),paidRate=num(p.uv_to_paid_buyers_rate);
@@ -255,8 +318,8 @@ export default function FunilPage(){
   const full=!!state.seller;
   return <div className={styles.page}>
     <header className={styles.header}>
-      <div><span className={styles.eyebrow}>GESTOR SÊNIOR · CONVERSÃO</span><h1>Análise de Funil</h1><p>Da impressão até o pedido confirmado, com dados do Seller Center e diagnóstico por produto.</p></div>
-      <button type="button" onClick={load}>↻ Atualizar agora</button>
+      <div><span className={styles.eyebrow}>GESTOR SÊNIOR · CONVERSÃO</span><h1>Análise de Funil</h1><p>Descubra em qual etapa suas vendas estão travando e o que fazer primeiro.</p></div>
+      <div className={styles.headerActions}><span className={styles.periodBadge}>◷ Hoje · tempo real</span><button type="button" onClick={load}>↻ Atualizar agora</button></div>
     </header>
 
     {state.error&&<div className={styles.warning}>{state.error}</div>}
@@ -270,26 +333,20 @@ export default function FunilPage(){
     </nav>
 
     {tab==='loja'&&<>
-      <section className={styles.hero}>
-        <div><span>TEMPO REAL · HOJE</span><h2>{full?'Jornada completa do comprador':'Aguardando dados completos do Seller Center'}</h2><p>Impressões → Cliques → Visitantes → Carrinho → Pedido criado → Pago → Confirmado.</p></div>
-        <div className={styles.heroMetric}><strong>{money(model.totals.paidGmv)}</strong><span>vendas pagas no período</span></div>
-      </section>
-      <section className={styles.funnelCard}>
-        <div className={styles.funnel}>
-          <Step label="Impressões" value={model.totals.impressions} sub="Cards exibidos" tone="violet"/>
-          <i>→</i><Step label="Cliques" value={model.totals.clicks} sub="Entradas no produto" rate={model.rates.ctr} tone="blue"/>
-          <i>→</i><Step label="Visitantes" value={model.totals.visitors} sub="UV da loja/produtos" rate={model.rates.clickVisit} tone="cyan"/>
-          <i>→</i><Step label="Carrinho" value={model.totals.carts} sub="Compradores que adicionaram" rate={model.rates.visitCart} tone="amber"/>
-          <i>→</i><Step label="Pedido criado" value={model.totals.placed} sub="Placed orders" rate={model.rates.cartPlaced} tone="orange"/>
-          <i>→</i><Step label="Pago" value={model.totals.paid} sub="Paid orders" rate={model.rates.placedPaid} tone="green"/>
-          <i>→</i><Step label="Confirmado" value={model.totals.confirmed} sub="Confirmed orders" rate={model.rates.paidConfirmed} tone="teal"/>
+      <FunnelVisual totals={model.totals} rates={model.rates}/>
+      <KpiStrip totals={model.totals} rates={model.rates}/>
+      <section className={styles.unlockPanel}>
+        <div className={styles.unlockHead}>
+          <div><span className={styles.targetIcon}>◎</span><div><h2>Plano de Destrave</h2><p>Ações para atacar primeiro os produtos com maior gargalo.</p></div></div>
+          <div className={styles.compactGuidance}><span>Modo de orientação:</span><button type="button" data-active={guidanceMode==='standard'} onClick={()=>chooseGuidance('standard')}>Padrão</button><button type="button" data-active={guidanceMode==='specific'} onClick={()=>chooseGuidance('specific')}>Específico · me diga o que fazer</button></div>
         </div>
-      </section>
-      <section className={styles.rateGrid}>
-        <div><span>CTR</span><strong>{pct(model.rates.ctr)}</strong><small>impressão → clique</small></div>
-        <div><span>Visita → carrinho</span><strong>{pct(model.rates.visitCart)}</strong><small>intenção de compra</small></div>
-        <div><span>Pedido → pago</span><strong>{pct(model.rates.placedPaid)}</strong><small>fechamento do pagamento</small></div>
-        <div><span>Pago → confirmado</span><strong>{pct(model.rates.paidConfirmed)}</strong><small>qualidade final da conversão</small></div>
+        {model.products.length?<ProductActionCard
+          p={[...model.products].sort((a,b)=>productPlan(a,model.med).rank-productPlan(b,model.med).rank)[0]}
+          med={model.med}
+          mode={guidanceMode}
+          context={context}
+        />:<div className={styles.empty}>Ainda não há dados por produto suficientes para montar o Plano de Destrave.</div>}
+        {model.products.length>1&&<button type="button" className={styles.allProductsBtn} onClick={()=>setTab('produto')}>Ver plano de todos os produtos →</button>}
       </section>
       <section className={styles.education}>
         <div><b>1</b><h3>Impressão → clique</h3><p>Queda forte aqui aponta para capa, título, preço percebido ou competitividade na busca.</p></div>
