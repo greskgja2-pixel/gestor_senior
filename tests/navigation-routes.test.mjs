@@ -204,3 +204,13 @@ test('Gestor mostra atividade global do Motor Sênior',()=>{
   assert.match(css,/\.gs-motor-activity\{/);
   assert.match(css,/position:fixed/);
 });
+
+
+test('Card do Motor recebe progresso intermediário da extensão',()=>{
+  const asyncClient=read('app/lib/client-async.js');
+  const shell=read('app/components/AppShell.js');
+  assert.match(asyncClient,/GS_ENGINE_PROGRESS/);
+  assert.match(asyncClient,/activity\(action,'progress'/);
+  assert.match(shell,/d\.phase==='progress'/);
+  assert.match(shell,/activity\.percent/);
+});
