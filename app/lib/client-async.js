@@ -44,7 +44,13 @@ export function motorRequest(action,payload={},timeoutMs=22000){
     let done=false;
     const finish=(fn,value,phase='done')=>{if(done)return;done=true;clearTimeout(timer);window.removeEventListener('message',onMessage);activity(action,phase,{requestId,message:value?.message||value?.error||''});fn(value)};
     const onMessage=event=>{
-      if(event.source!==window||event.data?.source!=='GS_EXTENSION'||event.data?.type!=='GS_ENGINE_RESPONSE'||String(event.data?.requestId)!==requestId)return;
+      if(event.source!==window||event.data?.source!=='GS_EXTENSION'||String(event.data?.requestId)!==requestId)return;
+      if(event.data?.type==='GS_ENGINE_PROGRESS'){
+        const progress=event.data?.progress||{};
+        activity(action,'progress',{requestId,payload,...progress});
+        return;
+      }
+      if(event.data?.type!=='GS_ENGINE_RESPONSE')return;
       const result=event.data?.result||{};
       if(result?.ok===false){
         const error=new Error(result?.error||'O Motor Senior retornou uma falha.');
