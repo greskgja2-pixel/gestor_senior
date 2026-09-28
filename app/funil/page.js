@@ -298,12 +298,132 @@ function MiniProductFunnel({p}){
   </div>
 }
 
+function normalizedVariationName(value){return cleanText(value).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim()}
+function shopeeProfit(price,cost,adsPerOrder=0){const p=num(price),c=num(cost),ads=num(adsPerOrder)??0;if(!(p>0)||c==null)return null;const commission=p*.20,fixedFee=4.5,profit=p-c-commission-fixedFee-ads;return{profit,marginPct:profit/p*100,commission,fixedFee}}
+function matchCompetitorVariation(own,competitorVariations){
+  const key=normalizedVariationName(own?.name);
+  if(!key)return null;
+  const exact=arr(competitorVariations).find(v=>normalizedVariationName(v?.name)===key);
+  if(exact)return exact;
+  const ownTokens=new Set(key.split(' ').filter(Boolean));
+  let best=null,bestScore=0;
+  for(const v of arr(competitorVariations)){
+    const tokens=normalizedVariationName(v?.name).split(' ').filter(Boolean);
+    const common=tokens.filter(t=>ownTokens.has(t)).length,score=common/Math.max(ownTokens.size,tokens.length,1);
+    if(score>.55&&score>bestScore){best=v;bestScore=score}
+  }
+  return best;
+}
+
+function PriceCalculator({p,context,onClose}){
+  const ctx=context?.[String(p.id)]||{};
+  const [loading,setLoading]=useState(true);
+  const [flash,setFlash]=useState(null);
+  const [selectedOffer,setSelectedOffer]=useState('');
+  const [draft,setDraft]=useState({});
+  const [saving,setSaving]=useState(false);
+  const [message,setMessage]=useState('');
+
+  useEffect(()=>{
+    let alive=true;
+    setLoading(true);setMessage('');
+    getJson('/api/shopee/flash-sale?item_id='+encodeURIComponent(p.id)+'&days=30')
+      .then(data=>{if(!alive)return;setFlash(data);const offers=[...arr(data?.activeOffers),...arr(data?.scheduledOffers)];if(offers.length)setSelectedOffer(String(offers[0].flash_sale_id||''));})
+      .catch(error=>{if(alive)setMessage('Oferta/campanha: '+String(error?.message||error))})
+      .finally(()=>alive&&setLoading(false));
+    return()=>{alive=false};
+  },[p.id]);
+
+  const competitors=arr(ctx.competitors);
+  const leader=competitors.length?[...competitors].sort((a,b)=>(num(b.sold)??-1)-(num(a.sold)??-1))[0]:null;
+  const competitorVariations=arr(leader?.variations);
+  const ownVariations=(arr(flash?.productModels).length?arr(flash.productModels):arr(ctx.variations)).map((v,index)=>({
+    modelId:v?.model_id??v?.modelId??v?.id??null,
+    name:v?.name||v?.model_name||('Variação '+(index+1)),
+    price:num(v?.current_price??v?.price),
+    promoPrice:num(v?.promoPrice??v?.promotion_price),
+    cost:num(v?.cost??arr(ctx.variations).find(x=>String(x?.modelId??x?.model_id)===String(v?.model_id??v?.modelId))?.cost)
+  }));
+  const offers=[...arr(flash?.activeOffers),...arr(flash?.scheduledOffers)];
+  const activeOffer=offers.find(x=>String(x?.flash_sale_id||'')===selectedOffer)||null;
+  const currentPrice=num(ctx.price);
+  const finalPrice=num(activeOffer?.price??ctx.finalPrice??currentPrice);
+  const cost=num(ctx.cost);
+  const adsCost=num(ctx.adsCost),adsOrders=num(ctx.adsOrders);
+  const adsPerOrder=adsCost!=null&&adsOrders>0?adsCost/adsOrders:null;
+  const leaderPrice=num(leader?.price);
+  const marketPrices=competitors.map(x=>num(x.price)).filter(x=>x!=null);
+  const marketMedian=median(marketPrices);
+  const baseCandidate=leaderPrice??marketMedian;
+  const baseCalc=shopeeProfit(baseCandidate,cost,adsPerOrder);
+  const suggested=baseCandidate!=null&&baseCalc?.profit>0?baseCandidate:null;
+  const displayedPrice=num(draft.base??suggested??finalPrice);
+  const displayedCalc=shopeeProfit(displayedPrice,cost,adsPerOrder);
+
+  useEffect(()=>{
+    if(loading)return;
+    const next={};
+    if(!ownVariations.length){if(suggested!=null)next.base=String(suggested.toFixed(2)).replace('.',',');}
+    else for(const row of ownVariations){
+      const comp=matchCompetitorVariation(row,competitorVariations);
+      const candidate=num(comp?.price);
+      const calc=shopeeProfit(candidate,row.cost??cost,adsPerOrder);
+      if(candidate!=null&&calc?.profit>0)next[String(row.modelId??row.name)]=String(candidate.toFixed(2)).replace('.',',');
+    }
+    setDraft(d=>Object.keys(d).length?d:next);
+  },[loading]);
+
+  const parseInput=value=>{const x=String(value??'').replace(/[^0-9,.-]/g,'').replace(',','.');const n=Number(x);return Number.isFinite(n)?n:null};
+  async function savePrice(){
+    const rows=ownVariations.length?ownVariations.map(row=>({model_id:row.modelId,price:parseInput(draft[String(row.modelId??row.name)]??row.price)})).filter(x=>x.model_id!=null&&x.price>0):[{model_id:0,price:parseInput(draft.base??displayedPrice)}];
+    if(!rows.length||rows.some(x=>!(x.price>0))){setMessage('Revise os preços antes de salvar.');return}
+    const summary=rows.length===1?money(rows[0].price):rows.length+' preços de variação';
+    if(!window.confirm('Confirmar '+summary+' na Shopee?'))return;
+    setSaving(true);setMessage('');
+    try{
+      const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),30000);
+      const response=await fetch('/api/shopee/product-price',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({item_id:p.id,prices:rows}),signal:ctrl.signal});
+      clearTimeout(timer);
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok||data?.error)throw new Error(data?.error||('HTTP '+response.status));
+      setMessage('Preço salvo e confirmado na Shopee.');
+    }catch(error){setMessage(String(error?.message||error))}finally{setSaving(false)}
+  }
+
+  return <section className={styles.inlinePriceCalculator}>
+    <header className={styles.calcHeader}><div><span className={styles.calcIcon}>▦</span><div><h4>Calculadora de preço</h4><p>Dados carregados automaticamente do Gestor, Shopee Ads, ofertas e concorrentes.</p></div><em>Ação contextual inline</em></div><button type="button" onClick={onClose}>Recolher</button></header>
+    {loading?<div className={styles.calcLoading}>Carregando preço, campanhas e variações…</div>:<>
+      <div className={styles.calcSummaryGrid}>
+        <label><span>Campanha / Oferta</span><select value={selectedOffer} onChange={e=>setSelectedOffer(e.target.value)}><option value="">Sem oferta identificada</option>{offers.map(o=><option key={o.flash_sale_id} value={String(o.flash_sale_id)}>{Number(o.start_time)*1000<=Date.now()?'Ativa':'Agendada'} · Oferta #{o.flash_sale_id} · {money(o.price)}</option>)}</select></label>
+        <div><span>Custo do produto</span><b>{money(cost)}</b><small>{cost==null?'Custo ainda não cadastrado.':'Salvo no Gestor.'}</small></div>
+        <div><span>Ads por pedido</span><b>{money(adsPerOrder)}</b><small>{adsPerOrder==null?'Sem atribuição suficiente.':money(adsCost)+' ÷ '+int(adsOrders)+' pedidos Ads'}</small></div>
+        <div><span>Preço atual</span><b>{money(currentPrice)}</b></div>
+        <div><span>Preço final em oferta</span><b>{money(finalPrice)}</b><small>{activeOffer?'Oferta selecionada.':'Sem oferta ativa identificada.'}</small></div>
+        <div><span>Média/mediana concorrentes</span><b>{money(marketMedian)}</b></div>
+        <div><span>Concorrente que mais vende</span><b>{money(leaderPrice)}</b><small>{leader?.sold!=null?int(leader.sold)+' vendidos':'Vendas não coletadas'}</small></div>
+      </div>
+
+      <div className={styles.variationCompare}>
+        <section><h5>Concorrente que mais vende</h5>{leader?<><a href={leader.url||'#'} target={leader.url?'_blank':undefined} rel={leader.url?'noreferrer':undefined}>{leader.title||'Concorrente líder'} {leader.url?'↗':''}</a>{competitorVariations.length?<div className={styles.variationRows}>{competitorVariations.map((v,i)=><div key={i}><span>{v.name||('Variação '+(i+1))}</span><b>{money(v.price)}</b></div>)}</div>:<p className={styles.calcMissing}>As variações desse concorrente ainda não foram coletadas.</p>}</>:<p className={styles.calcMissing}>Nenhum concorrente vinculado.</p>}</section>
+        <section><h5>Minhas variações</h5>{ownVariations.length?<div className={styles.variationRows}>{ownVariations.map((v,i)=>{const comp=matchCompetitorVariation(v,competitorVariations);const key=String(v.modelId??v.name);const price=parseInput(draft[key]??v.price);const calc=shopeeProfit(price,v.cost??cost,adsPerOrder);return <div className={styles.ownVariationRow} key={key}><span><b>{v.name}</b><small>Atual {money(v.price)}{comp?' · concorrente '+money(comp.price):''}</small></span><label><small>Novo preço</small><input inputMode="decimal" value={draft[key]??(v.price??'')} onChange={e=>setDraft(d=>({...d,[key]:e.target.value}))}/></label><span className={styles.variationMargin}>{calc?calc.marginPct.toLocaleString('pt-BR',{maximumFractionDigits:1})+'%':'—'}<small>margem</small></span></div>})}</div>:<div className={styles.singlePriceRow}><label><span>Novo preço</span><input inputMode="decimal" value={draft.base??(displayedPrice??'')} onChange={e=>setDraft(d=>({...d,base:e.target.value}))}/></label><div><span>Margem estimada</span><b>{displayedCalc?displayedCalc.marginPct.toLocaleString('pt-BR',{maximumFractionDigits:1})+'%':'—'}</b></div><div><span>Lucro estimado/venda</span><b>{displayedCalc?money(displayedCalc.profit):'—'}</b></div></div>}</section>
+      </div>
+
+      <div className={styles.calcRecommendation}><div><span>Preço competitivo de referência</span><strong>{money(suggested)}</strong></div><p>{suggested!=null?'Referência baseada no concorrente líder/mediana e validada para não ficar com lucro negativo usando custo e Ads disponíveis.':'Não há dados suficientes para sugerir preço com segurança. Preencha custo ou vincule concorrentes.'}</p></div>
+      {activeOffer&&<div className={styles.calcOfferWarning}>O produto está em uma oferta. Alterar o preço normal não substitui automaticamente o preço promocional dessa campanha.</div>}
+      {message&&<div className={styles.calcMessage}>{message}</div>}
+      <footer className={styles.calcFooter}><button type="button" className={styles.calcPrimary} onClick={savePrice} disabled={saving}>{saving?'Salvando…':'Salvar novo preço'}</button>{leader?.url&&<a href={leader.url} target="_blank" rel="noreferrer">Ver concorrente líder</a>}<button type="button" onClick={onClose}>Cancelar</button></footer>
+    </>}
+  </section>;
+}
+
 function ProductFunnelCard({p,med,mode,context}){
+  const [priceOpen,setPriceOpen]=useState(false);
   const plan=mode==='specific'?specificPlan(p,med,context):productPlan(p,med);
   const bottleneck=productBottleneck(plan);
   const status=plan.priority==='bad'?'CRÍTICO':plan.priority==='warn'?'ATENÇÃO':plan.priority==='good'?'SAUDÁVEL':'POUCOS DADOS';
-  const competitor=mode==='specific'?arr(plan.competitors)[0]:null;
+  const competitor=arr(context?.[String(p.id)]?.competitors)[0]||null;
   const evidence=plan.evidence||'';
+  const priceActionIndex=plan.actions.findIndex(action=>/pre[cç]o|oferta|concorrente/i.test(String(action)));
   return <article className={styles.productFunnelCard} data-priority={plan.priority}>
     <header className={styles.productFunnelHeader}>
       <div className={styles.productIdentity}>
@@ -335,7 +455,7 @@ function ProductFunnelCard({p,med,mode,context}){
 
         <section className={styles.productActionBox}>
           <strong>Faça assim</strong>
-          <ol>{plan.actions.slice(0,3).map((action,index)=><li key={index}><span>{index+1}</span><p>{action}</p></li>)}</ol>
+          <ol>{plan.actions.slice(0,3).map((action,index)=><li key={index}><span>{index+1}</span><p>{action}</p>{index===priceActionIndex&&<button type="button" className={styles.inlineActionButton} onClick={()=>setPriceOpen(v=>!v)}>{priceOpen?'Fechar calculadora':'▦ Abrir calculadora'}</button>}</li>)}</ol>
         </section>
 
         <div className={styles.productFunnelFooter}>
@@ -344,6 +464,7 @@ function ProductFunnelCard({p,med,mode,context}){
         </div>
       </div>
     </div>
+    {priceOpen&&<PriceCalculator p={p} context={context} onClose={()=>setPriceOpen(false)}/>}
   </article>;
 }
 
