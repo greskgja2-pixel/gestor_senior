@@ -159,3 +159,21 @@ test('Análise de Funil usa funil visual real e destaca maior gargalo',()=>{
   assert.match(css,/\.bottleneckCallout/);
   assert.match(css,/\.kpiStrip/);
 });
+
+
+test('Análise de Funil usa 30 dias como padrão e períodos históricos confirmados',()=>{
+  const funnel=read('app/funil/page.js');
+  assert.match(funnel,/useState\('past30days'\)/);
+  assert.match(funnel,/\{id:'past7days',label:'7 dias'/);
+  assert.match(funnel,/\{id:'past30days',label:'30 dias'/);
+  assert.match(funnel,/motorData\('sellerFunnel',\{period:selectedPeriod\}/);
+  assert.match(funnel,/productOverview/);
+  assert.match(funnel,/ComparisonStrip/);
+  assert.match(funnel,/v0\.17\.4/);
+  assert.doesNotMatch(funnel,/products\.reduce\(\(a,p\)=>a\+\(num\(p\.add_to_cart_buyers\)/);
+});
+
+test('Funil preserva null e não converte ausência em zero',()=>{
+  const funnel=read('app/funil/page.js');
+  assert.match(funnel,/v===null\|\|v===undefined\|\|v===''/);
+});
