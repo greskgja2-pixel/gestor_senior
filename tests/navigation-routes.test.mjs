@@ -259,3 +259,39 @@ test('Calculadora de preço não inventa sugestão sem custo ou concorrente',()=
   assert.match(funnel,/Não há dados suficientes para sugerir preço com segurança/);
   assert.match(funnel,/Ads por pedido indisponível|Sem atribuição suficiente/);
 });
+
+
+test('Produtos permite custo/estoque editáveis, colunas configuráveis e ofertas de marketing',()=>{
+  const products=read('app/produtos/ProductsDashboard.js');
+  const css=read('app/produtos/products.module.css');
+  const marketing=read('app/api/shopee/marketing-discounts/route.js');
+  const manage=read('app/api/products/manage/route.js');
+  const shopee=read('lib/shopee.js');
+  assert.match(products,/Cadastre o custo dos produtos/);
+  assert.match(products,/Configurar taxas/);
+  assert.match(products,/Opções de exibição/);
+  assert.match(products,/Preço \/ oferta/);
+  assert.match(products,/Editar variações/);
+  assert.match(products,/\/api\/shopee\/marketing-discounts/);
+  assert.match(products,/\/api\/products\/manage/);
+  assert.match(marketing,/discountStatus:'ongoing'/);
+  assert.match(marketing,/Number\(d\?\.source\)===0/);
+  assert.doesNotMatch(marketing,/flash-sale/);
+  assert.match(manage,/updateItemStock/);
+  assert.match(shopee,/\/api\/v2\/discount\/get_discount_list/);
+  assert.match(shopee,/\/api\/v2\/discount\/get_discount/);
+  assert.match(shopee,/\/api\/v2\/product\/update_stock/);
+  assert.match(css,/\.columnPopover/);
+  assert.match(css,/\.feeModal/);
+});
+
+test('Taxas padrão da tabela respeitam faixas Shopee 2026 e continuam editáveis',()=>{
+  const products=read('app/produtos/ProductsDashboard.js');
+  assert.match(products,/lowCommissionPct:20/);
+  assert.match(products,/highCommissionPct:14/);
+  assert.match(products,/fixed80:16/);
+  assert.match(products,/fixed100:20/);
+  assert.match(products,/fixed200:26/);
+  assert.match(products,/2026-10-01T00:00:00-03:00/);
+  assert.match(products,/campaignExtraPct:0/);
+});

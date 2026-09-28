@@ -311,3 +311,19 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 11. Após salvar, a rota relê preço/modelos e só confirma sucesso se o valor persistido bater com o enviado.
 
 **Regra de segurança:** nunca enviar preço sem clique/confirm explícito; nunca preencher custo, Ads, margem, preço concorrente ou variação ausente com estimativa inventada.
+
+
+### 2026-09-28 — ChatGPT — Custos, ofertas, taxas e colunas configuráveis em Produtos
+**Arquivos:** `app/produtos/ProductsDashboard.js`, `app/produtos/products.module.css`, `app/super-analise/page.js`, novas rotas `app/api/products/manage/route.js` e `app/api/shopee/marketing-discounts/route.js`, `lib/shopee.js`, testes e este arquivo. Branch: `feature/produtos-custos-colunas-taxas`.
+
+**O que mudou:**
+1. A lista inicial da Super Análise mostra um popup diário quando existem produtos sem custo, explicando que custo é necessário para margem, precificação e Funil. O botão **Cadastrar custos agora** garante que a coluna Custo esteja visível e leva à tabela.
+2. **Custo do produto** e **Estoque** viraram colunas editáveis. Produto simples pode ser salvo inline; produto com variações abre editor por variação com custo e estoque.
+3. Custos são persistidos em `product_costs`; estoque é enviado à Shopee somente após ação explícita do usuário via `v2.product.update_stock`.
+4. A tabela ganhou **Opções de exibição** para mostrar/esconder Status, Preço/Oferta, Custo, Margem e Estoque. Produto e Ações permanecem fixos.
+5. **Preço / Oferta** mostra preço cheio e somente oferta de campanha de desconto da loja obtida pelo módulo oficial `discount` (`get_discount_list` + `get_discount`). Oferta Relâmpago não entra nesse cálculo nem nessa coluna.
+6. O botão **Configurar taxas** permite ajustar as faixas usadas no cálculo de margem. Preferências de taxas e colunas ficam salvas neste navegador.
+7. Padrão pesquisado em 28/09/2026: abaixo de R$ 8 usa comissão 20% + tarifa proporcional de 50% do preço; R$ 8–79,99 usa 20% + R$ 4 até 30/09/2026 e R$ 4,50 a partir de 01/10/2026; R$ 80–99,99 usa 14% + R$ 16; R$ 100–199,99 usa 14% + R$ 20; R$ 200+ usa 14% + R$ 26. Foi incluído campo opcional para adicional de campanha, default 0%, pois isso pode variar por conta/campanha.
+8. Margem da tabela usa o preço final da campanha de marketing quando uma oferta da loja estiver ativa; sem oferta usa preço normal. Para produtos com variações, a tabela não inventa uma margem agregada sem preço/custo correspondentes; o usuário abre o editor por variação.
+
+**Segurança:** nenhum custo ou estoque é inventado; nenhuma alteração de estoque ocorre sem clique do usuário. As taxas são configuráveis porque políticas/condições da conta podem divergir do padrão público.
