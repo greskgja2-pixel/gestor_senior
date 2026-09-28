@@ -406,3 +406,16 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 **Smoke test das rotas críticas:** todas as 9 rotas (`/`, `/produtos`, `/super-analise`, as 5 variações de `/extensao-shopee-intelligence?section=...`, `/protecao-roas`) responderam com redirecionamento (nenhum erro 500) para `/login`, confirmando que o app exige autenticação e que o build não quebrou nenhuma rota.
 
 **Pendente (bloqueado por falta de credenciais):** checagem visual ao vivo do clamp de título, dos cabeçalhos ordenáveis e do botão Reanalisar em `/produtos`, incluindo viewport mobile — não foi possível porque a página exige login e esta sessão não tem as credenciais da conta (entrar com senha real não é uma ação que a Claude deve realizar sozinha). Fica para o usuário confirmar visualmente após login, ou fornecer credenciais de teste numa próxima sessão.
+
+
+### 2026-09-28 — ChatGPT — Canal oficial de atualização do Motor Sênior v0.17.6
+**Arquivos:** `app/api/extension/latest/route.js`, `app/motor-senior/page.js` e este arquivo. Branch: `feature/motor-senior-updater-v0176`.
+
+**O que mudou:**
+1. O Gestor ganhou o manifesto oficial `GET /api/extension/latest`, hoje apontando para a versão **0.17.6**.
+2. O manifesto informa versão, nome, arquivo esperado, notas, data de publicação e página oficial de atualização.
+3. Foi criada `/motor-senior` como página estável para o fluxo de atualização do Motor.
+4. O ZIP v0.17.6 foi gerado fora do repositório a partir da v0.17.5 e validado com `unzip -t`; ele adiciona verificação automática a cada 6 horas, ao instalar e ao iniciar, notificação de nova versão e painel de atualização no `engine-status.html`.
+5. A extensão compara semanticamente a versão instalada com a publicada pelo Gestor e só avisa quando a publicada for superior.
+6. Como a extensão é instalada manualmente por ZIP/unpacked, ela **não substitui os próprios arquivos silenciosamente**. O aviso abre a página oficial do Gestor para atualização; o usuário continua responsável por instalar/recarregar a nova versão.
+7. O binário ZIP não foi commitado neste repositório nesta sessão; o canal de versão e a página oficial ficam no Gestor. Não afirmar que o ZIP está hospedado no Vercel até existir um artefato persistente lá.
