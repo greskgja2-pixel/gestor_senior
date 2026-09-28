@@ -416,14 +416,124 @@ function PriceCalculator({p,context,onClose}){
   </section>;
 }
 
+function titleKeywordEvidence(currentTitle,suggestedTitle,competitors,explicit=[]){
+  const stop=new Set(['para','com','sem','dos','das','de','do','da','e','em','no','na','um','uma','kit','livro']);
+  const explicitClean=arr(explicit).map(x=>cleanText(x)).filter(Boolean);
+  const titles=[...arr(competitors).map(x=>cleanText(x?.title)),cleanText(suggestedTitle),cleanText(currentTitle)].filter(Boolean);
+  const freq=new Map();
+  for(const title of titles){
+    const words=normalizedVariationName(title).split(' ').filter(w=>w.length>=3&&!stop.has(w));
+    const seen=new Set();
+    for(const word of words){
+      if(seen.has(word))continue;seen.add(word);
+      freq.set(word,(freq.get(word)||0)+1);
+    }
+  }
+  const common=[...freq.entries()].sort((a,b)=>b[1]-a[1]||b[0].length-a[0].length).map(([word])=>word);
+  const capital=value=>value.split(' ').map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(' ');
+  return [...new Set([...explicitClean,...common.map(capital)])].slice(0,10);
+}
+
+function TitleEditor({p,context,onClose}){
+  const ctx=context?.[String(p.id)]||{};
+  const currentTitle=cleanText(ctx.title||p.name||'');
+  const suggested=cleanText(ctx.titleSuggestion||'');
+  const competitors=arr(ctx.competitors).filter(x=>cleanText(x?.title));
+  const keywords=titleKeywordEvidence(currentTitle,suggested,competitors,ctx.titleKeywords);
+  const [draft,setDraft]=useState(suggested||currentTitle);
+  const [saving,setSaving]=useState(false);
+  const [message,setMessage]=useState('');
+  const [copied,setCopied]=useState(false);
+
+  useEffect(()=>{setDraft(suggested||currentTitle);setMessage('');setCopied(false)},[p.id,suggested,currentTitle]);
+
+  const hasSuggestion=!!suggested;
+  const changed=cleanText(draft)!==currentTitle&&cleanText(draft).length>0;
+  const competitorTerms=keywords.slice(0,4).join(', ');
+
+  async function saveTitle(){
+    const value=cleanText(draft);
+    if(!value){setMessage('O título não pode ficar vazio.');return}
+    if(value.length>120){setMessage('O título ultrapassa o limite de 120 caracteres aceito pelo Gestor para a Shopee.');return}
+    if(!changed){setMessage('Faça uma alteração no título antes de salvar.');return}
+    if(!window.confirm('Aplicar este novo título no anúncio da Shopee?'))return;
+    setSaving(true);setMessage('');
+    try{
+      const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),30000);
+      const response=await fetch('/api/shopee/product-update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({item_id:p.id,changes:{title:value}}),signal:ctrl.signal});
+      clearTimeout(timer);
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok||data?.error)throw new Error(data?.error||('HTTP '+response.status));
+      setMessage('Título salvo e confirmado na Shopee.');
+    }catch(error){setMessage(String(error?.message||error))}finally{setSaving(false)}
+  }
+
+  async function copySuggestion(){
+    const value=suggested||draft;
+    if(!value)return;
+    try{await navigator.clipboard.writeText(value);setCopied(true);setTimeout(()=>setCopied(false),1800)}
+    catch{setMessage('Não foi possível copiar automaticamente neste navegador.')}
+  }
+
+  return <section className={styles.inlineTitleEditor}>
+    <header className={styles.titleEditorHeader}>
+      <div><span className={styles.titleEditorIcon}>✎</span><div><h4>Editor de título</h4><p>Sugestão baseada na Super Análise, concorrentes e termos encontrados nos títulos de referência.</p></div></div>
+      <button type="button" onClick={onClose}>⌃ Recolher editor</button>
+    </header>
+
+    <div className={styles.titleCompareGrid}>
+      <article><div><span>Título atual</span><em data-tone="bad">Atual</em></div><p>{currentTitle||'Título não disponível'}</p></article>
+      <article data-suggested="true"><div><span>Título sugerido pelo Motor Sênior</span><em data-tone={hasSuggestion?'good':'data'}>{hasSuggestion?'Otimizado':'Sem sugestão'}</em></div><p>{hasSuggestion?suggested:'Ainda não existe uma sugestão estruturada de título nesta Super Análise.'}</p>{hasSuggestion&&<button type="button" onClick={copySuggestion} title="Copiar sugestão">{copied?'✓':'⧉'}</button>}</article>
+    </div>
+
+    <section className={styles.titleReasonBox}>
+      <strong>💡 Por que sugerimos isso?</strong>
+      {hasSuggestion?<div>
+        <span>✓ A sugestão foi salva pela última Super Análise deste produto.</span>
+        <span>✓ Usa como evidência os concorrentes vinculados ao anúncio.</span>
+        {competitorTerms&&<span>✓ Termos recorrentes encontrados nas referências: {competitorTerms}.</span>}
+        {ctx.titleReason&&<span>✓ {ctx.titleReason}</span>}
+      </div>:<p>O Gestor não vai inventar um título. Faça ou atualize a Super Análise para gerar uma sugestão SEO baseada no anúncio e nos concorrentes.</p>}
+    </section>
+
+    <div className={styles.titleKeywords}>
+      <div><strong>Palavras-chave encontradas</strong><small>Extraídas da sugestão e dos títulos dos concorrentes vinculados.</small></div>
+      {keywords.length?<div>{keywords.map((word,index)=><span key={index}>{word}</span>)}</div>:<p>Sem palavras-chave estruturadas disponíveis.</p>}
+    </div>
+
+    <section className={styles.titleCompetitors}>
+      <div><strong>Concorrentes usados como base</strong><Link href="/pesquisa-produtos">Ver todos os concorrentes →</Link></div>
+      {competitors.length?<div>{competitors.slice(0,3).map((comp,index)=><a key={index} href={comp.url||'#'} target={comp.url?'_blank':undefined} rel={comp.url?'noreferrer':undefined} data-disabled={!comp.url?'true':'false'}>
+        {comp.image?<img src={comp.image} alt=""/>:<span className={styles.titleCompPlaceholder}>◎</span>}
+        <div><b>{comp.title}</b><small>{comp.price!=null?money(comp.price):'Preço não coletado'}{comp.sold!=null?' · '+int(comp.sold)+' vendidos':''}</small></div>
+      </a>)}</div>:<p>Este produto ainda não possui concorrentes vinculados.</p>}
+    </section>
+
+    <label className={styles.titleDraftField}>
+      <div><span>Editar título</span><small>{cleanText(draft).length}/120</small></div>
+      <textarea value={draft} onChange={e=>setDraft(e.target.value.slice(0,120))} rows={3} placeholder="Digite o novo título do anúncio"/>
+    </label>
+
+    {message&&<div className={styles.titleEditorMessage}>{message}</div>}
+    <footer className={styles.titleEditorFooter}>
+      <button type="button" className={styles.titlePrimary} onClick={saveTitle} disabled={saving||!changed}>{saving?'Aplicando…':'✓ Aplicar no anúncio'}</button>
+      <button type="button" onClick={copySuggestion} disabled={!hasSuggestion}>{copied?'✓ Copiado':'⧉ Copiar sugestão'}</button>
+      <Link href="/super-analise">⌕ Ver Super Análise</Link>
+      <Link href="/pesquisa-produtos">▥ Comparar concorrentes</Link>
+    </footer>
+  </section>;
+}
+
 function ProductFunnelCard({p,med,mode,context}){
   const [priceOpen,setPriceOpen]=useState(false);
+  const [titleOpen,setTitleOpen]=useState(false);
   const plan=mode==='specific'?specificPlan(p,med,context):productPlan(p,med);
   const bottleneck=productBottleneck(plan);
   const status=plan.priority==='bad'?'CRÍTICO':plan.priority==='warn'?'ATENÇÃO':plan.priority==='good'?'SAUDÁVEL':'POUCOS DADOS';
   const competitor=arr(context?.[String(p.id)]?.competitors)[0]||null;
   const evidence=plan.evidence||'';
-  const priceActionIndex=plan.actions.findIndex(action=>/pre[cç]o|oferta|concorrente/i.test(String(action)));
+  const titleActionIndex=plan.actions.findIndex(action=>/t[ií]tulo|palavra.?chave|keyword/i.test(String(action)));
+  const priceActionIndex=plan.actions.findIndex((action,index)=>index!==titleActionIndex&&/pre[cç]o|oferta/i.test(String(action)));
   return <article className={styles.productFunnelCard} data-priority={plan.priority}>
     <header className={styles.productFunnelHeader}>
       <div className={styles.productIdentity}>
@@ -455,7 +565,10 @@ function ProductFunnelCard({p,med,mode,context}){
 
         <section className={styles.productActionBox}>
           <strong>Faça assim</strong>
-          <ol>{plan.actions.slice(0,3).map((action,index)=><li key={index}><span>{index+1}</span><p>{action}</p>{index===priceActionIndex&&<button type="button" className={styles.inlineActionButton} onClick={()=>setPriceOpen(v=>!v)}>{priceOpen?'Fechar calculadora':'▦ Abrir calculadora'}</button>}</li>)}</ol>
+          <ol>{plan.actions.slice(0,3).map((action,index)=><li key={index}><span>{index+1}</span><p>{action}</p>
+            {index===titleActionIndex&&<button type="button" className={styles.inlineActionButton} onClick={()=>{setTitleOpen(v=>!v);setPriceOpen(false)}}>{titleOpen?'Fechar editor':'✎ Editar título'}</button>}
+            {index===priceActionIndex&&<button type="button" className={styles.inlineActionButton} onClick={()=>{setPriceOpen(v=>!v);setTitleOpen(false)}}>{priceOpen?'Fechar calculadora':'▦ Abrir calculadora'}</button>}
+          </li>)}</ol>
         </section>
 
         <div className={styles.productFunnelFooter}>
@@ -464,6 +577,7 @@ function ProductFunnelCard({p,med,mode,context}){
         </div>
       </div>
     </div>
+    {titleOpen&&<TitleEditor p={p} context={context} onClose={()=>setTitleOpen(false)}/>}
     {priceOpen&&<PriceCalculator p={p} context={context} onClose={()=>setPriceOpen(false)}/>}
   </article>;
 }

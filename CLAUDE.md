@@ -327,3 +327,21 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 8. Margem da tabela usa o preço final da campanha de marketing quando uma oferta da loja estiver ativa; sem oferta usa preço normal. Para produtos com variações, a tabela não inventa uma margem agregada sem preço/custo correspondentes; o usuário abre o editor por variação.
 
 **Segurança:** nenhum custo ou estoque é inventado; nenhuma alteração de estoque ocorre sem clique do usuário. As taxas são configuráveis porque políticas/condições da conta podem divergir do padrão público.
+
+
+### 2026-09-28 — ChatGPT — Editor inline de título no Funil por Produto
+**Arquivos:** `app/funil/page.js`, `app/funil/funil.module.css`, `app/api/funnel/context/route.js`, testes e este arquivo. Branch: `feature/funil-editor-titulo-inline`.
+
+**O que mudou:**
+1. Quando uma orientação do Funil envolve **título / palavra-chave**, aparece o botão **Editar título** dentro do próprio card do produto.
+2. O editor abre inline, sem sair do Funil, seguindo o mockup aprovado: Título atual × Título sugerido, justificativa, palavras-chave, concorrentes usados como base, campo editável e ações.
+3. A sugestão automática **não é inventada no frontend**: o contexto do Funil passa a expor `report.ai_analysis.title.suggestion` da última Super Análise do mesmo item. Se a Super Análise não tiver sugestão estruturada, o editor informa isso e pede atualização da Super Análise.
+4. Palavras-chave mostradas no editor usam primeiro as keywords estruturadas da Super Análise (quando existirem) e complementam com termos recorrentes nos títulos reais dos concorrentes vinculados + título sugerido/atual. Não há consulta genérica externa nem palavras inventadas.
+5. O bloco “Concorrentes usados como base” mostra até 3 concorrentes vinculados, com título, preço, vendas, imagem e link quando disponíveis.
+6. O título sugerido entra pré-preenchido no campo de edição e o usuário pode ajustar antes de aplicar.
+7. **Aplicar no anúncio** reutiliza a rota real `/api/shopee/product-update`, que já publica `item_name` pela Shopee Open Platform e relê o item para confirmar persistência.
+8. Há confirmação explícita antes do envio; nada é aplicado automaticamente.
+9. Limite do editor segue a implementação real atual de publicação: 120 caracteres. Se o título não mudar ou estiver vazio, o botão de publicação não prossegue.
+10. Ao abrir o editor de título, a calculadora de preço do mesmo card é recolhida e vice-versa, evitando dois editores concorrentes no mesmo produto.
+
+**Regra de evidência:** ausência de Super Análise/concorrentes/keywords aparece como indisponível; não gerar uma sugestão improvisada apenas para preencher o card.
