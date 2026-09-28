@@ -262,3 +262,16 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 5. O card é global e reutilizável por qualquer tela que use o Motor Sênior.
 
 **Objetivo:** dar visibilidade do que a extensão está fazendo, especialmente no Android/Quetta, onde a ponte básica pode estar conectada mas a ação no Seller Center pode travar.
+
+
+### 2026-09-28 — ChatGPT — Progresso por etapas + otimização Quetta
+**Site:** o protocolo Gestor ↔ Motor passa a aceitar mensagens intermediárias `GS_ENGINE_PROGRESS`. O card do topo atualiza texto e percentual sem encerrar a requisição.
+
+**Extensão v0.17.5:** a coleta `sellerFunnel` foi ajustada para Android/Quetta:
+- timeout individual por API MyData (8–9s), evitando uma única chamada pendurada bloquear toda a coleta;
+- coleta de métricas gerais em paralelo;
+- ranking de produtos: primeira página descobre o total e as demais são coletadas em lotes paralelos de até 4 páginas;
+- progresso enviado nas etapas: localizar Seller Center → aguardar página → métricas gerais → produtos → normalização → envio ao Gestor;
+- falha de uma fonte opcional vira entrada em `errors` e não impede o restante do funil, mantendo a regra de não inventar dados.
+
+**Objetivo:** reduzir o timeout de 60s observado no Quetta e, se ainda houver gargalo, mostrar exatamente em qual etapa a coleta parou.
