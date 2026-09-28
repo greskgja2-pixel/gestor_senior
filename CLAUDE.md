@@ -275,3 +275,20 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 - falha de uma fonte opcional vira entrada em `errors` e não impede o restante do funil, mantendo a regra de não inventar dados.
 
 **Objetivo:** reduzir o timeout de 60s observado no Quetta e, se ainda houver gargalo, mostrar exatamente em qual etapa a coleta parou.
+
+
+### 2026-09-28 — ChatGPT — Redesign completo do Funil por Produto
+**Arquivos:** `app/funil/page.js`, `app/funil/funil.module.css`, testes e este arquivo. Branch: `feature/funil-produto-mockup`.
+
+**O que mudou:**
+1. O layout antigo da aba **Por Produto** foi removido da renderização principal e substituído pelo mockup aprovado.
+2. Cada produto agora tem um **mini funil visual** com etapas reais: Impressões → Cliques → Visitas → Carrinho → Pedido → Pago, com valor e taxa entre etapas.
+3. O card mostra status visual **CRÍTICO / ATENÇÃO / SAUDÁVEL / POUCOS DADOS**, mantendo a lógica determinística já existente do `productPlan`.
+4. O diagnóstico ganhou bloco visual “Maior gargalo”, evidência real e explicação simples.
+5. “Faça assim” mostra até 3 ações concretas da orientação atual; no modo específico continua cruzando contexto real de Super Análise, preço, custo, margem e concorrentes.
+6. Um concorrente de referência aparece de forma compacta quando há concorrente real vinculado; se não houver, a UI informa isso em vez de inventar.
+7. CTA de ação permanece ligado ao destino real já definido pelo plano (Comparar mercado, Avaliar tráfego, revisar anúncio etc.).
+8. Desktop usa funil + diagnóstico lado a lado; mobile empilha os blocos e preserva legibilidade.
+9. A tabela completa de números continua disponível recolhida no fim da aba para auditoria.
+
+**Importante:** o redesign é visual/estrutural; não mudou fonte de dados, heurísticas, período histórico nem regras de segurança.
