@@ -1,7 +1,7 @@
 # Enciclopédia Shopee Seller Center → Gestor Sênior
 
-**Versão:** 11.0 (v10 consolidada + Informações Gerenciais / Funil confirmadas em 27/09/2026)  
-**Origem:** consolidação das sessões do Shopee Seller Auto Mapper + validações visuais + mapeamentos do Seller Center e Marketplace público até 27/09/2026  
+**Versão:** 12.0 (v11 + períodos históricos de 7/30 dias e séries MyData confirmadas em 27/09/2026)  
+**Origem:** consolidação das sessões do Shopee Seller Auto Mapper + validações visuais + mapeamentos do Seller Center e Marketplace público até 27/09/2026, incluindo as capturas manuais Motor Sênior de 7 e 30 dias.  
 **Uso:** referência técnica para ChatGPT, Claude e desenvolvimento do Gestor Sênior.
 
 ## Regra principal
@@ -2411,3 +2411,245 @@ Ele não busca concorrentes novos nem altera a Shopee; somente reaproveita dados
 5. Concorrentes usados na recomendação devem aparecer com link quando o link real estiver disponível.
 6. Sugestões específicas são testes controlados; nenhuma alteração é aplicada automaticamente.
 7. Gargalos pós-pedido/pós-pagamento não devem recomendar capa/título como primeira ação.
+
+
+## 11.11 Histórico confirmado — 7 e 30 dias
+
+**Status:** CONFIRMADO por captura manual do Seller Center em 27/09/2026.
+
+A mesma família MyData usada pelo funil aceita períodos históricos reais. Não é necessário projetar o valor de hoje para estimar 7/30 dias.
+
+### Períodos observados
+
+```text
+period=past7days
+period=past30days
+period=yesterday
+period=real_time
+```
+
+Janelas confirmadas na captura da loja em GMT-03:
+
+```text
+past7days
+start_time=1789873200
+end_time=1790478000
+
+past30days
+start_time=1787886000
+end_time=1790478000
+```
+
+A regra observada para períodos fechados é usar meia-noite local como `end_time` e recuar 7 ou 30 dias para `start_time`. O Gestor não deve inventar `past14days` enquanto ele não for capturado ou testado com sucesso.
+
+### 11.11.1 Métricas gerais históricas
+
+**Endpoint**
+
+```text
+GET /api/mydata/v3/dashboard/key-metrics/
+```
+
+**Confirmado com `period=past30days`.**
+
+Campos com `value`, `chain_ratio` e séries `points[]` quando aplicável:
+
+```text
+shop_pv
+shop_uv
+product_clicks
+hybrid_uv
+paid_gmv
+place_gmv
+paid_orders
+place_orders
+paid_sales_per_order
+place_sales_per_order
+shop_uv_to_paid_buyers_rate
+shop_uv_to_placed_buyers_rate
+confirmed_gmv
+confirmed_orders
+confirmed_sales_per_order
+shop_uv_to_confirmed_buyers_rate
+product_clicks_to_placed_orders_rate
+product_clicks_to_paid_orders_rate
+product_clicks_to_confirmed_orders_rate
+paid_gmv_without_shopee_rebate
+place_gmv_without_shopee_rebate
+confirmed_gmv_without_shopee_rebate
+```
+
+A captura de 30 dias confirmou que `chain_ratio` compara o período selecionado com uma janela anterior equivalente. O Gestor pode exibir essa comparação desde que rotulada como comparação com o período anterior.
+
+### 11.11.2 Funil por produto histórico
+
+**Endpoint**
+
+```text
+GET /api/mydata/v3/dashboard/product-rankings/
+```
+
+**Confirmado com `past7days`, `past30days`, `yesterday` e `real_time`.**
+
+A estrutura permanece compatível com a seção 11.3 e inclui, por produto:
+
+```text
+product_card_impressions
+product_card_clicks
+unique_product_card_impressions
+unique_product_card_clicks
+ctr
+uv
+pv
+bounce_visitors
+bounce_rate
+search_clicks
+add_to_cart_units
+add_to_cart_buyers
+placed_buyers
+placed_orders
+paid_buyers
+paid_orders
+confirmed_buyers
+confirmed_orders
+uv_to_add_to_cart_rate
+uv_to_placed_buyers_rate
+uv_to_paid_buyers_rate
+uv_to_confirmed_buyers_rate
+placed_to_paid_buyers_rate
+placed_buyers_to_confirmed_buyers_rate
+```
+
+Isso permite que o Plano de Destrave use amostras de 7 ou 30 dias em vez de depender somente do dia corrente.
+
+### 11.11.3 Visão geral de Produto e carrinho
+
+**Endpoint observado**
+
+```text
+GET /api/mydata/v2/product/overview/
+```
+
+Foi confirmado em `past7days`, `yesterday` e `real_time`, com campos como:
+
+```text
+uv.value
+pv.value
+bounce_visitors.value
+bounce_rate.value
+search_clicks.value
+atc_unit_num.value
+atc_uv.value
+atc_rate.value
+placed_buyers.value
+placed_order.value
+paid_buyers.value
+paid_order.value
+confirmed_buyers.value
+confirmed_order.value
+paid_gmv.value
+```
+
+**Atenção:** a captura fornecida não registrou esse endpoint agregado em `past30days`. O Motor Sênior pode consultá-lo como fonte opcional; se a Shopee não responder, o Gestor deve mostrar Carrinho como indisponível na visão geral. Não somar `add_to_cart_buyers` de vários produtos para fingir um total único da loja, porque o mesmo comprador pode aparecer em mais de um produto.
+
+### 11.11.4 Séries diárias de Produto
+
+**Endpoint**
+
+```text
+GET /api/mydata/v2/product/overview/metric-trends/
+```
+
+**Confirmado em `past7days`, `past30days` e `real_time`.**
+
+A captura de 30 dias retornou 30 pontos diários para:
+
+```text
+uv
+pv
+iv
+bounce_visitors
+bounce_rate
+search_clicks
+like_unit_num
+atc_unit_num
+atc_uv
+atc_rate
+placed_buyers
+placed_unit_num
+placed_items
+placed_gmv
+placed_order
+paid_buyers
+paid_unit_num
+paid_items
+paid_gmv
+paid_order
+confirmed_buyers
+confirmed_unit_num
+confirmed_items
+confirmed_gmv
+confirmed_order
+conversion_rate
+sales_per_buyer
+```
+
+Essas séries podem alimentar gráficos históricos no Gestor. Não somar séries de taxa; taxas devem ser usadas ponto a ponto ou recalculadas a partir dos numeradores/denominadores adequados.
+
+### 11.11.5 Performance de pedidos
+
+**Endpoint**
+
+```text
+GET /api/mydata/dashboard/order-performance/
+```
+
+Confirmado em `past7days`, `past30days` e `yesterday`. A resposta traz totais, comparação e `points[]` para eventos como cancelamentos, devoluções/reembolsos e outras métricas operacionais. Essa fonte é útil para diagnosticar perdas depois do pedido/pagamento sem culpar título ou imagem.
+
+### 11.11.6 Tráfego e contribuição por produto
+
+**Endpoint**
+
+```text
+GET /api/mydata/v1/dashboard/traffic-sources/product-contribution/
+```
+
+Confirmado em `past7days`, `past30days`, `yesterday` e `real_time`.
+
+A resposta mantém produto, vendas, pedidos, compradores, cliques e impressões e pode variar conforme a origem/filtro selecionado na interface.
+
+O endpoint agregado:
+
+```text
+GET /api/mydata/v1/dashboard/traffic-sources/
+```
+
+respondeu normalmente em `real_time`, mas em uma captura de `past30days` retornou `code=60001` / `data isn't ready`. Portanto, a tela do Gestor deve aceitar ausência dessa fonte histórica sem substituir por zero.
+
+### 11.11.7 Regras de implementação no Gestor
+
+1. **30 dias é o padrão recomendado para análise**, porque reduz o risco de concluir com base em pouco volume.
+2. **7 dias** deve existir como visão recente.
+3. **Hoje/tempo real** fica como acompanhamento, não como período principal de diagnóstico.
+4. Não liberar **14 dias** até o parâmetro real ser confirmado.
+5. Para o funil da loja:
+   - Impressões e Cliques podem ser derivados dos campos de card dos produtos;
+   - Visitantes devem priorizar `key-metrics.shop_uv`;
+   - Carrinho deve priorizar uma métrica agregada real como `product/overview.atc_uv`; se indisponível, exibir `—`;
+   - Pedido/Pago/Confirmado devem priorizar `key-metrics.place_orders`, `paid_orders` e `confirmed_orders`.
+6. Nunca somar UV ou compradores de produtos e apresentar como usuário único da loja.
+7. Comparação histórica pode usar `chain_ratio`, sempre rotulada como comparação com o período anterior.
+8. Séries `metric-trends` devem ser preservadas para gráficos futuros.
+9. Nenhum cookie, token, `SPC_CDS` ou CSRF deve ser persistido ou enviado ao backend.
+
+---
+
+## Resumo da curadoria v12
+
+- Períodos históricos confirmados: **7 dias e 30 dias**, além de ontem e tempo real.
+- `past30days` confirmado no `key-metrics`, `product-rankings`, `metric-trends`, `order-performance` e `product-contribution`.
+- Funil por produto de 30 dias: **confirmado**.
+- Comparação com período anterior via `chain_ratio`: **confirmada**.
+- Séries diárias de 30 dias: **confirmadas**.
+- Carrinho agregado de 30 dias: **fonte opcional ainda precisa de confirmação direta no endpoint `product/overview`**.
+- `past14days`: **não confirmado; não implementar como fato até nova captura**.
