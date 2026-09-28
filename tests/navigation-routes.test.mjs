@@ -295,3 +295,34 @@ test('Taxas padrão da tabela respeitam faixas Shopee 2026 e continuam editávei
   assert.match(products,/2026-10-01T00:00:00-03:00/);
   assert.match(products,/campaignExtraPct:0/);
 });
+
+
+test('Funil por Produto tem editor inline de título baseado em Super Análise e concorrentes',()=>{
+  const funnel=read('app/funil/page.js');
+  const context=read('app/api/funnel/context/route.js');
+  const css=read('app/funil/funil.module.css');
+  const productUpdate=read('app/api/shopee/product-update/route.js');
+  assert.match(funnel,/function TitleEditor/);
+  assert.match(funnel,/✎ Editar título/);
+  assert.match(funnel,/Título sugerido pelo Motor Sênior/);
+  assert.match(funnel,/Palavras-chave encontradas/);
+  assert.match(funnel,/Concorrentes usados como base/);
+  assert.match(funnel,/Aplicar no anúncio/);
+  assert.match(funnel,/\/api\/shopee\/product-update/);
+  assert.match(funnel,/changes:\{title:value\}/);
+  assert.match(funnel,/não vai inventar um título/i);
+  assert.match(context,/titleSuggestion/);
+  assert.match(context,/titleKeywords/);
+  assert.match(context,/ai\?\.title\?\.suggestion/);
+  assert.match(productUpdate,/allowedKeys=new Set\(\['title','description'\]\)/);
+  assert.match(css,/\.inlineTitleEditor/);
+  assert.match(css,/\.titleCompareGrid/);
+  assert.match(css,/\.titleKeywords/);
+});
+
+test('Editor de título só publica após confirmação explícita',()=>{
+  const funnel=read('app/funil/page.js');
+  assert.match(funnel,/window\.confirm\('Aplicar este novo título no anúncio da Shopee\?'\)/);
+  assert.match(funnel,/if\(!changed\)/);
+  assert.match(funnel,/value\.length>120/);
+});
