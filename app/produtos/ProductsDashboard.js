@@ -4,7 +4,7 @@ import {useEffect,useMemo,useState} from 'react';
 import {useRouter} from 'next/navigation';
 import shell from '../extensao-shopee-intelligence/page.module.css';
 import styles from './products.module.css';
-import {fetchJsonWithTimeout,classifyAsyncError} from '../lib/client-async';
+import {fetchJsonWithTimeout,classifyAsyncError,motorData} from '../lib/client-async';
 
 const valid=v=>v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v));
 const money=v=>valid(v)?Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}):'—';
@@ -192,10 +192,19 @@ export default function ProductsDashboard({items=[],source='cache',syncedAt=null
     const ids=visible.map(x=>x.itemId).filter(Boolean);
     if(!ids.length){setOffers({});return}
     let alive=true;setOfferLoading(true);
-    fetchJsonWithTimeout('/api/shopee/marketing-discounts?item_ids='+encodeURIComponent(ids.join(',')),{cache:'no-store'},45000)
-      .then(data=>alive&&setOffers(prev=>({...prev,...(data?.items||{})})))
-      .catch(e=>console.warn('[Produtos] ofertas de marketing indisponíveis',e))
-      .finally(()=>alive&&setOfferLoading(false));
+    Promise.allSettled([
+      fetchJsonWithTimeout('/api/shopee/marketing-discounts?item_ids='+encodeURIComponent(ids.join(',')),{cache:'no-store'},45000),
+      motorData('sellerDiscounts',{itemIds:ids.map(String)},35000)
+    ]).then(([official,motor])=>{
+      if(!alive)return;
+      const officialItems=official.status==='fulfilled'?(official.value?.items||{}):{};
+      const motorItems=motor.status==='fulfilled'?(motor.value?.items||{}):{};
+      // Fonte oficial continua sendo o fallback; o Motor enriquece com SKU, estoque
+      // promocional e faixa de oferta observada no Seller Center.
+      setOffers(prev=>({...prev,...officialItems,...motorItems}));
+      if(official.status==='rejected')console.warn('[Produtos] oferta oficial indisponível',official.reason);
+      if(motor.status==='rejected')console.warn('[Produtos] detalhamento de desconto do Motor indisponível',motor.reason);
+    }).finally(()=>alive&&setOfferLoading(false));
     return()=>{alive=false};
   },[visible.map(x=>x.itemId).join('|')]);
 
