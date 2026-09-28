@@ -451,3 +451,18 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 - Confirmadas duas escritas internas: `update_discount` (nome/período) e `update_seller_discount_items` (preço promocional por SKU).
 - Confirmados leitura detalhada por campanha/SKU, métricas, limite ativo, validação de misleading discount e verificação de overlap.
 - Não persistir/reutilizar SPC_CDS, cookies ou tokens capturados; chamadas internas devem ocorrer pelo Motor na sessão normal do Seller Center.
+
+
+### 2026-09-28 — ChatGPT — Integração operacional da Enciclopédia v13 (Descontos)
+**Site:** `app/funil/page.js`, `app/funil/funil.module.css`, `app/produtos/ProductsDashboard.js`, `app/super-analise/WebAuditFlow.js`, `app/api/funnel/context/route.js`, manifesto do Motor e testes.
+**Motor:** artefato local v0.17.7 gerado a partir da v0.17.6.
+
+1. O Motor v0.17.7 ganhou a ação somente-leitura `sellerDiscounts`, executada dentro da sessão normal do Seller Center. Ela usa `discount/list` para campanhas em andamento e `get_discount_items_aggregated` para detalhar preço normal/promocional, faixa de oferta, modelos/SKUs, estoque promocional e vendas observadas.
+2. `collectProduct` passa a enriquecer o produto com `marketingDiscount`; a Super Análise mostra preço cheio/oferta ativa e o snapshot histórico preserva a campanha daquela rodada.
+3. Funil/Calculadora consulta em paralelo: produto atual, fonte oficial de descontos e `sellerDiscounts`. Prioridade: Motor detalhado → integração oficial → snapshot da Super Análise. Se o Motor antigo não reconhecer a ação, o fallback oficial continua funcionando.
+4. A Calculadora exibe faixa de oferta e, quando disponível, preço cheio → promocional por variação e estoque promocional. Nenhuma escrita em campanha foi habilitada nesta etapa.
+5. Produtos/Super Análise também enriquecem a coluna Preço/Oferta via Motor, mantendo a API oficial como fallback.
+6. O contexto do Funil expõe `marketingDiscount` salvo no histórico, permitindo usar a campanha observada na reanálise mesmo quando a leitura ao vivo estiver temporariamente indisponível.
+7. O manifesto oficial do Motor foi atualizado para v0.17.7.
+8. Guardrail mantido: SPC_CDS/cookies/tokens nunca saem da extensão; somente dados de negócio normalizados retornam ao Gestor.
+9. As APIs de escrita mapeadas na v13 (`update_discount`, `update_seller_discount_items`) continuam DESABILITADAS até existir UI explícita de revisão/confirmar + releitura pós-escrita.
