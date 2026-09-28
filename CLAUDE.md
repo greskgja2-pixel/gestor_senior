@@ -466,3 +466,17 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 7. O manifesto oficial do Motor foi atualizado para v0.17.7.
 8. Guardrail mantido: SPC_CDS/cookies/tokens nunca saem da extensão; somente dados de negócio normalizados retornam ao Gestor.
 9. As APIs de escrita mapeadas na v13 (`update_discount`, `update_seller_discount_items`) continuam DESABILITADAS até existir UI explícita de revisão/confirmar + releitura pós-escrita.
+
+
+### 2026-09-28 — ChatGPT — Funil da Loja: modo “Específico · me diga o que fazer”
+**Arquivos:** `app/funil/page.js`, `app/funil/funil.module.css`, testes e este arquivo.
+
+1. O seletor já existente no Plano de Destrave da aba Funil da Loja agora tem comportamento realmente diferente no modo específico. O modo Padrão foi preservado.
+2. Em “Específico · me diga o que fazer”, o Gestor usa o maior gargalo agregado já exibido no funil e calcula, produto a produto, a taxa correspondente àquela transição.
+3. Os produtos são priorizados pelo gap contra a mediana dos próprios produtos da loja ponderado pelo volume da etapa. Esse número é usado somente para ordenar oportunidade de investigação; a UI deixa explícito que não é previsão de vendas.
+4. O painel dá três ações em ordem, coerentes com a etapa: CTR prioriza capa/título/oferta de busca; Visita→Carrinho prioriza oferta/página; Carrinho→Pedido prioriza preço final/cupom/frete/estoque; Pedido→Pago evita mexer em capa/título; Pago→Confirmado prioriza operação.
+5. Mostra até 3 produtos para começar, com taxa real do produto, referência mediana e volume observado.
+6. Quando o produto possui contexto de Super Análise, a primeira ação é enriquecida pelo `specificPlan` já existente (concorrentes, preço, margem e sugestões). Sem Super Análise, a UI informa que falta esse contexto e não inventa uma alteração exata.
+7. O botão de cada produto abre a aba Por Produto e coloca aquele item no topo do plano. “Ver todos” abre a aba Por Produto.
+8. Nenhuma alteração é aplicada automaticamente. O painel é diagnóstico/ordenação de ações.
+9. Layout responsivo: 3 colunas no desktop e 1 coluna abaixo de 900px, com ajustes adicionais no mobile.
