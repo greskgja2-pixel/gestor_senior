@@ -340,7 +340,7 @@ test('Super Análise mostra disponibilidade do Funil por produto no novo layout'
   assert.match(products,/Análises antigas/);
   assert.match(products,/Funil de vendas/);
   assert.match(products,/Abrir Funil/);
-  assert.match(products,/Fazer Super Análise/);
+  assert.match(products,/Enviar para Super Análise/);
   assert.match(products,/Reanalisar/);
   assert.match(css,/\.funnelSummary/);
   assert.match(css,/\.funnelStatusCell/);
@@ -356,4 +356,17 @@ test('Funil por Produto só lista Super Análises recentes e aceita atalho da ta
   assert.match(funnel,/orderedAnalyzed\.map/);
   assert.match(funnel,/params\.get\('tab'\)==='produto'/);
   assert.match(funnel,/params\.get\('item_id'\)/);
+});
+
+
+test('Super Análise esconde etapas até o usuário iniciar uma análise',()=>{
+  const workspace=read('app/super-analise/SuperAnaliseWorkspace.js');
+  const products=read('app/produtos/ProductsDashboard.js');
+  assert.match(workspace,/if\(startUrl\|\|startItem\)return <WebAuditFlow initialUrl=\{startUrl\}\/>/);
+  assert.match(workspace,/return <ProductsDashboard embedded superAnalysisLanding/);
+  assert.match(products,/superAnalysisLandingHeader/);
+  assert.match(products,/Produtos analisados/);
+  assert.match(products,/Disponíveis no Funil/);
+  assert.match(products,/Precisam reanálise/);
+  assert.doesNotMatch(products,/As etapas da Super Análise aparecem/);
 });
