@@ -7,6 +7,8 @@ export const maxDuration=20;
 
 const n=v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v))?null:Number(v);
 const arr=v=>Array.isArray(v)?v:[];
+const firstNumber=(...values)=>{for(const value of values){const x=n(value);if(x!=null)return x}return null};
+const variationRows=(source,costs=[])=>arr(source?.models||source?.variations||source?.model_list).map((v,index)=>{const id=String(v?.model_id??v?.modelId??v?.id??index);const saved=arr(costs).find(x=>String(x?.model_id??x?.modelId??x?.id)===id);return{id,name:v?.name||v?.model_name||v?.modelName||v?.variation||v?.model_sku||('Variação '+(index+1)),modelId:v?.model_id??v?.modelId??v?.id??null,price:firstNumber(v?.current_price,v?.currentPrice,v?.price,v?.original_price,v?.originalPrice),promoPrice:firstNumber(v?.promotion_price,v?.promo_price,v?.final_price,v?.sale_price),cost:firstNumber(v?.cost,saved?.cost),stock:firstNumber(v?.available_stock,v?.stock,v?.normal_stock)};}).filter(x=>x.name||x.price!=null);
 const competitorUrl=c=>c?.url||c?.link||c?.productUrl||c?.product_url||(c?.shopId&&c?.itemId?`https://shopee.com.br/product/${c.shopId}/${c.itemId}`:c?.shop_id&&c?.item_id?`https://shopee.com.br/product/${c.shop_id}/${c.item_id}`:null);
 const competitorPrice=c=>{
   if(n(c?.price)!=null)return n(c.price);
@@ -47,7 +49,7 @@ export async function GET(request){
 
   const db=supabaseAdmin();
   const {data,error}=await db.from('extension_analysis_reports')
-    .select('item_id,analyzed_at,product_snapshot,finance_snapshot,competitors,suggestions,report')
+    .select('id,item_id,analyzed_at,product_snapshot,finance_snapshot,ads_snapshot,competitors,suggestions,report')
     .eq('shop_id',shop.shop_id)
     .in('item_id',requested)
     .order('analyzed_at',{ascending:false})
@@ -66,16 +68,23 @@ export async function GET(request){
       sold:competitorSold(c),
       url:competitorUrl(c),
       image:imageOf(c),
-      rating:n(c?.rating)
-    }));
+      rating:n(c?.rating),
+      variations:variationRows(c)
+    })).sort((a,b)=>(b.sold??-1)-(a.sold??-1));
+    const variationCosts=arr(p?.variationCosts||f?.variationCosts||f?.variation_costs);
     items[id]={
+      reportId:r.id||null,
       itemId:id,
       analyzedAt:r.analyzed_at||null,
       price:n(p?.price??p?.currentPrice),
+      finalPrice:firstNumber(p?.finalPrice,p?.final_price,p?.promotionPrice,p?.promotion_price,p?.salePrice,p?.price??p?.currentPrice),
       cost:n(f?.productCost??p?.referenceCost),
       marginPct:n(f?.marginPct),
+      adsCost:firstNumber(r?.ads_snapshot?.cost,r?.ads_snapshot?.spend,r?.ads_snapshot?.expense),
+      adsOrders:firstNumber(r?.ads_snapshot?.orders,r?.ads_snapshot?.order,r?.ads_snapshot?.direct_orders),
       title:p?.title||p?.item_name||null,
       image:imageOf(p),
+      variations:variationRows(p,variationCosts),
       competitors,
       suggestions:flattenSuggestions(r.suggestions||r.report?.suggestions||r.report?.ai_analysis)
     };
