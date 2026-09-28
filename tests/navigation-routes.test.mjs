@@ -150,14 +150,15 @@ test('Análise de Funil usa funil visual real e destaca maior gargalo',()=>{
   const funnel=read('app/funil/page.js');
   const css=read('app/funil/funil.module.css');
   assert.match(funnel,/function FunnelVisual/);
+  assert.match(funnel,/function StoreMiniFunnel/);
   assert.match(funnel,/function KpiStrip/);
-  assert.match(funnel,/MAIOR PERDA DO FUNIL/);
+  assert.match(funnel,/Maior gargalo:/);
   assert.match(funnel,/Plano de Destrave/);
   assert.match(funnel,/label:'Hoje'/);
   assert.match(funnel,/tempo real/);
-  assert.match(css,/\.realFunnel/);
+  assert.match(css,/\.storeMiniFunnel/);
   assert.match(css,/clip-path:polygon/);
-  assert.match(css,/\.bottleneckCallout/);
+  assert.match(css,/\.storeFunnelCard/);
   assert.match(css,/\.kpiStrip/);
 });
 
