@@ -2653,3 +2653,445 @@ respondeu normalmente em `real_time`, mas em uma captura de `past30days` retorno
 - Séries diárias de 30 dias: **confirmadas**.
 - Carrinho agregado de 30 dias: **fonte opcional ainda precisa de confirmação direta no endpoint `product/overview`**.
 - `past14days`: **não confirmado; não implementar como fato até nova captura**.
+
+
+---
+
+# 12. Desconto / Campanhas de Marketing — Seller Center
+
+**Status:** CONFIRMADO por captura passiva do Motor Sênior v0.17.6 em 28/09/2026.
+
+**Página observada:** Central de Marketing / Desconto no Seller Center.
+
+A sessão capturou 120 chamadas, 67 rotas únicas e zero erros. A curadoria abaixo mantém apenas as chamadas com valor de negócio para campanhas de desconto; telemetria, chat, notificações, feature toggles genéricos e infraestrutura foram descartados como ruído para este domínio.
+
+> Estes endpoints são internos do Seller Center e dependem da sessão normal do navegador. Não são equivalentes à Shopee Open Platform oficial. Quando usados pelo Gestor, devem seguir a arquitetura Gestor → Motor Sênior → fetch dentro de `seller.shopee.com.br`, sem enviar cookies, SPC_CDS, CSRF ou tokens ao backend.
+
+## 12.1 Listagem de campanhas de desconto
+
+### Endpoint legado/visão geral
+
+```text
+POST /api/marketing/v3/public/discount/list/
+```
+
+**Body observado**
+
+```json
+{
+  "discount_type": 0,
+  "limit": 10,
+  "offset": 0,
+  "time_status": 0
+}
+```
+
+**Campos confirmados**
+
+```text
+data.discounts[]
+discount_type
+seller_discount.discount_id
+seller_discount.name
+seller_discount.time_status
+seller_discount.start_time
+seller_discount.end_time
+seller_discount.item_preview.item_count
+seller_discount.item_preview.images[]
+seller_discount.source
+seller_discount.global_discount_id
+seller_discount.enable_direct_shop_promo_sync
+data.total_count
+```
+
+Pelos horários capturados em 28/09/2026, a semântica observada de `time_status` é:
+
+```text
+1 = agendada / futura
+2 = em andamento
+3 = encerrada
+```
+
+Usar essa associação somente para este módulo enquanto não houver evidência contrária em outra conta/região.
+
+### Endpoint v4 para campanha específica/listagem detalhada
+
+```text
+POST /api/marketing/v4/discount/get_discount_list/
+```
+
+**Body observado**
+
+```json
+{
+  "limit": 1,
+  "need_count": true,
+  "need_image": true,
+  "offset": 0,
+  "promotion_id_list": ["<promotion_id>"]
+}
+```
+
+**Campos confirmados**
+
+```text
+data.total_count
+data.discount_list[].promotion_id
+data.discount_list[].title
+data.discount_list[].status
+data.discount_list[].source
+data.discount_list[].start_time
+data.discount_list[].end_time
+data.discount_list[].images[]
+data.discount_list[].total_product
+data.discount_list[].global_discount_id
+data.discount_list[].enable_bidding_nomination
+data.discount_list[].enable_direct_shop_promo_sync
+data.discount_list[].enable_update_direct_shop_promo_sync
+```
+
+**Regra importante:** `source=0` foi observado nas campanhas criadas pelo vendedor. Não assumir que outros valores significam a mesma origem sem nova captura.
+
+## 12.2 Produtos e variações dentro de uma campanha
+
+**Endpoint**
+
+```text
+POST /api/marketing/v4/discount/get_discount_items_aggregated/
+```
+
+**Body observado**
+
+```json
+{
+  "limit": 1,
+  "offset": 0,
+  "promotion_id": "<promotion_id>"
+}
+```
+
+A resposta é rica o suficiente para reconstruir campanha, item e variações.
+
+### Campos de desconto por SKU
+
+```text
+data.discount_item_list[].item_id
+data.discount_item_list[].model_id
+data.discount_item_list[].status
+data.discount_item_list[].promotion_price
+data.discount_item_list[].promotion_price_after_tax
+data.discount_item_list[].user_item_limit
+data.discount_item_list[].promotion_stock
+data.discount_item_list[].local_promotion_price
+```
+
+### Dados das variações
+
+```text
+data.model_info[].item_id
+data.model_info[].models[].model_id
+data.model_info[].models[].name
+data.model_info[].models[].price
+data.model_info[].models[].stock
+data.model_info[].models[].sold
+data.model_info[].models[].is_default
+```
+
+### Dados do produto
+
+```text
+data.item_info[].item_id
+data.item_info[].status
+data.item_info[].name
+data.item_info[].images[]
+data.item_info[].price
+data.item_info[].stock
+data.item_info[].sold
+data.item_info[].ext_info.has_wholesale
+data.item_info[].ext_info.min_purchase_limit
+```
+
+### Preço e estoque agregados
+
+```text
+data.price_stock_info[].aggregated_price_info.min_price
+data.price_stock_info[].aggregated_price_info.max_price
+data.price_stock_info[].aggregated_stock_info.wms_total_stock
+data.price_stock_info[].aggregated_stock_info.seller_total_stock
+data.price_stock_info[].sku_stock_price_list[].model_id
+data.price_stock_info[].sku_stock_price_list[].seller_stock_info.normal_stock
+data.price_stock_info[].sku_stock_price_list[].seller_stock_info.promotion_stock
+data.price_stock_info[].sku_stock_price_list[].seller_stock_info.reserved_stock
+data.price_stock_info[].sku_stock_price_list[].price_info.input_promotion_price
+data.price_stock_info[].sku_stock_price_list[].price_info.promotion_price
+data.price_stock_info[].sku_stock_price_list[].price_info.input_normal_price
+data.price_stock_info[].sku_stock_price_list[].price_info.normal_price
+```
+
+### Escala monetária observada
+
+Os valores de preço vieram em inteiros com fator de escala de **100.000**. Exemplo estrutural observado:
+
+```text
+2.398.000 -> R$ 23,98
+4.099.000 -> R$ 40,99
+```
+
+Normalização:
+
+```text
+preco_brl = valor_api / 100000
+```
+
+Não aplicar essa transformação a campos que não sejam monetários sem validação individual.
+
+## 12.3 Métricas do módulo Desconto
+
+**Endpoint**
+
+```text
+POST /api/marketing/v3/public/discount/metrics/
+```
+
+**Campos confirmados**
+
+```text
+data.date_range.start_time
+data.date_range.end_time
+data.metrics.sales
+data.metrics.orders
+data.metrics.units
+data.metrics.buyers
+data.metrics.sales_pct_diff
+data.metrics.orders_pct_diff
+data.metrics.units_pct_diff
+data.metrics.buyers_pct_diff
+```
+
+Essas métricas são do módulo de desconto no período retornado pela Shopee. Não misturar automaticamente com GMV total da loja ou Shopee Ads.
+
+## 12.4 Limite de campanhas ativas
+
+**Endpoint**
+
+```text
+POST /api/marketing/v3/public/discount/active/
+```
+
+**Campos confirmados**
+
+```text
+data.max_active_discounts_data[].discount_type
+data.max_active_discounts_data[].max_active_count
+data.max_active_discounts_data[].is_exceed_max_active_count
+```
+
+Na captura, os tipos 1, 2 e 3 retornaram limite máximo informado pela própria Shopee. O Gestor deve tratar o valor retornado dinamicamente, sem fixá-lo no código.
+
+## 12.5 Validação de desconto enganoso
+
+**Endpoint**
+
+```text
+POST /api/marketing/v4/discount/get_misleading_discount_items/
+```
+
+**Body**
+
+```json
+{
+  "item_list": [
+    {"item_id": "<item_id>", "model_id": "<model_id>"}
+  ]
+}
+```
+
+**Resposta**
+
+```text
+data.misleading_item_list[]
+data.error_list
+```
+
+Na captura, `misleading_item_list` veio vazio. Isso confirma o fluxo e a estrutura, mas não fornece ainda um exemplo positivo de item classificado como desconto enganoso.
+
+**Uso no Gestor:** executar como validação antes de salvar alterações de campanha quando o fluxo interno do Seller Center for usado.
+
+## 12.6 Verificação de sobreposição/conflito
+
+**Endpoint**
+
+```text
+POST /api/marketing/v4/discount/get_overlap_items/
+```
+
+**Body observado**
+
+```json
+{
+  "start_time": "<unix>",
+  "end_time": "<unix>",
+  "promotion_id": "<promotion_id>",
+  "item_id_list": ["<item_id>"]
+}
+```
+
+**Resposta confirmada**
+
+```text
+data.fail_main_items
+data.succ_main_items[]
+data.error_list
+```
+
+Na sessão observada, os itens testados foram aceitos em `succ_main_items`.
+
+**Uso no Gestor:** validar conflitos antes de editar período/produtos de uma campanha. Não interpretar ausência de conflito nesta sessão como garantia universal.
+
+## 12.7 Atualização dos dados gerais da campanha
+
+**Endpoint de escrita confirmado**
+
+```text
+POST /api/marketing/v4/discount/update_discount/
+```
+
+**Body observado**
+
+```json
+{
+  "promotion_id": "<promotion_id>",
+  "title": "<nome da campanha>",
+  "start_time": "<unix>",
+  "end_time": "<unix>"
+}
+```
+
+**Resposta de sucesso observada**
+
+```text
+error = 0
+data.error_list = null
+```
+
+Isso confirma que título e janela da campanha podem ser alterados pelo fluxo interno do Seller Center.
+
+### Guardrail
+
+O Gestor nunca deve executar essa chamada automaticamente. Exigir:
+1. ação explícita do usuário;
+2. resumo das alterações;
+3. confirmação;
+4. releitura da campanha após o POST para confirmar persistência.
+
+## 12.8 Atualização de preço promocional por variação
+
+**Endpoint de escrita confirmado**
+
+```text
+POST /api/marketing/v4/discount/update_seller_discount_items/
+```
+
+**Body estrutural observado**
+
+```json
+{
+  "promotion_id": "<promotion_id>",
+  "discount_model_list": [
+    {
+      "item_id": "<item_id>",
+      "model_id": "<model_id>",
+      "percent_off": "<percentual escalado>",
+      "promotion_price": "<preco escalado>",
+      "promotion_stock": 0,
+      "status": 1,
+      "user_item_limit": 0
+    }
+  ]
+}
+```
+
+**Resposta confirmada**
+
+```text
+data.total_count
+data.success_count
+data.failed_item_list
+data.failed_model_list
+data.price_ratio
+data.error_list
+```
+
+A captura registrou atualização bem-sucedida de duas variações do mesmo produto.
+
+### Escalas observadas
+
+- `promotion_price`: mesma escala monetária de 100.000.
+- `percent_off`: valor inteiro escalado; a amostra é compatível com percentual × 100.000, mas a Shopee pode arredondar o percentual em relação ao preço final. Recalcular e validar contra a UI antes de automatizar.
+
+### Regra de implementação
+
+Para editar preço promocional no Gestor:
+
+```text
+1. Ler campanha atual
+2. Ler itens/variações atuais
+3. Validar desconto enganoso
+4. Validar sobreposição quando período/itens mudarem
+5. Mostrar preço normal, promocional e margem calculada
+6. Usuário confirma
+7. Motor executa update_seller_discount_items
+8. Reler get_discount_items_aggregated
+9. Só marcar como concluído se o valor persistido for o esperado
+```
+
+Nunca alterar preço promocional, preço normal, estoque promocional ou limite por comprador sem confirmação explícita.
+
+## 12.9 Endpoints auxiliares observados
+
+Também foram capturados, mas não promovidos a fontes principais de negócio nesta curadoria:
+
+```text
+POST /api/marketing/v4/discount/get_shop_whitelist_info/
+POST /api/marketing/v4/discount/get_shop_toggle/
+POST /api/marketing/v4/discount/get_upload_log/
+GET  /api/marketing/v3/public/toggle/
+GET  /api/marketing/v3/shop/profile/
+GET  /api/marketing/v3/public/promotion/threshold/
+GET  /api/marketing/v4/public/get_marketing_center_campaign_list/
+```
+
+Eles podem apoiar elegibilidade, configuração, limites e logs, mas precisam de capturas específicas antes de o Gestor depender de campos internos individuais.
+
+## 12.10 Aplicação no Gestor Sênior
+
+Este mapeamento libera tecnicamente uma futura área de **Campanhas de Desconto** com:
+
+- listar campanhas agendadas, ativas e encerradas;
+- mostrar quantidade de produtos e imagens;
+- abrir uma campanha e listar produtos/variações;
+- comparar preço normal × promocional;
+- mostrar estoque e vendas por variação;
+- exibir métricas de vendas, pedidos, unidades e compradores do módulo;
+- editar nome/período com confirmação;
+- editar preço promocional por SKU com confirmação;
+- validar sobreposição e desconto enganoso antes da escrita;
+- preservar histórico/snapshot antes e depois de cada alteração.
+
+### Prioridade de fonte
+
+Quando a Shopee Open Platform oficial fornecer a mesma ação/dado com autorização adequada, ela continua sendo preferível. Os endpoints desta seção são evidência estruturada do Seller Center e devem ser usados via Motor Sênior somente onde a integração oficial não cobrir a necessidade.
+
+---
+
+## Resumo da curadoria v13 — Descontos de Marketing
+
+- Capturas brutas: **120**.
+- Rotas únicas observadas: **67**.
+- Erros da sessão: **0**.
+- Endpoints de negócio promovidos nesta curadoria: **9**.
+- Endpoints auxiliares mantidos como evidência: **7**.
+- Escritas confirmadas: **2** — atualização geral da campanha e atualização de preços promocionais por variação.
+- Nova capacidade principal: leitura detalhada + edição confirmada de campanhas de desconto do vendedor.
+- Falsos positivos/ruído: telemetria, chat, notificações, autenticação auxiliar, feedback e infraestrutura não foram promovidos a mapeamentos de negócio.
+- Pendência: capturar um caso positivo de `misleading_item_list` e exemplos reais de conflito em `fail_main_items`.
