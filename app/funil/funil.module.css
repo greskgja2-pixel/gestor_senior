@@ -43,3 +43,22 @@
 @media(max-width:560px){.inlineTitleEditor{padding:11px}.titleEditorHeader{flex-direction:column}.titleEditorHeader>button{align-self:flex-end}.titleCompetitors>div+div{grid-template-columns:1fr}.titleEditorFooter{grid-template-columns:1fr}.titleKeywords>div:first-child{align-items:flex-start;flex-direction:column}.titleCompareGrid p{font-size:10px}}
 
 .funnelEligibilityNotice{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;margin:10px 0 2px;padding:10px 12px;border:1px solid #cfe1f6;border-radius:10px;background:#f2f8ff;color:#58738e}.funnelEligibilityNotice b{font-size:10px;color:#1d5da7}.funnelEligibilityNotice span{font-size:9px;line-height:1.35}.funnelEligibilityNotice a{color:#1769e8;text-decoration:none;font-size:9px;font-weight:900;white-space:nowrap}@media(max-width:720px){.funnelEligibilityNotice{grid-template-columns:1fr}.funnelEligibilityNotice a{justify-self:start}}
+
+
+/* 2026-09-28 — refinamento do Funil por Produto */
+.productIdentity{min-width:0}
+.productIdentity>div{min-width:0}
+.productIdentity h3{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;text-overflow:ellipsis;line-height:1.3}
+.productIdentity img{background:#f3f7fb}
+.productFunnelFooter{grid-template-columns:1fr}
+.calcSummaryGrid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.calcSummaryGrid>div,.calcSummaryGrid>label{min-height:74px}
+.calcDetails{margin-top:12px;border:1px solid #dce7f2;border-radius:12px;background:#fbfdff;overflow:hidden}
+.calcDetails>summary{cursor:pointer;list-style:none;padding:11px 13px;color:#31536f;font-size:10px;font-weight:900;display:flex;align-items:center;justify-content:space-between}
+.calcDetails>summary::-webkit-details-marker{display:none}
+.calcDetails>summary:after{content:'⌄';font-size:15px;color:#1769e8}
+.calcDetails[open]>summary{border-bottom:1px solid #e4ebf3;background:#f4f9ff}
+.calcDetails[open]>summary:after{content:'⌃'}
+.calcDetails .variationCompare{margin:0;padding:10px}
+@media(max-width:950px){.calcSummaryGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.calcSummaryGrid{grid-template-columns:1fr}.calcSummaryGrid>div,.calcSummaryGrid>label{min-height:0}}

@@ -48,13 +48,25 @@ export async function GET(request){
   if(!requested.length)return NextResponse.json({items:{},count:0});
 
   const db=supabaseAdmin();
-  const {data,error}=await db.from('extension_analysis_reports')
-    .select('id,item_id,analyzed_at,product_snapshot,finance_snapshot,ads_snapshot,competitors,suggestions,report')
-    .eq('shop_id',shop.shop_id)
-    .in('item_id',requested)
-    .order('analyzed_at',{ascending:false})
-    .limit(500);
+  const [{data,error},{data:costRows,error:costError}]=await Promise.all([
+    db.from('extension_analysis_reports')
+      .select('id,item_id,analyzed_at,product_snapshot,finance_snapshot,ads_snapshot,competitors,suggestions,report')
+      .eq('shop_id',shop.shop_id)
+      .in('item_id',requested)
+      .order('analyzed_at',{ascending:false})
+      .limit(500),
+    db.from('product_costs')
+      .select('item_id,model_id,cost,packaging_cost')
+      .eq('shop_id',shop.shop_id)
+      .in('item_id',requested)
+  ]);
   if(error)return NextResponse.json({error:error.message},{status:500});
+  if(costError)return NextResponse.json({error:costError.message},{status:500});
+  const costsByItem=new Map();
+  for(const row of costRows||[]){
+    const key=String(row.item_id),list=costsByItem.get(key)||[];
+    list.push(row);costsByItem.set(key,list);
+  }
 
   const items={};
   for(const r of data||[]){
@@ -71,14 +83,17 @@ export async function GET(request){
       rating:n(c?.rating),
       variations:variationRows(c)
     })).sort((a,b)=>(b.sold??-1)-(a.sold??-1));
-    const variationCosts=arr(p?.variationCosts||f?.variationCosts||f?.variation_costs);
+    const savedCosts=costsByItem.get(id)||[];
+    const baseCostRow=savedCosts.find(x=>Number(x?.model_id)===0)||null;
+    const savedBaseCost=baseCostRow?firstNumber(baseCostRow?.cost)+Number(firstNumber(baseCostRow?.packaging_cost)??0):null;
+    const variationCosts=[...arr(p?.variationCosts||f?.variationCosts||f?.variation_costs),...savedCosts.filter(x=>Number(x?.model_id)!==0)];
     items[id]={
       reportId:r.id||null,
       itemId:id,
       analyzedAt:r.analyzed_at||null,
       price:n(p?.price??p?.currentPrice),
       finalPrice:firstNumber(p?.finalPrice,p?.final_price,p?.promotionPrice,p?.promotion_price,p?.salePrice,p?.price??p?.currentPrice),
-      cost:n(f?.productCost??p?.referenceCost),
+      cost:firstNumber(savedBaseCost,f?.productCost,p?.referenceCost),
       marginPct:n(f?.marginPct),
       adsCost:firstNumber(r?.ads_snapshot?.cost,r?.ads_snapshot?.spend,r?.ads_snapshot?.expense),
       adsOrders:firstNumber(r?.ads_snapshot?.orders,r?.ads_snapshot?.order,r?.ads_snapshot?.direct_orders),

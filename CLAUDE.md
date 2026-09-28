@@ -419,3 +419,20 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 5. A extensão compara semanticamente a versão instalada com a publicada pelo Gestor e só avisa quando a publicada for superior.
 6. Como a extensão é instalada manualmente por ZIP/unpacked, ela **não substitui os próprios arquivos silenciosamente**. O aviso abre a página oficial do Gestor para atualização; o usuário continua responsável por instalar/recarregar a nova versão.
 7. O binário ZIP não foi commitado neste repositório nesta sessão; o canal de versão e a página oficial ficam no Gestor. Não afirmar que o ZIP está hospedado no Vercel até existir um artefato persistente lá.
+
+
+### 2026-09-28 — ChatGPT — Refinamento do Funil por Produto a partir do teste visual
+**Arquivos:** `app/funil/page.js`, `app/funil/funil.module.css`, `app/api/funnel/context/route.js`, testes e este arquivo. Branch: `feature/funil-produto-ux-e-dados`.
+
+**Problemas observados no print e correções:**
+1. A calculadora mostrava preço/custo como ausentes porque dependia quase só do snapshot da última Super Análise. Ao abrir a calculadora, ela agora consulta `/api/products/manage?item_id=` para obter preço, modelos e custos atuais do produto.
+2. O contexto do Funil agora também cruza `product_costs`, então o modo específico consegue usar custo cadastrado mesmo quando o snapshot antigo não o continha.
+3. O bloco “Campanha / Oferta” usava Oferta Relâmpago apesar do texto sugerir campanha de marketing. A calculadora passou a consultar `/api/shopee/marketing-discounts` e exibe a campanha/desconto vigente; Oferta Relâmpago não é tratada como campanha de marketing.
+4. A fórmula inline estava fixa em 20% + R$ 4,50. Foi alinhada às faixas já usadas na tela Produtos: abaixo de R$8, R$8–79,99, R$80–99,99, R$100–199,99 e R$200+, incluindo R$4 até 30/09/2026 e R$4,50 a partir de 01/10/2026.
+5. A calculadora lê a configuração salva em `gs_shopee_fee_config_v1`, evitando divergência com as taxas configuradas pelo usuário na tela Produtos.
+6. A área de comparação por variações ficou recolhida em `details` por padrão. Isso reduz bastante a altura do card; o usuário abre apenas quando realmente vai comparar/editar variações.
+7. O resumo da calculadora passou para 3 colunas no desktop, 2 em telas médias e 1 no mobile, com textos maiores/menos espremidos.
+8. O título do produto no card foi limitado visualmente a duas linhas.
+9. A imagem principal ganhou fallback para o favicon quando a URL da Shopee falhar, evitando o ícone de imagem quebrada observado no print.
+10. O ícone quadrado sem função no rodapé do card foi removvido; o CTA principal continua ocupando a largura útil.
+11. Nenhum preço é alterado automaticamente. O botão de salvar continua exigindo confirmação explícita e usa a rota oficial existente de atualização de preço.
