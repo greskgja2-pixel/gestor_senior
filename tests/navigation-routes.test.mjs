@@ -230,3 +230,32 @@ test('Por Produto usa cards com mini funil visual aprovado',()=>{
   assert.match(css,/\.productFunnelCard/);
   assert.match(css,/\.productDiagnosis/);
 });
+
+
+test('Funil por Produto tem calculadora inline de preço e variações',()=>{
+  const funnel=read('app/funil/page.js');
+  const context=read('app/api/funnel/context/route.js');
+  const priceApi=read('app/api/shopee/product-price/route.js');
+  const shopee=read('lib/shopee.js');
+  const css=read('app/funil/funil.module.css');
+  assert.match(funnel,/function PriceCalculator/);
+  assert.match(funnel,/Abrir calculadora/);
+  assert.match(funnel,/Concorrente que mais vende/);
+  assert.match(funnel,/Minhas variações/);
+  assert.match(funnel,/Ads por pedido/);
+  assert.match(funnel,/Salvar novo preço/);
+  assert.match(funnel,/\/api\/shopee\/flash-sale\?item_id=/);
+  assert.match(funnel,/\/api\/shopee\/product-price/);
+  assert.match(context,/variations:variationRows\(c\)/);
+  assert.match(context,/variations:variationRows\(p,variationCosts\)/);
+  assert.match(priceApi,/updateItemPrice/);
+  assert.match(shopee,/\/api\/v2\/product\/update_price/);
+  assert.match(css,/\.inlinePriceCalculator/);
+});
+
+test('Calculadora de preço não inventa sugestão sem custo ou concorrente',()=>{
+  const funnel=read('app/funil/page.js');
+  assert.match(funnel,/baseCandidate!=null&&baseCalc\?\.profit>0\?baseCandidate:null/);
+  assert.match(funnel,/Não há dados suficientes para sugerir preço com segurança/);
+  assert.match(funnel,/Ads por pedido indisponível|Sem atribuição suficiente/);
+});
