@@ -436,3 +436,9 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 9. A imagem principal ganhou fallback para o favicon quando a URL da Shopee falhar, evitando o ícone de imagem quebrada observado no print.
 10. O ícone quadrado sem função no rodapé do card foi removvido; o CTA principal continua ocupando a largura útil.
 11. Nenhum preço é alterado automaticamente. O botão de salvar continua exigindo confirmação explícita e usa a rota oficial existente de atualização de preço.
+
+
+### 2026-09-28 — ChatGPT — Correção da imagem no card do Funil por Produto
+- O card usava somente `p.image` vindo de `sellerFunnel`; essa fonte de métricas pode não fornecer URL de imagem.
+- `/api/funnel/context` já expunha `image` do `product_snapshot` da Super Análise, mas o card não a utilizava.
+- O card agora usa `p.image || productContext.image || /favicon.ico` e mantém fallback em erro de carregamento.
