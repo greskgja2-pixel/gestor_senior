@@ -27,6 +27,11 @@ export async function fetchJsonWithTimeout(url,options={},timeoutMs=20000){
   }finally{clearTimeout(timer)}
 }
 
+function activity(action,phase,detail={}){
+  if(typeof window==='undefined')return;
+  try{window.dispatchEvent(new CustomEvent('gs-motor-activity',{detail:{action,phase,at:Date.now(),...detail}}))}catch{}
+}
+
 export function motorRequest(action,payload={},timeoutMs=22000){
   if(typeof window==='undefined'){
     const error=new Error('Motor Senior indisponível fora do navegador.');
@@ -35,18 +40,19 @@ export function motorRequest(action,payload={},timeoutMs=22000){
   }
   return new Promise((resolve,reject)=>{
     const requestId=`gs-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    activity(action,'start',{requestId,payload});
     let done=false;
-    const finish=(fn,value)=>{if(done)return;done=true;clearTimeout(timer);window.removeEventListener('message',onMessage);fn(value)};
+    const finish=(fn,value,phase='done')=>{if(done)return;done=true;clearTimeout(timer);window.removeEventListener('message',onMessage);activity(action,phase,{requestId,message:value?.message||value?.error||''});fn(value)};
     const onMessage=event=>{
       if(event.source!==window||event.data?.source!=='GS_EXTENSION'||event.data?.type!=='GS_ENGINE_RESPONSE'||String(event.data?.requestId)!==requestId)return;
       const result=event.data?.result||{};
       if(result?.ok===false){
         const error=new Error(result?.error||'O Motor Senior retornou uma falha.');
-        error.code='engine';finish(reject,error);return;
+        error.code='engine';finish(reject,error,'error');return;
       }
-      finish(resolve,result);
+      finish(resolve,result,'success');
     };
-    const timer=setTimeout(()=>finish(reject,new TimeoutError(`O Motor Senior não respondeu em ${Math.ceil(timeoutMs/1000)} segundos.`)),timeoutMs);
+    const timer=setTimeout(()=>finish(reject,new TimeoutError(`O Motor Senior não respondeu em ${Math.ceil(timeoutMs/1000)} segundos.`),'timeout'),timeoutMs);
     window.addEventListener('message',onMessage);
     window.postMessage({source:'GS_GESTOR',type:'GS_ENGINE_REQUEST',requestId,action,payload},location.origin);
   });
