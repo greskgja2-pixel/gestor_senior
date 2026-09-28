@@ -381,9 +381,6 @@ function PriceCalculator({p,context,onClose}){
     if(!window.confirm('Confirmar '+summary+' na Shopee?'))return;
     setSaving(true);setMessage('');
     try{
-      await getJson('/api/shopee/product-price',{method:'POST'});
-    }catch{}
-    try{
       const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),30000);
       const response=await fetch('/api/shopee/product-price',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({item_id:p.id,prices:rows}),signal:ctrl.signal});
       clearTimeout(timer);
