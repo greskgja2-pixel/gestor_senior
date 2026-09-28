@@ -21,8 +21,16 @@ async function loadStoreProducts(shop){
   // os produtos reais já carregados da Shopee/cache.
   const auxErrors=[costError?.message,reportsError?.message].filter(Boolean);
   if(auxErrors.length)loadError=loadError||`Dados auxiliares indisponíveis: ${auxErrors.join(' · ')}`;
-  const baseCosts=new Map();
-  for(const row of costRows||[])if(Number(row.model_id)===0)baseCosts.set(String(row.item_id),row);
+  const baseCosts=new Map(),variationCostsByItem=new Map();
+  for(const row of costRows||[]){
+    const key=String(row.item_id);
+    if(Number(row.model_id)===0)baseCosts.set(key,row);
+    else{
+      const list=variationCostsByItem.get(key)||[];
+      list.push(row);
+      variationCostsByItem.set(key,list);
+    }
+  }
   const latestReport=new Map();
   for(const row of reports||[]){const key=String(row.item_id);if(!latestReport.has(key))latestReport.set(key,row);}
   const items=products.map(it=>{
@@ -31,9 +39,13 @@ async function loadStoreProducts(shop){
     const price=finite(it?.price_info?.[0]?.current_price??it?.price_info?.[0]?.original_price);
     const stock=finite(it?.stock_info_v2?.summary_info?.total_available_stock??it?.stock);
     const costRow=baseCosts.get(key),baseCost=finite(costRow?.cost),packaging=finite(costRow?.packaging_cost)??0,totalCost=baseCost==null?null:baseCost+packaging;
+    const variationCostRows=variationCostsByItem.get(key)||[];
+    const variationCostValues=variationCostRows.map(x=>finite(x?.cost)).filter(x=>x!=null);
+    const variationCostMin=variationCostValues.length?Math.min(...variationCostValues):null;
+    const variationCostMax=variationCostValues.length?Math.max(...variationCostValues):null;
     const report=latestReport.get(key),lastMarginPct=finite(report?.finance_snapshot?.marginPct??report?.metrics?.marginPct),lastMarginR=finite(report?.finance_snapshot?.profit??report?.metrics?.marginR);
     const gross=grossMargin({price,cost:baseCost,packaging});
-    return{itemId:key,title:it.item_name||`Produto ${it.item_id}`,image:imageOf(it),status:it.item_status||'—',price,fullPrice,stock,cost:totalCost,costSource:baseCost!=null?(packaging?'produto + embalagem':'custo cadastrado'):null,marginPct:gross.percent,marginR:gross.amount,marginSource:gross.source,hasModel:Boolean(it.has_model),lastAnalysisMarginPct:lastMarginPct,lastAnalysisMarginR:lastMarginR,lastAnalysisAt:report?.analyzed_at||null};
+    return{itemId:key,title:it.item_name||`Produto ${it.item_id}`,image:imageOf(it),status:it.item_status||'—',price,fullPrice,stock,cost:totalCost,costSource:baseCost!=null?(packaging?'produto + embalagem':'custo cadastrado'):null,variationCostCount:variationCostValues.length,variationCostMin,variationCostMax,marginPct:gross.percent,marginR:gross.amount,marginSource:gross.source,hasModel:Boolean(it.has_model),lastAnalysisMarginPct:lastMarginPct,lastAnalysisMarginR:lastMarginR,lastAnalysisAt:report?.analyzed_at||null};
   });
   return{items,source,syncedAt,loadError};
 }
