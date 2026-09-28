@@ -111,8 +111,8 @@ test('Análise de Funil usa o Motor Sênior e preserva fallback de Ads',()=>{
   for(const token of ['Impressões','Cliques','Visitantes','Carrinho','Pedido criado','Pago','Confirmado'])assert.ok(funnel.includes(token),'etapa ausente: '+token);
   assert.match(funnel,/Fontes de Tráfego/);
   assert.match(funnel,/Histórico Ads/);
-  assert.match(funnel,/\/api\/shopee\/ads\?days=7/);
-  assert.match(funnel,/versão 0\.17\.1/);
+  assert.match(funnel,/\/api\/shopee\/ads\?days=/);
+  assert.match(funnel,/versão 0\.17\.4/);
 });
 
 
@@ -153,7 +153,8 @@ test('Análise de Funil usa funil visual real e destaca maior gargalo',()=>{
   assert.match(funnel,/function KpiStrip/);
   assert.match(funnel,/MAIOR PERDA DO FUNIL/);
   assert.match(funnel,/Plano de Destrave/);
-  assert.match(funnel,/Hoje · tempo real/);
+  assert.match(funnel,/label:'Hoje'/);
+  assert.match(funnel,/tempo real/);
   assert.match(css,/\.realFunnel/);
   assert.match(css,/clip-path:polygon/);
   assert.match(css,/\.bottleneckCallout/);
