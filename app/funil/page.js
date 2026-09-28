@@ -62,29 +62,45 @@ function funnelSummary(totals,rates){
   return{stages,transitions,worst};
 }
 
+function StoreMiniFunnel({totals}){
+  const values=[totals.impressions,totals.clicks,totals.visitors,totals.carts,totals.placed,totals.paid,totals.confirmed];
+  const labels=['Impressões','Cliques','Visitas','Carrinho','Pedido','Pago','Confirmado'];
+  const rates=values.map((v,i)=>i===0?(v!=null?1:null):(values[i-1]>0&&v!=null?v/values[i-1]:null));
+  return <div className={styles.storeMiniFunnel} aria-label="Funil da loja">
+    {labels.map((label,index)=><div className={styles.storeMiniStage} data-index={index} data-missing={values[index]==null?'true':'false'} key={label}>
+      <div className={styles.storeMiniBar}><span>{label}</span></div>
+      <strong>{int(values[index])}</strong>
+      <small>{pct(rates[index])}</small>
+    </div>)}
+  </div>;
+}
+
 function FunnelVisual({totals,rates}){
-  const {stages,transitions,worst}=funnelSummary(totals,rates);
-  return <section className={styles.visualFunnelCard}>
-    <div className={styles.funnelVisualWrap}>
-      <div className={styles.realFunnel} aria-label="Funil de vendas">
-        {stages.map((stage,index)=><div key={stage.key} className={styles.funnelLayer} data-index={index} data-missing={stage.value==null?'true':'false'}>
-          <span className={styles.funnelIcon}>{stage.icon}</span>
-          <span><small>{stage.label}</small><strong>{int(stage.value)}</strong></span>
-        </div>)}
+  const {worst}=funnelSummary(totals,rates);
+  const validRates=funnelSummary(totals,rates).transitions.filter(x=>x.rate!=null);
+  const tone=!worst?'data':worst.rate<.15?'bad':worst.rate<.35?'warn':'good';
+  const status=tone==='bad'?'CRÍTICO':tone==='warn'?'ATENÇÃO':tone==='good'?'ACOMPANHAR':'POUCOS DADOS';
+  return <section className={styles.storeFunnelCard} data-priority={tone}>
+    <header className={styles.storeFunnelHeader}>
+      <div><span className={styles.storeFunnelIcon}>▽</span><div><h2>Funil da Loja</h2><p>Visão geral da passagem dos clientes por cada etapa da loja.</p></div></div>
+      <span className={styles.productStatus} data-priority={tone}>{status}</span>
+    </header>
+    <div className={styles.storeFunnelBody}>
+      <div className={styles.storeFunnelLeft}>
+        <StoreMiniFunnel totals={totals}/>
+        <div className={styles.storeFunnelLegend}><strong>Leitura rápida</strong><span>O número à direita é o volume da etapa. A porcentagem mostra quanto passou da etapa anterior.</span></div>
       </div>
-      <div className={styles.conversionRail}>
-        {transitions.map(t=><div key={t.id} className={styles.conversionRow} data-worst={worst?.id===t.id?'true':'false'}>
-          <span className={styles.conversionArrow}>↓</span>
-          <div><strong>{pct(t.rate)}</strong><small>de {t.from.toLowerCase()} → {t.to.toLowerCase()}</small></div>
-          {worst?.id===t.id&&<em>Maior gargalo</em>}
-        </div>)}
+      <div className={styles.storeFunnelRight}>
+        <section className={styles.productDiagnosis} data-tone={tone}>
+          {worst?<><h4>Maior gargalo: {worst.from} → {worst.to}</h4><strong>{pct(worst.rate)} de passagem · perda de {pct(1-worst.rate)}</strong><p>Esta é a menor passagem entre as etapas disponíveis no período. Use o Plano de Destrave abaixo para descobrir quais produtos investigar primeiro.</p></>:<><h4>Dados insuficientes</h4><strong>Não foi possível comparar as etapas</strong><p>Atualize os dados do funil para o Gestor identificar onde a loja está perdendo mais clientes.</p></>}
+        </section>
+        <section className={styles.storeStageSummary}>
+          <strong>Passagem por etapa</strong>
+          <div>{validRates.map(t=><span key={t.id} data-worst={worst?.id===t.id?'true':'false'}><small>{t.from} → {t.to}</small><b>{pct(t.rate)}</b></span>)}</div>
+        </section>
       </div>
     </div>
-    <aside className={styles.bottleneckCallout} data-empty={!worst?'true':'false'}>
-      <span className={styles.bottleneckIcon}>↗</span>
-      {worst?<div><small>MAIOR PERDA DO FUNIL</small><h3>{worst.from} → {worst.to}</h3><strong>Perda de {pct(1-worst.rate)}</strong><p>Esta é a etapa com menor passagem entre as métricas disponíveis agora. Comece a investigação por aqui.</p></div>:<div><small>GARGALO</small><h3>Dados insuficientes</h3><p>Assim que as etapas estiverem disponíveis, o Gestor destaca automaticamente onde há a maior perda.</p></div>}
-    </aside>
-  </section>
+  </section>;
 }
 
 function KpiStrip({totals,rates}){

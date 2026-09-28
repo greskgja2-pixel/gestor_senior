@@ -109,3 +109,30 @@
 .storeSpecificFoot{display:block;padding:9px 16px;border-top:1px solid #edf2f7;background:#f8fafc;color:#73899c;font-size:8px}
 @media(max-width:900px){.storeSpecificSteps ol,.storeSpecificProductGrid{grid-template-columns:1fr}.storeSpecificProductsHead{align-items:start;flex-direction:column}}
 @media(max-width:560px){.storeSpecificHero{grid-template-columns:28px 1fr;padding:12px}.storeSpecificIcon{width:28px;height:28px}.storeSpecificHero h3{font-size:15px}.storeSpecificSteps,.storeSpecificProducts{padding:12px}.storeSpecificProductTop{grid-template-columns:23px 44px 1fr}.storeSpecificProductTop img{width:44px;height:44px}}
+
+
+/* Funil da Loja com a mesma linguagem visual do Funil por Produto */
+.storeFunnelCard{background:#fff;border:1px solid #dfe8f2;border-left:5px solid #93a5b7;border-radius:18px;padding:16px;box-shadow:0 8px 24px rgba(42,71,102,.06);margin-bottom:14px}
+.storeFunnelCard[data-priority=bad]{border-left-color:#ef4e63}.storeFunnelCard[data-priority=warn]{border-left-color:#f2a11d}.storeFunnelCard[data-priority=good]{border-left-color:#20a46b}.storeFunnelCard[data-priority=data]{border-left-color:#8c9cad}
+.storeFunnelHeader{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:14px}
+.storeFunnelHeader>div:first-child{display:flex;align-items:center;gap:11px;min-width:0}
+.storeFunnelHeader h2{margin:0;color:#193653;font-size:18px}.storeFunnelHeader p{margin:3px 0 0;color:#8193a5;font-size:11px}
+.storeFunnelIcon{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;background:#eaf3ff;color:#1769e8;font-size:21px;font-weight:900;flex:0 0 auto}
+.storeFunnelBody{display:grid;grid-template-columns:minmax(340px,.95fr) minmax(360px,1.05fr);gap:20px}.storeFunnelLeft,.storeFunnelRight{min-width:0}
+.storeMiniFunnel{display:grid;gap:5px;padding:4px 6px 6px}
+.storeMiniStage{display:grid;grid-template-columns:minmax(0,1fr) 86px 58px;align-items:center;gap:8px}
+.storeMiniBar{height:38px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:900;clip-path:polygon(4% 0,96% 0,88% 100%,12% 100%);border-radius:8px}
+.storeMiniStage[data-index="0"] .storeMiniBar{width:100%;background:linear-gradient(90deg,#2d79ee,#2f8cf4)}
+.storeMiniStage[data-index="1"] .storeMiniBar{width:92%;justify-self:center;background:linear-gradient(90deg,#34b6eb,#46c9ed)}
+.storeMiniStage[data-index="2"] .storeMiniBar{width:84%;justify-self:center;background:linear-gradient(90deg,#835ee5,#9a6bf1)}
+.storeMiniStage[data-index="3"] .storeMiniBar{width:75%;justify-self:center;background:linear-gradient(90deg,#f05f79,#fb7187)}
+.storeMiniStage[data-index="4"] .storeMiniBar{width:66%;justify-self:center;background:linear-gradient(90deg,#f39a2e,#f6aa3d)}
+.storeMiniStage[data-index="5"] .storeMiniBar{width:57%;justify-self:center;background:linear-gradient(90deg,#2dbd76,#46cb88)}
+.storeMiniStage[data-index="6"] .storeMiniBar{width:48%;justify-self:center;background:linear-gradient(90deg,#6554d9,#8068e8)}
+.storeMiniStage[data-missing=true]{opacity:.45}.storeMiniStage strong{font-size:17px;color:#24415e;text-align:right}.storeMiniStage small{font-size:11px;color:#74889d;text-align:right}
+.storeFunnelLegend{margin-top:11px;border:1px solid #e2e9f1;background:#f9fbfd;border-radius:13px;padding:10px;display:grid;gap:3px}.storeFunnelLegend strong{font-size:11px;color:#27435d}.storeFunnelLegend span{font-size:10px;line-height:1.4;color:#7b8fa2}
+.storeFunnelRight{display:grid;align-content:start;gap:11px}
+.storeStageSummary{background:#f8fafc;border:1px solid #e5ebf1;border-radius:14px;padding:14px}.storeStageSummary>strong{display:block;font-size:12px;color:#29455f;margin-bottom:9px}.storeStageSummary>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.storeStageSummary span{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 9px;border:1px solid #e3eaf1;background:#fff;border-radius:9px}.storeStageSummary span[data-worst=true]{border-color:#ffcbd2;background:#fff3f5}.storeStageSummary small{font-size:9px;color:#72879a}.storeStageSummary b{font-size:11px;color:#27445f}.storeStageSummary span[data-worst=true] b{color:#dc334a}
+@media(max-width:1100px){.storeFunnelBody{grid-template-columns:1fr}.storeFunnelRight{grid-template-columns:1fr 1fr}.storeStageSummary{min-width:0}}
+@media(max-width:720px){.storeFunnelCard{padding:12px;border-left-width:4px}.storeFunnelHeader{display:grid;grid-template-columns:1fr auto}.storeFunnelHeader>div:first-child{grid-column:1/-1}.storeFunnelRight{grid-template-columns:1fr}.storeMiniStage{grid-template-columns:minmax(0,1fr) 64px 45px}.storeMiniBar{height:33px;font-size:10px}.storeMiniStage strong{font-size:14px}.storeMiniStage small{font-size:9px}.storeStageSummary>div{grid-template-columns:1fr}.storeFunnelHeader h2{font-size:16px}}

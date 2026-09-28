@@ -150,14 +150,15 @@ test('Análise de Funil usa funil visual real e destaca maior gargalo',()=>{
   const funnel=read('app/funil/page.js');
   const css=read('app/funil/funil.module.css');
   assert.match(funnel,/function FunnelVisual/);
+  assert.match(funnel,/function StoreMiniFunnel/);
   assert.match(funnel,/function KpiStrip/);
-  assert.match(funnel,/MAIOR PERDA DO FUNIL/);
+  assert.match(funnel,/Maior gargalo:/);
   assert.match(funnel,/Plano de Destrave/);
   assert.match(funnel,/label:'Hoje'/);
   assert.match(funnel,/tempo real/);
-  assert.match(css,/\.realFunnel/);
+  assert.match(css,/\.storeMiniFunnel/);
   assert.match(css,/clip-path:polygon/);
-  assert.match(css,/\.bottleneckCallout/);
+  assert.match(css,/\.storeFunnelCard/);
   assert.match(css,/\.kpiStrip/);
 });
 
@@ -471,4 +472,17 @@ test('Funil da Loja implementa modo específico acionável',()=>{
   assert.match(funnel,/Nenhuma alteração de preço, anúncio ou campanha é aplicada automaticamente/);
   assert.match(css,/\.storeSpecificProductGrid/);
   assert.match(css,/@media\(max-width:560px\)/);
+});
+
+
+test('Funil da Loja usa layout compacto inspirado no Funil por Produto',()=>{
+  const funnel=read('app/funil/page.js');
+  const css=read('app/funil/funil.module.css');
+  assert.match(funnel,/function StoreMiniFunnel/);
+  assert.match(funnel,/className=\{styles\.storeFunnelCard\}/);
+  assert.match(funnel,/Maior gargalo:/);
+  assert.match(funnel,/Passagem por etapa/);
+  assert.match(css,/\.storeFunnelBody\{display:grid/);
+  assert.match(css,/\.storeMiniStage\[data-index="6"\]/);
+  assert.match(css,/@media\(max-width:720px\)/);
 });

@@ -480,3 +480,13 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 7. O botão de cada produto abre a aba Por Produto e coloca aquele item no topo do plano. “Ver todos” abre a aba Por Produto.
 8. Nenhuma alteração é aplicada automaticamente. O painel é diagnóstico/ordenação de ações.
 9. Layout responsivo: 3 colunas no desktop e 1 coluna abaixo de 900px, com ajustes adicionais no mobile.
+
+
+### 2026-09-28 — ChatGPT — Funil da Loja alinhado visualmente ao Funil por Produto
+1. O card principal da aba Funil da Loja foi refeito para usar a mesma linguagem visual aprovada no Funil por Produto: cabeçalho compacto, borda lateral de status, funil à esquerda e diagnóstico à direita.
+2. O funil da loja continua usando exatamente os agregados já existentes, agora em 7 faixas compactas: Impressões, Cliques, Visitas, Carrinho, Pedido, Pago e Confirmado. Volume e taxa de passagem ficam visíveis na mesma linha.
+3. O maior gargalo permanece calculado pelas taxas reais disponíveis; o diagnóstico agora aparece em um card equivalente ao diagnóstico do produto, com taxa de passagem e perda.
+4. À direita foi adicionado um resumo “Passagem por etapa”, destacando visualmente o pior ponto sem remover os KPIs detalhados existentes abaixo.
+5. O Plano de Destrave e o modo “Específico · me diga o que fazer” foram preservados integralmente abaixo do funil.
+6. O layout é responsivo: duas colunas no desktop, uma coluna em telas menores, mantendo leitura confortável no celular.
+7. Nenhuma fonte, cálculo de negócio, API ou sidebar foi alterada nesta mudança; foi uma reorganização visual do funil da loja.
