@@ -292,3 +292,22 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 9. A tabela completa de números continua disponível recolhida no fim da aba para auditoria.
 
 **Importante:** o redesign é visual/estrutural; não mudou fonte de dados, heurísticas, período histórico nem regras de segurança.
+
+
+### 2026-09-28 — ChatGPT — Calculadora inline de preço no Funil por Produto
+**Arquivos:** `app/funil/page.js`, `app/funil/funil.module.css`, `app/api/funnel/context/route.js`, nova rota `app/api/shopee/product-price/route.js`, `lib/shopee.js`, testes e este arquivo. Branch: `feature/funil-inline-calculadora`.
+
+**O que mudou:**
+1. Recomendações de preço/oferta/concorrente na aba **Por Produto** ganham botão **Abrir calculadora** dentro do próprio card, sem sair do Funil.
+2. Ao abrir, o Gestor carrega automaticamente o que já conhece: custo salvo, preço atual/final, dados Ads do último snapshot, concorrentes vinculados e variações; consulta também `/api/shopee/flash-sale` para identificar oferta ativa/agendada e variações atuais da loja.
+3. Ads por pedido é calculado apenas quando há gasto Ads e pedidos Ads atribuídos: `gasto ÷ pedidos Ads`. Sem atribuição suficiente aparece indisponível.
+4. O concorrente com maior número de vendidos entre os concorrentes vinculados é usado como referência; a UI lista **todas as variações e preços coletados** desse anúncio, sem afirmar qual variação vende mais.
+5. Logo ao lado/abaixo aparecem **Minhas variações**, com preço atual, eventual variação equivalente do concorrente, campo de novo preço e margem estimada.
+6. Pareamento de variações tenta nome exato normalizado e depois similaridade simples; quando não há equivalência, não inventa correspondência.
+7. A referência de preço competitivo usa preço do concorrente líder ou mediana dos concorrentes e só vira sugestão automática quando custo disponível + fórmula financeira atual + Ads disponíveis deixam lucro positivo. Não há subcotação arbitrária.
+8. Fórmula segue a regra financeira já usada no projeto: preço − 20% Shopee − taxa fixa R$ 4,50 − custo − Ads por pedido. É mostrada como estimativa, não como valor contábil definitivo.
+9. Foi adicionada integração oficial `/api/v2/product/update_price` por uma rota protegida do Gestor. O usuário precisa clicar **Salvar novo preço** e confirmar; nada é alterado automaticamente.
+10. Para produto em Oferta Relâmpago, o painel avisa que alterar o preço normal não substitui automaticamente o preço promocional da campanha selecionada.
+11. Após salvar, a rota relê preço/modelos e só confirma sucesso se o valor persistido bater com o enviado.
+
+**Regra de segurança:** nunca enviar preço sem clique/confirm explícito; nunca preencher custo, Ads, margem, preço concorrente ou variação ausente com estimativa inventada.
