@@ -5,7 +5,7 @@ import {useEffect,useMemo,useState} from 'react';
 import {motorData} from '../lib/client-async';
 import styles from './funil.module.css';
 
-const num=v=>Number.isFinite(Number(v))?Number(v):null;
+const num=v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v))?null:Number(v);
 const int=v=>num(v)==null?'—':Math.round(Number(v)).toLocaleString('pt-BR');
 const pct=v=>num(v)==null?'—':(Number(v)*100).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%';
 const money=v=>num(v)==null?'—':Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
@@ -14,6 +14,13 @@ const arr=v=>Array.isArray(v)?v:[];
 const median=values=>{const a=values.filter(v=>Number.isFinite(v)).sort((x,y)=>x-y);if(!a.length)return null;const m=Math.floor(a.length/2);return a.length%2?a[m]:(a[m-1]+a[m])/2};
 const cleanText=v=>String(v||'').replace(/\s+/g,' ').trim();
 const pickSuggestion=(list,re)=>arr(list).map(cleanText).find(x=>re.test(x))||null;
+const PERIODS=[
+  {id:'past7days',label:'7 dias',days:7},
+  {id:'past30days',label:'30 dias',days:30},
+  {id:'real_time',label:'Hoje',days:1}
+];
+const periodMeta=id=>PERIODS.find(x=>x.id===id)||PERIODS[1];
+const signedPct=v=>num(v)==null?'—':(Number(v)>=0?'+':'')+(Number(v)*100).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%';
 
 async function getJson(url){
   const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),30000);
@@ -93,6 +100,19 @@ function KpiStrip({totals,rates}){
     <span className={styles.kpiDot}>{card.id==='ctr'?'◉':card.id==='visitCart'?'●':card.id==='cartPlaced'?'▣':card.id==='placedPaid'?'▤':'✓'}</span>
     <div><small>{card.label}</small><b>{pct(card.rate)}</b><em>{card.sub}</em><p>{card.desc}</p></div>
   </article>)}</section>
+}
+
+function ComparisonStrip({comparison}){
+  const cards=[
+    ['Visitantes',comparison.visitors],
+    ['Pedidos pagos',comparison.paidOrders],
+    ['GMV pago',comparison.paidGmv],
+    ['Confirmados',comparison.confirmedOrders]
+  ];
+  return <section className={styles.comparisonStrip}>
+    <div><strong>Comparação com o período anterior</strong><small>A Shopee calcula a variação usando uma janela anterior de mesmo tamanho.</small></div>
+    {cards.map(([label,value])=><article key={label} data-direction={value==null?'none':value>=0?'up':'down'}><span>{label}</span><b>{signedPct(value)}</b></article>)}
+  </section>
 }
 
 function productPlan(p,med){
@@ -181,7 +201,7 @@ function specificPlan(p,med,context){
     if(priceGap!=null&&priceGap>.05)actions[2]=`Teste de preço: aproxime a oferta de ${money(marketMedian)} e acompanhe Visita→Carrinho. Não aplique se o custo/margem não comportar.`;
   }else if(base.title.includes('desiste antes do pedido')){
     if(priceGap!=null&&priceGap>.05){
-      const safeExact=margin!=null&&margin>=20&&marketMedian>=ownPrice*.9;
+      const safeExact=cost!=null&&margin!=null&&margin>=20&&marketMedian>=ownPrice*.9;
       actions[0]=safeExact
         ?`Teste específico: reduza temporariamente de ${money(ownPrice)} para ${money(marketMedian)} e acompanhe Carrinho→Pedido por 3 dias. A margem cadastrada atual é ${margin.toLocaleString('pt-BR',{maximumFractionDigits:1})}%.`
         :`Seu preço está acima da mediana (${money(ownPrice)} vs. ${money(marketMedian)}). Use ${money(marketMedian)} como alvo de mercado, mas confirme custo e margem antes de aplicar.`;
@@ -235,19 +255,22 @@ function normalizeAdsCampaign(c){
 export default function FunilPage(){
   const [tab,setTab]=useState('loja');
   const [guidanceMode,setGuidanceMode]=useState('standard');
+  const [period,setPeriod]=useState('past30days');
   const [context,setContext]=useState({});
   const [state,setState]=useState({loading:true,error:'',seller:null,ads:null});
-  const load=async()=>{
+  const load=async(selectedPeriod=period)=>{
     setState(s=>({...s,loading:true,error:''}));
+    const meta=periodMeta(selectedPeriod);
     const [sellerR,adsR]=await Promise.allSettled([
-      motorData('sellerFunnel',{},45000),
-      getJson('/api/shopee/ads?days=7')
+      motorData('sellerFunnel',{period:selectedPeriod},60000),
+      getJson('/api/shopee/ads?days='+meta.days)
     ]);
     const seller=sellerR.status==='fulfilled'?sellerR.value:null;
     const ads=adsR.status==='fulfilled'?(adsR.value?.v7||adsR.value?.v5||adsR.value):null;
     const errors=[];
     if(sellerR.status==='rejected')errors.push('Funil completo: '+String(sellerR.reason?.message||sellerR.reason));
     if(adsR.status==='rejected')errors.push('Shopee Ads: '+String(adsR.reason?.message||adsR.reason));
+    if(seller&&seller?.period?.type&&seller.period.type!==selectedPeriod)errors.push('O Motor Sênior respondeu '+periodMeta(seller.period.type).label+' em vez de '+periodMeta(selectedPeriod).label+'. Atualize a extensão para v0.17.4+ para usar o histórico mapeado.');
     if(seller){
       const ids=arr(seller.products).map(x=>String(x?.id||'').trim()).filter(Boolean).slice(0,100);
       if(ids.length){
@@ -267,25 +290,32 @@ export default function FunilPage(){
       const saved=localStorage.getItem('gs_funnel_guidance_mode');
       if(saved==='standard'||saved==='specific')setGuidanceMode(saved);
     }catch{}
-    load();
+    load('past30days');
   },[]);
+  const changePeriod=next=>{
+    if(next===period)return;
+    setPeriod(next);
+    load(next);
+  };
   const chooseGuidance=mode=>{
     setGuidanceMode(mode);
     try{localStorage.setItem('gs_funnel_guidance_mode',mode)}catch{}
   };
 
   const model=useMemo(()=>{
-    const s=state.seller||{},k=s.keyMetrics||{},rt=s.realtime?.key_metrics||{};
+    const s=state.seller||{},k=s.keyMetrics||{},rt=s.realtime?.key_metrics||{},overview=s.productOverview||{};
     const products=arr(s.products);
+    const productImpressions=products.length?products.reduce((a,p)=>a+(num(p.product_card_impressions)||0),0):null;
+    const productClicks=products.length?products.reduce((a,p)=>a+(num(p.product_card_clicks)||0),0):null;
     const totals={
-      impressions:products.length?products.reduce((a,p)=>a+(num(p.product_card_impressions)||0),0):null,
-      clicks:products.length?products.reduce((a,p)=>a+(num(p.product_card_clicks)||0),0):null,
-      visitors:products.length?products.reduce((a,p)=>a+(num(p.uv)||0),0):val(k.shop_uv)??num(rt.uv),
-      carts:products.length?products.reduce((a,p)=>a+(num(p.add_to_cart_buyers)||0),0):null,
-      placed:val(k.place_orders)??num(rt.orders),
-      paid:val(k.paid_orders),
-      confirmed:val(k.confirmed_orders),
-      paidGmv:val(k.paid_gmv)??num(rt.sales)
+      impressions:productImpressions,
+      clicks:productClicks??val(k.product_clicks),
+      visitors:val(k.shop_uv)??val(overview.uv)??num(rt.uv),
+      carts:val(overview.atc_uv),
+      placed:val(k.place_orders)??val(overview.placed_order)??num(rt.orders),
+      paid:val(k.paid_orders)??val(overview.paid_order),
+      confirmed:val(k.confirmed_orders)??val(overview.confirmed_order),
+      paidGmv:val(k.paid_gmv)??val(overview.paid_gmv)??num(rt.sales)
     };
     const rates={
       ctr:totals.impressions>0&&totals.clicks!=null?totals.clicks/totals.impressions:null,
@@ -310,20 +340,32 @@ export default function FunilPage(){
       if(t)sources.push({key,label,sales:num(t.sales),orders:num(t.orders),clicks:num(t.product_clicks),impressions:num(t.product_impressions),ctr:num(t.ctr),conversion:num(t.product_clicks_to_orders_rate??t.conversion)});
     }
     const campaigns=arr(state.ads?.campaigns).map(normalizeAdsCampaign);
-    return{totals,rates,products,med,sources,campaigns,key:k,realtime:rt,errors:arr(s.errors)};
+    const comparison={
+      visitors:num(k?.shop_uv?.chain_ratio),
+      paidOrders:num(k?.paid_orders?.chain_ratio),
+      paidGmv:num(k?.paid_gmv?.chain_ratio),
+      confirmedOrders:num(k?.confirmed_orders?.chain_ratio)
+    };
+    return{totals,rates,products,med,sources,campaigns,comparison,key:k,realtime:rt,period:s.period||null,errors:arr(s.errors)};
   },[state]);
 
   if(state.loading)return <div className={styles.page}><div className={styles.loading}>Lendo Informações Gerenciais da Shopee e montando o funil…</div></div>;
 
   const full=!!state.seller;
+  const actualPeriod=state.seller?.period?.type||period;
+  const actualPeriodMeta=periodMeta(actualPeriod);
   return <div className={styles.page}>
     <header className={styles.header}>
       <div><span className={styles.eyebrow}>GESTOR SÊNIOR · CONVERSÃO</span><h1>Análise de Funil</h1><p>Descubra em qual etapa suas vendas estão travando e o que fazer primeiro.</p></div>
-      <div className={styles.headerActions}><span className={styles.periodBadge}>◷ Hoje · tempo real</span><button type="button" onClick={load}>↻ Atualizar agora</button></div>
+      <div className={styles.headerActions}>
+        <div className={styles.periodPicker} role="group" aria-label="Período do funil">{PERIODS.map(x=><button type="button" key={x.id} data-active={period===x.id} onClick={()=>changePeriod(x.id)} disabled={state.loading}>{x.label}</button>)}</div>
+        <span className={styles.periodBadge}>◷ {actualPeriodMeta.label}{actualPeriod==='real_time'?' · tempo real':''}</span>
+        <button type="button" onClick={()=>load(period)} disabled={state.loading}>↻ Atualizar agora</button>
+      </div>
     </header>
 
     {state.error&&<div className={styles.warning}>{state.error}</div>}
-    {!full&&<div className={styles.warning}><b>Funil completo indisponível.</b> Atualize o Motor Sênior para a versão 0.17.1 ou superior e mantenha uma sessão ativa no Seller Center. Enquanto isso, a aba “Histórico Ads” continua usando os dados já disponíveis.</div>}
+    {!full&&<div className={styles.warning}><b>Funil completo indisponível.</b> Atualize o Motor Sênior para a versão 0.17.4 ou superior e mantenha uma sessão ativa no Seller Center. Enquanto isso, a aba “Histórico Ads” continua usando os dados já disponíveis.</div>}
 
     <nav className={styles.tabs}>
       <button data-active={tab==='loja'} onClick={()=>setTab('loja')}>Funil da Loja</button>
@@ -335,6 +377,7 @@ export default function FunilPage(){
     {tab==='loja'&&<>
       <FunnelVisual totals={model.totals} rates={model.rates}/>
       <KpiStrip totals={model.totals} rates={model.rates}/>
+      <ComparisonStrip comparison={model.comparison}/>
       <section className={styles.unlockPanel}>
         <div className={styles.unlockHead}>
           <div><span className={styles.targetIcon}>◎</span><div><h2>Plano de Destrave</h2><p>Ações para atacar primeiro os produtos com maior gargalo.</p></div></div>
