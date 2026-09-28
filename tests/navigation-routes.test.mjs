@@ -472,3 +472,16 @@ test('Funil da Loja implementa modo específico acionável',()=>{
   assert.match(css,/\.storeSpecificProductGrid/);
   assert.match(css,/@media\(max-width:560px\)/);
 });
+
+
+test('Funil da Loja usa layout compacto inspirado no Funil por Produto',()=>{
+  const funnel=read('app/funil/page.js');
+  const css=read('app/funil/funil.module.css');
+  assert.match(funnel,/function StoreMiniFunnel/);
+  assert.match(funnel,/className=\{styles\.storeFunnelCard\}/);
+  assert.match(funnel,/Maior gargalo:/);
+  assert.match(funnel,/Passagem por etapa/);
+  assert.match(css,/\.storeFunnelBody\{display:grid/);
+  assert.match(css,/\.storeMiniStage\[data-index="6"\]/);
+  assert.match(css,/@media\(max-width:720px\)/);
+});
