@@ -273,6 +273,80 @@ function ProductActionCard({p,med,mode,context}){
   </article>
 }
 
+function productBottleneck(plan){
+  if(plan.priority==='good')return{title:'Funil saudável',tone:'good',detail:'As principais taxas deste produto estão próximas ou acima do padrão da sua loja.'};
+  if(plan.priority==='data')return{title:'Dados insuficientes',tone:'data',detail:'Ainda falta volume para apontar um gargalo com segurança.'};
+  if(plan.title.includes('antes do clique'))return{title:'Maior gargalo: Impressões → Cliques',tone:'bad',detail:'O produto aparece, mas proporcionalmente poucas pessoas clicam para conhecer o anúncio.'};
+  if(plan.title.includes('não coloca no carrinho'))return{title:'Maior gargalo: Visitas → Carrinho',tone:'bad',detail:'O cliente entra no anúncio, mas a oferta ainda não convence o suficiente para gerar intenção de compra.'};
+  if(plan.title.includes('desiste antes do pedido'))return{title:'Maior gargalo: Carrinho → Pedido',tone:'bad',detail:'Os clientes demonstram intenção de compra, mas muitos não finalizam o pedido.'};
+  if(plan.title.includes('poucos viram pagamento'))return{title:'Maior gargalo: Pedido → Pago',tone:'warn',detail:'O pedido chega a ser criado, mas parte dos clientes não conclui o pagamento.'};
+  if(plan.title.includes('antes da confirmação'))return{title:'Maior gargalo: Pago → Confirmado',tone:'warn',detail:'A aquisição funcionou; a perda acontece depois do pagamento e pede atenção operacional.'};
+  return{title:plan.title,tone:plan.priority,detail:plan.why};
+}
+
+function MiniProductFunnel({p}){
+  const impressions=num(p.product_card_impressions),clicks=num(p.product_card_clicks),visits=num(p.uv),carts=num(p.add_to_cart_buyers),placed=num(p.placed_buyers),paid=num(p.paid_buyers);
+  const values=[impressions,clicks,visits,carts,placed,paid];
+  const labels=['Impressões','Cliques','Visitas','Carrinho','Pedido','Pago'];
+  const rates=values.map((v,i)=>i===0?(v!=null?1:null):(values[i-1]>0&&v!=null?v/values[i-1]:null));
+  return <div className={styles.productMiniFunnel} aria-label="Funil do produto">
+    {labels.map((label,index)=><div className={styles.productMiniStage} data-index={index} data-missing={values[index]==null?'true':'false'} key={label}>
+      <div className={styles.productMiniBar}><span>{label}</span></div>
+      <strong>{int(values[index])}</strong>
+      <small>{pct(rates[index])}</small>
+    </div>)}
+  </div>
+}
+
+function ProductFunnelCard({p,med,mode,context}){
+  const plan=mode==='specific'?specificPlan(p,med,context):productPlan(p,med);
+  const bottleneck=productBottleneck(plan);
+  const status=plan.priority==='bad'?'CRÍTICO':plan.priority==='warn'?'ATENÇÃO':plan.priority==='good'?'SAUDÁVEL':'POUCOS DADOS';
+  const competitor=mode==='specific'?arr(plan.competitors)[0]:null;
+  const evidence=plan.evidence||'';
+  return <article className={styles.productFunnelCard} data-priority={plan.priority}>
+    <header className={styles.productFunnelHeader}>
+      <div className={styles.productIdentity}>
+        <img src={p.image||'/favicon.ico'} alt=""/>
+        <div><h3>{p.name||'Produto'}</h3><small>ID {p.id||'—'}</small></div>
+      </div>
+      <span className={styles.productStatus} data-priority={plan.priority}>{status}</span>
+    </header>
+
+    <div className={styles.productFunnelBody}>
+      <div className={styles.productFunnelLeft}>
+        <MiniProductFunnel p={p}/>
+        <div className={styles.productCompetitorBox}>
+          <strong>Concorrente de referência</strong>
+          {competitor?<a href={competitor.url||'#'} target={competitor.url?'_blank':undefined} rel={competitor.url?'noreferrer':undefined} data-disabled={!competitor.url?'true':'false'}>
+            {competitor.image?<img src={competitor.image} alt=""/>:<span className={styles.productCompetitorPlaceholder}>◎</span>}
+            <div><b>{competitor.title||'Concorrente vinculado'}</b><small>{competitor.price!=null?money(competitor.price):'Preço não coletado'}{competitor.sold!=null?' · '+int(competitor.sold)+' vendidos':''}</small></div>
+          </a>:<div className={styles.productCompetitorEmpty}>Ainda não há concorrente vinculado para este produto.</div>}
+        </div>
+      </div>
+
+      <div className={styles.productFunnelRight}>
+        <section className={styles.productDiagnosis} data-tone={bottleneck.tone}>
+          <h4>{bottleneck.title}</h4>
+          <strong>{evidence}</strong>
+          <p>{bottleneck.detail}</p>
+          {mode==='specific'&&plan.specificNote&&<small>{plan.specificNote}</small>}
+        </section>
+
+        <section className={styles.productActionBox}>
+          <strong>Faça assim</strong>
+          <ol>{plan.actions.slice(0,3).map((action,index)=><li key={index}><span>{index+1}</span><p>{action}</p></li>)}</ol>
+        </section>
+
+        <div className={styles.productFunnelFooter}>
+          <Link href={plan.href}>{plan.action} →</Link>
+          <span className={styles.productChartGlyph}>▥</span>
+        </div>
+      </div>
+    </div>
+  </article>;
+}
+
 function ProductRow({p,med}){
   const plan=productPlan(p,med);
   return <tr>
@@ -445,11 +519,9 @@ export default function FunilPage(){
           <button type="button" data-active={guidanceMode==='specific'} onClick={()=>chooseGuidance('specific')}><b>Específico · me diga o que fazer</b><span>Cruze concorrentes, preço, margem e Super Análise</span></button>
         </div>
       </div>
-      {guidanceMode==='specific'&&<div className={styles.modeNotice}><b>Modo específico ligado.</b> Quando houver evidência suficiente, o Gestor dá um teste concreto e mostra os concorrentes/dados usados. Se faltar custo, margem ou concorrentes, ele avisa em vez de inventar.</div>}
       {!model.products.length?<div className={styles.empty}>Sem dados de produto no momento.</div>:<>
-        <div className={styles.actionIntro}><b>Plano de destrave</b><span>{guidanceMode==='specific'?'Siga os passos como teste controlado; nenhuma alteração é aplicada sozinha.':'Prioridade: primeiro os produtos com gargalo mais forte. Produtos com pouco volume ficam separados para evitar conclusões precipitadas.'}</span></div>
-        <div className={styles.actionList}>
-          {[...model.products].sort((a,b)=>productPlan(a,model.med).rank-productPlan(b,model.med).rank).map(p=><ProductActionCard key={'plan-'+p.id} p={p} med={model.med} mode={guidanceMode} context={context}/>)}
+        <div className={styles.productFunnelList}>
+          {[...model.products].sort((a,b)=>productPlan(a,model.med).rank-productPlan(b,model.med).rank).map(p=><ProductFunnelCard key={'funnel-'+p.id} p={p} med={model.med} mode={guidanceMode} context={context}/>)}
         </div>
         <details className={styles.rawDetails}><summary>Ver tabela completa de números</summary><div className={styles.tableWrap}><table><thead><tr><th>Produto</th><th>Impressões</th><th>Cliques</th><th>CTR</th><th>Visitantes</th><th>Carrinho</th><th>Pedido</th><th>Pago</th><th>Confirmado</th><th>Status</th></tr></thead><tbody>{model.products.map(p=><ProductRow key={p.id} p={p} med={model.med}/>)}</tbody></table></div></details>
       </>}
