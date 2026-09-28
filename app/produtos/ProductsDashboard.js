@@ -145,7 +145,8 @@ export default function ProductsDashboard({items=[],source='cache',syncedAt=null
   const [statusFilter,setStatusFilter]=useState('all');
   const [pageSize,setPageSize]=useState(25);
   const [page,setPage]=useState(1);
-  const [sort,setSort]=useState('name');
+  const [sortKey,setSortKey]=useState('title');
+  const [sortDir,setSortDir]=useState('asc');
   const [refreshing,setRefreshing]=useState(false);
   const [refreshError,setRefreshError]=useState('');
   const [refreshState,setRefreshState]=useState('idle');
@@ -181,19 +182,11 @@ export default function ProductsDashboard({items=[],source='cache',syncedAt=null
       const matchesStatus=statusFilter==='all'||String(x.status||'').toUpperCase()===statusFilter;
       return matchesQuery&&matchesStatus;
     });
-    return [...list].sort((a,b)=>{
-      if(sort==='price-asc')return (a.price??Infinity)-(b.price??Infinity);
-      if(sort==='price-desc')return (b.price??-Infinity)-(a.price??-Infinity);
-      if(sort==='stock-desc')return (b.stock??-Infinity)-(a.stock??-Infinity);
-      if(sort==='margin-desc'){
-        const ma=marginFor(a)?.marginPct??-Infinity,mb=marginFor(b)?.marginPct??-Infinity;return mb-ma;
-      }
-      return String(a.title||'').localeCompare(String(b.title||''),'pt-BR');
-    });
-  },[rows,query,statusFilter,sort,offers,fees]);
+    return [...list].sort((a,b)=>compareRows(a,b,sortKey,sortDir));
+  },[rows,query,statusFilter,sortKey,sortDir,offers,fees]);
 
   const totalPages=Math.max(1,Math.ceil(filtered.length/pageSize)),currentPage=Math.min(page,totalPages),start=(currentPage-1)*pageSize,visible=filtered.slice(start,start+pageSize);
-  useEffect(()=>{setPage(1);},[query,statusFilter,pageSize,sort]);
+  useEffect(()=>{setPage(1);},[query,statusFilter,pageSize,sortKey,sortDir]);
 
   useEffect(()=>{
     const ids=visible.map(x=>x.itemId).filter(Boolean);
@@ -210,6 +203,47 @@ export default function ProductsDashboard({items=[],source='cache',syncedAt=null
   function finalPriceFor(item){const offer=offerFor(item);return decimal(offer?.offer_price??item.price??item.fullPrice)}
   function costForMargin(item){return item.hasModel?null:decimal(item.cost)}
   function marginFor(item){const offer=offerFor(item);return marginCalc(finalPriceFor(item),costForMargin(item),fees,Boolean(offer))}
+  // Ordenação por coluna (substitui o antigo seletor "Ordenar"). Cada coluna tem uma
+  // regra própria de valor (sortValue); produto sem valor (custo/margem/estoque ausente)
+  // vai sempre para o final da lista, crescente ou decrescente, para não misturar
+  // "sem dado" com "zero" (regra pedida explicitamente pelo usuário para Custo e Margem;
+  // aplicada às demais colunas numéricas por consistência de UX).
+  const FUNNEL_SORT_RANK={available:0,stale:1,unavailable:2};
+  function costForSort(item){return item.hasModel?decimal(item.variationCostMin):decimal(item.cost)}
+  function marginForSort(item){if(item.hasModel)return null;const m=marginFor(item);return m?m.marginPct:null}
+  function sortValue(item,key){
+    if(key==='title')return String(item.title||'').toLowerCase();
+    if(key==='status')return statusLabel(item.status).toLowerCase();
+    if(key==='price')return finalPriceFor(item);
+    if(key==='cost')return costForSort(item);
+    if(key==='margin')return marginForSort(item);
+    if(key==='stock')return decimal(item.stock);
+    if(key==='funnel')return FUNNEL_SORT_RANK[funnelStatus(item)];
+    return null;
+  }
+  function compareRows(a,b,key,dir){
+    const va=sortValue(a,key),vb=sortValue(b,key);
+    const aMissing=va===null||va===undefined||va==='';
+    const bMissing=vb===null||vb===undefined||vb==='';
+    if(aMissing&&bMissing)return 0;
+    if(aMissing)return 1;
+    if(bMissing)return -1;
+    const dirMul=dir==='asc'?1:-1;
+    if(typeof va==='string')return va.localeCompare(vb,'pt-BR')*dirMul;
+    return (va-vb)*dirMul;
+  }
+  function toggleSort(key){
+    if(sortKey===key)setSortDir(d=>d==='asc'?'desc':'asc');
+    else{setSortKey(key);setSortDir('asc');}
+  }
+  function sortIcon(key){return sortKey!==key?'↕':(sortDir==='asc'?'🔺':'🔻')}
+  function sortHeader(key,label){
+    const active=sortKey===key;
+    return <th key={key} className={active?`${styles.sortHeader} ${styles.sortHeaderActive}`:styles.sortHeader} onClick={()=>toggleSort(key)} role="button" tabIndex={0} aria-sort={active?(sortDir==='asc'?'ascending':'descending'):'none'} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleSort(key);}}}>
+      <span>{label}</span><em>{sortIcon(key)}</em>
+    </th>;
+  }
+
   function closeReminder(){try{localStorage.setItem('gs_cost_reminder_'+new Date().toISOString().slice(0,10),'1')}catch{}setShowReminder(false)}
   function showCostsNow(){setColumns(c=>({...c,cost:true}));closeReminder();setTimeout(()=>document.getElementById('products-table')?.scrollIntoView({behavior:'smooth',block:'start'}),50)}
 
@@ -288,7 +322,6 @@ export default function ProductsDashboard({items=[],source='cache',syncedAt=null
           <div className={styles.controls}>
             <label className={styles.inlineSearch}>Buscar produto<input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Nome, ID ou status..."/></label>
             <label>Status do anúncio<select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}><option value="all">Todos</option><option value="NORMAL">Ativos</option><option value="UNLIST">Desativados</option><option value="BANNED">Bloqueados</option></select></label>
-            <label>Ordenar<select value={sort} onChange={e=>setSort(e.target.value)}><option value="name">Nome</option><option value="price-asc">Menor preço</option><option value="price-desc">Maior preço</option><option value="stock-desc">Maior estoque</option><option value="margin-desc">Maior margem</option></select></label>
             <label>Por página<select value={pageSize} onChange={e=>setPageSize(Number(e.target.value))}><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select></label>
           </div>
           <div className={styles.toolbar}>
@@ -302,18 +335,18 @@ export default function ProductsDashboard({items=[],source='cache',syncedAt=null
         {cellMessage&&<div className={styles.success}>{cellMessage}</div>}
         {loadError&&<div className={styles.error}>{loadError}</div>}
         {visible.length===0?<div className={styles.empty}>Nenhum produto encontrado.</div>:<div className={styles.tableWrap}><table className={styles.table}><thead><tr>
-          <th>Produto</th>
-          {columns.status&&<th>Status do anúncio</th>}
-          {columns.price&&<th>Preço / oferta</th>}
-          {columns.cost&&<th>Custo</th>}
-          {columns.margin&&<th>Margem</th>}
-          {columns.stock&&<th>Estoque</th>}
-          <th>Funil de vendas</th>
+          {sortHeader('title','Produto')}
+          {columns.status&&sortHeader('status','Status do anúncio')}
+          {columns.price&&sortHeader('price','Preço / oferta')}
+          {columns.cost&&sortHeader('cost','Custo')}
+          {columns.margin&&sortHeader('margin','Margem')}
+          {columns.stock&&sortHeader('stock','Estoque')}
+          {sortHeader('funnel','Funil de vendas')}
           <th>Ações</th>
         </tr></thead><tbody>{visible.map(item=>{
           const offer=offerFor(item),full=decimal(offer?.full_price??item.fullPrice??item.price),final=finalPriceFor(item),margin=marginFor(item),fStatus=funnelStatus(item);
           return <tr key={item.itemId}>
-            <td><div className={styles.product}><div className={styles.thumb}>{item.image?<img src={item.image} alt=""/>:<span>▱</span>}</div><div><b>{item.title}</b><small>ID {item.itemId}{item.hasModel?' · com variações':''}</small></div></div></td>
+            <td><div className={styles.product}><div className={styles.thumb}>{item.image?<img src={item.image} alt=""/>:<span>▱</span>}</div><div className={styles.productInfo}><b title={item.title}>{item.title}</b><small>ID {item.itemId}{item.hasModel?' · com variações':''}</small></div></div></td>
             {columns.status&&<td><span className={`${styles.status} ${String(item.status).toUpperCase()==='NORMAL'?styles.statusOk:styles.statusWarn}`}>{statusLabel(item.status)}</span></td>}
             {columns.price&&<td><div className={styles.priceCell}><span><small>Cheio</small><b>{money(full)}</b></span><span data-offer={offer?'true':'false'}><small>Oferta</small><b>{offer?money(final):'—'}</b>{offer&&<em>{offer.discount_name}</em>}</span></div></td>}
             {columns.cost&&<td>{item.hasModel?<button className={styles.inlineEditButton} type="button" onClick={()=>setEditorItem(item)}><b>{item.variationCostCount?item.variationCostMin===item.variationCostMax?money(item.variationCostMin):`${money(item.variationCostMin)}–${money(item.variationCostMax)}`:'Cadastrar'}</b><small>Editar variações</small></button>:<div className={styles.inlineEditor}><input inputMode="decimal" value={draftValue(item,'cost')} onChange={e=>setDraftValue(item,'cost',decimalInput(e.target.value))} placeholder="R$ 0,00"/><button type="button" onClick={()=>saveSimple(item,'cost')} disabled={savingCell===item.itemId+':cost'}>{savingCell===item.itemId+':cost'?'…':'✓'}</button></div>}</td>}
@@ -326,7 +359,7 @@ export default function ProductsDashboard({items=[],source='cache',syncedAt=null
               {fStatus==='unavailable'&&<small>Faça a Super Análise para liberar o funil.</small>}
               {fStatus!=='unavailable'&&item.lastAnalysisAt&&<small>{new Date(item.lastAnalysisAt).toLocaleDateString('pt-BR')}</small>}
             </div></td>
-            <td><button className={styles.analysisButton} type="button" onClick={()=>sendToAnalysis(item)}>➤ Enviar para Super Análise</button></td>
+            <td><button className={styles.analysisButton} type="button" onClick={()=>sendToAnalysis(item)}>{fStatus==='unavailable'?'➤ Enviar para Super Análise':'↻ Reanalisar'}</button></td>
           </tr>})}</tbody></table></div>}
         <div className={styles.pagination}><span>Mostrando {from}–{to} de {filtered.length} produtos</span><div><button type="button" onClick={()=>setPage(1)} disabled={currentPage===1}>«</button><button type="button" onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={currentPage===1}>‹</button><span>Página {currentPage} de {totalPages}</span><button type="button" onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={currentPage===totalPages}>›</button><button type="button" onClick={()=>setPage(totalPages)} disabled={currentPage===totalPages}>»</button></div></div>
       </section>
