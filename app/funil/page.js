@@ -519,6 +519,7 @@ export default function FunilPage(){
           <button type="button" data-active={guidanceMode==='specific'} onClick={()=>chooseGuidance('specific')}><b>Específico · me diga o que fazer</b><span>Cruze concorrentes, preço, margem e Super Análise</span></button>
         </div>
       </div>
+      <div className={styles.productPlanBanner}><b>Plano de destrave</b><span>As sugestões são testes orientados por evidências; nenhuma alteração é aplicada automaticamente.</span></div>
       {!model.products.length?<div className={styles.empty}>Sem dados de produto no momento.</div>:<>
         <div className={styles.productFunnelList}>
           {[...model.products].sort((a,b)=>productPlan(a,model.med).rank-productPlan(b,model.med).rank).map(p=><ProductFunnelCard key={'funnel-'+p.id} p={p} med={model.med} mode={guidanceMode} context={context}/>)}
