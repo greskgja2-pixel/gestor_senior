@@ -442,3 +442,12 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 - O card usava somente `p.image` vindo de `sellerFunnel`; essa fonte de métricas pode não fornecer URL de imagem.
 - `/api/funnel/context` já expunha `image` do `product_snapshot` da Super Análise, mas o card não a utilizava.
 - O card agora usa `p.image || productContext.image || /favicon.ico` e mantém fallback em erro de carregamento.
+
+
+### 2026-09-28 — ChatGPT — Curadoria do mapeamento Seller Center / Descontos
+- Fonte: ZIP Motor Sênior v0.17.6, sessão passiva em Central de Marketing/Desconto.
+- 120 capturas, 67 rotas únicas, zero erros.
+- Enciclopédia promovida para curadoria v13 com 9 endpoints de negócio do módulo Desconto e 7 auxiliares.
+- Confirmadas duas escritas internas: `update_discount` (nome/período) e `update_seller_discount_items` (preço promocional por SKU).
+- Confirmados leitura detalhada por campanha/SKU, métricas, limite ativo, validação de misleading discount e verificação de overlap.
+- Não persistir/reutilizar SPC_CDS, cookies ou tokens capturados; chamadas internas devem ocorrer pelo Motor na sessão normal do Seller Center.
