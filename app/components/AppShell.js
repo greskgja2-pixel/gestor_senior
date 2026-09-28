@@ -289,6 +289,10 @@ function MotorActivityCard(){
         setActivity({...d,text:motorActivityText(d)});
         return;
       }
+      if(d.phase==='progress'){
+        setActivity(prev=>({...prev,...d,phase:'start',text:d.message||prev?.text||motorActivityText(d)}));
+        return;
+      }
       if(d.phase==='success'){
         setActivity(prev=>({...prev,...d,phase:'success',text:'Concluído. Dados recebidos do Motor Sênior.'}));
         hideRef.current=setTimeout(()=>setActivity(null),3500);
@@ -319,7 +323,7 @@ function MotorActivityCard(){
   return <div className="gs-motor-activity" data-phase={activity.phase} role="status" aria-live="polite">
     <span className="gs-motor-activity-icon">{working?<i/>:activity.phase==='success'?'✓':'!'}</span>
     <div><b>{working?'Motor Sênior trabalhando':'Motor Sênior'}</b><small>{activity.text}</small></div>
-    {working&&<span className="gs-motor-activity-time">{elapsed}s</span>}
+    {working&&<span className="gs-motor-activity-time">{activity.percent!=null?activity.percent+'% · ':''}{elapsed}s</span>}
   </div>;
 }
 
