@@ -326,3 +326,34 @@ test('Editor de título só publica após confirmação explícita',()=>{
   assert.match(funnel,/if\(!changed\)/);
   assert.match(funnel,/value\.length>120/);
 });
+
+
+test('Super Análise mostra disponibilidade do Funil por produto no novo layout',()=>{
+  const page=read('app/super-analise/page.js');
+  const products=read('app/produtos/ProductsDashboard.js');
+  const css=read('app/produtos/products.module.css');
+  assert.match(page,/analysisAgeDays/);
+  assert.match(page,/analysisAgeDays>30\?'stale':'available'/);
+  assert.match(products,/O Funil por Produto mostra apenas anúncios que já passaram pela Super Análise/);
+  assert.match(products,/Disponíveis no Funil/);
+  assert.match(products,/Pendentes de Super Análise/);
+  assert.match(products,/Análises antigas/);
+  assert.match(products,/Funil de vendas/);
+  assert.match(products,/Abrir Funil/);
+  assert.match(products,/Fazer Super Análise/);
+  assert.match(products,/Reanalisar/);
+  assert.match(css,/\.funnelSummary/);
+  assert.match(css,/\.funnelStatusCell/);
+});
+
+test('Funil por Produto só lista Super Análises recentes e aceita atalho da tabela',()=>{
+  const funnel=read('app/funil/page.js');
+  assert.match(funnel,/const analyzedProducts=model\.products\.filter/);
+  assert.match(funnel,/ctx\?\.analyzedAt/);
+  assert.match(funnel,/age<=30/);
+  assert.match(funnel,/Super Análise obrigatória/);
+  assert.match(funnel,/Gerenciar na Super Análise/);
+  assert.match(funnel,/orderedAnalyzed\.map/);
+  assert.match(funnel,/params\.get\('tab'\)==='produto'/);
+  assert.match(funnel,/params\.get\('item_id'\)/);
+});
