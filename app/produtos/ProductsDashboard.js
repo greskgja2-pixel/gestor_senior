@@ -138,7 +138,7 @@ function ProductEditorModal({item,onClose,onSaved}){
   </div>
 }
 
-export default function ProductsDashboard({items=[],source='cache',syncedAt=null,shopId=null,loadError=null,embedded=false}){
+export default function ProductsDashboard({items=[],source='cache',syncedAt=null,shopId=null,loadError=null,embedded=false,superAnalysisLanding=false}){
   const router=useRouter();
   const [rows,setRows]=useState(items);
   const [query,setQuery]=useState('');
@@ -259,6 +259,7 @@ export default function ProductsDashboard({items=[],source='cache',syncedAt=null
   const availableCount=rows.filter(x=>funnelStatus(x)==='available').length;
   const staleCount=rows.filter(x=>funnelStatus(x)==='stale').length;
   const pendingCount=rows.filter(x=>funnelStatus(x)==='unavailable').length;
+  const analyzedCount=availableCount+staleCount;
   const missingCostCount=rows.filter(x=>x.hasModel?(Number(x.variationCostCount||0)===0):x.cost==null).length;
   const from=filtered.length?start+1:0,to=Math.min(start+pageSize,filtered.length);
   return <div className={embedded?'':shell.shell}>
@@ -267,6 +268,7 @@ export default function ProductsDashboard({items=[],source='cache',syncedAt=null
     {editorItem&&<ProductEditorModal item={editorItem} onClose={()=>setEditorItem(null)} onSaved={editorSaved}/>}
     <main className={embedded?styles.embeddedPage:shell.page}>
       {!embedded&&<header className={shell.top}><div className={shell.brand}><div className={shell.logo}>▱</div><div><h1>Produtos</h1><p>Escolha o anúncio que seguirá para a Super Análise guiada</p></div></div></header>}
+      {embedded&&superAnalysisLanding&&<header className={styles.superAnalysisLandingHeader}><div><span>✦</span><div><h1>Super Análise</h1><p>Fluxo guiado no Gestor; o Motor Sênior apenas coleta e executa tarefas na Shopee.</p></div></div></header>}
 
       <section className={styles.funnelInfoBanner}>
         <span>i</span>
@@ -274,9 +276,10 @@ export default function ProductsDashboard({items=[],source='cache',syncedAt=null
       </section>
 
       <section className={styles.funnelSummary}>
+        <article data-tone="analyzed"><span>▣</span><div><b>{analyzedCount}</b><strong>Produtos analisados</strong><small>Já passaram pela Super Análise.</small></div></article>
         <article data-tone="available"><span>⌄</span><div><b>{availableCount}</b><strong>Disponíveis no Funil</strong><small>Produtos com Super Análise recente.</small></div></article>
-        <article data-tone="pending"><span>◷</span><div><b>{pendingCount}</b><strong>Pendentes de Super Análise</strong><small>Produtos que ainda não passaram pela análise.</small></div></article>
-        <article data-tone="stale"><span>▤</span><div><b>{staleCount}</b><strong>Análises antigas</strong><small>Produtos com análise de mais de 30 dias.</small></div></article>
+        <article data-tone="pending"><span>◷</span><div><b>{pendingCount}</b><strong>Pendentes</strong><small>Ainda precisam da Super Análise.</small></div></article>
+        <article data-tone="stale"><span>↻</span><div><b>{staleCount}</b><strong>Precisam reanálise</strong><small>Análise com mais de 30 dias.</small></div></article>
       </section>
 
       <section className={styles.card} id="products-table">
@@ -317,11 +320,13 @@ export default function ProductsDashboard({items=[],source='cache',syncedAt=null
             {columns.margin&&<td>{item.hasModel?<button className={styles.inlineEditButton} type="button" onClick={()=>setEditorItem(item)}><b>Por variação</b><small>Abra custos para calcular</small></button>:margin?<div className={styles.margin}><b className={margin.marginPct<0?styles.negative:styles.positive}>{pct(margin.marginPct)}</b><span>{money(margin.profit)}</span><small>{margin.totalRatePct.toLocaleString('pt-BR',{maximumFractionDigits:1})}% + {money(margin.fixedFee)} de taxas</small></div>:<span className={styles.muted}>Cadastre o custo</span>}</td>}
             {columns.stock&&<td>{item.hasModel?<button className={styles.inlineEditButton} type="button" onClick={()=>setEditorItem(item)}><b>{item.stock??'—'}</b><small>Editar variações</small></button>:<div className={styles.inlineEditor}><input type="number" min="0" step="1" value={draftValue(item,'stock')} onChange={e=>setDraftValue(item,'stock',e.target.value)}/><button type="button" onClick={()=>saveSimple(item,'stock')} disabled={savingCell===item.itemId+':stock'}>{savingCell===item.itemId+':stock'?'…':'✓'}</button></div>}</td>}
             <td><div className={styles.funnelStatusCell} data-status={fStatus}>
-              <span>{fStatus==='available'?'⌄ Disponível':fStatus==='stale'?'◷ Análise antiga':'⊘ Indisponível'}</span>
-              <button type="button" onClick={()=>funnelAction(item)}>{fStatus==='available'?'Abrir Funil':fStatus==='stale'?'Reanalisar':'Fazer Super Análise'}</button>
-              {item.lastAnalysisAt&&<small>{new Date(item.lastAnalysisAt).toLocaleDateString('pt-BR')}</small>}
+              <span>{fStatus==='available'?'● Disponível':fStatus==='stale'?'● Análise antiga':'● Indisponível'}</span>
+              {fStatus==='available'&&<button type="button" onClick={()=>funnelAction(item)}>Abrir Funil</button>}
+              {fStatus==='stale'&&<button type="button" onClick={()=>funnelAction(item)}>↻ Reanalisar</button>}
+              {fStatus==='unavailable'&&<small>Faça a Super Análise para liberar o funil.</small>}
+              {fStatus!=='unavailable'&&item.lastAnalysisAt&&<small>{new Date(item.lastAnalysisAt).toLocaleDateString('pt-BR')}</small>}
             </div></td>
-            <td><button className={styles.rowMenu} type="button" onClick={()=>sendToAnalysis(item)} title={fStatus==='unavailable'?'Fazer Super Análise':'Abrir Super Análise'}>⋮</button></td>
+            <td><button className={styles.analysisButton} type="button" onClick={()=>sendToAnalysis(item)}>➤ Enviar para Super Análise</button></td>
           </tr>})}</tbody></table></div>}
         <div className={styles.pagination}><span>Mostrando {from}–{to} de {filtered.length} produtos</span><div><button type="button" onClick={()=>setPage(1)} disabled={currentPage===1}>«</button><button type="button" onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={currentPage===1}>‹</button><span>Página {currentPage} de {totalPages}</span><button type="button" onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={currentPage===totalPages}>›</button><button type="button" onClick={()=>setPage(totalPages)} disabled={currentPage===totalPages}>»</button></div></div>
       </section>

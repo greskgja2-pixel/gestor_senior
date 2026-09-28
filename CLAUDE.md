@@ -366,3 +366,19 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 10. O CSS da tabela foi refeito do zero para seguir o novo mockup, sem alterar o espaçamento da sidebar global.
 
 **Regra de produto:** o Funil por Produto exige Super Análise recente porque editores contextuais (preço, título e futuros cards) dependem das evidências e concorrentes vinculados. Não preencher contexto ausente com inferência.
+
+
+### 2026-09-28 — ChatGPT — Landing da Super Análise sem etapas antes do início
+**Arquivos:** `app/super-analise/SuperAnaliseWorkspace.js`, `app/produtos/ProductsDashboard.js`, `app/produtos/products.module.css`, testes e este arquivo. Branch: `feature/super-analise-landing-funil`.
+
+**O que mudou:**
+1. A tela inicial de **Super Análise** não renderiza mais o fluxo guiado nem a barra de etapas antes de o usuário escolher um produto.
+2. A landing agora começa direto com o cabeçalho **Super Análise**, o aviso do Funil por Produto, os cards de resumo e a tabela de produtos, conforme o mockup aprovado.
+3. A barra de etapas do `WebAuditFlow` continua intacta, porém só aparece depois que o usuário clica em **Enviar para Super Análise** e a URL recebe `start_url/start_item_id`.
+4. A landing ganhou quatro cards: **Produtos analisados**, **Disponíveis no Funil**, **Pendentes** e **Precisam reanálise**.
+5. A coluna **Funil de vendas** mantém três estados reais: Disponível, Análise antiga e Indisponível. Indisponível agora mostra somente a orientação para fazer a Super Análise; não duplica um segundo botão dentro da mesma coluna.
+6. A coluna **Ações** usa o botão amarelo **Enviar para Super Análise** em todas as linhas, seguindo o mockup.
+7. Nenhum aviso do tipo “As etapas da Super Análise aparecem...” foi adicionado.
+8. Regras existentes de disponibilidade continuam: análise recente até 30 dias = disponível; acima de 30 dias = reanalisar; sem análise = indisponível.
+
+**Importante:** o fluxo interno da Super Análise, coleta, custos, concorrentes e publicação não foi alterado; apenas o momento em que a UI do fluxo aparece.
