@@ -244,7 +244,7 @@ test('Funil por Produto tem calculadora inline de preço e variações',()=>{
   assert.match(funnel,/Minhas variações/);
   assert.match(funnel,/Ads por pedido/);
   assert.match(funnel,/Salvar novo preço/);
-  assert.match(funnel,/\/api\/shopee\/flash-sale\?item_id=/);
+  assert.match(funnel,/\/api\/products\/manage\?item_id=/);
   assert.match(funnel,/\/api\/shopee\/product-price/);
   assert.match(context,/variations:variationRows\(c\)/);
   assert.match(context,/variations:variationRows\(p,variationCosts\)/);
