@@ -60,7 +60,7 @@ export async function GET(request){
   for(const r of data||[]){
     const id=String(r.item_id);
     if(items[id])continue;
-    const p=r.product_snapshot||{},f=r.finance_snapshot||{};
+    const p=r.product_snapshot||{},f=r.finance_snapshot||{},ai=r?.report?.ai_analysis||{};
     const competitors=arr(r.competitors).slice(0,3).map((c,index)=>({
       index:index+1,
       title:c?.title||c?.name||`Concorrente ${index+1}`,
@@ -86,6 +86,9 @@ export async function GET(request){
       image:imageOf(p),
       variations:variationRows(p,variationCosts),
       competitors,
+      titleSuggestion:typeof ai?.title?.suggestion==='string'?ai.title.suggestion.trim():null,
+      titleReason:typeof ai?.title?.reason==='string'?ai.title.reason.trim():(typeof ai?.title?.explanation==='string'?ai.title.explanation.trim():null),
+      titleKeywords:arr(ai?.title?.keywords||ai?.title?.keyword_suggestions||ai?.title?.keyphrases).map(x=>String(x||'').trim()).filter(Boolean).slice(0,12),
       suggestions:flattenSuggestions(r.suggestions||r.report?.suggestions||r.report?.ai_analysis)
     };
   }
