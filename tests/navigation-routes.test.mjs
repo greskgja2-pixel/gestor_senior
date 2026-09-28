@@ -337,7 +337,7 @@ test('Super Análise mostra disponibilidade do Funil por produto no novo layout'
   assert.match(products,/O Funil por Produto mostra apenas anúncios que já passaram pela Super Análise/);
   assert.match(products,/Disponíveis no Funil/);
   assert.match(products,/Pendentes/);
-  assert.match(products,/Análises antigas/);
+  assert.match(products,/Precisam reanálise/);
   assert.match(products,/Funil de vendas/);
   assert.match(products,/Abrir Funil/);
   assert.match(products,/Enviar para Super Análise/);
