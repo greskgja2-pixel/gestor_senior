@@ -177,3 +177,14 @@ test('Funil preserva null e não converte ausência em zero',()=>{
   const funnel=read('app/funil/page.js');
   assert.match(funnel,/v===null\|\|v===undefined\|\|v===''/);
 });
+
+
+test('Análise de Funil aproveita séries diárias e pós-venda mapeados',()=>{
+  const funnel=read('app/funil/page.js');
+  assert.match(funnel,/function TrendPanel/);
+  assert.match(funnel,/productMetricTrends/);
+  assert.match(funnel,/function PostOrderPanel/);
+  assert.match(funnel,/orderPerformance/);
+  assert.match(funnel,/cancelled_orders/);
+  assert.match(funnel,/return_refund_orders/);
+});
