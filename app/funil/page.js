@@ -115,6 +115,42 @@ function ComparisonStrip({comparison}){
   </section>
 }
 
+function Sparkline({points=[]}){
+  const vals=arr(points).map(x=>num(x?.value)).filter(x=>x!=null);
+  if(vals.length<2)return <span className={styles.sparkEmpty}>Sem série</span>;
+  const min=Math.min(...vals),max=Math.max(...vals),span=max-min||1;
+  const coords=vals.map((v,i)=>`${(i/(vals.length-1))*100},${36-((v-min)/span)*30}`).join(' ');
+  return <svg className={styles.sparkline} viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true"><polyline points={coords}/></svg>;
+}
+
+function TrendPanel({trends,periodLabel}){
+  const metrics=[
+    ['Visitantes',trends?.uv],
+    ['Carrinho',trends?.atc_uv],
+    ['Pedidos',trends?.placed_order],
+    ['Pagos',trends?.paid_order],
+    ['Confirmados',trends?.confirmed_order]
+  ];
+  const available=metrics.filter(([,points])=>arr(points).length>1);
+  if(!available.length)return null;
+  return <section className={styles.trendPanel}>
+    <div className={styles.trendHead}><div><h2>Evolução diária</h2><p>Série histórica enviada pela Shopee no período de {periodLabel.toLowerCase()}.</p></div><span>{arr(available[0]?.[1]).length} pontos</span></div>
+    <div className={styles.trendGrid}>{available.map(([label,points])=><article key={label}><div><span>{label}</span><b>{int(arr(points).reduce((a,x)=>a+(num(x?.value)||0),0))}</b></div><Sparkline points={points}/></article>)}</div>
+    <small className={styles.trendNote}>Os totais acima são somas dos pontos da série. Taxas não são somadas; o funil principal continua usando os agregados oficiais quando disponíveis.</small>
+  </section>
+}
+
+function PostOrderPanel({orderPerformance}){
+  const cancelledOrders=val(orderPerformance?.cancelled_orders),refundOrders=val(orderPerformance?.return_refund_orders);
+  const cancelledSales=val(orderPerformance?.cancelled_sales),refundSales=val(orderPerformance?.return_refund_sales);
+  if([cancelledOrders,refundOrders,cancelledSales,refundSales].every(x=>x==null))return null;
+  return <section className={styles.postOrderPanel}>
+    <div><strong>Pós-venda do período</strong><small>Ajuda a separar problema de anúncio de problema operacional depois do pedido.</small></div>
+    <article><span>Pedidos cancelados</span><b>{int(cancelledOrders)}</b><small>{money(cancelledSales)}</small></article>
+    <article><span>Devolução/Reembolso</span><b>{int(refundOrders)}</b><small>{money(refundSales)}</small></article>
+  </section>
+}
+
 function productPlan(p,med){
   const impressions=num(p.product_card_impressions),clicks=num(p.product_card_clicks),uv=num(p.uv),carts=num(p.add_to_cart_buyers),placed=num(p.placed_buyers),paid=num(p.paid_buyers),confirmed=num(p.confirmed_buyers);
   const ctr=num(p.ctr),cartRate=num(p.uv_to_add_to_cart_rate),placedRate=num(p.uv_to_placed_buyers_rate),paidRate=num(p.uv_to_paid_buyers_rate);
@@ -346,7 +382,7 @@ export default function FunilPage(){
       paidGmv:num(k?.paid_gmv?.chain_ratio),
       confirmedOrders:num(k?.confirmed_orders?.chain_ratio)
     };
-    return{totals,rates,products,med,sources,campaigns,comparison,key:k,realtime:rt,period:s.period||null,errors:arr(s.errors)};
+    return{totals,rates,products,med,sources,campaigns,comparison,trends:s.productMetricTrends||{},orderPerformance:s.orderPerformance||{},key:k,realtime:rt,period:s.period||null,errors:arr(s.errors)};
   },[state]);
 
   if(state.loading)return <div className={styles.page}><div className={styles.loading}>Lendo Informações Gerenciais da Shopee e montando o funil…</div></div>;
@@ -378,6 +414,8 @@ export default function FunilPage(){
       <FunnelVisual totals={model.totals} rates={model.rates}/>
       <KpiStrip totals={model.totals} rates={model.rates}/>
       <ComparisonStrip comparison={model.comparison}/>
+      <TrendPanel trends={model.trends} periodLabel={actualPeriodMeta.label}/>
+      <PostOrderPanel orderPerformance={model.orderPerformance}/>
       <section className={styles.unlockPanel}>
         <div className={styles.unlockHead}>
           <div><span className={styles.targetIcon}>◎</span><div><h2>Plano de Destrave</h2><p>Ações para atacar primeiro os produtos com maior gargalo.</p></div></div>
