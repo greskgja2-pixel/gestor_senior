@@ -370,3 +370,70 @@ test('Super Análise esconde etapas até o usuário iniciar uma análise',()=>{
   assert.match(products,/Precisam reanálise/);
   assert.doesNotMatch(products,/As etapas da Super Análise aparecem/);
 });
+
+test('Tabela de Produtos/Super Análise ordena pelos cabeçalhos em vez do seletor "Ordenar"',()=>{
+  const products=read('app/produtos/ProductsDashboard.js');
+  const css=read('app/produtos/products.module.css');
+  // O seletor "Ordenar" (e suas opções antigas) foi removido; a ordenação agora é feita
+  // clicando no cabeçalho de cada coluna.
+  assert.doesNotMatch(products,/>Ordenar</);
+  assert.doesNotMatch(products,/price-asc|price-desc|stock-desc|margin-desc/);
+  assert.match(products,/const \[sortKey,setSortKey\]=useState\('title'\)/);
+  assert.match(products,/const \[sortDir,setSortDir\]=useState\('asc'\)/);
+  assert.match(products,/function toggleSort\(key\)\{/);
+  assert.match(products,/function sortHeader\(key,label\)\{/);
+  assert.match(products,/sortHeader\('title','Produto'\)/);
+  assert.match(products,/sortHeader\('status','Status do anúncio'\)/);
+  assert.match(products,/sortHeader\('price','Preço \/ oferta'\)/);
+  assert.match(products,/sortHeader\('cost','Custo'\)/);
+  assert.match(products,/sortHeader\('margin','Margem'\)/);
+  assert.match(products,/sortHeader\('stock','Estoque'\)/);
+  assert.match(products,/sortHeader\('funnel','Funil de vendas'\)/);
+  // Ações continua sem ordenação (cabeçalho simples, sem onClick).
+  assert.match(products,/<th>Ações<\/th>/);
+  // Filtros que devem continuar existindo depois de remover "Ordenar".
+  assert.match(products,/Buscar produto/);
+  assert.match(products,/Por página/);
+  assert.match(css,/\.sortHeader\{cursor:pointer;user-select:none/);
+  assert.match(css,/\.sortHeaderActive\{color:#173653;font-weight:950\}/);
+});
+
+test('Ordenação usa dados reais por coluna: custo/margem sem valor vão para o fim, funil usa a prioridade Disponível > Análise antiga > Indisponível',()=>{
+  const products=read('app/produtos/ProductsDashboard.js');
+  assert.match(products,/function costForSort\(item\)\{return item\.hasModel\?decimal\(item\.variationCostMin\):decimal\(item\.cost\)\}/);
+  assert.match(products,/function marginForSort\(item\)\{if\(item\.hasModel\)return null;/);
+  assert.match(products,/if\(key==='price'\)return finalPriceFor\(item\);/);
+  assert.match(products,/if\(key==='stock'\)return decimal\(item\.stock\);/);
+  assert.match(products,/const FUNNEL_SORT_RANK=\{available:0,stale:1,unavailable:2\};/);
+  assert.match(products,/if\(key==='funnel'\)return FUNNEL_SORT_RANK\[funnelStatus\(item\)\];/);
+  // Produto sem valor na coluna (custo/margem/estoque/preço ausentes) sempre cai para o
+  // final da lista, crescente ou decrescente — nunca se mistura com "zero".
+  assert.match(products,/if\(aMissing\)return 1;/);
+  assert.match(products,/if\(bMissing\)return -1;/);
+});
+
+test('Título do produto quebra em no máximo 2 linhas e a coluna não cresce indefinidamente',()=>{
+  const css=read('app/produtos/products.module.css');
+  assert.match(css,/\.product b\{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis/);
+  assert.match(css,/\.product\{display:flex;align-items:center;gap:10px;min-width:310px;max-width:340px\}/);
+  assert.match(css,/\.productInfo\{min-width:0;max-width:300px\}/);
+});
+
+test('Coluna Ações mostra Reanalisar para produto já analisado (disponível ou análise antiga) e só mostra Enviar para Super Análise quando nunca foi analisado',()=>{
+  const products=read('app/produtos/ProductsDashboard.js');
+  assert.match(products,/onClick=\{\(\)=>sendToAnalysis\(item\)\}>\{fStatus==='unavailable'\?'➤ Enviar para Super Análise':'↻ Reanalisar'\}/);
+});
+
+test('Reanalisar cria uma nova rodada de Super Análise sem apagar o histórico anterior do produto',()=>{
+  const reportsApi=read('app/api/extension-intelligence/reports/route.js');
+  const products=read('app/produtos/ProductsDashboard.js');
+  // Cada análise (primeira vez ou reanálise) grava um INSERT novo em
+  // extension_analysis_reports — nunca um update/upsert por item_id — então toda rodada
+  // vira uma linha própria com seu analyzed_at e o histórico completo fica preservado.
+  assert.match(reportsApi,/\.from\("extension_analysis_reports"\)\.insert\(row\)/);
+  assert.doesNotMatch(reportsApi,/extension_analysis_reports"\)\.upsert\(/);
+  // "Reanalisar" e "Enviar para Super Análise" chamam o mesmo sendToAnalysis(item), que
+  // sempre entra pelo fluxo guiado (start_url) e termina nesse mesmo INSERT.
+  assert.match(products,/function sendToAnalysis\(item\)\{/);
+  assert.match(products,/router\.push\(`\/super-analise\?\$\{q\.toString\(\)\}`\)/);
+});

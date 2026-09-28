@@ -382,3 +382,21 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 8. Regras existentes de disponibilidade continuam: análise recente até 30 dias = disponível; acima de 30 dias = reanalisar; sem análise = indisponível.
 
 **Importante:** o fluxo interno da Super Análise, coleta, custos, concorrentes e publicação não foi alterado; apenas o momento em que a UI do fluxo aparece.
+
+
+### 2026-09-28 — Claude — Tabela de Produtos: cabeçalhos ordenáveis, título com clamp e botão Reanalisar
+**Arquivos:** `app/produtos/ProductsDashboard.js`, `app/produtos/products.module.css`, `tests/navigation-routes.test.mjs` (5 testes novos) e este arquivo. Branch: `feature/produtos-tabela-ordenavel`.
+
+**O que mudou (só na tabela de Produtos/Super Análise, layout geral preservado):**
+1. Removido o seletor **Ordenar** (Nome/Menor preço/Maior preço/Maior estoque/Maior margem); os filtros restantes (Buscar produto, Status do anúncio, Por página, Atualizar da Shopee, Configurar taxas, Opções de exibição) ocupam o espaço liberado (`.controls` de 3 para 2 colunas de filtro).
+2. Todos os cabeçalhos (exceto Ações) ficaram clicáveis: `Produto`, `Status`, `Preço / oferta`, `Custo`, `Margem`, `Estoque`, `Funil de vendas`, com indicador `↕`/`🔺`/`🔻`. Primeiro clique ordena crescente; clique de novo no mesmo cabeçalho inverte; clicar em outro cabeçalho troca a coluna ativa direto para crescente.
+3. Ordenação real por coluna: Produto = alfabética; Status = texto real; Preço/oferta = preço final de campanha quando ativa, senão preço normal (Oferta Relâmpago nunca é usada aqui); Custo = custo cadastrado (produto simples) ou custo mínimo entre variações; Margem = % de margem já exibida; Estoque = numérico; Funil de vendas = prioridade Disponível > Análise antiga > Indisponível. Custo/Margem/Estoque/Preço ausentes sempre vão para o fim da lista, em qualquer direção.
+4. Título do produto agora quebra em no máximo 2 linhas com reticências (`-webkit-line-clamp:2`), com `max-width` na célula para a coluna não crescer indefinidamente; miniatura e linha do ID abaixo do título foram preservadas.
+5. Coluna Ações: produto nunca analisado mostra **Enviar para Super Análise**; produto já analisado (Disponível ou Análise antiga) mostra **Reanalisar** — nunca mais os dois ao mesmo tempo. O botão "Reanalisar" da coluna Funil de vendas (para Análise antiga) permanece como estava antes (duplicação intencional, confirmada pela leitura literal do pedido do usuário).
+6. "Reanalisar" continua chamando `sendToAnalysis(item)`, que sempre entra pelo fluxo guiado da Super Análise; a persistência é um `INSERT` novo em `extension_analysis_reports` (nunca update/upsert), então cada reanálise vira uma linha própria e o histórico anterior nunca é apagado — comportamento já existente, sem mudança de código, só travado com teste novo.
+
+**Não alterado de propósito (já corretos, confirmados por leitura de código antes de mexer):** fórmula/cálculo de margem (`marginFor`/`grossMargin`); estados visuais da coluna Funil de vendas (badges e botão "Abrir Funil"/"Reanalisar"/texto para Indisponível); espaçamento/altura da sidebar; layout geral da página.
+
+**Como foi validado:** `node --test tests/*.test.mjs` → 101/101 passando (5 testes novos cobrindo: seletor Ordenar removido, ordenação por cabeçalho, regra de dado ausente no fim da lista, clamp de 2 linhas do título, lógica do botão Ações, preservação de histórico via INSERT). Sintaxe de `ProductsDashboard.js` validada com `tsc --noEmit --allowJs --jsx react-jsx` (exit 0, já que `next build` continua bloqueado neste sandbox por 403 no registro npm). Balanceamento de chaves do CSS conferido à parte. A lógica de ordenação (`compareRows`/`sortValue`/`toggleSort`) foi reimplementada e executada isoladamente contra dados sintéticos para confirmar o comportamento real, não só o texto-fonte.
+
+**Pendente:** publicar via editor web do GitHub (branch → main), confirmar `meta.githubCommitSha` na Vercel e rodar smoke test das rotas críticas (Regra 16), incluindo checagem visual ao vivo do clamp de título, cabeçalhos ordenáveis e botão Reanalisar em mobile (responsividade só foi validada por CSS/regra existente, não por captura de tela real).
