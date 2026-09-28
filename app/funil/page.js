@@ -255,6 +255,66 @@ function specificPlan(p,med,context){
   return{...base,actions,specific:true,specificNote:facts.join(' · '),competitors,marketMedian,ownPrice};
 }
 
+
+function storeStageProductRate(p,stageId){
+  const impressions=num(p.product_card_impressions),clicks=num(p.product_card_clicks),visits=num(p.uv),carts=num(p.add_to_cart_buyers),placed=num(p.placed_buyers),paid=num(p.paid_buyers),confirmed=num(p.confirmed_buyers);
+  if(stageId==='ctr')return{rate:impressions>0&&clicks!=null?clicks/impressions:null,base:impressions};
+  if(stageId==='clickVisit')return{rate:clicks>0&&visits!=null?visits/clicks:null,base:clicks};
+  if(stageId==='visitCart')return{rate:visits>0&&carts!=null?carts/visits:null,base:visits};
+  if(stageId==='cartPlaced')return{rate:carts>0&&placed!=null?placed/carts:null,base:carts};
+  if(stageId==='placedPaid')return{rate:placed>0&&paid!=null?paid/placed:null,base:placed};
+  if(stageId==='paidConfirmed')return{rate:paid>0&&confirmed!=null?confirmed/paid:null,base:paid};
+  return{rate:null,base:null};
+}
+
+function storeSpecificCopy(stage){
+  const map={
+    ctr:{title:'Primeiro: faça mais gente clicar nos produtos que já aparecem',why:'A loja está perdendo a maior proporção antes do clique. Não comece alterando descrição ou pós-venda: ataque primeiro a vitrine da busca.',steps:['Comece pelos produtos abaixo: são os que combinam volume relevante com taxa abaixo da referência da própria loja.','Em cada um, revise primeiro imagem principal, começo do título e preço/oferta que aparece na busca.','Mude um grupo pequeno de produtos, acompanhe o CTR no mesmo período e só depois avance para os próximos.']},
+    clickVisit:{title:'Primeiro: investigue a passagem do clique para a visita',why:'A maior perda observada está entre o clique registrado e a visita. Antes de editar anúncios em massa, confira os produtos com maior diferença nessa passagem.',steps:['Abra os produtos abaixo e confira se a experiência do card até a página está coerente.','Evite mudar preço, capa e descrição todos ao mesmo tempo; primeiro confirme que a perda se repete nos produtos destacados.','Reavalie a taxa depois do teste no mesmo recorte de período.']},
+    visitCart:{title:'Primeiro: transforme visitas em intenção de compra',why:'As pessoas chegam aos anúncios, mas poucas avançam para o carrinho. A prioridade é a oferta dentro da página do produto.',steps:['Comece pelos produtos abaixo e confira preço final, campanha ativa, frete, prazo e estoque das variações.','Depois revise imagens secundárias, medidas/quantidade e prova social para remover dúvidas antes do carrinho.','Acompanhe Visita → Carrinho após as mudanças; não use CTR como métrica principal deste teste.']},
+    cartPlaced:{title:'Primeiro: destrave quem já colocou no carrinho',why:'Existe intenção de compra, mas o fechamento perde força antes da criação do pedido.',steps:['Nos produtos abaixo, compare preço final vigente — incluindo oferta — com os concorrentes e confira margem antes de qualquer redução.','Revise cupom, frete, prazo e estoque das variações mais vendidas; não comece por capa ou título.','Acompanhe Carrinho → Pedido no mesmo período depois do teste.']},
+    placedPaid:{title:'Primeiro: investigue por que pedidos não viram pagamento',why:'O cliente já criou o pedido. Alterar capa e título agora atacaria uma etapa anterior ao problema observado.',steps:['Priorize os produtos abaixo e procure sinais de preço final, frete/prazo, cancelamento ou indisponibilidade no fechamento.','Evite reduzir preço sem evidência de que ele é o bloqueio; confira campanha e margem primeiro.','Acompanhe Pedido → Pago por alguns dias antes de fazer mudanças grandes.']},
+    paidConfirmed:{title:'Primeiro: trate a operação depois do pagamento',why:'A aquisição chegou ao pagamento; a maior perda está na confirmação final.',steps:['Priorize estoque, separação, expedição e cancelamentos dos produtos abaixo.','Não altere imagem, título ou Ads para tentar corrigir uma perda operacional pós-pagamento.','Use cancelamentos e devoluções do período como evidência complementar antes de agir.']}
+  };
+  return map[stage?.id]||{title:'Ainda faltam dados para uma ordem segura',why:'O Gestor não recebeu etapas suficientes para apontar a primeira ação.',steps:['Atualize os dados do funil.','Confirme que o Motor Sênior está conectado.','Evite alterações em massa enquanto faltarem evidências.']};
+}
+
+function StoreSpecificPlan({model,context,onOpenProduct}){
+  const summary=funnelSummary(model.totals,model.rates),worst=summary.worst,copy=storeSpecificCopy(worst);
+  if(!worst)return <div className={styles.empty}>Ainda não há dados suficientes para o modo “me diga o que fazer”. Atualize o funil e tente novamente.</div>;
+  const productRates=model.products.map(p=>{
+    const m=storeStageProductRate(p,worst.id);
+    return{p,...m};
+  }).filter(x=>x.rate!=null&&x.base>0);
+  const reference=median(productRates.map(x=>x.rate));
+  const ranked=productRates.map(x=>({...x,gap:reference!=null?Math.max(0,reference-x.rate):0,opportunity:reference!=null?Math.max(0,(reference-x.rate)*x.base):0}))
+    .sort((a,b)=>(b.opportunity-a.opportunity)||(b.base-a.base)).slice(0,3);
+  const actionable=ranked.filter(x=>x.opportunity>0);
+  const shown=actionable.length?actionable:ranked;
+  return <article className={styles.storeSpecificPlan}>
+    <div className={styles.storeSpecificHero}>
+      <span className={styles.storeSpecificIcon}>→</span>
+      <div><small>ME DIGA O QUE FAZER · 1ª PRIORIDADE</small><h3>{copy.title}</h3><p>{copy.why}</p><div className={styles.storeSpecificEvidence}><b>{worst.from} → {worst.to}: {pct(worst.rate)}</b><span>Referência mediana dos produtos: {pct(reference)}</span></div></div>
+    </div>
+    <div className={styles.storeSpecificSteps}><strong>Faça nesta ordem</strong><ol>{copy.steps.map((step,i)=><li key={i}><span>{i+1}</span><p>{step}</p></li>)}</ol></div>
+    <div className={styles.storeSpecificProducts}>
+      <div className={styles.storeSpecificProductsHead}><div><strong>Produtos para começar</strong><small>Ordenados pelo maior gap ponderado pelo volume desta etapa; não é previsão de vendas.</small></div><button type="button" onClick={()=>onOpenProduct('')}>Ver todos no Funil por Produto →</button></div>
+      {shown.length?<div className={styles.storeSpecificProductGrid}>{shown.map(({p,rate,base},index)=>{
+        const ctx=context?.[String(p.id)],specific=ctx?specificPlan(p,model.med,context):null;
+        const firstAction=specific?.actions?.[0]||copy.steps[1];
+        return <section key={p.id} className={styles.storeSpecificProduct}>
+          <div className={styles.storeSpecificProductTop}><em>{index+1}</em><img src={p.image||ctx?.image||'/favicon.ico'} alt="" onError={e=>{e.currentTarget.onerror=null;e.currentTarget.src='/favicon.ico'}}/><div><b>{p.name||'Produto'}</b><small>ID {p.id||'—'} · {int(base)} na etapa</small></div></div>
+          <div className={styles.storeSpecificRate}><span>Taxa deste produto <b>{pct(rate)}</b></span><span>Referência <b>{pct(reference)}</b></span></div>
+          <p><strong>Ação:</strong> {firstAction}</p>
+          {!ctx&&<small className={styles.storeSpecificMissing}>Faça a Super Análise deste produto para o Gestor cruzar concorrentes, preço, margem e dizer exatamente o que alterar.</small>}
+          <button type="button" onClick={()=>onOpenProduct(String(p.id))}>{ctx?'Abrir plano específico':'Abrir produto no Funil'} →</button>
+        </section>;
+      })}</div>:<div className={styles.empty}>Nenhum produto possui dados suficientes nesta etapa.</div>}
+    </div>
+    <small className={styles.storeSpecificFoot}>O Gestor prioriza evidências da sua própria loja. Nenhuma alteração de preço, anúncio ou campanha é aplicada automaticamente.</small>
+  </article>;
+}
+
 function ProductActionCard({p,med,mode,context}){
   const plan=mode==='specific'?specificPlan(p,med,context):productPlan(p,med);
   return <article className={styles.actionCard} data-priority={plan.priority}>
@@ -720,6 +780,7 @@ export default function FunilPage(){
     };
     const med={
       ctr:median(products.map(p=>num(p.ctr))),
+      clickVisit:median(products.map(p=>{const a=num(p.product_card_clicks),b=num(p.uv);return a>0&&b!=null?b/a:null})),
       cart:median(products.map(p=>num(p.uv_to_add_to_cart_rate))),
       paid:median(products.map(p=>num(p.uv_to_paid_buyers_rate))),
       cartPlaced:median(products.map(p=>{const a=num(p.add_to_cart_buyers),b=num(p.placed_buyers);return a>0&&b!=null?b/a:null})),
@@ -791,13 +852,10 @@ export default function FunilPage(){
           <div><span className={styles.targetIcon}>◎</span><div><h2>Plano de Destrave</h2><p>Ações para atacar primeiro os produtos com maior gargalo.</p></div></div>
           <div className={styles.compactGuidance}><span>Modo de orientação:</span><button type="button" data-active={guidanceMode==='standard'} onClick={()=>chooseGuidance('standard')}>Padrão</button><button type="button" data-active={guidanceMode==='specific'} onClick={()=>chooseGuidance('specific')}>Específico · me diga o que fazer</button></div>
         </div>
-        {orderedAnalyzed.length?<ProductActionCard
-          p={orderedAnalyzed[0]}
-          med={model.med}
-          mode={guidanceMode}
-          context={context}
-        />:<div className={styles.empty}>Nenhum produto está liberado para o Plano de Destrave. Faça a Super Análise para liberar o diagnóstico por produto.</div>}
-        {orderedAnalyzed.length>1&&<button type="button" className={styles.allProductsBtn} onClick={()=>setTab('produto')}>Ver plano de todos os produtos →</button>}
+        {guidanceMode==='specific'
+          ?<StoreSpecificPlan model={model} context={context} onOpenProduct={itemId=>{setRequestedItem(itemId);setTab('produto')}}/>
+          :orderedAnalyzed.length?<ProductActionCard p={orderedAnalyzed[0]} med={model.med} mode="standard" context={context}/>:<div className={styles.empty}>Nenhum produto está liberado para o Plano de Destrave. Faça a Super Análise para liberar o diagnóstico por produto.</div>}
+        {guidanceMode==='standard'&&orderedAnalyzed.length>1&&<button type="button" className={styles.allProductsBtn} onClick={()=>setTab('produto')}>Ver plano de todos os produtos →</button>}
       </section>
       <section className={styles.education}>
         <div><b>1</b><h3>Impressão → clique</h3><p>Queda forte aqui aponta para capa, título, preço percebido ou competitividade na busca.</p></div>
