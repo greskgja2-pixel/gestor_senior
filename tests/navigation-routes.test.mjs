@@ -111,8 +111,8 @@ test('Análise de Funil usa o Motor Sênior e preserva fallback de Ads',()=>{
   for(const token of ['Impressões','Cliques','Visitantes','Carrinho','Pedido criado','Pago','Confirmado'])assert.ok(funnel.includes(token),'etapa ausente: '+token);
   assert.match(funnel,/Fontes de Tráfego/);
   assert.match(funnel,/Histórico Ads/);
-  assert.match(funnel,/\/api\/shopee\/ads\?days=7/);
-  assert.match(funnel,/versão 0\.17\.1/);
+  assert.match(funnel,/\/api\/shopee\/ads\?days=/);
+  assert.match(funnel,/versão 0\.17\.4/);
 });
 
 
@@ -153,9 +153,39 @@ test('Análise de Funil usa funil visual real e destaca maior gargalo',()=>{
   assert.match(funnel,/function KpiStrip/);
   assert.match(funnel,/MAIOR PERDA DO FUNIL/);
   assert.match(funnel,/Plano de Destrave/);
-  assert.match(funnel,/Hoje · tempo real/);
+  assert.match(funnel,/label:'Hoje'/);
+  assert.match(funnel,/tempo real/);
   assert.match(css,/\.realFunnel/);
   assert.match(css,/clip-path:polygon/);
   assert.match(css,/\.bottleneckCallout/);
   assert.match(css,/\.kpiStrip/);
+});
+
+
+test('Análise de Funil usa 30 dias como padrão e períodos históricos confirmados',()=>{
+  const funnel=read('app/funil/page.js');
+  assert.match(funnel,/useState\('past30days'\)/);
+  assert.match(funnel,/\{id:'past7days',label:'7 dias'/);
+  assert.match(funnel,/\{id:'past30days',label:'30 dias'/);
+  assert.match(funnel,/motorData\('sellerFunnel',\{period:selectedPeriod\}/);
+  assert.match(funnel,/productOverview/);
+  assert.match(funnel,/ComparisonStrip/);
+  assert.match(funnel,/v0\.17\.4/);
+  assert.doesNotMatch(funnel,/products\.reduce\(\(a,p\)=>a\+\(num\(p\.add_to_cart_buyers\)/);
+});
+
+test('Funil preserva null e não converte ausência em zero',()=>{
+  const funnel=read('app/funil/page.js');
+  assert.match(funnel,/v===null\|\|v===undefined\|\|v===''/);
+});
+
+
+test('Análise de Funil aproveita séries diárias e pós-venda mapeados',()=>{
+  const funnel=read('app/funil/page.js');
+  assert.match(funnel,/function TrendPanel/);
+  assert.match(funnel,/productMetricTrends/);
+  assert.match(funnel,/function PostOrderPanel/);
+  assert.match(funnel,/orderPerformance/);
+  assert.match(funnel,/cancelled_orders/);
+  assert.match(funnel,/return_refund_orders/);
 });

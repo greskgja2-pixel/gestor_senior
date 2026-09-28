@@ -231,3 +231,21 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 6. Layout responsivo: no mobile o funil permanece vertical, as taxas viram cartões e os KPIs empilham.
 
 **Regra mantida:** não inventar períodos, tendências ou conversões ausentes. O destaque do gargalo só usa taxas numéricas entre 0 e 1 que estejam realmente disponíveis.
+
+
+### 2026-09-27 — ChatGPT — Funil histórico real de 7/30 dias
+**Fonte:** capturas manuais Motor Sênior de Informações Gerenciais / Produto com `period=past7days` e `period=past30days`.
+
+**O que mudou:**
+1. A Análise de Funil passa a usar **30 dias como período padrão** e oferece **7 dias | 30 dias | Hoje**. 14 dias não foi liberado porque ainda não foi capturado.
+2. O frontend envia `{period}` para a ação `sellerFunnel`; Motor Sênior v0.17.4+ é necessário para histórico.
+3. Funil da loja deixou de somar UV/carrinho de produtos como se fossem usuários únicos da loja. Visitantes priorizam `key-metrics.shop_uv`; Carrinho prioriza `product/overview.atc_uv` e fica `—` se a fonte agregada não responder.
+4. Pedido criado, Pago e Confirmado priorizam `place_orders`, `paid_orders` e `confirmed_orders` do `key-metrics`.
+5. A tela ganhou comparação real com o período anterior usando `chain_ratio` para visitantes, pedidos pagos, GMV pago e confirmados.
+6. Corrigido helper numérico do Funil: `null`/undefined/string vazia não viram mais zero.
+7. Modo específico: preço exato agora também exige custo cadastrado, além da margem/mediana já exigidas.
+8. Enciclopédia promovida para **v12**, registrando endpoints, períodos e séries históricas confirmadas.
+
+**Mapeamentos históricos confirmados:** `/api/mydata/v3/dashboard/key-metrics/`, `/api/mydata/v3/dashboard/product-rankings/`, `/api/mydata/v2/product/overview/metric-trends/`, `/api/mydata/dashboard/order-performance/`, `/api/mydata/v1/dashboard/traffic-sources/product-contribution/`. `/api/mydata/v2/product/overview/` foi confirmado em 7 dias/ontem/tempo real e é fonte opcional para carrinho agregado; em 30 dias deve falhar para `—` se não responder.
+
+**Regra:** não somar compradores/UV por produto para criar totais de loja; a mesma pessoa pode aparecer em vários produtos. Não inventar `past14days`.
