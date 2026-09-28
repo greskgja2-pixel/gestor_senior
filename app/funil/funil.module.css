@@ -62,3 +62,9 @@
 .calcDetails .variationCompare{margin:0;padding:10px}
 @media(max-width:950px){.calcSummaryGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.calcSummaryGrid{grid-template-columns:1fr}.calcSummaryGrid>div,.calcSummaryGrid>label{min-height:0}}
+
+.offerVariationStrip{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:7px;padding:10px;border-bottom:1px solid #e4ebf3;background:#f8fbff}
+.offerVariationStrip>div{display:grid;gap:2px;padding:8px 9px;border:1px solid #dce8f4;border-radius:9px;background:#fff}
+.offerVariationStrip span{font-size:8px;font-weight:800;color:#60788e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.offerVariationStrip b{font-size:10px;color:#173f64}
+.offerVariationStrip small{font-size:7px;color:#7b91a4}

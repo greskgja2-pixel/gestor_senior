@@ -437,3 +437,24 @@ test('Reanalisar cria uma nova rodada de Super Análise sem apagar o histórico 
   assert.match(products,/function sendToAnalysis\(item\)\{/);
   assert.match(products,/router\.push\(`\/super-analise\?\$\{q\.toString\(\)\}`\)/);
 });
+
+
+test('Integração v13 usa descontos do Motor com fallback oficial',()=>{
+  const funnel=read('app/funil/page.js');
+  const products=read('app/produtos/ProductsDashboard.js');
+  const flow=read('app/super-analise/WebAuditFlow.js');
+  const context=read('app/api/funnel/context/route.js');
+  assert.match(funnel,/motorData\('sellerDiscounts'/);
+  assert.match(funnel,/sellerOffer\|\|offer\|\|ctx\.marketingDiscount/);
+  assert.match(funnel,/offerVariationStrip/);
+  assert.match(products,/motorData\('sellerDiscounts'/);
+  assert.match(products,/\.\.\.officialItems,\.\.\.motorItems/);
+  assert.match(flow,/marketingDiscount\?\.offer_price/);
+  assert.match(context,/marketingDiscount:p\?\.marketingDiscount\|\|f\?\.marketingDiscount/);
+});
+
+test('Manifesto do Motor aponta para v0.17.7',()=>{
+  const latest=read('app/api/extension/latest/route.js');
+  assert.match(latest,/version:'0\.17\.7'/);
+  assert.match(latest,/Gestor-Senior-Shopee-Intelligence-v0\.17\.7\.zip/);
+});
