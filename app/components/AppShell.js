@@ -259,6 +259,70 @@ function AppSidebar({active,onNavigate,onCloseMobile,account}){
   </aside>
 }
 
+function motorActivityText(detail={}){
+  const period=detail?.payload?.period;
+  const periodLabel=period==='past30days'?'30 dias':period==='past7days'?'7 dias':period==='real_time'?'hoje':period==='yesterday'?'ontem':'';
+  const actions={
+    sellerFunnel:periodLabel?`Coletando o funil de ${periodLabel} no Seller Center…`:'Coletando dados do funil no Seller Center…',
+    collectProduct:'Lendo dados do anúncio na Shopee…',
+    marketplaceSearch:'Pesquisando produtos e concorrentes na Shopee…',
+    syncShopeeAds:'Atualizando dados do Shopee Ads…',
+    syncProtectionStates:'Verificando Proteção de ROAS…',
+    openCompetitorPicker:'Abrindo seleção de concorrentes…',
+    analyzeAll:'Montando a Super Análise…',
+    saveCosts:'Salvando custos do produto…'
+  };
+  return actions[detail.action]||'Motor Sênior trabalhando…';
+}
+
+function MotorActivityCard(){
+  const [activity,setActivity]=useState(null);
+  const [elapsed,setElapsed]=useState(0);
+  const hideRef=useRef(null);
+
+  useEffect(()=>{
+    const onActivity=e=>{
+      const d=e?.detail||{};
+      if(hideRef.current){clearTimeout(hideRef.current);hideRef.current=null}
+      if(d.phase==='start'){
+        setElapsed(0);
+        setActivity({...d,text:motorActivityText(d)});
+        return;
+      }
+      if(d.phase==='success'){
+        setActivity(prev=>({...prev,...d,phase:'success',text:'Concluído. Dados recebidos do Motor Sênior.'}));
+        hideRef.current=setTimeout(()=>setActivity(null),3500);
+        return;
+      }
+      if(d.phase==='timeout'){
+        setActivity(prev=>({...prev,...d,phase:'timeout',text:'O Motor Sênior não respondeu no tempo esperado.'}));
+        hideRef.current=setTimeout(()=>setActivity(null),9000);
+        return;
+      }
+      if(d.phase==='error'){
+        setActivity(prev=>({...prev,...d,phase:'error',text:d.message||'O Motor Sênior encontrou um erro.'}));
+        hideRef.current=setTimeout(()=>setActivity(null),9000);
+      }
+    };
+    window.addEventListener('gs-motor-activity',onActivity);
+    return()=>{window.removeEventListener('gs-motor-activity',onActivity);if(hideRef.current)clearTimeout(hideRef.current)};
+  },[]);
+
+  useEffect(()=>{
+    if(!activity||activity.phase!=='start')return;
+    const t=setInterval(()=>setElapsed(v=>v+1),1000);
+    return()=>clearInterval(t);
+  },[activity?.phase,activity?.requestId]);
+
+  if(!activity)return null;
+  const working=activity.phase==='start';
+  return <div className="gs-motor-activity" data-phase={activity.phase} role="status" aria-live="polite">
+    <span className="gs-motor-activity-icon">{working?<i/>:activity.phase==='success'?'✓':'!'}</span>
+    <div><b>{working?'Motor Sênior trabalhando':'Motor Sênior'}</b><small>{activity.text}</small></div>
+    {working&&<span className="gs-motor-activity-time">{elapsed}s</span>}
+  </div>;
+}
+
 const PUBLIC_PAGES=['/login','/cadastro','/apresentacao','/privacidade','/termos','/docs/tecnica','/status'];
 
 export default function AppShell({children}){
@@ -288,6 +352,7 @@ function ProtectedAppShell({children,pathname}){
 
   return <div className="gs-app-shell" data-drawer={drawer?'open':'closed'}>
     <AppSidebar active={route.label} onNavigate={close} onCloseMobile={close} account={account}/>
+    <MotorActivityCard/>
     <div className="gs-mobile-bar">
       <button type="button" onClick={()=>setDrawer(true)} aria-label="Abrir menu">☰</button>
       <span className="gs-logo-mark">GS</span><b>Gestor Sênior</b><small>{route.label||'Painel'}</small>

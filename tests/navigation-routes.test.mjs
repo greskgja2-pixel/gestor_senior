@@ -189,3 +189,18 @@ test('Análise de Funil aproveita séries diárias e pós-venda mapeados',()=>{
   assert.match(funnel,/cancelled_orders/);
   assert.match(funnel,/return_refund_orders/);
 });
+
+
+test('Gestor mostra atividade global do Motor Sênior',()=>{
+  const shell=read('app/components/AppShell.js');
+  const asyncClient=read('app/lib/client-async.js');
+  const css=read('app/app-shell.css');
+  assert.match(shell,/function MotorActivityCard/);
+  assert.match(shell,/gs-motor-activity/);
+  assert.match(shell,/Motor Sênior trabalhando/);
+  assert.match(asyncClient,/gs-motor-activity/);
+  assert.match(asyncClient,/activity\(action,'start'/);
+  assert.match(asyncClient,/phase='done'/);
+  assert.match(css,/\.gs-motor-activity\{/);
+  assert.match(css,/position:fixed/);
+});
