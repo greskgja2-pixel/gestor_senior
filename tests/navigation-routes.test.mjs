@@ -458,3 +458,17 @@ test('Manifesto do Motor aponta para v0.17.7',()=>{
   assert.match(latest,/version:'0\.17\.7'/);
   assert.match(latest,/Gestor-Senior-Shopee-Intelligence-v0\.17\.7\.zip/);
 });
+
+
+test('Funil da Loja implementa modo específico acionável',()=>{
+  const funnel=read('app/funil/page.js');
+  const css=read('app/funil/funil.module.css');
+  assert.match(funnel,/function StoreSpecificPlan/);
+  assert.match(funnel,/function storeStageProductRate/);
+  assert.match(funnel,/ME DIGA O QUE FAZER · 1ª PRIORIDADE/);
+  assert.match(funnel,/guidanceMode==='specific'[\s\S]*?<StoreSpecificPlan/);
+  assert.match(funnel,/gap ponderado pelo volume/);
+  assert.match(funnel,/Nenhuma alteração de preço, anúncio ou campanha é aplicada automaticamente/);
+  assert.match(css,/\.storeSpecificProductGrid/);
+  assert.match(css,/@media\(max-width:560px\)/);
+});
