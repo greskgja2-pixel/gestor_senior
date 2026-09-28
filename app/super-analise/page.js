@@ -44,8 +44,11 @@ async function loadStoreProducts(shop){
     const variationCostMin=variationCostValues.length?Math.min(...variationCostValues):null;
     const variationCostMax=variationCostValues.length?Math.max(...variationCostValues):null;
     const report=latestReport.get(key),lastMarginPct=finite(report?.finance_snapshot?.marginPct??report?.metrics?.marginPct),lastMarginR=finite(report?.finance_snapshot?.profit??report?.metrics?.marginR);
+    const analyzedAt=report?.analyzed_at||null;
+    const analysisAgeDays=analyzedAt?Math.max(0,(Date.now()-new Date(analyzedAt).getTime())/86400000):null;
+    const funnelStatus=!analyzedAt?'unavailable':analysisAgeDays>30?'stale':'available';
     const gross=grossMargin({price,cost:baseCost,packaging});
-    return{itemId:key,title:it.item_name||`Produto ${it.item_id}`,image:imageOf(it),status:it.item_status||'—',price,fullPrice,stock,cost:totalCost,costSource:baseCost!=null?(packaging?'produto + embalagem':'custo cadastrado'):null,variationCostCount:variationCostValues.length,variationCostMin,variationCostMax,marginPct:gross.percent,marginR:gross.amount,marginSource:gross.source,hasModel:Boolean(it.has_model),lastAnalysisMarginPct:lastMarginPct,lastAnalysisMarginR:lastMarginR,lastAnalysisAt:report?.analyzed_at||null};
+    return{itemId:key,title:it.item_name||`Produto ${it.item_id}`,image:imageOf(it),status:it.item_status||'—',price,fullPrice,stock,cost:totalCost,costSource:baseCost!=null?(packaging?'produto + embalagem':'custo cadastrado'):null,variationCostCount:variationCostValues.length,variationCostMin,variationCostMax,marginPct:gross.percent,marginR:gross.amount,marginSource:gross.source,hasModel:Boolean(it.has_model),lastAnalysisMarginPct:lastMarginPct,lastAnalysisMarginR:lastMarginR,lastAnalysisAt:analyzedAt,analysisAgeDays,funnelStatus};
   });
   return{items,source,syncedAt,loadError};
 }

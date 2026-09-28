@@ -142,6 +142,7 @@ export default function ProductsDashboard({items=[],source='cache',syncedAt=null
   const router=useRouter();
   const [rows,setRows]=useState(items);
   const [query,setQuery]=useState('');
+  const [statusFilter,setStatusFilter]=useState('all');
   const [pageSize,setPageSize]=useState(25);
   const [page,setPage]=useState(1);
   const [sort,setSort]=useState('name');
@@ -175,7 +176,11 @@ export default function ProductsDashboard({items=[],source='cache',syncedAt=null
 
   const filtered=useMemo(()=>{
     const q=query.trim().toLowerCase();
-    const list=rows.filter(x=>!q||String(x.title||'').toLowerCase().includes(q)||String(x.itemId||'').includes(q)||String(x.status||'').toLowerCase().includes(q));
+    const list=rows.filter(x=>{
+      const matchesQuery=!q||String(x.title||'').toLowerCase().includes(q)||String(x.itemId||'').includes(q)||String(x.status||'').toLowerCase().includes(q);
+      const matchesStatus=statusFilter==='all'||String(x.status||'').toUpperCase()===statusFilter;
+      return matchesQuery&&matchesStatus;
+    });
     return [...list].sort((a,b)=>{
       if(sort==='price-asc')return (a.price??Infinity)-(b.price??Infinity);
       if(sort==='price-desc')return (b.price??-Infinity)-(a.price??-Infinity);
@@ -185,10 +190,10 @@ export default function ProductsDashboard({items=[],source='cache',syncedAt=null
       }
       return String(a.title||'').localeCompare(String(b.title||''),'pt-BR');
     });
-  },[rows,query,sort,offers,fees]);
+  },[rows,query,statusFilter,sort,offers,fees]);
 
   const totalPages=Math.max(1,Math.ceil(filtered.length/pageSize)),currentPage=Math.min(page,totalPages),start=(currentPage-1)*pageSize,visible=filtered.slice(start,start+pageSize);
-  useEffect(()=>{setPage(1);},[query,pageSize,sort]);
+  useEffect(()=>{setPage(1);},[query,statusFilter,pageSize,sort]);
 
   useEffect(()=>{
     const ids=visible.map(x=>x.itemId).filter(Boolean);
@@ -245,6 +250,15 @@ export default function ProductsDashboard({items=[],source='cache',syncedAt=null
     }));
   }
 
+  function funnelStatus(item){return item?.funnelStatus==='available'?'available':item?.funnelStatus==='stale'?'stale':'unavailable'}
+  function funnelAction(item){
+    const status=funnelStatus(item);
+    if(status==='available')router.push('/funil?tab=produto&item_id='+encodeURIComponent(item.itemId));
+    else sendToAnalysis(item);
+  }
+  const availableCount=rows.filter(x=>funnelStatus(x)==='available').length;
+  const staleCount=rows.filter(x=>funnelStatus(x)==='stale').length;
+  const pendingCount=rows.filter(x=>funnelStatus(x)==='unavailable').length;
   const missingCostCount=rows.filter(x=>x.hasModel?(Number(x.variationCostCount||0)===0):x.cost==null).length;
   const from=filtered.length?start+1:0,to=Math.min(start+pageSize,filtered.length);
   return <div className={embedded?'':shell.shell}>
@@ -254,18 +268,30 @@ export default function ProductsDashboard({items=[],source='cache',syncedAt=null
     <main className={embedded?styles.embeddedPage:shell.page}>
       {!embedded&&<header className={shell.top}><div className={shell.brand}><div className={shell.logo}>▱</div><div><h1>Produtos</h1><p>Escolha o anúncio que seguirá para a Super Análise guiada</p></div></div></header>}
 
-      {!embedded&&<section className={styles.summaryRow}><div><small>Produtos</small><b>{rows.length}</b></div><div><small>Com preço</small><b>{rows.filter(x=>x.price!=null).length}</b></div><div><small>Com custo</small><b>{rows.length-missingCostCount}</b></div><div><small>Sem custo</small><b>{missingCostCount}</b></div></section>}
+      <section className={styles.funnelInfoBanner}>
+        <span>i</span>
+        <div><b>O Funil por Produto mostra apenas anúncios que já passaram pela Super Análise.</b><small>A análise precisa ter até 30 dias para ficar disponível no Funil; depois disso, o Gestor pede uma reanálise.</small></div>
+      </section>
+
+      <section className={styles.funnelSummary}>
+        <article data-tone="available"><span>⌄</span><div><b>{availableCount}</b><strong>Disponíveis no Funil</strong><small>Produtos com Super Análise recente.</small></div></article>
+        <article data-tone="pending"><span>◷</span><div><b>{pendingCount}</b><strong>Pendentes de Super Análise</strong><small>Produtos que ainda não passaram pela análise.</small></div></article>
+        <article data-tone="stale"><span>▤</span><div><b>{staleCount}</b><strong>Análises antigas</strong><small>Produtos com análise de mais de 30 dias.</small></div></article>
+      </section>
 
       <section className={styles.card} id="products-table">
         <div className={styles.cardHead}>
           <div><h2>Produtos da loja</h2><p>{source==='cache'&&syncedAt?`Servido do cache · sincronizado em ${new Date(syncedAt).toLocaleString('pt-BR')}`:'Dados buscados da Shopee'} · {filtered.length} resultado(s){offerLoading?' · lendo ofertas…':''}</p></div>
           <div className={styles.controls}>
-            {embedded&&<label className={styles.inlineSearch}>Buscar<input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Nome, ID ou status..."/></label>}
+            <label className={styles.inlineSearch}>Buscar produto<input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Nome, ID ou status..."/></label>
+            <label>Status do anúncio<select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}><option value="all">Todos</option><option value="NORMAL">Ativos</option><option value="UNLIST">Desativados</option><option value="BANNED">Bloqueados</option></select></label>
+            <label>Ordenar<select value={sort} onChange={e=>setSort(e.target.value)}><option value="name">Nome</option><option value="price-asc">Menor preço</option><option value="price-desc">Maior preço</option><option value="stock-desc">Maior estoque</option><option value="margin-desc">Maior margem</option></select></label>
+            <label>Por página<select value={pageSize} onChange={e=>setPageSize(Number(e.target.value))}><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select></label>
+          </div>
+          <div className={styles.toolbar}>
             <button className={styles.refreshButton} type="button" onClick={refresh} disabled={refreshing}>{refreshing?'Atualizando…':'↻ Atualizar da Shopee'}</button>
             <button className={styles.toolButton} type="button" onClick={()=>setShowFees(true)}>⚙ Configurar taxas</button>
             <div className={styles.columnControl}><button className={styles.toolButton} type="button" onClick={()=>setShowColumns(v=>!v)}>▤ Opções de exibição</button><ColumnModal open={showColumns} columns={columns} onChange={setColumns} onClose={()=>setShowColumns(false)}/></div>
-            <label>Ordenar<select value={sort} onChange={e=>setSort(e.target.value)}><option value="name">Nome</option><option value="price-asc">Menor preço</option><option value="price-desc">Maior preço</option><option value="stock-desc">Maior estoque</option><option value="margin-desc">Maior margem</option></select></label>
-            <label>Por página<select value={pageSize} onChange={e=>setPageSize(Number(e.target.value))}><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select></label>
           </div>
         </div>
         {refreshError&&<div className={styles.error}>{refreshError} <button type="button" onClick={refresh}>Tentar novamente</button></div>}
@@ -274,14 +300,15 @@ export default function ProductsDashboard({items=[],source='cache',syncedAt=null
         {loadError&&<div className={styles.error}>{loadError}</div>}
         {visible.length===0?<div className={styles.empty}>Nenhum produto encontrado.</div>:<div className={styles.tableWrap}><table className={styles.table}><thead><tr>
           <th>Produto</th>
-          {columns.status&&<th>Status</th>}
+          {columns.status&&<th>Status do anúncio</th>}
           {columns.price&&<th>Preço / oferta</th>}
-          {columns.cost&&<th>Custo produto</th>}
+          {columns.cost&&<th>Custo</th>}
           {columns.margin&&<th>Margem</th>}
           {columns.stock&&<th>Estoque</th>}
+          <th>Funil de vendas</th>
           <th>Ações</th>
         </tr></thead><tbody>{visible.map(item=>{
-          const offer=offerFor(item),full=decimal(offer?.full_price??item.fullPrice??item.price),final=finalPriceFor(item),margin=marginFor(item);
+          const offer=offerFor(item),full=decimal(offer?.full_price??item.fullPrice??item.price),final=finalPriceFor(item),margin=marginFor(item),fStatus=funnelStatus(item);
           return <tr key={item.itemId}>
             <td><div className={styles.product}><div className={styles.thumb}>{item.image?<img src={item.image} alt=""/>:<span>▱</span>}</div><div><b>{item.title}</b><small>ID {item.itemId}{item.hasModel?' · com variações':''}</small></div></div></td>
             {columns.status&&<td><span className={`${styles.status} ${String(item.status).toUpperCase()==='NORMAL'?styles.statusOk:styles.statusWarn}`}>{statusLabel(item.status)}</span></td>}
@@ -289,9 +316,14 @@ export default function ProductsDashboard({items=[],source='cache',syncedAt=null
             {columns.cost&&<td>{item.hasModel?<button className={styles.inlineEditButton} type="button" onClick={()=>setEditorItem(item)}><b>{item.variationCostCount?item.variationCostMin===item.variationCostMax?money(item.variationCostMin):`${money(item.variationCostMin)}–${money(item.variationCostMax)}`:'Cadastrar'}</b><small>Editar variações</small></button>:<div className={styles.inlineEditor}><input inputMode="decimal" value={draftValue(item,'cost')} onChange={e=>setDraftValue(item,'cost',decimalInput(e.target.value))} placeholder="R$ 0,00"/><button type="button" onClick={()=>saveSimple(item,'cost')} disabled={savingCell===item.itemId+':cost'}>{savingCell===item.itemId+':cost'?'…':'✓'}</button></div>}</td>}
             {columns.margin&&<td>{item.hasModel?<button className={styles.inlineEditButton} type="button" onClick={()=>setEditorItem(item)}><b>Por variação</b><small>Abra custos para calcular</small></button>:margin?<div className={styles.margin}><b className={margin.marginPct<0?styles.negative:styles.positive}>{pct(margin.marginPct)}</b><span>{money(margin.profit)}</span><small>{margin.totalRatePct.toLocaleString('pt-BR',{maximumFractionDigits:1})}% + {money(margin.fixedFee)} de taxas</small></div>:<span className={styles.muted}>Cadastre o custo</span>}</td>}
             {columns.stock&&<td>{item.hasModel?<button className={styles.inlineEditButton} type="button" onClick={()=>setEditorItem(item)}><b>{item.stock??'—'}</b><small>Editar variações</small></button>:<div className={styles.inlineEditor}><input type="number" min="0" step="1" value={draftValue(item,'stock')} onChange={e=>setDraftValue(item,'stock',e.target.value)}/><button type="button" onClick={()=>saveSimple(item,'stock')} disabled={savingCell===item.itemId+':stock'}>{savingCell===item.itemId+':stock'?'…':'✓'}</button></div>}</td>}
-            <td><button className={styles.analysisButton} type="button" onClick={()=>sendToAnalysis(item)}>🧠 Enviar para Super Análise</button></td>
+            <td><div className={styles.funnelStatusCell} data-status={fStatus}>
+              <span>{fStatus==='available'?'⌄ Disponível':fStatus==='stale'?'◷ Análise antiga':'⊘ Indisponível'}</span>
+              <button type="button" onClick={()=>funnelAction(item)}>{fStatus==='available'?'Abrir Funil':fStatus==='stale'?'Reanalisar':'Fazer Super Análise'}</button>
+              {item.lastAnalysisAt&&<small>{new Date(item.lastAnalysisAt).toLocaleDateString('pt-BR')}</small>}
+            </div></td>
+            <td><button className={styles.rowMenu} type="button" onClick={()=>sendToAnalysis(item)} title={fStatus==='unavailable'?'Fazer Super Análise':'Abrir Super Análise'}>⋮</button></td>
           </tr>})}</tbody></table></div>}
-        <div className={styles.pagination}><span>{from}–{to} de {filtered.length} produtos</span><div><button type="button" onClick={()=>setPage(1)} disabled={currentPage===1}>«</button><button type="button" onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={currentPage===1}>‹</button><span>Página {currentPage} de {totalPages}</span><button type="button" onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={currentPage===totalPages}>›</button><button type="button" onClick={()=>setPage(totalPages)} disabled={currentPage===totalPages}>»</button></div></div>
+        <div className={styles.pagination}><span>Mostrando {from}–{to} de {filtered.length} produtos</span><div><button type="button" onClick={()=>setPage(1)} disabled={currentPage===1}>«</button><button type="button" onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={currentPage===1}>‹</button><span>Página {currentPage} de {totalPages}</span><button type="button" onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={currentPage===totalPages}>›</button><button type="button" onClick={()=>setPage(totalPages)} disabled={currentPage===totalPages}>»</button></div></div>
       </section>
     </main>
   </div>;

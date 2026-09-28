@@ -345,3 +345,24 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 10. Ao abrir o editor de título, a calculadora de preço do mesmo card é recolhida e vice-versa, evitando dois editores concorrentes no mesmo produto.
 
 **Regra de evidência:** ausência de Super Análise/concorrentes/keywords aparece como indisponível; não gerar uma sugestão improvisada apenas para preencher o card.
+
+
+### 2026-09-28 — ChatGPT — Super Análise como porta de entrada do Funil por Produto
+**Arquivos:** `app/super-analise/page.js`, `app/produtos/ProductsDashboard.js`, `app/produtos/products.module.css`, `app/funil/page.js`, `app/funil/funil.module.css`, testes e este arquivo. Branch: `feature/super-analise-funil-status-redesign`.
+
+**O que mudou:**
+1. O design anterior da tabela de produtos dentro da Super Análise foi substituído pelo mockup aprovado, mantendo as funções de custo, estoque, ofertas, margem, taxas e opções de exibição.
+2. A tabela ganhou a coluna fixa **Funil de vendas** com três estados reais:
+   - **Disponível**: existe Super Análise com até 30 dias;
+   - **Análise antiga**: a última Super Análise tem mais de 30 dias;
+   - **Indisponível**: nunca passou pela Super Análise.
+3. Ações da coluna: **Abrir Funil**, **Reanalisar** ou **Fazer Super Análise** conforme o estado.
+4. O topo da lista mostra uma faixa explicando a regra e três cards quantitativos: disponíveis, pendentes e análises antigas.
+5. A idade da análise é calculada no servidor a partir de `extension_analysis_reports.analyzed_at`; nenhum status é inventado no cliente.
+6. A aba **Funil por Produto** agora filtra a lista: só renderiza produtos que possuem contexto da Super Análise com `analyzedAt` de até 30 dias.
+7. O Funil da Loja continua usando métricas agregadas da Shopee; a restrição é aplicada às recomendações/ações **por produto**, que dependem de concorrentes e Super Análise.
+8. O botão **Abrir Funil** usa `/funil?tab=produto&item_id=<id>`; a página abre a aba Por Produto e prioriza o item solicitado.
+9. Produtos sem análise recente não aparecem nos cards de ação por produto; o Funil mostra aviso e link para gerenciar a Super Análise.
+10. O CSS da tabela foi refeito do zero para seguir o novo mockup, sem alterar o espaçamento da sidebar global.
+
+**Regra de produto:** o Funil por Produto exige Super Análise recente porque editores contextuais (preço, título e futuros cards) dependem das evidências e concorrentes vinculados. Não preencher contexto ausente com inferência.

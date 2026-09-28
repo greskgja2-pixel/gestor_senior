@@ -599,6 +599,7 @@ function normalizeAdsCampaign(c){
 
 export default function FunilPage(){
   const [tab,setTab]=useState('loja');
+  const [requestedItem,setRequestedItem]=useState('');
   const [guidanceMode,setGuidanceMode]=useState('standard');
   const [period,setPeriod]=useState('past30days');
   const [context,setContext]=useState({});
@@ -634,6 +635,9 @@ export default function FunilPage(){
     try{
       const saved=localStorage.getItem('gs_funnel_guidance_mode');
       if(saved==='standard'||saved==='specific')setGuidanceMode(saved);
+      const params=new URLSearchParams(window.location.search);
+      if(params.get('tab')==='produto')setTab('produto');
+      setRequestedItem(String(params.get('item_id')||''));
     }catch{}
     load('past30days');
   },[]);
@@ -696,6 +700,19 @@ export default function FunilPage(){
 
   if(state.loading)return <div className={styles.page}><div className={styles.loading}>Lendo Informações Gerenciais da Shopee e montando o funil…</div></div>;
 
+  const analyzedProducts=model.products.filter(p=>{
+    const ctx=context?.[String(p.id)];
+    if(!ctx?.analyzedAt)return false;
+    const age=(Date.now()-new Date(ctx.analyzedAt).getTime())/86400000;
+    return Number.isFinite(age)&&age<=30;
+  });
+  const orderedAnalyzed=[...analyzedProducts].sort((a,b)=>{
+    if(requestedItem&&String(a.id)===requestedItem)return -1;
+    if(requestedItem&&String(b.id)===requestedItem)return 1;
+    return productPlan(a,model.med).rank-productPlan(b,model.med).rank;
+  });
+  const unavailableForFunnel=Math.max(0,model.products.length-analyzedProducts.length);
+
   const full=!!state.seller;
   const actualPeriod=state.seller?.period?.type||period;
   const actualPeriodMeta=periodMeta(actualPeriod);
@@ -730,13 +747,13 @@ export default function FunilPage(){
           <div><span className={styles.targetIcon}>◎</span><div><h2>Plano de Destrave</h2><p>Ações para atacar primeiro os produtos com maior gargalo.</p></div></div>
           <div className={styles.compactGuidance}><span>Modo de orientação:</span><button type="button" data-active={guidanceMode==='standard'} onClick={()=>chooseGuidance('standard')}>Padrão</button><button type="button" data-active={guidanceMode==='specific'} onClick={()=>chooseGuidance('specific')}>Específico · me diga o que fazer</button></div>
         </div>
-        {model.products.length?<ProductActionCard
-          p={[...model.products].sort((a,b)=>productPlan(a,model.med).rank-productPlan(b,model.med).rank)[0]}
+        {orderedAnalyzed.length?<ProductActionCard
+          p={orderedAnalyzed[0]}
           med={model.med}
           mode={guidanceMode}
           context={context}
-        />:<div className={styles.empty}>Ainda não há dados por produto suficientes para montar o Plano de Destrave.</div>}
-        {model.products.length>1&&<button type="button" className={styles.allProductsBtn} onClick={()=>setTab('produto')}>Ver plano de todos os produtos →</button>}
+        />:<div className={styles.empty}>Nenhum produto está liberado para o Plano de Destrave. Faça a Super Análise para liberar o diagnóstico por produto.</div>}
+        {orderedAnalyzed.length>1&&<button type="button" className={styles.allProductsBtn} onClick={()=>setTab('produto')}>Ver plano de todos os produtos →</button>}
       </section>
       <section className={styles.education}>
         <div><b>1</b><h3>Impressão → clique</h3><p>Queda forte aqui aponta para capa, título, preço percebido ou competitividade na busca.</p></div>
@@ -746,7 +763,8 @@ export default function FunilPage(){
     </>}
 
     {tab==='produto'&&<section className={styles.panel}>
-      <div className={styles.sectionHead}><div><h2>Funil por Produto</h2><p>Escolha se quer entender o problema ou receber uma receita mais direta do que testar.</p></div><span>{model.products.length} produtos</span></div>
+      <div className={styles.sectionHead}><div><h2>Funil por Produto</h2><p>Apenas anúncios com Super Análise recente entram aqui, porque preço, concorrentes e sugestões dependem desse contexto.</p></div><span>{analyzedProducts.length} disponíveis</span></div>
+      <div className={styles.funnelEligibilityNotice}><b>Super Análise obrigatória</b><span>{unavailableForFunnel>0?`${unavailableForFunnel} produto(s) ainda estão indisponíveis no Funil ou precisam ser reanalisados.`:'Todos os produtos com dados de funil já estão liberados.'}</span><Link href="/super-analise">Gerenciar na Super Análise →</Link></div>
       <div className={styles.guidanceMode}>
         <div><strong>Como você quer receber as sugestões?</strong><small>Sua escolha fica salva neste navegador.</small></div>
         <div role="group" aria-label="Modo de orientação">
@@ -755,11 +773,11 @@ export default function FunilPage(){
         </div>
       </div>
       <div className={styles.productPlanBanner}><b>Plano de destrave</b><span>As sugestões são testes orientados por evidências; nenhuma alteração é aplicada automaticamente.</span></div>
-      {!model.products.length?<div className={styles.empty}>Sem dados de produto no momento.</div>:<>
+      {!orderedAnalyzed.length?<div className={styles.empty}>Nenhum produto disponível. Faça a Super Análise dos anúncios que deseja acompanhar no Funil.</div>:<>
         <div className={styles.productFunnelList}>
-          {[...model.products].sort((a,b)=>productPlan(a,model.med).rank-productPlan(b,model.med).rank).map(p=><ProductFunnelCard key={'funnel-'+p.id} p={p} med={model.med} mode={guidanceMode} context={context}/>)}
+          {orderedAnalyzed.map(p=><ProductFunnelCard key={'funnel-'+p.id} p={p} med={model.med} mode={guidanceMode} context={context}/>)}
         </div>
-        <details className={styles.rawDetails}><summary>Ver tabela completa de números</summary><div className={styles.tableWrap}><table><thead><tr><th>Produto</th><th>Impressões</th><th>Cliques</th><th>CTR</th><th>Visitantes</th><th>Carrinho</th><th>Pedido</th><th>Pago</th><th>Confirmado</th><th>Status</th></tr></thead><tbody>{model.products.map(p=><ProductRow key={p.id} p={p} med={model.med}/>)}</tbody></table></div></details>
+        <details className={styles.rawDetails}><summary>Ver tabela completa dos produtos liberados</summary><div className={styles.tableWrap}><table><thead><tr><th>Produto</th><th>Impressões</th><th>Cliques</th><th>CTR</th><th>Visitantes</th><th>Carrinho</th><th>Pedido</th><th>Pago</th><th>Confirmado</th><th>Status</th></tr></thead><tbody>{orderedAnalyzed.map(p=><ProductRow key={p.id} p={p} med={model.med}/>)}</tbody></table></div></details>
       </>}
     </section>}
 
