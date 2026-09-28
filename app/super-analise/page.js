@@ -27,12 +27,13 @@ async function loadStoreProducts(shop){
   for(const row of reports||[]){const key=String(row.item_id);if(!latestReport.has(key))latestReport.set(key,row);}
   const items=products.map(it=>{
     const key=String(it.item_id);
+    const fullPrice=finite(it?.price_info?.[0]?.original_price??it?.price_info?.[0]?.current_price);
     const price=finite(it?.price_info?.[0]?.current_price??it?.price_info?.[0]?.original_price);
     const stock=finite(it?.stock_info_v2?.summary_info?.total_available_stock??it?.stock);
     const costRow=baseCosts.get(key),baseCost=finite(costRow?.cost),packaging=finite(costRow?.packaging_cost)??0,totalCost=baseCost==null?null:baseCost+packaging;
     const report=latestReport.get(key),lastMarginPct=finite(report?.finance_snapshot?.marginPct??report?.metrics?.marginPct),lastMarginR=finite(report?.finance_snapshot?.profit??report?.metrics?.marginR);
     const gross=grossMargin({price,cost:baseCost,packaging});
-    return{itemId:key,title:it.item_name||`Produto ${it.item_id}`,image:imageOf(it),status:it.item_status||'—',price,stock,cost:totalCost,costSource:baseCost!=null?(packaging?'produto + embalagem':'custo cadastrado'):null,marginPct:gross.percent,marginR:gross.amount,marginSource:gross.source,hasModel:Boolean(it.has_model),lastAnalysisMarginPct:lastMarginPct,lastAnalysisMarginR:lastMarginR,lastAnalysisAt:report?.analyzed_at||null};
+    return{itemId:key,title:it.item_name||`Produto ${it.item_id}`,image:imageOf(it),status:it.item_status||'—',price,fullPrice,stock,cost:totalCost,costSource:baseCost!=null?(packaging?'produto + embalagem':'custo cadastrado'):null,marginPct:gross.percent,marginR:gross.amount,marginSource:gross.source,hasModel:Boolean(it.has_model),lastAnalysisMarginPct:lastMarginPct,lastAnalysisMarginR:lastMarginR,lastAnalysisAt:report?.analyzed_at||null};
   });
   return{items,source,syncedAt,loadError};
 }
