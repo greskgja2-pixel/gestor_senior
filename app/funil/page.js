@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import {useSearchParams} from 'next/navigation';
 import {useEffect,useMemo,useState} from 'react';
 import {motorData} from '../lib/client-async';
 import styles from './funil.module.css';
@@ -599,9 +598,8 @@ function normalizeAdsCampaign(c){
 }
 
 export default function FunilPage(){
-  const searchParams=useSearchParams();
-  const requestedItem=String(searchParams.get('item_id')||'');
-  const [tab,setTab]=useState(searchParams.get('tab')==='produto'?'produto':'loja');
+  const [tab,setTab]=useState('loja');
+  const [requestedItem,setRequestedItem]=useState('');
   const [guidanceMode,setGuidanceMode]=useState('standard');
   const [period,setPeriod]=useState('past30days');
   const [context,setContext]=useState({});
@@ -637,6 +635,9 @@ export default function FunilPage(){
     try{
       const saved=localStorage.getItem('gs_funnel_guidance_mode');
       if(saved==='standard'||saved==='specific')setGuidanceMode(saved);
+      const params=new URLSearchParams(window.location.search);
+      if(params.get('tab')==='produto')setTab('produto');
+      setRequestedItem(String(params.get('item_id')||''));
     }catch{}
     load('past30days');
   },[]);
