@@ -567,14 +567,16 @@ function ProductFunnelCard({p,med,mode,context}){
   const plan=mode==='specific'?specificPlan(p,med,context):productPlan(p,med);
   const bottleneck=productBottleneck(plan);
   const status=plan.priority==='bad'?'CRÍTICO':plan.priority==='warn'?'ATENÇÃO':plan.priority==='good'?'SAUDÁVEL':'POUCOS DADOS';
-  const competitor=arr(context?.[String(p.id)]?.competitors)[0]||null;
+  const productContext=context?.[String(p.id)]||null;
+  const competitor=arr(productContext?.competitors)[0]||null;
+  const productImage=p.image||productContext?.image||'/favicon.ico';
   const evidence=plan.evidence||'';
   const titleActionIndex=plan.actions.findIndex(action=>/t[ií]tulo|palavra.?chave|keyword/i.test(String(action)));
   const priceActionIndex=plan.actions.findIndex((action,index)=>index!==titleActionIndex&&/pre[cç]o|oferta/i.test(String(action)));
   return <article className={styles.productFunnelCard} data-priority={plan.priority}>
     <header className={styles.productFunnelHeader}>
       <div className={styles.productIdentity}>
-        <img src={p.image||'/favicon.ico'} alt=""/>
+        <img src={productImage} alt="" onError={e=>{e.currentTarget.onerror=null;e.currentTarget.src='/favicon.ico'}}/>
         <div><h3>{p.name||'Produto'}</h3><small>ID {p.id||'—'}</small></div>
       </div>
       <span className={styles.productStatus} data-priority={plan.priority}>{status}</span>
