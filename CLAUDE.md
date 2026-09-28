@@ -249,3 +249,16 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 **Mapeamentos históricos confirmados:** `/api/mydata/v3/dashboard/key-metrics/`, `/api/mydata/v3/dashboard/product-rankings/`, `/api/mydata/v2/product/overview/metric-trends/`, `/api/mydata/dashboard/order-performance/`, `/api/mydata/v1/dashboard/traffic-sources/product-contribution/`. `/api/mydata/v2/product/overview/` foi confirmado em 7 dias/ontem/tempo real e é fonte opcional para carrinho agregado; em 30 dias deve falhar para `—` se não responder.
 
 **Regra:** não somar compradores/UV por produto para criar totais de loja; a mesma pessoa pode aparecer em vários produtos. Não inventar `past14days`.
+
+
+### 2026-09-28 — ChatGPT — Card global de atividade do Motor Sênior
+**Arquivos:** `app/lib/client-async.js`, `app/components/AppShell.js`, `app/app-shell.css`, testes e este arquivo. Branch: `feature/motor-activity-card`.
+
+**O que mudou:**
+1. Toda chamada feita por `motorRequest()` agora emite eventos locais `gs-motor-activity` com início, sucesso, timeout ou erro.
+2. O AppShell exibe um card compacto fixo no **topo central** do Gestor, sem alterar o espaçamento/altura da sidebar.
+3. O card traduz ações conhecidas em linguagem simples, por exemplo: “Coletando o funil de 30 dias no Seller Center…”, “Lendo dados do anúncio…”, “Atualizando dados do Shopee Ads…”.
+4. Enquanto trabalha, mostra spinner e contador de segundos. Em sucesso mostra confirmação curta e some sozinho; em erro/timeout mostra a falha por alguns segundos.
+5. O card é global e reutilizável por qualquer tela que use o Motor Sênior.
+
+**Objetivo:** dar visibilidade do que a extensão está fazendo, especialmente no Android/Quetta, onde a ponte básica pode estar conectada mas a ação no Seller Center pode travar.
