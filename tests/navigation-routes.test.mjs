@@ -214,3 +214,19 @@ test('Card do Motor recebe progresso intermediário da extensão',()=>{
   assert.match(shell,/d\.phase==='progress'/);
   assert.match(shell,/activity\.percent/);
 });
+
+
+test('Por Produto usa cards com mini funil visual aprovado',()=>{
+  const funnel=read('app/funil/page.js');
+  const css=read('app/funil/funil.module.css');
+  assert.match(funnel,/function ProductFunnelCard/);
+  assert.match(funnel,/function MiniProductFunnel/);
+  assert.match(funnel,/Maior gargalo: Carrinho → Pedido/);
+  assert.match(funnel,/Concorrente de referência/);
+  assert.match(funnel,/Faça assim/);
+  assert.match(funnel,/productFunnelList/);
+  assert.doesNotMatch(funnel,/className=\{styles\.actionIntro\}/);
+  assert.match(css,/\.productMiniFunnel/);
+  assert.match(css,/\.productFunnelCard/);
+  assert.match(css,/\.productDiagnosis/);
+});
