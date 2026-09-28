@@ -11,12 +11,12 @@ export default async function SuperAnaliseWorkspace({shopId,params,store}){
   const startUrl=String(params?.start_url||'').trim();
   const requestedTab=String(params?.tab||'').trim();
 
-  // start_item_id/start_url apenas preenchem o fluxo de nova auditoria; não representam
-  // uma análise histórica selecionada. A lista da loja deve continuar visível.
-  if(!requestedReport&&!requestedItem)return <>
-    <WebAuditFlow initialUrl={startUrl}/>
-    <ProductsDashboard embedded items={store.items} source={store.source} syncedAt={store.syncedAt} shopId={shopId} loadError={store.loadError}/>
-  </>;
+  // A lista da loja é a tela inicial da Super Análise. O fluxo/etapas só aparecem
+  // depois que o usuário escolhe um anúncio e inicia uma nova Super Análise.
+  if(!requestedReport&&!requestedItem){
+    if(startUrl||startItem)return <WebAuditFlow initialUrl={startUrl}/>;
+    return <ProductsDashboard embedded superAnalysisLanding items={store.items} source={store.source} syncedAt={store.syncedAt} shopId={shopId} loadError={store.loadError}/>;
+  }
 
   const db=supabaseAdmin();
   const {data:reports,error}=await db.from('extension_analysis_reports')
