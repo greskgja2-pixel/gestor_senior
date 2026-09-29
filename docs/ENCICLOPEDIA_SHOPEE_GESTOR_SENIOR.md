@@ -1,6 +1,6 @@
 # Enciclopédia Shopee Seller Center → Gestor Sênior
 
-**Versão:** 14.0 (inclui curadoria v13 de Descontos + v14 de Oferta Relâmpago da Loja, confirmada em 29/09/2026)  
+**Versão:** 14.1 (inclui curadoria v13 de Descontos + v14 de Oferta Relâmpago da Loja + confirmação da captura natural da busca pública para Pesquisa de Produtos, em 29/09/2026)  
 **Origem:** consolidação das sessões do Shopee Seller Auto Mapper/Motor Sênior + validações visuais + mapeamentos do Seller Center e Marketplace público até 29/09/2026, incluindo períodos MyData, Descontos e o fluxo completo observado de Oferta Relâmpago da Loja.  
 **Uso:** referência técnica para ChatGPT, Claude e desenvolvimento do Gestor Sênior.
 
@@ -3602,3 +3602,116 @@ Nenhuma deve ocorrer silenciosamente. O usuário deve escolher horário, produto
 - Reserva progressiva de estoque por variação observada: **sim**.
 - Principal descoberta para o bug do Gestor: o horário deve ser representado pelo `timeslot_id` devolvido por `get_time_slot_id`; a criação retorna a janela autoritativa e os itens são gravados depois, em uma segunda escrita.
 - Pendências: capturar um exemplo com `failed_items`, `warning_items`, `misleading_item_list` positivo e um `report_shop_flash_sale` com dados.
+
+
+---
+
+# Atualização v14.1 — Pesquisa de Produtos pela captura natural da busca pública (29/09/2026)
+
+## 1. Busca pública — resposta natural de `search_items`
+
+**Endpoint observado durante a navegação normal da Shopee**
+
+```text
+GET /api/v4/search/search_items
+```
+
+**Status:** CONFIRMADO COMO FONTE PRIMÁRIA DA PESQUISA DE PRODUTOS
+
+A validação com Motor Sênior v0.18.5 mostrou que a própria página de resultados disparou uma resposta HTTP 200 com 60 itens. A tentativa de reproduzir a chamada artificialmente, a partir do contexto da extensão, recebeu HTTP 403. Portanto, para a Pesquisa de Produtos, a estratégia oficial passa a ser **interceptar a resposta natural da navegação real**, em vez de refazer a requisição manualmente.
+
+### Campos confirmados na resposta natural
+
+Nos itens testados, a resposta natural já continha e o parser preservou até o objeto normalizado:
+
+- preço;
+- vendas acumuladas;
+- vendas/mês;
+- localização do vendedor;
+- avaliação;
+- quantidade de reviews;
+- `item_id`;
+- `shop_id`;
+- título.
+
+### Estruturas confirmadas
+
+```text
+item_data.item_card_display_price.price
+item_data.item_card_display_sold_count.historical_sold_count_text
+item_data.item_card_display_sold_count.monthly_sold_count_text
+item_data.item_rating.rating_star
+item_data.item_rating.rating_count[0]
+item_card_displayed_asset.name
+item_card_displayed_asset.shop_location
+item_card_displayed_asset.sold_count.text
+```
+
+Dependendo do item, localização e outros campos podem também aparecer em estruturas equivalentes dentro de `item_data` / `shop_data`. Preservar a origem do campo no diagnóstico.
+
+## 2. Estratégia oficial para Pesquisa de Produtos
+
+A ordem recomendada passa a ser:
+
+```text
+Navegação real na página de busca
+→ interceptar resposta natural de search_items
+→ normalizar os itens
+→ medir cobertura por campo
+→ PDP somente se um campo importante realmente faltar
+→ get_ratings somente em análise profunda/mineração de avaliações
+```
+
+### Regra crítica
+
+Não disparar `search_items` artificialmente como fonte principal. No teste confirmado, a página normal obteve HTTP 200, enquanto a sonda manual recebeu HTTP 403.
+
+Não abrir `pdp/get_pc` ou `get_ratings` para todos os resultados por padrão. Isso aumenta custo, latência e risco sem necessidade quando a busca natural já fornece os campos básicos.
+
+## 3. Paginação
+
+Para coletar páginas adicionais, preferir **navegação real da página pública** (`page=0`, `page=1`, ...), interceptando a resposta natural de cada navegação e deduplicando por `item_id`.
+
+Cada página deve registrar:
+
+```text
+page
+HTTP status observado
+quantidade de itens capturados
+quantidade adicionada após deduplicação
+cobertura por campo
+tempo da captura
+```
+
+Se uma página não produzir uma captura válida, parar ou marcar a página como indisponível; não inventar resultados.
+
+## 4. Diagnóstico que levou à correção
+
+O teste controlado com 3 itens apresentou cobertura 3/3 em:
+
+```text
+Preço
+Vendas
+Vendas 30d
+Localização
+Avaliação
+Reviews
+```
+
+O DOM não era necessário para esses campos, e as sondas artificiais de `pdp/get_pc` e `get_ratings` retornaram 403 naquele contexto. O valor correto já estava na resposta natural da busca e atravessou parser → normalização sem perda.
+
+**Conclusão arquitetural:** quando um parser isolado funciona mas o fluxo completo falha, instrumentar a cadeia antes de adicionar aliases. Diferenciar explicitamente “etapa não executou”, “fonte não trouxe o campo” e “campo foi perdido na normalização”.
+
+## 5. Separação de fontes
+
+Manter a procedência explícita:
+
+```text
+search_natural
+search_parsed
+pdp_fallback
+ratings_deep
+normalized
+```
+
+Não misturar silenciosamente valores de fontes diferentes. Ausência continua `null`, nunca zero inventado.
