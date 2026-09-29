@@ -454,10 +454,10 @@ test('Integração v13 usa descontos do Motor com fallback oficial',()=>{
   assert.match(context,/marketingDiscount:p\?\.marketingDiscount\|\|f\?\.marketingDiscount/);
 });
 
-test('Manifesto do Motor aponta para v0.17.9',()=>{
+test('Manifesto do Motor aponta para v0.18.0',()=>{
   const latest=read('app/api/extension/latest/route.js');
-  assert.match(latest,/version:'0\.17\.9'/);
-  assert.match(latest,/Gestor-Senior-Shopee-Intelligence-v0\.17\.9\.zip/);
+  assert.match(latest,/version:'0\.18\.0'/);
+  assert.match(latest,/Gestor-Senior-Shopee-Intelligence-v0\.18\.0\.zip/);
 });
 
 
