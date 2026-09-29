@@ -488,4 +488,7 @@ test('Funil da Loja usa layout compacto inspirado no Funil por Produto',()=>{
 });
 
 
-test('manifesto de atualização do Motor é público para a extensão consultar sem login',()=>{\n  const middleware=read('middleware.js');\n  assert.match(middleware,/\/api\/extension\/latest/);\n});\n
+test('manifesto de atualização do Motor é público para a extensão consultar sem login',()=>{
+  const middleware=read('middleware.js');
+  assert.match(middleware,/\/api\/extension\/latest/);
+});
