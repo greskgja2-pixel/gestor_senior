@@ -581,3 +581,15 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 3. Quando o Motor informar `mode: 'diagnostic-only'`, a interface deixa explícito que a coleta é uma amostra controlada e não uma pesquisa final.
 4. Esta alteração acompanha a extensão experimental v0.18.4, criada fora do repositório a partir da v0.18.3 enviada pelo usuário. A v0.18.4 limita a investigação a 3 itens e registra a cadeia captura natural → busca direta → parser → DOM → PDP → ratings → retorno ao Gestor, sem misturar fontes no valor final.
 5. O manifesto oficial `/api/extension/latest` não foi alterado; v0.18.4 continua experimental até validação no Chrome desktop.
+
+
+### 2026-09-29 — ChatGPT — Motor Sênior v0.18.6 / Pesquisa de Produtos pela captura natural
+**Motor:** artefato local `Gestor-Senior-Shopee-Intelligence-v0.18.6-PESQUISA-NATURAL.zip`. **Enciclopédia:** v14.1.
+
+1. O diagnóstico v0.18.5 confirmou a causa: a navegação normal da busca pública recebe `/api/v4/search/search_items` com HTTP 200 e 60 itens, enquanto chamadas artificiais da extensão para a mesma família podem receber HTTP 403.
+2. A resposta natural já trouxe preço, vendas acumuladas, vendas/mês, localização, avaliação e reviews; o parser preservou os campos até o objeto normalizado.
+3. A v0.18.6 deixa de usar a sonda direta/PDP/ratings como caminho da pesquisa básica. O fluxo funcional passa a ser: navegar página real → interceptar resposta natural → normalizar → deduplicar por item_id → enviar ao Gestor.
+4. A paginação usa navegação real `page=0..N`; cada página espera sua própria captura natural e registra cobertura/quantidade adicionada. Se uma página não produzir captura válida, não inventar dados.
+5. `pdp/get_pc` fica como fallback pontual futuro quando algum campo realmente faltar. `get_ratings` fica reservado para análise profunda/mineração de avaliações, não para os 36/60 itens em massa.
+6. A v0.18.6 mantém o modo diagnóstico antigo como ferramenta auxiliar, mas `marketplaceSearch` agora usa a nova ação `GS_COLLECT_NATURAL_SEARCH`.
+7. Guardrail: ausência de campo continua `null`; não misturar fontes silenciosamente; não inferir Ads por `adsid` isolado.
