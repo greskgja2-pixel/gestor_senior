@@ -486,3 +486,6 @@ test('Funil da Loja usa layout compacto inspirado no Funil por Produto',()=>{
   assert.match(css,/\.storeMiniStage\[data-index="6"\]/);
   assert.match(css,/@media\(max-width:720px\)/);
 });
+
+
+test('manifesto de atualização do Motor é público para a extensão consultar sem login',()=>{\n  const middleware=read('middleware.js');\n  assert.match(middleware,/\\/api\\/extension\\/latest/);\n});\n
