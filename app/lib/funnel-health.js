@@ -44,6 +44,36 @@ export function deriveStoreFunnel(seller){
       transitionCount:validTransitions.length,
       canDiagnose:validTransitions.length>0,
       healthy:presentStages.length>=5&&validTransitions.length>=3
+    },
+    evidence:{
+      period:s?.period?.type||null,
+      productCount:products.length,
+      productFields:{
+        impressions:products.filter(p=>num(p?.product_card_impressions)!=null).length,
+        clicks:products.filter(p=>num(p?.product_card_clicks)!=null).length
+      },
+      keyMetrics:{
+        product_clicks:val(k.product_clicks)!=null,
+        shop_uv:val(k.shop_uv)!=null,
+        place_orders:val(k.place_orders)!=null,
+        paid_orders:val(k.paid_orders)!=null,
+        confirmed_orders:val(k.confirmed_orders)!=null,
+        paid_gmv:val(k.paid_gmv)!=null
+      },
+      productOverview:{
+        uv:val(overview.uv)!=null,
+        atc_uv:val(overview.atc_uv)!=null,
+        placed_order:val(overview.placed_order)!=null,
+        paid_order:val(overview.paid_order)!=null,
+        confirmed_order:val(overview.confirmed_order)!=null,
+        paid_gmv:val(overview.paid_gmv)!=null
+      },
+      realtime:{
+        uv:num(rt.uv)!=null,
+        orders:num(rt.orders)!=null,
+        sales:num(rt.sales)!=null
+      },
+      sellerErrors:arr(s.errors).map(x=>String(x).slice(0,300)).slice(0,20)
     }
   };
 }
