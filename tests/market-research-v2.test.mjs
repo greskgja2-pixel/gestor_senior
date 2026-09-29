@@ -46,3 +46,11 @@ test('Pesquisa compara diagnóstico do Motor com o normalizador do Gestor',()=>{
   assert.match(page,/COBERTURA DOS DADOS/);
   assert.match(css,/\.diagnosticGrid/);
 });
+
+
+test('Pesquisa exporta diagnóstico técnico da extensão',()=>{
+  assert.match(page,/function downloadDiagnostics\(\)/);
+  assert.match(page,/Baixar diagnóstico técnico/);
+  assert.match(page,/diagnostics\?\.mode==='diagnostic-only'/);
+  assert.match(css,/\.diagnosticActions/);
+});
