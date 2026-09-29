@@ -526,3 +526,10 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 - Fallbacks textuais de vendas também usam os textos compactos exibidos pela Shopee quando o campo numérico estruturado não existir.
 
 - PR #60 foi validado e incorporado ao main; a próxima pesquisa com Motor v0.17.9 deve ser usada para confirmar a cobertura real por campo.
+
+
+## REGRA PERMANENTE — ENCICLOPÉDIA PRIMEIRO (29/09/2026)
+- Antes de implementar/corrigir qualquer integração Shopee, consultar `docs/ENCICLOPEDIA_SHOPEE_GESTOR_SENIOR.md` e os mapeamentos curados.
+- Endpoints, parâmetros e campos confirmados têm prioridade sobre aliases/suposições no código.
+- Só descobrir/inferir algo novo quando houver lacuna documental; depois de validar, atualizar a Enciclopédia.
+- Para Pesquisa v0.18.0, usar os campos reais mapeados de item-card: `item_card_display_price.price`, `item_card_display_sold_count.*_text`, `item_rating`, `shop_data.shop_location`, `item_card_displayed_asset`; fallback confirmado `/api/v4/pdp/get_pc`.
