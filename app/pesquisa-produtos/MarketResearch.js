@@ -74,7 +74,7 @@ function opportunityScore(r,bench){
 }
 function median(values){
   const xs=values.filter(v=>v!=null&&Number.isFinite(v)).sort((a,b)=>a-b);
-  if(!xs.length)return 0;
+  if(!xs.length)return null;
   const m=Math.floor(xs.length/2);
   return xs.length%2?xs[m]:(xs[m-1]+xs[m])/2;
 }
@@ -245,9 +245,25 @@ export default function MarketResearch(){
       <div className={styles.topList}>{top.length?top.map((r,i)=><div key={r.key}><span>{i+1}</span><div><b>{r.title}</b><small>{money(r.price)} · {compact(r.sold)} vendidos</small></div><strong>{r.score}</strong></div>):<div className={styles.emptySmall}>Sem dados ainda.</div>}</div>
     </section>}
 
-    {activeTab==='next'&&<section className={styles.panel}>
-      <div className={styles.panelHead}><div><h2>Próximas camadas</h2><p>Recursos planejados para aprofundar a pesquisa.</p></div></div>
-      <div className={styles.nextGrid}><div><b>1</b><span>Histórico de pesquisas</span></div><div><b>2</b><span>Salvar produto e monitorar</span></div><div><b>3</b><span>Mineração de avaliações</span></div><div><b>4</b><span>Pacote resumido para IA</span></div></div>
+    {activeTab==='keywords'&&<section className={styles.panel}>
+      <div className={styles.panelHead}><div><h2>Palavras-chave dos concorrentes</h2><p>Extraídas dos títulos sem IA. Frequência, preço e vendas aparecem somente quando existem na coleta.</p></div></div>
+      <div className={styles.keywordTable}>{keywords.length?keywords.map(k=><div key={k.word}><b>{k.word}</b><span>{k.count} anúncios</span><span>{k.price!=null?money(k.price):'preço —'}</span><span>{k.sales!=null?compact(k.sales)+' vendas medianas':'vendas —'}</span></div>):<div className={styles.empty}>Sem termos recorrentes suficientes.</div>}</div>
+    </section>}
+
+    {activeTab==='competition'&&<section className={styles.competitionGrid}>
+      <div className={styles.panel}><div className={styles.panelHead}><div><h2>Concentração de vendedores</h2><p>Muitos anúncios podem pertencer à mesma loja.</p></div></div><div className={styles.bigMetric}><strong>{concentration.shops||'—'}</strong><span>lojas únicas identificadas</span></div><div className={styles.bigMetric}><strong>{concentration.shops?concentration.share+'%':'—'}</strong><span>dos anúncios nas 5 lojas com mais resultados</span></div></div>
+      <div className={styles.panel}><div className={styles.panelHead}><div><h2>Origem dos anúncios</h2><p>Somente localizações realmente coletadas.</p></div></div><div className={styles.bigMetric}><strong>{bench.mainLocation==='—'?'Não coletado':bench.mainLocation}</strong><span>origem mais comum</span></div><div className={styles.bigMetric}><strong>{bench.coverage.location}/{rows.length||0}</strong><span>anúncios com localização</span></div></div>
+    </section>}
+
+    {activeTab==='insights'&&<section className={styles.panel}>
+      <div className={styles.panelHead}><div><h2>Insights da coleta</h2><p>Conclusões descritivas baseadas apenas nos campos disponíveis.</p></div></div>
+      <div className={styles.insightGrid}>
+        <article><span>💰</span><div><b>Preço</b><p>{bench.coverage.price?'Mediana observada: '+money(bench.priceMedian)+' em '+bench.coverage.price+' anúncios.':'Preço insuficiente para análise.'}</p></div></article>
+        <article><span>📈</span><div><b>Demanda</b><p>{bench.coverage.sold?'Vendas disponíveis em '+bench.coverage.sold+' de '+rows.length+' anúncios.'+(suspiciousSales?' O padrão de zeros foi marcado como suspeito.':''):'A coleta atual não permite avaliar demanda por vendas.'}</p></div></article>
+        <article><span>🏪</span><div><b>Concorrência</b><p>{concentration.shops?concentration.shops+' lojas únicas; as 5 com mais resultados concentram '+concentration.share+'% dos anúncios.':'Sem shop_id suficiente para medir concentração.'}</p></div></article>
+        <article><span>🔎</span><div><b>Termos recorrentes</b><p>{keywords.length?'Mais usados: '+keywords.slice(0,5).map(k=>k.word).join(', ')+'.':'Sem títulos suficientes.'}</p></div></article>
+        <article><span>🧪</span><div><b>Confiabilidade</b><p>Qualidade geral: {qualityLabel.toLowerCase()} ({quality}%). Dados ausentes continuam ausentes e não viram zero.</p></div></article>
+      </div>
     </section>}
   </div>;
 }
