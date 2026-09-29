@@ -115,7 +115,9 @@ export default function MarketResearch(){
   const [activeTab,setActiveTab]=useState('overview');
   const [mode,setMode]=useState('standard');
   const [page,setPage]=useState(1);
-  const [saved,setSaved]=useState([]);\n  const [diagnostics,setDiagnostics]=useState(null);\n  const [diagnosticsOpen,setDiagnosticsOpen]=useState(false);
+  const [saved,setSaved]=useState([]);
+  const [diagnostics,setDiagnostics]=useState(null);
+  const [diagnosticsOpen,setDiagnosticsOpen]=useState(false);
   const fileRef=useRef(null);
   const PAGE_SIZE=20;
   useEffect(()=>{try{setSaved(JSON.parse(localStorage.getItem('gs_market_saved')||'[]'))}catch{}},[]);
@@ -136,6 +138,7 @@ export default function MarketResearch(){
   function loadPayload(payload,source='arquivo'){
     const normalized=extractRows(payload).map(normalizeOne).filter(r=>r.itemId||r.title);
     setRows(normalized);
+    setDiagnostics(payload?.diagnostics??payload?.data?.diagnostics??null);
     setMessage(normalized.length?`${normalized.length} anúncios carregados de ${source}.`:'Nenhum anúncio válido foi encontrado nessa coleta.');
   }
 
