@@ -349,9 +349,12 @@ test('Super Análise mostra disponibilidade do Funil por produto no novo layout'
 
 test('Funil por Produto só lista Super Análises recentes e aceita atalho da tabela',()=>{
   const funnel=read('app/funil/page.js');
-  assert.match(funnel,/const analyzedProducts=model\.products\.filter/);
+  // A disponibilidade agora nasce do histórico real de Super Análise (context),
+  // não apenas dos produtos que vieram na coleta atual do Motor.
+  assert.match(funnel,/const analyzedProducts=Object\.values\(context\|\|\{\}\)\.map/);
   assert.match(funnel,/ctx\?\.analyzedAt/);
-  assert.match(funnel,/age<=30/);
+  assert.match(funnel,/age>30/);
+  assert.match(funnel,/funnelMetricsUnavailable:true/);
   assert.match(funnel,/Super Análise obrigatória/);
   assert.match(funnel,/Gerenciar na Super Análise/);
   assert.match(funnel,/orderedAnalyzed\.map/);
