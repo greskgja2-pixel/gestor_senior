@@ -558,3 +558,16 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 **Validação:** o deployment de produção da Vercel para o commit `47725246f27fac96ce94e17b5cb7ff376332eba8` ficou `READY`, confirmando que `npm run build` (incluindo `prebuild`) passou. O status combinado do GitHub/Vercel ficou `success`. Smoke tests HTTP retornaram 200 em `/`, `/?section=config`, `/funil`, `/super-analise`, `/extensao-shopee-intelligence?section=super-anuncio`, `?section=concorrentes` e `?section=shopee-ads`.
 
 **Limitação desta sessão:** não foi possível executar `npm test` completo num checkout local porque o ambiente de container não resolve `github.com`; portanto não registrar contagem 122/122 como verificada aqui. O `prebuild` do deployment passou integralmente.
+
+
+### 2026-09-29 — ChatGPT — Saúde do Sistema virou diagnóstico persistente para correção
+**Arquivos:** `app/lib/funnel-health.js`, `app/UtilityNative.js`, `app/api/system-health/report/route.js`. Banco: tabela `gs_system_health_reports`.
+
+1. O diagnóstico profundo deixou de ser apenas visual. Ao clicar “Executar diagnóstico agora”, o Gestor salva um relatório sanitizado no Supabase, vinculado ao `shop_id` da sessão.
+2. O relatório salva apenas evidências técnicas necessárias à investigação: status dos módulos, checks, cobertura do Funil, presença/ausência dos campos-fonte, período, versão da extensão e erros normalizados. Não salva cookies, tokens, SPC_CDS nem payload bruto do Seller Center.
+3. Para o Funil, `deriveStoreFunnel` agora também produz `evidence`: quantidade de produtos; cobertura de impressões/cliques nos produtos; presença dos campos em `keyMetrics`, `productOverview` e `realtime`; erros retornados pelo Motor.
+4. O relatório profundo recebe um ID e pode ser lido por `GET /api/system-health/report` na própria sessão. O objetivo é permitir que ChatGPT/Claude consulte a evidência concreta e investigue a causa, em vez de depender de print.
+5. Importante: o Gestor não ganha permissão autônoma para editar GitHub a partir do navegador do lojista. A correção de código continua sendo feita por um agente autorizado (ChatGPT/Claude) depois de ler o relatório; o painel fornece a evidência e o histórico.
+6. A tabela `gs_system_health_reports` está com RLS habilitado e o app acessa via service role no servidor, sempre filtrando pela loja da sessão.
+
+**Fluxo esperado:** usuário executa diagnóstico profundo → relatório é salvo → agente consulta o relatório mais recente → cruza evidências com código/enciclopédia → tenta correção → valida build/deploy → usuário roda diagnóstico novamente para confirmar a melhora.
