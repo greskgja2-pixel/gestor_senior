@@ -27,7 +27,7 @@ export default function UtilityNative({section}){
   const [providers,setProviders]=useState(DEFAULT_PROVIDERS);
   const [prefState,setPrefState]=useState({loading:false,saving:false,message:''});
   const [testState,setTestState]=useState({channel:'',message:''});
-  const [health,setHealth]=useState({running:false,checkedAt:'',summary:'idle',modules:[],error:''});
+  const [health,setHealth]=useState({running:false,checkedAt:'',summary:'idle',modules:[],error:'',reportId:''});
 
   useEffect(()=>{try{setTheme(localStorage.getItem('gs_theme')||'dark')}catch{}},[]);
   useEffect(()=>{
@@ -109,7 +109,8 @@ export default function UtilityNative({section}){
           funnelMotor={ok:!!data,data,latency:Date.now()-started,error:data?'':'Motor respondeu sem dados.'};
         }catch(error){funnelMotor={ok:false,error:String(error?.message||error)}}
       }
-      const funnelCoverage=deep&&funnelMotor.ok?deriveStoreFunnel(funnelMotor.data).coverage:null;
+      const funnelDerived=deep&&funnelMotor.ok?deriveStoreFunnel(funnelMotor.data):null;
+      const funnelCoverage=funnelDerived?.coverage||null;
       let funnelStatus='warning',funnelDetail='Dependências respondem, mas a qualidade dos dados ainda não foi testada.';
       if(!shopOk||!extension.ok||!funnelContext.ok){
         funnelStatus='error';funnelDetail='Uma dependência necessária do Funil falhou.';
@@ -148,7 +149,26 @@ export default function UtilityNative({section}){
       ]));
 
       const hasError=modules.some(x=>x.status==='error'),hasWarning=modules.some(x=>x.status==='warning');
-      setHealth({running:false,checkedAt:new Date().toISOString(),summary:hasError?'error':hasWarning?'warning':'ok',modules,error:''});
+      const summary=hasError?'error':hasWarning?'warning':'ok';
+      const checkedAt=new Date().toISOString();
+      let reportId='';
+      if(deep){
+        try{
+          const saved=await fetch('/api/system-health/report',{
+            method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({
+              checkedAt,summary,deep:true,modules,
+              funnelCoverage,
+              funnelEvidence:funnelDerived?.evidence||null,
+              extensionVersion:extension?.version||null,
+              userAgent:navigator.userAgent
+            })
+          });
+          const savedJson=await saved.json().catch(()=>({}));
+          if(saved.ok)reportId=String(savedJson?.report?.id||'');
+        }catch{}
+      }
+      setHealth({running:false,checkedAt,summary,modules,error:'',reportId});
     }catch(error){
       setHealth(x=>({...x,running:false,summary:'error',error:String(error?.message||error)}));
     }
@@ -232,7 +252,7 @@ export default function UtilityNative({section}){
         <p>{mod.detail}</p>
         <details><summary>Ver diagnóstico</summary><div className={styles.healthChecks}>{mod.checks.map((check,i)=><div key={i} data-ok={check.ok?'true':'false'}><span>{check.ok?'✓':'×'}</span><div><b>{check.label}</b><small>{check.detail}</small></div></div>)}</div></details>
       </article>)}</div>
-      <p className={styles.healthNote}>O botão de diagnóstico executa uma coleta real e somente leitura do Funil no período “Hoje”. Ele não altera preço, estoque, ROAS ou anúncios.</p>
+      <p className={styles.healthNote}>O botão de diagnóstico executa uma coleta real e somente leitura do Funil no período “Hoje”. O diagnóstico profundo fica salvo para investigação e correção posterior. Ele não altera preço, estoque, ROAS ou anúncios.{health.reportId?' Relatório: '+health.reportId:''}</p>
     </section>
     <section className={styles.panel}><h2>Integrações</h2><div className={styles.providerGrid}><article data-ok={providers.email?.configured?'true':'false'}><b>Resend</b><span>{providers.email?.configured?'Pronto para enviar e-mails':'Aguardando chave e remetente no servidor'}</span></article><article data-ok={providers.whatsapp?.configured?'true':'false'}><b>WhatsApp Cloud API</b><span>{providers.whatsapp?.configured?'Pronto para usar o template aprovado':'Aguardando credenciais e template da Meta'}</span></article></div><p>O status da extensão Motor Sênior e da loja Shopee permanece visível no menu lateral. Conexão, saída e reconexão continuam sendo controladas por ali.</p></section>
     <section className={styles.panel}><h2>Segurança dos dados</h2><p>O Gestor diferencia dados reais, ausência de coleta e erro de integração. Chaves do Resend e da Meta ficam somente no servidor e nunca são exibidas nesta tela.</p></section>
