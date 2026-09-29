@@ -178,8 +178,8 @@ test('Oferta Relampago: get_time_slot_id envia intervalo obrigatorio no host bra
 });
 
 
-test('Oferta Relampago: lista dias e horarios selecionaveis sem calendario',()=>{
-  assert.match(view,/Dias e horários disponíveis/);
+test('Oferta Relampago: lista dias e periodos oficiais selecionaveis sem calendario',()=>{
+  assert.match(view,/Dias e períodos disponíveis/);
   assert.match(view,/flashDayList/);
   assert.match(view,/Selecionar dia/);
   assert.match(view,/type="checkbox"/);
