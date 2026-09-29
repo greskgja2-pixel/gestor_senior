@@ -4,11 +4,11 @@ export const dynamic='force-dynamic';
 
 export async function GET(){
   return NextResponse.json({
-    version:'0.17.8',
-    version_name:'0.17.8 - Messenger Shopee no Gestor Sênior',
-    filename:'Gestor-Senior-Shopee-Intelligence-v0.17.8.zip',
-    notes:'Messenger Shopee com leitura de conversas, histórico e contexto de comprador/pedido/produto pela sessão local do Seller Center. Envio de texto permanece protegido até validação do payload real.',
+    version:'0.17.9',
+    version_name:'0.17.9 - Diagnóstico da Pesquisa de Produtos',
+    filename:'Gestor-Senior-Shopee-Intelligence-v0.17.9.zip',
+    notes:'Pesquisa de Produtos com aliases estruturados de vendas, vendas 30d, localização e avaliações; diagnóstico Motor x Gestor; e paginação real da busca por offset. Messenger permanece incluído.',
     download_url:'https://shopeeos-real-greskgja.vercel.app/motor-senior',
-    published_at:'2026-09-28T22:50:00-03:00'
+    published_at:'2026-09-28T23:23:00-03:00'
   },{headers:{'Cache-Control':'no-store, max-age=0'}});
 }

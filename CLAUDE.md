@@ -511,3 +511,16 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 - IMPORTANTE: `shopeeMessengerSendText` está deliberadamente em fail-closed. O mapeamento disponível capturou integralmente envio de sticker, mas não o POST completo de uma mensagem de texto normal. Não inferir esse payload. Capturar primeiro um envio de texto real no WebChat.
 - Automação de pagamento aprovado é tecnicamente planejada, mas não deve disparar até o envio de texto estar confirmado e haver idempotência. `to_pay` não deve ser chamado de carrinho abandonado.
 - O manifesto oficial `/api/extension/latest` e a página `/motor-senior` foram atualizados para v0.17.8.
+
+
+## 2026-09-28 — Motor Sênior v0.17.9 / Diagnóstico da Pesquisa de Produtos
+- ChatGPT rastreou o fluxo marketplaceSearch -> shopee-parser -> Gestor e encontrou perda de campos em dois pontos.
+- No Motor, apiItem() reduzia a resposta da busca e não aproveitava aliases já conhecidos no item_card_displayed_asset.
+- Na v0.17.9, a busca aproveita historical_sold_count, monthly_sold_count, shop_location, aliases de rating/reviews e preferred quando presentes.
+- marketplaceSearch agora retorna diagnostics.coverage e diagnostics.detectedPaths, sem cookies/tokens/PII.
+- No Gestor, normalizeOne() passou a aceitar row.reviewCount e row.shopLocation.
+- A UI foi renomeada de “Qualidade da coleta” para “Cobertura dos dados” e ganhou “Diagnóstico da coleta”, comparando Motor x Gestor por campo.
+- Interpretação: Motor > Gestor indica falha de normalização; Motor = 0 indica que o campo não veio da busca e deve ser investigado/enriquecido, sem inventar zero.
+
+- Correção adicional v0.17.9: directSearch agora respeita o número da página da URL e converte em offset `newest` (0, 60, 120...), evitando repetir o primeiro lote em pesquisas Padrão/Profunda.
+- Fallbacks textuais de vendas também usam os textos compactos exibidos pela Shopee quando o campo numérico estruturado não existir.
