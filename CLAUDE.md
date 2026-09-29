@@ -524,3 +524,5 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 
 - Correção adicional v0.17.9: directSearch agora respeita o número da página da URL e converte em offset `newest` (0, 60, 120...), evitando repetir o primeiro lote em pesquisas Padrão/Profunda.
 - Fallbacks textuais de vendas também usam os textos compactos exibidos pela Shopee quando o campo numérico estruturado não existir.
+
+- PR #60 foi validado e incorporado ao main; a próxima pesquisa com Motor v0.17.9 deve ser usada para confirmar a cobertura real por campo.
