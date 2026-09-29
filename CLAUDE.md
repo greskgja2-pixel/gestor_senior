@@ -501,3 +501,13 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 - Descoberta crítica: a criação é em duas fases. Primeiro cria o contêiner pelo `timeslot_id` e recebe `flash_sale_id` + janela autoritativa; depois grava as variações/preço/estoque. O Gestor deve reler a Shopee antes de declarar sucesso.
 - Foi observada reserva progressiva de estoque por variação nas releituras GraphQL.
 - Segurança: a exportação bruta pode carregar SPC_CDS no campo URL; nunca copiar token/cookie/identificador de sessão para docs, banco, logs públicos ou commits.
+
+
+## 2026-09-28 — Motor Sênior v0.17.8 / Messenger Shopee
+- ChatGPT criou a extensão v0.17.8 a partir da v0.17.7, preservando os módulos existentes.
+- Novas ações do Motor: `shopeeMessengerList`, `shopeeMessengerHistory` e `shopeeMessengerSendText`.
+- Lista e histórico usam a sessão local autenticada do Seller Center/WebChat; nenhum cookie/token foi fixado no pacote ou enviado à Vercel.
+- Histórico também tenta enriquecer a conversa com comprador e, quando há vínculo, pedido e produto.
+- IMPORTANTE: `shopeeMessengerSendText` está deliberadamente em fail-closed. O mapeamento disponível capturou integralmente envio de sticker, mas não o POST completo de uma mensagem de texto normal. Não inferir esse payload. Capturar primeiro um envio de texto real no WebChat.
+- Automação de pagamento aprovado é tecnicamente planejada, mas não deve disparar até o envio de texto estar confirmado e haver idempotência. `to_pay` não deve ser chamado de carrinho abandonado.
+- O manifesto oficial `/api/extension/latest` e a página `/motor-senior` foram atualizados para v0.17.8.
