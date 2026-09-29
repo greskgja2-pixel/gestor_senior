@@ -150,7 +150,7 @@ export default function MarketResearch(){
   return <div className={styles.page}>
     <header className={styles.header}>
       <div><span className={styles.eyebrow}>INTELIGÊNCIA DE MERCADO</span><h1>Pesquisa de Produtos</h1><p>Pesquise na Shopee de forma automática pelo Motor Senior e compare demanda, preço, concorrência e oportunidades.</p></div>
-      <div className={styles.headerBadge}><b>{rows.length}</b><span>anúncios analisados</span></div>
+      <div className={styles.headerActions}><button type="button" onClick={saveResearch} disabled={!rows.length}>☆ Salvar pesquisa</button><div className={styles.headerBadge}><b>{rows.length}</b><span>anúncios analisados</span></div></div>
     </header>
 
     <section className={styles.searchCard}>
@@ -163,7 +163,7 @@ export default function MarketResearch(){
       <div className={styles.message}>{message}</div>
     </section>
 
-    <nav className={styles.tabs} aria-label="Seções da Pesquisa de Produtos">
+    {rows.length>0&&<section className={styles.qualityCard}><div className={styles.qualityHead}><div><span>QUALIDADE DA COLETA</span><b>{qualityLabel} · {quality}%</b></div><em data-level={quality>=75?'high':quality>=45?'mid':'low'}>{qualityLabel}</em></div><div className={styles.coverageGrid}>{[['Preço','price'],['Vendas','sold'],['Vendas 30d','monthly'],['Localização','location'],['Avaliação','rating'],['Reviews','reviews']].map(([label,key])=><div key={key}><b>{bench.coverage[key]}/{rows.length}</b><span>{label}</span><i><u style={{width:(bench.coverage[key]/rows.length*100)+'%'}}/></i></div>)}</div>{suspiciousSales&&<div className={styles.dataWarning}>⚠️ Todos os anúncios vieram com vendas = 0. O Gestor não assume que isso significa ausência de demanda; este campo está marcado como suspeito até uma nova coleta confirmar.</div>}</section>}\n\n    <nav className={styles.tabs} aria-label="Seções da Pesquisa de Produtos">
       {tabs.map(([id,label])=><button key={id} type="button" className={activeTab===id?styles.activeTab:''} onClick={()=>setActiveTab(id)}>{label}</button>)}
     </nav>
 
@@ -210,7 +210,7 @@ export default function MarketResearch(){
     </section>}
 
     {activeTab==='top'&&<section className={styles.panel}>
-      <div className={styles.panelHead}><div><h2>Top oportunidades</h2><p>Os cinco anúncios que mais se destacam dentro da coleta atual.</p></div></div>
+      <div className={styles.panelHead}><div><h2>Oportunidades com evidência</h2><p>O score é acompanhado pela confiança, baseada na quantidade de campos realmente disponíveis.</p></div></div>
       <div className={styles.topList}>{top.length?top.map((r,i)=><div key={r.key}><span>{i+1}</span><div><b>{r.title}</b><small>{money(r.price)} · {compact(r.sold)} vendidos</small></div><strong>{r.score}</strong></div>):<div className={styles.emptySmall}>Sem dados ainda.</div>}</div>
     </section>}
 
