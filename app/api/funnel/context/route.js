@@ -45,7 +45,6 @@ export async function GET(request){
 
   const url=new URL(request.url);
   const requested=[...new Set(String(url.searchParams.get('item_ids')||'').split(',').map(x=>x.trim()).filter(Boolean))].slice(0,100);
-  const requestedSet=new Set(requested);
 
   const db=supabaseAdmin();
   const [{data,error},{data:costRows,error:costError}]=await Promise.all([
