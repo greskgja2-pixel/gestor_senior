@@ -1,7 +1,7 @@
 # Enciclopédia Shopee Seller Center → Gestor Sênior
 
-**Versão:** 12.0 (v11 + períodos históricos de 7/30 dias e séries MyData confirmadas em 27/09/2026)  
-**Origem:** consolidação das sessões do Shopee Seller Auto Mapper + validações visuais + mapeamentos do Seller Center e Marketplace público até 27/09/2026, incluindo as capturas manuais Motor Sênior de 7 e 30 dias.  
+**Versão:** 14.0 (inclui curadoria v13 de Descontos + v14 de Oferta Relâmpago da Loja, confirmada em 29/09/2026)  
+**Origem:** consolidação das sessões do Shopee Seller Auto Mapper/Motor Sênior + validações visuais + mapeamentos do Seller Center e Marketplace público até 29/09/2026, incluindo períodos MyData, Descontos e o fluxo completo observado de Oferta Relâmpago da Loja.  
 **Uso:** referência técnica para ChatGPT, Claude e desenvolvimento do Gestor Sênior.
 
 ## Regra principal
@@ -3095,3 +3095,510 @@ Quando a Shopee Open Platform oficial fornecer a mesma ação/dado com autoriza�
 - Nova capacidade principal: leitura detalhada + edição confirmada de campanhas de desconto do vendedor.
 - Falsos positivos/ruído: telemetria, chat, notificações, autenticação auxiliar, feedback e infraestrutura não foram promovidos a mapeamentos de negócio.
 - Pendência: capturar um caso positivo de `misleading_item_list` e exemplos reais de conflito em `fail_main_items`.
+
+
+# 13. Oferta Relâmpago da Loja — Seller Center
+
+**Origem da curadoria:** captura passiva do Motor Sênior v0.17.7 em 29/09/2026 durante um fluxo manual real de criação de Oferta Relâmpago da Loja no Seller Center BR.  
+**Status:** CONFIRMADO para a sessão observada.  
+**Capturas:** 102 respostas, 61 combinações método+rota únicas, 15 rotas de negócio da família Marketing, 0 erros registrados.
+
+> Segurança: a exportação bruta pode conter identificadores de sessão na URL original. Eles não devem ser persistidos nesta enciclopédia, no banco do Gestor, em logs públicos ou em commits. O Motor deve executar essas chamadas dentro da sessão normal do Seller Center e retornar ao Gestor somente dados de negócio normalizados.
+
+## 13.1 Elegibilidade da loja
+
+**Endpoint**
+
+```text
+GET /api/marketing/v4/shop_flash_sale/check_shops/
+```
+
+**Resposta observada**
+
+```text
+data.failed_shops[]
+data.shop_criteria[].shop_ids[]
+data.shop_criteria[].criteria.criteria_id
+data.shop_criteria[].criteria.max_item
+data.shop_criteria[].criteria.max_mkt_item
+data.shop_criteria[].criteria.max_penalty_point
+data.shop_criteria[].criteria.max_days_to_ship
+data.shop_criteria[].criteria.max_late_shipment_rate
+data.shop_criteria[].criteria.max_seller_cancelation_rate
+data.is_has_ads_permission
+```
+
+Na sessão, a loja passou na validação e a Shopee retornou critérios dinâmicos. O Gestor não deve fixar esses limites no código; deve usar os valores retornados na sessão atual.
+
+## 13.2 Critérios de elegibilidade dos produtos
+
+**Endpoint**
+
+```text
+GET /api/marketing/v4/shop_flash_sale/get_item_criteria/
+```
+
+**Campos confirmados**
+
+```text
+data.criteria[].criteria_id
+data.criteria[].min_product_rating
+data.criteria[].min_likes
+data.criteria[].must_not_pre_order
+data.criteria[].min_order_total
+data.criteria[].max_days_to_ship
+data.criteria[].min_repetition_day
+data.criteria[].min_promo_stock
+data.criteria[].max_promo_stock
+data.criteria[].min_discount
+data.criteria[].max_discount
+data.criteria[].min_discount_price
+data.criteria[].max_discount_price
+data.criteria[].need_lowest_price
+data.pair_ids[]
+data.is_global_category
+data.overlap_block_category_ids[]
+```
+
+Na captura BR, a regra retornada permitia estoque promocional dentro de uma faixa e desconto dentro de uma faixa, mas esses valores são evidência daquela sessão e devem ser lidos dinamicamente.
+
+## 13.3 Listagem das Ofertas Relâmpago
+
+**Endpoint**
+
+```text
+GET /api/marketing/v4/shop_flash_sale/get_shop_flash_sale_list/
+```
+
+**Query observada**
+
+```text
+limit
+offset
+type
+```
+
+**Campos confirmados**
+
+```text
+data.flash_sale_list[].flash_sale_id
+data.flash_sale_list[].timeslot_id
+data.flash_sale_list[].start_time
+data.flash_sale_list[].end_time
+data.flash_sale_list[].status
+data.flash_sale_list[].type
+data.flash_sale_list[].item_count
+data.flash_sale_list[].enabled_item_count
+data.flash_sale_list[].ctime
+data.flash_sale_list[].mtime
+data.total_count
+```
+
+A releitura após a criação mostrou o novo `flash_sale_id` no topo e `enabled_item_count=1`, confirmando persistência da oferta criada.
+
+## 13.4 Horários disponíveis — fonte autoritativa
+
+**Endpoint**
+
+```text
+GET /api/marketing/v4/shop_flash_sale/get_time_slot_id/
+```
+
+**Query obrigatória observada**
+
+```text
+start_time=<unix>
+end_time=<unix>
+```
+
+**Resposta**
+
+```text
+data[].timeslot_id
+data[].start_time
+data[].end_time
+```
+
+Ponto importante: uma janela consultada pode retornar `data=[]`, enquanto uma janela futura válida retorna os slots disponíveis. Portanto o Gestor deve listar os slots devolvidos pela Shopee e usar exatamente o `timeslot_id` selecionado; não deve reconstruir a data do slot por conta própria.
+
+## 13.5 Criação do contêiner da Oferta Relâmpago
+
+**Endpoint de escrita confirmado**
+
+```text
+POST /api/marketing/v4/shop_flash_sale/set_shop_flash_sale/
+```
+
+**Body observado**
+
+```json
+{
+  "time_slot_id": "<timeslot_id>"
+}
+```
+
+**Resposta confirmada**
+
+```text
+data.flash_sale_id
+data.timeslot_id
+data.start_time
+data.end_time
+data.status
+data.type
+data.item_count
+data.enabled_item_count
+```
+
+A data/hora real da oferta deve ser tomada da resposta da Shopee. Isso evita o bug em que a interface exibe uma data selecionada mas o backend trabalha com outro intervalo.
+
+## 13.6 Seletor de produtos elegíveis
+
+**Endpoint**
+
+```text
+GET /api/marketing/v4/public/get_product_selector/
+```
+
+**Query-base observada**
+
+```text
+scene=shop_flash_sale
+limit=100
+offset=0
+cursor=
+is_ads=0
+need_brand=0
+need_item_model=0
+```
+
+Filtros observados:
+
+```text
+category=<id>
+category_type=shopee
+category_type=my_shop
+```
+
+**Dados por produto confirmados**
+
+```text
+itemid
+name
+description
+images
+price
+stock
+sold
+liked_count
+review_count
+status
+days_to_ship
+min_purchase_limit
+global_cat
+is_unlisted
+```
+
+O endpoint é adequado para preencher a seleção de produtos da Oferta Relâmpago sem depender do DOM.
+
+## 13.7 Validação em lote dos produtos selecionados
+
+**Endpoint**
+
+```text
+GET /api/marketing/v4/shop_flash_sale/check_items/
+```
+
+**Query observada**
+
+```text
+item_ids=[...]
+use_global_category=true
+```
+
+**Resposta**
+
+```text
+data.failed_items[]
+```
+
+Na sessão observada, os produtos testados foram aceitos. Um array vazio confirma apenas que aqueles itens passaram naquela validação; não significa elegibilidade universal.
+
+## 13.8 Produto, variações e estoque reservado
+
+**Endpoint**
+
+```text
+POST /api/marketing/v4/graphql/query/
+```
+
+**Operação observada:** query `Products` com `productIds` e `statusType`.
+
+Campos confirmados:
+
+```text
+products.items[].itemid
+products.items[].name
+products.items[].images[]
+products.items[].variationImages[]
+products.items[].inputOriginPrice
+products.items[].originPrice
+products.items[].normalStock
+products.items[].itemSellerSellableStock
+products.items[].itemWmsSellableStock
+products.items[].itemTotalReservedStock
+products.items[].itemNormalStock
+
+products.items[].modelList[].modelid
+products.items[].modelList[].name
+products.items[].modelList[].inputOriginPrice
+products.items[].modelList[].originPrice
+products.items[].modelList[].normalStock
+products.items[].modelList[].modelNormalStock
+products.items[].modelList[].modelSellerSellableStock
+products.items[].modelList[].modelWmsSellableStock
+products.items[].modelList[].modelTotalReservedStock
+products.items[].modelList[].enableShopFlashSaleNewStock
+products.items[].modelList[].totalNormalStock
+```
+
+### Evidência importante de reserva
+
+Durante a criação, as releituras mostraram o estoque passando progressivamente de normal para reservado por variação. Ao final, o total reservado do item correspondia ao estoque comprometido no fluxo observado.
+
+**Aplicação:** depois de cadastrar itens na Oferta Relâmpago, o Gestor pode reler essa query para verificar se o estoque foi efetivamente reservado. Não usar `normalStock` isoladamente como estoque livre depois da reserva.
+
+## 13.9 Cadastro de produtos/variações na Oferta Relâmpago
+
+**Endpoint de escrita confirmado**
+
+```text
+POST /api/marketing/v4/shop_flash_sale/set_shop_flash_sale_items/
+```
+
+**Body estrutural observado**
+
+```json
+{
+  "flash_sale_id": "<flash_sale_id>",
+  "items": [
+    {
+      "input_promo_price": 18.99,
+      "item_display_image": "<image_id>",
+      "item_id": "<item_id>",
+      "model_id": "<model_id>",
+      "purchase_limit": 0,
+      "status": 0,
+      "stock": 75
+    }
+  ],
+  "use_global_category": true
+}
+```
+
+Cada variação é enviada como uma entrada independente. Na sessão observada, três variações do mesmo produto foram enviadas, com preço promocional e estoque próprios; uma delas estava com `status=1` e as demais com `status=0`.
+
+**Resposta de sucesso**
+
+```text
+code = 0
+data.failed_items = []
+data.warning_items = []
+```
+
+### Regra de implementação
+
+O Gestor deve considerar a criação concluída somente se:
+1. o POST retornar sucesso;
+2. `failed_items` estiver vazio ou os erros forem tratados individualmente;
+3. a oferta for relida na listagem;
+4. o estoque/estado das variações for relido quando necessário.
+
+## 13.10 Validação de desconto enganoso no fluxo de Flash Sale
+
+**Endpoint observado**
+
+```text
+POST /api/marketing/v4/public/misleading_discount/
+```
+
+**Body**
+
+```json
+{
+  "item_list": [
+    {"itemid": "<item_id>", "modelid": "<model_id>"}
+  ]
+}
+```
+
+**Resposta**
+
+```text
+data.misleading_item_list[]
+```
+
+Na captura, a lista veio vazia. Este endpoint é diferente do endpoint de validação do módulo Desconto registrado na seção anterior.
+
+## 13.11 Ordem de exibição dos itens
+
+**Endpoint de escrita confirmado**
+
+```text
+POST /api/marketing/v4/shop_flash_sale/set_item_sequence/
+```
+
+**Body observado**
+
+```json
+{
+  "display_sequence_list": [
+    {"display_sequence": 1, "item_id": "<item_id>"}
+  ],
+  "flash_sale_id": "<flash_sale_id>"
+}
+```
+
+**Resposta:** `code=0`, `message=success`.
+
+## 13.12 Integração opcional com Shopee Ads
+
+**Endpoint observado**
+
+```text
+POST /api/marketing/v4/shop_flash_sale/report_item_ids_to_ads/
+```
+
+**Body**
+
+```json
+{
+  "enabled_item_ids": ["<item_id>"],
+  "flash_sale_id": "<flash_sale_id>"
+}
+```
+
+A resposta pode devolver:
+
+```text
+data.ads_prompt_type
+data.landing_page
+```
+
+Na sessão, a Shopee retornou uma rota de criação de anúncio de produto. Isso é um convite/ponte para Ads; não significa que um anúncio pago tenha sido criado automaticamente.
+
+## 13.13 Métricas do recurso
+
+**Endpoint**
+
+```text
+GET /api/marketing/v4/public/get_promotion_tool_metrics/
+```
+
+**Query**
+
+```text
+tool_name=marketing_shop_flash_sale
+```
+
+Campos confirmados:
+
+```text
+data.data.units
+data.data.orders
+data.data.buyers
+data.data.sales
+data.data.product_impression
+data.data.product_clicks
+data.data.ctr
+data.data.total_item_sales
+data.date_range.start_time
+data.date_range.end_time
+```
+
+Na captura, várias métricas estavam zeradas e havia uma impressão. Não usar esses valores como representativos de desempenho futuro.
+
+## 13.14 Relatório por promoção
+
+**Endpoint**
+
+```text
+GET /api/marketing/v4/shop_flash_sale/report_shop_flash_sale/
+```
+
+**Query**
+
+```text
+promotion_id_list=[...]
+```
+
+Na sessão observada, `data=[]` tanto antes quanto depois da criação. O endpoint está confirmado como parte do fluxo, mas os campos internos de um relatório positivo ainda precisam ser capturados antes de o Gestor depender deles.
+
+## 13.15 Fluxo confirmado de criação
+
+A sequência observada no Seller Center foi:
+
+```text
+1. check_shops
+2. get_item_criteria
+3. get_time_slot_id
+4. set_shop_flash_sale -> recebe flash_sale_id + horário real
+5. get_product_selector
+6. check_items
+7. GraphQL Products -> preço/variações/estoque
+8. set_shop_flash_sale_items
+9. misleading_discount
+10. releituras GraphQL -> confirmação de reserva
+11. set_item_sequence
+12. report_item_ids_to_ads
+13. get_shop_flash_sale_list -> confirmação final da persistência
+```
+
+Nem toda chamada auxiliar precisa ser reproduzida pelo Gestor. O núcleo mínimo seguro é: horário válido → criação do contêiner → validação/seleção → gravação das variações → releitura/validação final.
+
+## 13.16 Aplicações no Gestor Sênior
+
+Este mapeamento permite corrigir e fortalecer a área de **Oferta Relâmpago**:
+
+- listar dias/horários usando os slots reais da Shopee;
+- impedir seleção de horários inexistentes;
+- preservar o `timeslot_id` escolhido até o POST;
+- mostrar a data/hora devolvida pela Shopee antes de cadastrar os itens;
+- selecionar produtos por API estruturada;
+- carregar variações, preço normal e estoque por GraphQL;
+- aceitar preço promocional por variação;
+- cadastrar estoque promocional por variação;
+- validar elegibilidade dos itens;
+- confirmar `failed_items` e `warning_items`;
+- reler a oferta criada e só então marcar como concluída;
+- detectar reserva de estoque;
+- ordenar itens;
+- oferecer, separadamente, a ponte para Shopee Ads;
+- mostrar métricas reais do recurso quando existirem.
+
+### Guardrail de escrita
+
+As três escritas confirmadas desta sessão são:
+
+```text
+set_shop_flash_sale
+set_shop_flash_sale_items
+set_item_sequence
+```
+
+Nenhuma deve ocorrer silenciosamente. O usuário deve escolher horário, produto/variação, preço e estoque e confirmar a criação. Após qualquer escrita, o Gestor deve reler a Shopee e mostrar sucesso somente com persistência confirmada.
+
+---
+
+## Resumo da curadoria v14 — Oferta Relâmpago da Loja
+
+- Capturas brutas: **102**.
+- Combinações método+rota únicas: **61**.
+- Rotas de negócio da família Marketing observadas: **15**.
+- Endpoints/fluxos centrais promovidos: **14**; `category_tree` ficou como apoio ao seletor.
+- Erros registrados pelo mapeador: **0**.
+- Escritas confirmadas no fluxo principal: **3**.
+- Criação real confirmada por releitura da listagem: **sim**.
+- Reserva progressiva de estoque por variação observada: **sim**.
+- Principal descoberta para o bug do Gestor: o horário deve ser representado pelo `timeslot_id` devolvido por `get_time_slot_id`; a criação retorna a janela autoritativa e os itens são gravados depois, em uma segunda escrita.
+- Pendências: capturar um exemplo com `failed_items`, `warning_items`, `misleading_item_list` positivo e um `report_shop_flash_sale` com dados.
