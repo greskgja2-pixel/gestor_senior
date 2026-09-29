@@ -526,3 +526,12 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 - Fallbacks textuais de vendas também usam os textos compactos exibidos pela Shopee quando o campo numérico estruturado não existir.
 
 - PR #60 foi validado e incorporado ao main; a próxima pesquisa com Motor v0.17.9 deve ser usada para confirmar a cobertura real por campo.
+
+
+## 2026-09-29 — Motor v0.18.2 / correção item_data
+- Regra ENCICLOPÉDIA PRIMEIRO mantida.
+- O mapeamento real confirmou wrappers com `item_card_displayed_asset` + `item_data`; dentro de `item_data` ficam `item_card_display_price`, `item_card_display_sold_count`, `shop_data` e `item_rating`.
+- A v0.18.1 procurava prioritariamente `item_basic/item`, perdendo esses campos em muitos resultados.
+- v0.18.2 passa a priorizar `raw.item_data` e o asset irmão `raw.item_card_displayed_asset`.
+- Removida a espera/scroll artificial topo-meio-final de até 3s por estágio; API estruturada é a fonte primária.
+- Teste com objeto real mapeado confirmou preço, vendas, vendas/mês, rating, reviews e localização no mesmo registro.
