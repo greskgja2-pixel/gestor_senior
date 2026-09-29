@@ -130,6 +130,13 @@ function normalizeOfferItem(itemId,sale,raw){
   };
 }
 
+function issueText(row,fallback='A Shopee recusou o item.'){
+  if(!row)return fallback;
+  const conditions=Array.isArray(row?.unqualified_conditions)?row.unqualified_conditions:[];
+  const details=conditions.map(x=>x?.unqualified_msg||x?.message).filter(Boolean);
+  return String(row?.err_msg||row?.message||details.join(', ')||fallback);
+}
+
 export async function GET(request){
   const shop=await getActiveShop();
   if(!shop)return NextResponse.json({error:'Nenhuma loja Shopee conectada.'},{status:400});
@@ -267,18 +274,51 @@ export async function POST(request){
     const invalid=timeslotIds.filter(id=>!byId.has(Number(id)));
     if(invalid.length){console.warn('[flash-sale] revalidação rejeitou horários',{timeslotIds,invalid,revalidateStart,revalidateEnd,officialCount:official.length});return NextResponse.json({error:'Um ou mais horários escolhidos não estão mais disponíveis na Shopee. Atualize os horários e tente novamente.',invalid_timeslot_ids:invalid},{status:409})}
 
-    const createdOffers=[],failures=[];
+    // O mapeamento real do Seller Center confirmou que o timeslot é a fonte de verdade
+    // para data/hora. Não prosseguir se o período exibido ao usuário divergir do slot
+    // que a Shopee acabou de devolver na revalidação.
+    const submittedById=new Map(selectedSlotMeta.map(slot=>[Number(slot.timeslot_id),slot]));
+    const changedSlots=timeslotIds.map(id=>{
+      const submitted=submittedById.get(Number(id)),fresh=byId.get(Number(id));
+      if(!submitted||!fresh)return null;
+      return Number(submitted.start_time)!==Number(fresh.start_time)||Number(submitted.end_time)!==Number(fresh.end_time)
+        ?{timeslot_id:Number(id),selected:{start_time:submitted.start_time,end_time:submitted.end_time},official:{start_time:Number(fresh.start_time),end_time:Number(fresh.end_time)}}
+        :null;
+    }).filter(Boolean);
+    if(changedSlots.length){
+      console.warn('[flash-sale] período do slot mudou durante a confirmação',changedSlots);
+      return NextResponse.json({error:'A Shopee alterou a data ou o período de um horário selecionado. Atualize os horários antes de criar para evitar salvar na data errada.',changed_slots:changedSlots},{status:409});
+    }
+
+    const createdOffers=[],failures=[],warnings=[];
     for(const id of timeslotIds){
       try{
+        const slot=byId.get(Number(id))||{};
         const created=await createShopFlashSale({shopId:shop.shop_id,accessToken:shop.access_token,timeslotId:id});
         const flashSaleId=created?.response?.flash_sale_id;
         if(!flashSaleId)throw new Error('A Shopee não retornou o ID da Oferta Relâmpago.');
+
+        const returnedSlot=int(created?.response?.timeslot_id??created?.response?.time_slot_id);
+        if(returnedSlot&&returnedSlot!==Number(id))throw new Error('A Shopee criou a oferta em um horário diferente do selecionado. O Gestor interrompeu a gravação dos itens para evitar uma data incorreta.');
+        const returnedStart=int(created?.response?.start_time),returnedEnd=int(created?.response?.end_time);
+        if(returnedStart&&Number(slot?.start_time)&&returnedStart!==Number(slot.start_time))throw new Error('A Shopee devolveu uma data inicial diferente do período selecionado. Atualize os horários e tente novamente.');
+        if(returnedEnd&&Number(slot?.end_time)&&returnedEnd!==Number(slot.end_time))throw new Error('A Shopee devolveu uma data final diferente do período selecionado. Atualize os horários e tente novamente.');
+
         const added=await addShopFlashSaleItems({shopId:shop.shop_id,accessToken:shop.access_token,flashSaleId,items:[flashItem]});
-        const failed=added?.response?.failed_items||[];
-        if(failed.length)throw new Error(failed.map(x=>x.err_msg||x.unqualified_conditions?.map?.(y=>y.unqualified_msg).filter(Boolean).join(', ')||'Produto não elegível').join(' · '));
+        const failed=Array.isArray(added?.response?.failed_items)?added.response.failed_items:[];
+        const warningRows=Array.isArray(added?.response?.warning_items)?added.response.warning_items:[];
+        if(failed.length)throw new Error(failed.map(x=>issueText(x,'Produto não elegível para a Oferta Relâmpago.')).join(' · '));
+        if(warningRows.length)warnings.push({timeslot_id:Number(id),flash_sale_id:Number(flashSaleId),messages:warningRows.map(x=>issueText(x,'A Shopee criou a oferta com um aviso.'))});
+
         await updateShopFlashSale({shopId:shop.shop_id,accessToken:shop.access_token,flashSaleId,status:1});
-        const slot=byId.get(Number(id))||{};
-        createdOffers.push({timeslot_id:Number(id),flash_sale_id:Number(flashSaleId),start_time:num(slot?.start_time),end_time:num(slot?.end_time)});
+
+        // Não declarar sucesso só porque o POST respondeu 200. O fluxo real do Seller
+        // Center relê a campanha após salvar; fazemos o mesmo para confirmar persistência.
+        const verifyRaw=await getShopFlashSaleItems({shopId:shop.shop_id,accessToken:shop.access_token,flashSaleId,offset:0,limit:100});
+        const verified=normalizeOfferItem(itemId,{flash_sale_id:flashSaleId,start_time:slot?.start_time,end_time:slot?.end_time,status:1,type:2},verifyRaw);
+        if(!verified)throw new Error('A Shopee criou a Oferta Relâmpago, mas o produto não apareceu nela após a gravação. Confira o Seller Center antes de tentar novamente.');
+
+        createdOffers.push({timeslot_id:Number(id),flash_sale_id:Number(flashSaleId),start_time:num(slot?.start_time),end_time:num(slot?.end_time),verified:true,warning_count:warningRows.length});
       }catch(error){
         failures.push({timeslot_id:Number(id),error:String(error?.message||error)});
       }
@@ -311,7 +351,8 @@ export async function POST(request){
       failed_count:failures.length,
       flash_sale_id:createdOffers[0]?.flash_sale_id||null,
       flash_sale_ids:createdOffers.map(x=>x.flash_sale_id),
-      offers:createdOffers,failures,
+      offers:createdOffers,failures,warnings,
+      verified_count:createdOffers.filter(x=>x.verified).length,
       notification_task:notificationTask
     },{status:failures.length?207:200});
   }catch(error){
