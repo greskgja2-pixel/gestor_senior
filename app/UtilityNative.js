@@ -64,8 +64,8 @@ export default function UtilityNative({section}){
 
   function detectExtension(timeout=3500){
     return new Promise(resolve=>{
-      let done=false;
-      const finish=value=>{if(done)return;done=true;window.removeEventListener('message',onMessage);window.removeEventListener('gs-extension-ready',onReady);clearTimeout(timer);resolve(value)};
+      let done=false,timer=null;
+      const finish=value=>{if(done)return;done=true;window.removeEventListener('message',onMessage);window.removeEventListener('gs-extension-ready',onReady);if(timer)clearTimeout(timer);resolve(value)};
       const onMessage=e=>{if(e.source===window&&e.data?.source==='GS_EXTENSION'&&(e.data?.type==='GS_EXTENSION_READY'||e.data?.type==='GS_EXTENSION_PONG'))finish({ok:true,version:String(e.data.version||'').trim()})};
       const onReady=e=>finish({ok:true,version:String(e?.detail?.version||'').trim()});
       window.addEventListener('message',onMessage);
@@ -73,7 +73,7 @@ export default function UtilityNative({section}){
       const meta=document.querySelector('meta[name="gestor-senior-extension"]');
       if(document.documentElement?.dataset?.gsExtensionBridge==='ready'||document.getElementById('gs-extension-bridge-marker')||meta)return finish({ok:true,version:String(meta?.content&&meta.content!=='ready'?meta.content:'').trim()});
       window.postMessage({source:'GS_GESTOR',type:'GS_EXTENSION_PING'},location.origin);
-      const timer=setTimeout(()=>finish({ok:false,error:'Motor Sênior não detectado neste navegador.'}),timeout);
+      timer=setTimeout(()=>finish({ok:false,error:'Motor Sênior não detectado neste navegador.'}),timeout);
     });
   }
 
