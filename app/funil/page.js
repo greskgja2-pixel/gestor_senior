@@ -737,18 +737,15 @@ export default function FunilPage(){
     if(sellerR.status==='rejected')errors.push('Funil completo: '+String(sellerR.reason?.message||sellerR.reason));
     if(adsR.status==='rejected')errors.push('Shopee Ads: '+String(adsR.reason?.message||adsR.reason));
     if(seller&&seller?.period?.type&&seller.period.type!==selectedPeriod)errors.push('O Motor Sênior respondeu '+periodMeta(seller.period.type).label+' em vez de '+periodMeta(selectedPeriod).label+'. Atualize a extensão para v0.17.4+ para usar o histórico mapeado.');
-    if(seller){
-      const ids=arr(seller.products).map(x=>String(x?.id||'').trim()).filter(Boolean).slice(0,100);
-      if(ids.length){
-        try{
-          const extra=await getJson('/api/funnel/context?item_ids='+encodeURIComponent(ids.join(',')));
-          setContext(extra?.items||{});
-        }catch(error){
-          errors.push('Contexto específico: '+String(error?.message||error));
-          setContext({});
-        }
-      }else setContext({});
-    }else setContext({});
+    try{
+      // A Super Análise é a fonte de elegibilidade do Funil. O Motor apenas
+      // complementa os produtos com métricas do Seller Center.
+      const extra=await getJson('/api/funnel/context');
+      setContext(extra?.items||{});
+    }catch(error){
+      errors.push('Contexto da Super Análise: '+String(error?.message||error));
+      setContext({});
+    }
     setState({loading:false,error:errors.join(' · '),seller,ads});
   };
   useEffect(()=>{
@@ -821,18 +818,29 @@ export default function FunilPage(){
 
   if(state.loading)return <div className={styles.page}><div className={styles.loading}>Lendo Informações Gerenciais da Shopee e montando o funil…</div></div>;
 
-  const analyzedProducts=model.products.filter(p=>{
-    const ctx=context?.[String(p.id)];
-    if(!ctx?.analyzedAt)return false;
+  const productsById=new Map(model.products.map(p=>[String(p.id),p]));
+  const analyzedProducts=Object.values(context||{}).map(ctx=>{
+    const id=String(ctx?.itemId||'').trim();
+    if(!id||!ctx?.analyzedAt)return null;
     const age=(Date.now()-new Date(ctx.analyzedAt).getTime())/86400000;
-    return Number.isFinite(age)&&age<=30;
-  });
+    if(!Number.isFinite(age)||age>30)return null;
+    const live=productsById.get(id);
+    if(live)return live;
+    // Mantém o anúncio analisado visível mesmo quando a coleta do Motor falhar.
+    return{
+      id,
+      name:ctx?.title||('Produto '+id),
+      image:ctx?.image||null,
+      funnelMetricsUnavailable:true
+    };
+  }).filter(Boolean);
   const orderedAnalyzed=[...analyzedProducts].sort((a,b)=>{
     if(requestedItem&&String(a.id)===requestedItem)return -1;
     if(requestedItem&&String(b.id)===requestedItem)return 1;
     return productPlan(a,model.med).rank-productPlan(b,model.med).rank;
   });
-  const unavailableForFunnel=Math.max(0,model.products.length-analyzedProducts.length);
+  const unavailableForFunnel=Math.max(0,model.products.filter(p=>!context?.[String(p.id)]?.analyzedAt).length);
+  const analyzedWithoutMetrics=analyzedProducts.filter(p=>p.funnelMetricsUnavailable).length;
 
   const full=!!state.seller;
   const actualPeriod=state.seller?.period?.type||period;
@@ -881,8 +889,8 @@ export default function FunilPage(){
     </>}
 
     {tab==='produto'&&<section className={styles.panel}>
-      <div className={styles.sectionHead}><div><h2>Funil por Produto</h2><p>Apenas anúncios com Super Análise recente entram aqui, porque preço, concorrentes e sugestões dependem desse contexto.</p></div><span>{analyzedProducts.length} disponíveis</span></div>
-      <div className={styles.funnelEligibilityNotice}><b>Super Análise obrigatória</b><span>{unavailableForFunnel>0?`${unavailableForFunnel} produto(s) ainda estão indisponíveis no Funil ou precisam ser reanalisados.`:'Todos os produtos com dados de funil já estão liberados.'}</span><Link href="/super-analise">Gerenciar na Super Análise →</Link></div>
+      <div className={styles.sectionHead}><div><h2>Funil por Produto</h2><p>Anúncios com Super Análise recente permanecem disponíveis mesmo quando a coleta do Motor estiver temporariamente sem métricas.</p></div><span>{analyzedProducts.length} disponíveis</span></div>
+      <div className={styles.funnelEligibilityNotice}><b>Super Análise obrigatória</b><span>{analyzedWithoutMetrics>0?`${analyzedWithoutMetrics} produto(s) analisado(s) estão aguardando métricas do Funil.`:unavailableForFunnel>0?`${unavailableForFunnel} produto(s) da coleta ainda precisam de Super Análise.`:'Todos os produtos analisados estão com métricas disponíveis.'}</span><Link href="/super-analise">Gerenciar na Super Análise →</Link></div>
       <div className={styles.guidanceMode}>
         <div><strong>Como você quer receber as sugestões?</strong><small>Sua escolha fica salva neste navegador.</small></div>
         <div role="group" aria-label="Modo de orientação">

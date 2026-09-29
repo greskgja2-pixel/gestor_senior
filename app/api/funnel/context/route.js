@@ -45,20 +45,19 @@ export async function GET(request){
 
   const url=new URL(request.url);
   const requested=[...new Set(String(url.searchParams.get('item_ids')||'').split(',').map(x=>x.trim()).filter(Boolean))].slice(0,100);
-  if(!requested.length)return NextResponse.json({items:{},count:0});
 
   const db=supabaseAdmin();
   const [{data,error},{data:costRows,error:costError}]=await Promise.all([
-    db.from('extension_analysis_reports')
+    (()=>{let q=db.from('extension_analysis_reports')
       .select('id,item_id,analyzed_at,product_snapshot,finance_snapshot,ads_snapshot,competitors,suggestions,report')
-      .eq('shop_id',shop.shop_id)
-      .in('item_id',requested)
-      .order('analyzed_at',{ascending:false})
-      .limit(500),
-    db.from('product_costs')
+      .eq('shop_id',shop.shop_id);
+      if(requested.length)q=q.in('item_id',requested);
+      return q.order('analyzed_at',{ascending:false}).limit(500)})(),
+    (()=>{let q=db.from('product_costs')
       .select('item_id,model_id,cost,packaging_cost')
-      .eq('shop_id',shop.shop_id)
-      .in('item_id',requested)
+      .eq('shop_id',shop.shop_id);
+      if(requested.length)q=q.in('item_id',requested);
+      return q.limit(1000)})()
   ]);
   if(error)return NextResponse.json({error:error.message},{status:500});
   if(costError)return NextResponse.json({error:costError.message},{status:500});
