@@ -521,3 +521,6 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 - No Gestor, normalizeOne() passou a aceitar row.reviewCount e row.shopLocation.
 - A UI foi renomeada de “Qualidade da coleta” para “Cobertura dos dados” e ganhou “Diagnóstico da coleta”, comparando Motor x Gestor por campo.
 - Interpretação: Motor > Gestor indica falha de normalização; Motor = 0 indica que o campo não veio da busca e deve ser investigado/enriquecido, sem inventar zero.
+
+- Correção adicional v0.17.9: directSearch agora respeita o número da página da URL e converte em offset `newest` (0, 60, 120...), evitando repetir o primeiro lote em pesquisas Padrão/Profunda.
+- Fallbacks textuais de vendas também usam os textos compactos exibidos pela Shopee quando o campo numérico estruturado não existir.
