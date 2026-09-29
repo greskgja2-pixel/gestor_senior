@@ -7,6 +7,7 @@ const shell=read('app/components/AppShell.js');
 const intelligence=read('app/extensao-shopee-intelligence/page.js');
 const sections=read('app/extensao-shopee-intelligence/IntelligenceSections.js');
 const utility=read('app/UtilityNative.js');
+const funnelHealth=read('app/lib/funnel-health.js');
 const home=read('app/page.js');
 const superAd=read('app/extensao-shopee-intelligence/SuperAnuncioMockup.js');
 const superAnalysisPage=read('app/super-analise/page.js');
@@ -173,12 +174,21 @@ test('Análise de Funil usa 30 dias como padrão e períodos históricos confirm
   assert.match(funnel,/\{id:'past7days',label:'7 dias'/);
   assert.match(funnel,/\{id:'past30days',label:'30 dias'/);
   assert.match(funnel,/motorData\('sellerFunnel',\{period:selectedPeriod\}/);
-  assert.match(funnel,/productOverview/);
+  assert.match(funnelHealth,/productOverview/);
   assert.match(funnel,/ComparisonStrip/);
   assert.match(funnel,/v0\.17\.4/);
   assert.doesNotMatch(funnel,/products\.reduce\(\(a,p\)=>a\+\(num\(p\.add_to_cart_buyers\)/);
 });
 
+test('Saúde do Sistema não marca Funil verde só porque o Motor respondeu',()=>{
+  assert.match(utility,/deriveStoreFunnel/);
+  assert.match(utility,/funnelCoverage\?\.canDiagnose/);
+  assert.match(utility,/funnelCoverage\?\.healthy/);
+  assert.match(utility,/dados insuficientes para comparar etapas/);
+  assert.match(utility,/Etapas com dados/);
+  assert.match(utility,/Transições calculáveis/);
+  assert.match(funnelHealth,/healthy:presentStages\.length>=5&&validTransitions\.length>=3/);
+});
 test('Funil preserva null e não converte ausência em zero',()=>{
   const funnel=read('app/funil/page.js');
   assert.match(funnel,/v===null\|\|v===undefined\|\|v===''/);
