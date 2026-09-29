@@ -134,7 +134,11 @@ test('Análise de Funil possui modos padrão e específico com evidências reais
   assert.match(funnel,/Padrão/);
   assert.match(funnel,/Específico · me diga o que fazer/);
   assert.match(funnel,/function specificPlan/);
-  assert.match(funnel,/\/api\/funnel\/context\?item_ids=/);
+  // Desde "Funil desacoplado da coleta do Motor" (2026-09-29), o Funil busca
+  // o contexto recente da loja sem filtrar por item_ids (a API mantém o
+  // parâmetro opcional para outros consumidores, mas esta tela usa a lista
+  // completa e resolve o item específico no cliente via `context`).
+  assert.match(funnel,/getJson\('\/api\/funnel\/context'\)/);
   assert.match(funnel,/Concorrentes usados como referência/);
   assert.match(funnel,/Base da sugestão específica/);
   assert.match(funnel,/nenhuma alteração é aplicada/i);
