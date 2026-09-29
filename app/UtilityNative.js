@@ -2,6 +2,7 @@
 import {useEffect,useState} from 'react';
 import styles from './utility-native.module.css';
 import {motorData} from './lib/client-async';
+import {deriveStoreFunnel} from './lib/funnel-health';
 
 const THEMES=[
   ['dark','Escuro'],['light','Claro'],['warm','Quente'],['win11','Windows 11'],['classic','Clássico'],['ubuntu','Ubuntu']
@@ -108,13 +109,29 @@ export default function UtilityNative({section}){
           funnelMotor={ok:!!data,data,latency:Date.now()-started,error:data?'':'Motor respondeu sem dados.'};
         }catch(error){funnelMotor={ok:false,error:String(error?.message||error)}}
       }
-      const funnelOk=shopOk&&funnelContext.ok&&extension.ok&&(!deep||funnelMotor.ok);
-      modules.push(healthModule('funnel','Funil',funnelOk?'ok':(!shopOk||!extension.ok||!funnelContext.ok||(deep&&!funnelMotor.ok))?'error':'warning',
-        funnelOk?'Fluxo do Funil respondeu ponta a ponta.':'Uma dependência do Funil falhou.',[
-          {label:'Loja conectada',ok:shopOk,detail:shopOk?'OK':'Necessária'},
-          {label:'Contexto do Funil',ok:funnelContext.ok,detail:funnelContext.ok?(funnelContext.latency+' ms'):funnelContext.error},
-          {label:'Coleta Seller Center',ok:deep?funnelMotor.ok:extension.ok,detail:deep?(funnelMotor.ok?(funnelMotor.latency+' ms'):funnelMotor.error):'Teste rápido'}
-        ]));
+      const funnelCoverage=deep&&funnelMotor.ok?deriveStoreFunnel(funnelMotor.data).coverage:null;
+      let funnelStatus='warning',funnelDetail='Dependências respondem, mas a qualidade dos dados ainda não foi testada.';
+      if(!shopOk||!extension.ok||!funnelContext.ok){
+        funnelStatus='error';funnelDetail='Uma dependência necessária do Funil falhou.';
+      }else if(!deep){
+        funnelStatus='warning';funnelDetail='Conexões básicas OK. Execute o diagnóstico agora para validar se o Funil recebeu métricas suficientes.';
+      }else if(!funnelMotor.ok){
+        funnelStatus='error';funnelDetail='A coleta real do Seller Center falhou.';
+      }else if(!funnelCoverage?.canDiagnose){
+        funnelStatus='warning';funnelDetail='O Motor respondeu, mas o Funil da Loja continua com dados insuficientes para comparar etapas.';
+      }else if(!funnelCoverage?.healthy){
+        funnelStatus='warning';funnelDetail='O Funil recebeu dados parciais. Já há alguma leitura, mas a cobertura ainda está incompleta.';
+      }else{
+        funnelStatus='ok';funnelDetail='Funil com cobertura suficiente para diagnóstico da loja.';
+      }
+      const missing=funnelCoverage?.missingStages?.length?funnelCoverage.missingStages.join(', '):'nenhuma';
+      modules.push(healthModule('funnel','Funil',funnelStatus,funnelDetail,[
+        {label:'Loja conectada',ok:shopOk,detail:shopOk?'OK':'Necessária'},
+        {label:'Contexto do Funil',ok:funnelContext.ok,detail:funnelContext.ok?(funnelContext.latency+' ms'):funnelContext.error},
+        {label:'Motor respondeu à coleta',ok:deep?funnelMotor.ok:extension.ok,detail:deep?(funnelMotor.ok?(funnelMotor.latency+' ms'):funnelMotor.error):'Aguardando teste profundo'},
+        {label:'Etapas com dados',ok:deep?((funnelCoverage?.stageCount||0)>=5):false,detail:deep?((funnelCoverage?.stageCount||0)+'/7 · faltando: '+missing):'Execute o diagnóstico agora'},
+        {label:'Transições calculáveis',ok:deep?((funnelCoverage?.transitionCount||0)>=3):false,detail:deep?((funnelCoverage?.transitionCount||0)+'/6'):'Execute o diagnóstico agora'}
+      ]));
 
       const analysis=server.ok?server.data?.modules?.super_analysis:null;
       modules.push(healthModule('analysis','Super Análise',analysis?.status||'error',analysis?.detail||server.error||'Sem resposta.',[
