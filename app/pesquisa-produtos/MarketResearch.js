@@ -1,6 +1,6 @@
 'use client';
 
-import {useMemo,useRef,useState} from 'react';
+import {useEffect,useMemo,useRef,useState} from 'react';
 import {motorData} from '../lib/client-async';
 import styles from './pesquisa-produtos.module.css';
 
@@ -78,7 +78,7 @@ function median(values){
   const m=Math.floor(xs.length/2);
   return xs.length%2?xs[m]:(xs[m-1]+xs[m])/2;
 }
-function stats(rows){
+function coverage(rows,key){return rows.filter(r=>r[key]!==null&&r[key]!==undefined).length}\nfunction confidence(r){\n  const checks=[r.price,r.sold,r.monthlySold,r.rating,r.reviews,r.location];\n  const count=checks.filter(v=>v!==null&&v!==undefined&&v!=='').length;\n  return {value:Math.round(count/checks.length*100),label:count>=5?'Alta':count>=3?'Média':'Baixa'};\n}\nfunction keywordInsights(rows){\n  const stop=new Set('de da do das dos e em para por com sem a o as os um uma kit produto produtos shopee'.split(' ')),map={};\n  rows.forEach(r=>{[...new Set(String(r.title||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().replace(/[^a-z0-9\\s]/g,' ').split(/\\s+/).filter(w=>w.length>=3&&!stop.has(w)&&!/^\\d+$/.test(w)))].forEach(word=>{const x=map[word]||(map[word]={word,count:0,prices:[],sales:[]});x.count++;if(r.price!=null)x.prices.push(r.price);if(r.sold!=null)x.sales.push(r.sold)})});\n  return Object.values(map).filter(x=>x.count>=2).map(x=>({...x,price:median(x.prices),sales:median(x.sales)})).sort((a,b)=>b.count-a.count).slice(0,24);\n}\nfunction sellerConcentration(rows){\n  const map={};rows.forEach(r=>{if(r.shopId)map[r.shopId]=(map[r.shopId]||0)+1});const list=Object.values(map).sort((a,b)=>b-a),top5=list.slice(0,5).reduce((s,v)=>s+v,0);\n  return {shops:list.length,share:rows.length?Math.round(top5/rows.length*100):0};\n}\nfunction stats(rows){
   const priceMedian=median(rows.map(r=>r.price));
   const soldMedian=median(rows.map(r=>r.sold));
   const monthlyMedian=median(rows.map(r=>r.monthlySold));
@@ -86,7 +86,7 @@ function stats(rows){
   const locations={};
   rows.forEach(r=>{if(r.location)locations[r.location]=(locations[r.location]||0)+1});
   const mainLocation=Object.entries(locations).sort((a,b)=>b[1]-a[1])[0]?.[0]||'—';
-  return {priceMedian,soldMedian,monthlyMedian,reviewMedian,mainLocation};
+  return {priceMedian,soldMedian,monthlyMedian,reviewMedian,mainLocation,coverage:{price:coverage(rows,'price'),sold:coverage(rows,'sold'),monthly:coverage(rows,'monthlySold'),location:coverage(rows,'location'),rating:coverage(rows,'rating'),reviews:coverage(rows,'reviews')}};
 }
 
 export default function MarketResearch(){
@@ -101,14 +101,14 @@ export default function MarketResearch(){
   const fileRef=useRef(null);
 
   const bench=useMemo(()=>stats(rows),[rows]);
-  const prepared=useMemo(()=>rows.map(r=>({...r,score:opportunityScore(r,bench)})),[rows,bench]);
+  const prepared=useMemo(()=>rows.map(r=>({...r,score:opportunityScore(r,bench),confidence:confidence(r)})),[rows,bench]);
   const filtered=useMemo(()=>{
     let list=prepared.filter(r=>(!minSold||n(r.sold)>=Number(minSold))&&(!maxPrice||n(r.price)<=Number(maxPrice)));
     list=[...list].sort((a,b)=>{
       if(sort==='sales')return (n(b.sold)??-1)-(n(a.sold)??-1);
       if(sort==='monthly')return (n(b.monthlySold)??-1)-(n(a.monthlySold)??-1);
       if(sort==='price')return (n(a.price)??Infinity)-(n(b.price)??Infinity);
-      return b.score-a.score;
+      return (b.score??-1)-(a.score??-1);
     });
     return list;
   },[prepared,sort,minSold,maxPrice]);
@@ -124,7 +124,7 @@ export default function MarketResearch(){
     if(!term){setMessage('Digite uma palavra-chave para pesquisar.');return}
     setBusy(true);setMessage('Pedindo ao Motor Sênior para coletar a busca da Shopee…');
     try{
-      const data=await motorData('marketplaceSearch',{query:term,sort:'relevance',pages:3},55000);
+      const pagesByMode={quick:1,standard:3,deep:5};\n      const data=await motorData('marketplaceSearch',{query:term,sort:'relevance',pages:pagesByMode[mode]},75000);
       loadPayload(data,'busca ao vivo');
     }catch(error){
       setMessage('Não consegui concluir a pesquisa automática: '+String(error?.message||error)+'. Verifique se o Motor Senior está conectado e tente novamente.');
