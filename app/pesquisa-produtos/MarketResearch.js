@@ -40,9 +40,9 @@ function normalizeOne(row,index){
   const itemId=String(b?.itemid??b?.item_id??row?.itemid??row?.itemId??row?.item_id??'').trim();
   const shopId=String(b?.shopid??b?.shop_id??row?.shopid??row?.shopId??row?.shop_id??'').trim();
   const image=imageUrl(b?.image??b?.image_url??row?.image??row?.imageUrl??arr(b?.images)[0]??arr(row?.images)[0]);
-  const location=stateFrom(b?.shop_location??b?.location??row?.shop_location??row?.seller_location??row?.location);
+  const location=stateFrom(b?.shop_location??b?.location??row?.shopLocation??row?.shop_location??row?.seller_location??row?.seller_location_raw??row?.location);
   const ratingValue=n(rating?.rating_star??b?.rating_star??row?.rating);
-  const reviews=n(rating?.rating_count?.[0]??rating?.rating_count??b?.rating_count??row?.reviews);
+  const reviews=n(rating?.rating_count?.[0]??rating?.rating_count??b?.rating_count??row?.reviewCount??row?.review_count??row?.reviews);
   const discount=price!=null&&original!=null&&original>price?Math.round((1-price/original)*100):null;
   const revenue=price!=null&&sold!=null?price*sold:null;
   const monthlyRevenue=price!=null&&monthlySold!=null?price*monthlySold:null;
@@ -115,7 +115,7 @@ export default function MarketResearch(){
   const [activeTab,setActiveTab]=useState('overview');
   const [mode,setMode]=useState('standard');
   const [page,setPage]=useState(1);
-  const [saved,setSaved]=useState([]);
+  const [saved,setSaved]=useState([]);\n  const [diagnostics,setDiagnostics]=useState(null);\n  const [diagnosticsOpen,setDiagnosticsOpen]=useState(false);
   const fileRef=useRef(null);
   const PAGE_SIZE=20;
   useEffect(()=>{try{setSaved(JSON.parse(localStorage.getItem('gs_market_saved')||'[]'))}catch{}},[]);
@@ -190,7 +190,7 @@ export default function MarketResearch(){
       <div className={styles.message}>{message}</div>
     </section>
 
-    {rows.length>0&&<section className={styles.qualityCard}><div className={styles.qualityHead}><div><span>QUALIDADE DA COLETA</span><b>{qualityLabel} · {quality}%</b></div><em data-level={quality>=75?'high':quality>=45?'mid':'low'}>{qualityLabel}</em></div><div className={styles.coverageGrid}>{[['Preço','price'],['Vendas','sold'],['Vendas 30d','monthly'],['Localização','location'],['Avaliação','rating'],['Reviews','reviews']].map(([label,key])=><div key={key}><b>{bench.coverage[key]}/{rows.length}</b><span>{label}</span><i><u style={{width:(bench.coverage[key]/rows.length*100)+'%'}}/></i></div>)}</div>{suspiciousSales&&<div className={styles.dataWarning}>⚠️ Todos os anúncios vieram com vendas = 0. O Gestor não assume que isso significa ausência de demanda; este campo está marcado como suspeito até uma nova coleta confirmar.</div>}</section>}
+    {rows.length>0&&<section className={styles.qualityCard}><div className={styles.qualityHead}><div><span>COBERTURA DOS DADOS</span><b>{qualityLabel} · {quality}%</b></div><em data-level={quality>=75?'high':quality>=45?'mid':'low'}>{qualityLabel}</em></div><div className={styles.coverageGrid}>{[['Preço','price'],['Vendas','sold'],['Vendas 30d','monthly'],['Localização','location'],['Avaliação','rating'],['Reviews','reviews']].map(([label,key])=><div key={key}><b>{bench.coverage[key]}/{rows.length}</b><span>{label}</span><i><u style={{width:(bench.coverage[key]/rows.length*100)+'%'}}/></i></div>)}</div>{suspiciousSales&&<div className={styles.dataWarning}>⚠️ Todos os anúncios vieram com vendas = 0. O Gestor não assume que isso significa ausência de demanda; este campo está marcado como suspeito até uma nova coleta confirmar.</div>}<button type="button" className={styles.diagnosticToggle} onClick={()=>setDiagnosticsOpen(v=>!v)}>🔧 {diagnosticsOpen?'Ocultar diagnóstico':'Diagnóstico da coleta'}</button>{diagnosticsOpen&&<div className={styles.diagnosticPanel}><div className={styles.diagnosticIntro}><b>Motor Sênior × Gestor</b><span>{diagnostics?'O Motor informou a cobertura antes da normalização. Assim dá para saber exatamente onde um campo se perdeu.':'Esta coleta não trouxe diagnóstico do Motor. Instale a v0.17.9 e faça uma nova pesquisa para gerar essa comparação.'}</span></div>{diagnostics&&<><div className={styles.diagnosticGrid}>{[['Preço','price','price'],['Vendas','sold','sold'],['Vendas 30d','monthlySold','monthly'],['Localização','shopLocation','location'],['Avaliação','rating','rating'],['Reviews','reviewCount','reviews']].map(([label,motorKey,gestorKey])=>{const motor=Number(diagnostics?.coverage?.[motorKey]??0),gestor=Number(bench.coverage?.[gestorKey]??0);const status=motor===0?'source':gestor<motor?'normalizer':'ok';return <div key={label} data-status={status}><b>{label}</b><span>Motor: {motor}/{rows.length}</span><span>Gestor: {gestor}/{rows.length}</span><strong>{status==='ok'?'✓ aproveitado':status==='normalizer'?'⚠ normalização':'○ não veio da busca'}</strong></div>})}</div>{Array.isArray(diagnostics.detectedPaths)&&diagnostics.detectedPaths.length>0&&<details className={styles.detectedPaths}><summary>Campos estruturados detectados pelo Motor</summary><code>{diagnostics.detectedPaths.join(' · ')}</code></details>}</>}</div>}</section>}
 
     <nav className={styles.tabs} aria-label="Seções da Pesquisa de Produtos">
       {tabs.map(([id,label])=><button key={id} type="button" className={activeTab===id?styles.activeTab:''} onClick={()=>setActiveTab(id)}>{label}</button>)}
@@ -207,7 +207,7 @@ export default function MarketResearch(){
         <div className={styles.panelHead}><div><h2>Resumo da pesquisa</h2><p>Use as abas para navegar sem deixar a tela longa.</p></div></div>
         <div className={styles.summaryGrid}>
           <div><span>Anúncios coletados</span><b>{rows.length}</b></div>
-          <div><span>Qualidade da coleta</span><b>{quality}%</b></div>
+          <div><span>Cobertura dos dados</span><b>{quality}%</b></div>
           <div><span>Lojas identificadas</span><b>{concentration.shops||'—'}</b></div>
           <div><span>Vendedor Indicado</span><b>{rows.filter(r=>r.preferred).length}</b></div>
         </div>
