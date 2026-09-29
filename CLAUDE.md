@@ -548,3 +548,13 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 6. O status não inventa sucesso: quando uma dependência falha ou não está disponível, o módulo aparece como falha/atenção e mostra qual teste quebrou.
 
 **Cuidados:** o diagnóstico rápido não dispara coleta pesada no Seller Center; a coleta real do Funil só ocorre por ação explícita no botão de diagnóstico.
+
+
+### 2026-09-29 — ChatGPT — correção final do build após Saúde do Sistema
+**Causa raiz:** o `prebuild` executava `tests/navigation-routes.test.mjs`, e o teste “Análise de Funil possui modos padrão e específico com evidências reais” ainda exigia a URL antiga `/api/funnel/context?item_ids=...`. Desde o ajuste “Funil desacoplado da coleta do Motor”, a tela chama `getJson('/api/funnel/context')` sem `item_ids`; o código estava correto e o teste estava desatualizado.
+
+**Arquivo funcional alterado:** somente `tests/navigation-routes.test.mjs`, atualizando a expectativa para o fluxo atual sem mexer no código do Funil.
+
+**Validação:** o deployment de produção da Vercel para o commit `47725246f27fac96ce94e17b5cb7ff376332eba8` ficou `READY`, confirmando que `npm run build` (incluindo `prebuild`) passou. O status combinado do GitHub/Vercel ficou `success`. Smoke tests HTTP retornaram 200 em `/`, `/?section=config`, `/funil`, `/super-analise`, `/extensao-shopee-intelligence?section=super-anuncio`, `?section=concorrentes` e `?section=shopee-ads`.
+
+**Limitação desta sessão:** não foi possível executar `npm test` completo num checkout local porque o ambiente de container não resolve `github.com`; portanto não registrar contagem 122/122 como verificada aqui. O `prebuild` do deployment passou integralmente.
