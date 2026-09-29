@@ -571,3 +571,13 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 6. A tabela `gs_system_health_reports` está com RLS habilitado e o app acessa via service role no servidor, sempre filtrando pela loja da sessão.
 
 **Fluxo esperado:** usuário executa diagnóstico profundo → relatório é salvo → agente consulta o relatório mais recente → cruza evidências com código/enciclopédia → tenta correção → valida build/deploy → usuário roda diagnóstico novamente para confirmar a melhora.
+
+
+### 2026-09-29 — ChatGPT — Pesquisa de Produtos: exportação do diagnóstico técnico
+**Arquivos:** `app/pesquisa-produtos/MarketResearch.js`, `app/pesquisa-produtos/pesquisa-produtos.module.css`, `tests/market-research-v2.test.mjs`.
+
+1. A tela de Pesquisa de Produtos ganhou o botão **“Baixar diagnóstico técnico”** quando o Motor retorna `diagnostics`.
+2. O arquivo exportado contém apenas o objeto de diagnóstico devolvido pelo Motor, a palavra-chave da pesquisa e o horário da exportação; ele serve para investigar perda de dados entre captura, parser e normalização sem depender de prints.
+3. Quando o Motor informar `mode: 'diagnostic-only'`, a interface deixa explícito que a coleta é uma amostra controlada e não uma pesquisa final.
+4. Esta alteração acompanha a extensão experimental v0.18.4, criada fora do repositório a partir da v0.18.3 enviada pelo usuário. A v0.18.4 limita a investigação a 3 itens e registra a cadeia captura natural → busca direta → parser → DOM → PDP → ratings → retorno ao Gestor, sem misturar fontes no valor final.
+5. O manifesto oficial `/api/extension/latest` não foi alterado; v0.18.4 continua experimental até validação no Chrome desktop.
