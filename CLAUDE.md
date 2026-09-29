@@ -526,3 +526,11 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 - Fallbacks textuais de vendas também usam os textos compactos exibidos pela Shopee quando o campo numérico estruturado não existir.
 
 - PR #60 foi validado e incorporado ao main; a próxima pesquisa com Motor v0.17.9 deve ser usada para confirmar a cobertura real por campo.
+
+
+### 2026-09-29 — ChatGPT — Funil desacoplado da coleta do Motor
+- Corrigida a elegibilidade do Funil por Produto: a fonte de verdade agora é a Super Análise salva em `extension_analysis_reports`, não a presença do produto em `sellerFunnel.products`.
+- `/api/funnel/context` sem `item_ids` passa a listar o contexto recente da loja; com IDs mantém o comportamento filtrado.
+- Produtos com Super Análise recente (até 30 dias) continuam aparecendo no Funil mesmo se o Motor/Seller Center não devolver métricas naquele momento.
+- Quando faltar a coleta do Motor, o produto permanece disponível com métricas ausentes, permitindo distinguir “produto analisado” de “métrica temporariamente indisponível”.
+- O Motor continua responsável por complementar Impressões, Cliques, Visitas, Carrinho, Pedido, Pago e Confirmado; ele não decide mais se um anúncio analisado existe no Funil.
