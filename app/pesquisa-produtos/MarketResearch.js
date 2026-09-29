@@ -270,3 +270,4 @@ export default function MarketResearch(){
     </section>}
   </div>;
 }
+ 
