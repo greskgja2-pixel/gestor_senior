@@ -6,6 +6,20 @@
 
 ## Regra principal
 
+### Regra obrigatória de desenvolvimento — ENCICLOPÉDIA PRIMEIRO
+
+Antes de criar, corrigir ou alterar qualquer integração com a Shopee no Gestor Sênior ou no Motor Sênior, ChatGPT e Claude devem **consultar primeiro esta Enciclopédia e os mapeamentos já curados**.
+
+Ordem obrigatória:
+
+1. reutilizar endpoint, método, parâmetros e campos já confirmados na Enciclopédia;
+2. reutilizar exemplos reais capturados pelo mapeador para normalização;
+3. não substituir um campo confirmado por aliases inventados ou inferidos;
+4. somente investigar endpoints/campos novos quando a Enciclopédia não cobrir a necessidade;
+5. após validar uma descoberta nova, incorporá-la à Enciclopédia antes de tratá-la como regra permanente.
+
+Se houver divergência entre uma suposição do código e um mapeamento confirmado, **o mapeamento/Enciclopédia prevalece** até nova evidência técnica.
+
 A extensão coleta **evidências**. Esta enciclopédia registra apenas o que já foi interpretado e classificado.  
 Um dado deve passar por estágios:
 
