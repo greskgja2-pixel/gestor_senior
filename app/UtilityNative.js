@@ -167,14 +167,12 @@ export default function UtilityNative({section}){
     window.postMessage({source:'GS_GESTOR_THEME',theme:value},location.origin);
   }
 
-  if(section==='temas')return <div className={styles.page}><header><h1>Temas</h1><p>Escolha a aparência do Gestor Sênior. A preferência fica salva neste navegador.</p></header><section className={styles.panel}><div className={styles.grid}>{THEMES.map(([id,label])=><button key={id} type="button" className={theme===id?styles.active:''} onClick={()=>choose(id)}><span className={styles.preview} data-theme={id}/><b>{label}</b><small>{theme===id?'Tema atual':'Aplicar tema'}</small></button>)}</div></section></div>;
-
   useEffect(()=>{
     if(section==='config')runHealthDiagnostic({deep:false});
-    // Executa apenas o diagnóstico rápido ao abrir Configurações.
-    // O teste profundo do Funil é manual para não disparar coleta pesada sem ação do usuário.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[section]);
+
+  if(section==='temas')return <div className={styles.page}><header><h1>Temas</h1><p>Escolha a aparência do Gestor Sênior. A preferência fica salva neste navegador.</p></header><section className={styles.panel}><div className={styles.grid}>{THEMES.map(([id,label])=><button key={id} type="button" className={theme===id?styles.active:''} onClick={()=>choose(id)}><span className={styles.preview} data-theme={id}/><b>{label}</b><small>{theme===id?'Tema atual':'Aplicar tema'}</small></button>)}</div></section></div>;
 
   const velocityPct=Number(prefs.categories?.competitor_velocity_whatsapp_pct??100);
   const velocityRate=Number(prefs.categories?.competitor_velocity_whatsapp_min_sales_per_day??5);
