@@ -24,8 +24,8 @@ function flashSlotLabel(slot){
   const start=new Date(Number(slot?.start_time)*1000),end=new Date(Number(slot?.end_time)*1000);
   if(Number.isNaN(start.getTime())||Number.isNaN(end.getTime()))return 'Horário oficial';
   const duration=end-start;
-  const d=v=>v.toLocaleDateString('pt-BR');
-  const hm=v=>v.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  const d=v=>v.toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'});
+  const hm=v=>v.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',timeZone:'America/Sao_Paulo'});
   if(Math.abs(duration-86400000)<60000)return `${d(start)} — 24h (${hm(start)} → ${d(end)} ${hm(end)})`;
   return `${d(start)} ${hm(start)} → ${d(end)} ${hm(end)}`;
 }
@@ -587,7 +587,11 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
       setFlashConfirmOpen(false);
       const created=Number(j?.created_count||j?.flash_sale_ids?.length||1);
       const failed=Number(j?.failed_count||0);
-      setFlashMessage(failed?(`${created} oferta(s) criada(s); ${failed} horário(s) não puderam ser criados.`):(`${created} Oferta(s) Relâmpago criada(s) na Shopee.`));
+      const verified=Number(j?.verified_count||0);
+      const warnings=arr(j?.warnings).reduce((sum,row)=>sum+arr(row?.messages).length,0);
+      if(failed)setFlashMessage(`${created} oferta(s) criada(s) e confirmada(s); ${failed} período(s) falharam. Confira os detalhes antes de tentar novamente.`);
+      else if(warnings)setFlashMessage(`${created} Oferta(s) Relâmpago salva(s) e confirmada(s) na Shopee, com ${warnings} aviso(s) retornado(s) pela plataforma.`);
+      else setFlashMessage(`${verified||created} Oferta(s) Relâmpago salva(s) e confirmada(s) na Shopee.`);
       await loadFlashMeta(flashDays,flashPeriod);
     }catch(e){setFlashMessage(String(e?.message||e))}finally{setFlashBusy(false)}
   }
@@ -680,7 +684,7 @@ function PriceSection({costVariations=[],costValue=()=>'',setVarCost=()=>{},cost
   const confidence={high:'alta',medium:'média',low:'baixa',insufficient:'dados insuficientes'}[rec?.confidence]||'—';
   const groupedSlots=slots.reduce((groups,slot)=>{
     const d=new Date(Number(slot.start_time)*1000);
-    const key=Number.isNaN(d.getTime())?'Sem data':d.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit'});
+    const key=Number.isNaN(d.getTime())?'Sem data':d.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit',timeZone:'America/Sao_Paulo'});
     (groups[key]||(groups[key]=[])).push(slot);
     return groups;
   },{});
@@ -701,33 +705,33 @@ function PriceSection({costVariations=[],costValue=()=>'',setVarCost=()=>{},cost
     </section>
 
     <section className={styles.flashCard}>
-      <div className={styles.panelHead}><h2>⚡ Oferta Relâmpago real</h2><span>Horários oficiais da Shopee</span></div>
-      <p>Escolha na lista os dias e horários oficiais disponibilizados pela Shopee. Você pode marcar um ou vários horários e criar tudo pelo Gestor.</p>
+      <div className={styles.panelHead}><h2>⚡ Oferta Relâmpago real</h2><span>Períodos oficiais da Shopee</span></div>
+      <p>Escolha os períodos oficiais devolvidos pela Shopee. A data exibida abaixo é a mesma que será revalidada imediatamente antes da criação.</p>
 
       <div className={styles.flashPeriodCard}>
-        <div className={styles.flashPeriodHead}><div><b>📋 Dias e horários disponíveis</b><span>Próximos 7 dias · horários oficiais da Shopee.</span></div><strong>{slots.length?slots.length+' horário'+(slots.length===1?'':'s'):'—'}</strong></div>
+        <div className={styles.flashPeriodHead}><div><b>📋 Dias e períodos disponíveis</b><span>Período selecionado · dados oficiais da Shopee.</span></div><strong>{slots.length?slots.length+' período'+(slots.length===1?'':'s'):'—'}</strong></div>
         {flashInsight?.phase==='loading'?<div className={styles.flashSlotsEmpty}>Consultando os horários disponíveis…</div>:
         slots.length?
           <div className={styles.flashDayList}>
             {Object.entries(groupedSlots).map(([day,daySlots])=>{
               const allSelected=daySlots.every(slot=>flashSelectedIds.map(String).includes(String(slot.timeslot_id)));
               return <section key={day} className={styles.flashDayGroup}>
-                <header><div><b>{day}</b><span>{daySlots.length} horário{daySlots.length===1?'':'s'}</span></div><button type="button" onClick={()=>selectDay(daySlots)}>{allSelected?'Desmarcar dia':'Selecionar dia'}</button></header>
+                <header><div><b>{day}</b><span>{daySlots.length} período{daySlots.length===1?'':'s'}</span></div><button type="button" onClick={()=>selectDay(daySlots)}>{allSelected?'Desmarcar dia':'Selecionar dia'}</button></header>
                 <div className={styles.flashSlotList}>
                   {daySlots.map(slot=>{
                     const start=new Date(Number(slot.start_time)*1000),end=new Date(Number(slot.end_time)*1000);
                     const checked=flashSelectedIds.map(String).includes(String(slot.timeslot_id));
                     return <label key={slot.timeslot_id} className={checked?styles.flashSlotSelected:styles.flashSlotOption}>
                       <input type="checkbox" checked={checked} onChange={()=>toggleSlot(slot.timeslot_id)}/>
-                      <span><b>{start.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})} – {end.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</b><small>Horário oficial Shopee</small></span>
+                      <span><b>{start.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',timeZone:'America/Sao_Paulo'})} – {end.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',timeZone:'America/Sao_Paulo'})}</b><small>{flashSlotLabel(slot)} · horário de Brasília</small></span>
                     </label>
                   })}
                 </div>
               </section>
             })}
           </div>
-        :<div className={styles.flashSlotsEmpty}><b>Nenhum horário retornado ainda.</b><span>Clique em atualizar. O Gestor consulta cada dia separadamente para tentar recuperar os horários da sua loja.</span></div>}
-        <div className={styles.flashListFooter}><span><b>{selectedSlots.length}</b> selecionado{selectedSlots.length===1?'':'s'}</span><button type="button" onClick={()=>reloadFlash({start:localYmd(new Date()),end:addLocalDays(localYmd(new Date()),6)})} disabled={flashInsight?.phase==='loading'}>{flashInsight?.phase==='loading'?'↻ Consultando…':'↻ Atualizar horários'}</button></div>
+        :<div className={styles.flashSlotsEmpty}><b>Nenhum período oficial retornado.</b><span>Clique em atualizar ou escolha outro intervalo. O Gestor consulta a janela selecionada e usa somente os slots devolvidos pela Shopee.</span></div>}
+        <div className={styles.flashListFooter}><span><b>{selectedSlots.length}</b> selecionado{selectedSlots.length===1?'':'s'}</span><button type="button" onClick={()=>reloadFlash({start:localYmd(new Date()),end:addLocalDays(localYmd(new Date()),6)})} disabled={flashInsight?.phase==='loading'}>{flashInsight?.phase==='loading'?'↻ Consultando…':'↻ Atualizar períodos'}</button></div>
       </div>
 
 
@@ -742,7 +746,7 @@ function PriceSection({costVariations=[],costValue=()=>'',setVarCost=()=>{},cost
 
       {slotError&&<div className={styles.message}>{slotError}</div>}
       <button type="button" className={styles.primary} onClick={createFlash} disabled={flashBusy||!selectedSlots.length}>{flashBusy?'Criando…':`⚡ Criar Ofertas Relâmpago (${selectedSlots.length})`}</button>
-      <small className={styles.recommendNote}>Antes de criar, o Gestor abre uma confirmação com o período, preços e opção para avisar quando as ofertas terminarem.</small>
+      <small className={styles.recommendNote}>Antes de criar, o Gestor revalida o slot e a data; depois de salvar, relê a oferta na Shopee para confirmar que o produto realmente ficou gravado.</small>
       {flashMessage&&<div className={styles.message}>{flashMessage}</div>}
     </section>
 
