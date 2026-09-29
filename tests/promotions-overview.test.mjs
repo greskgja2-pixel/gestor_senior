@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const page=fs.readFileSync('app/promocoes/page.js','utf8');
+const api=fs.readFileSync('app/api/shopee/promotions-overview/route.js','utf8');
+const shell=fs.readFileSync('app/components/AppShell.js','utf8');
+test('Central de Promoções aparece na navegação',()=>{assert.match(shell,/label:'Promoções'/);assert.match(shell,/href:'\/promocoes'/)});
+test('Central separa ativas, agendadas, descontos e flash sale',()=>{assert.match(page,/Ativas agora/);assert.match(page,/Agendadas/);assert.match(page,/Campanhas de desconto/);assert.match(page,/Ofertas Relâmpago/)});
+test('Visão consolidada usa fontes oficiais já integradas',()=>{assert.match(api,/getDiscountList/);assert.match(api,/getDiscount/);assert.match(api,/getShopFlashSaleList/);assert.match(api,/getShopFlashSaleItems/)});
+test('Central é somente leitura',()=>{assert.doesNotMatch(api,/export async function POST/);assert.match(page,/Somente leitura nesta versão/)});
