@@ -490,3 +490,14 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 5. O Plano de Destrave e o modo “Específico · me diga o que fazer” foram preservados integralmente abaixo do funil.
 6. O layout é responsivo: duas colunas no desktop, uma coluna em telas menores, mantendo leitura confortável no celular.
 7. Nenhuma fonte, cálculo de negócio, API ou sidebar foi alterada nesta mudança; foi uma reorganização visual do funil da loja.
+
+
+### 2026-09-29 — ChatGPT — Curadoria Motor Sênior: Oferta Relâmpago da Loja
+- Fonte: `Motor-Senior-Mapeamento-2026-09-29.zip`, Motor v0.17.7, captura passiva de fluxo manual real no Seller Center BR.
+- Sessão: 102 capturas, 61 combinações método+rota, 15 rotas de negócio Marketing, 0 erros.
+- Enciclopédia promovida para v14 com o fluxo completo de Oferta Relâmpago da Loja.
+- Confirmados: elegibilidade da loja/produto, slots reais, criação por `timeslot_id`, seletor estruturado de produtos, validação em lote, GraphQL de variações/estoque, gravação de itens por variação, validação de misleading discount, sequência dos itens, ponte opcional para Ads, métricas e releitura final.
+- Escritas confirmadas: `set_shop_flash_sale`, `set_shop_flash_sale_items`, `set_item_sequence`.
+- Descoberta crítica: a criação é em duas fases. Primeiro cria o contêiner pelo `timeslot_id` e recebe `flash_sale_id` + janela autoritativa; depois grava as variações/preço/estoque. O Gestor deve reler a Shopee antes de declarar sucesso.
+- Foi observada reserva progressiva de estoque por variação nas releituras GraphQL.
+- Segurança: a exportação bruta pode carregar SPC_CDS no campo URL; nunca copiar token/cookie/identificador de sessão para docs, banco, logs públicos ou commits.
