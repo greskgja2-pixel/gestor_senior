@@ -534,3 +534,17 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 - Produtos com Super Análise recente (até 30 dias) continuam aparecendo no Funil mesmo se o Motor/Seller Center não devolver métricas naquele momento.
 - Quando faltar a coleta do Motor, o produto permanece disponível com métricas ausentes, permitindo distinguir “produto analisado” de “métrica temporariamente indisponível”.
 - O Motor continua responsável por complementar Impressões, Cliques, Visitas, Carrinho, Pedido, Pago e Confirmado; ele não decide mais se um anúncio analisado existe no Funil.
+
+
+### 2026-09-29 — ChatGPT — painel Saúde do Sistema em Configurações
+**Arquivos:** `app/UtilityNative.js`, `app/utility-native.module.css`, `app/api/system-health/route.js`.
+
+**O que mudou:**
+1. Configurações ganhou o card “Saúde do Sistema”, com diagnóstico rápido automático e botão manual “Executar diagnóstico agora”.
+2. O painel mostra status por módulo/dependência com verde, amarelo, vermelho, detalhe da falha e horário da última verificação.
+3. O backend `/api/system-health` valida conexão da loja, Supabase e tabelas principais da Super Análise, concorrentes, tarefas e preferências sem expor credenciais.
+4. O navegador valida o handshake real com o Motor Sênior e o endpoint de contexto do Funil.
+5. O diagnóstico manual profundo chama `sellerFunnel` em modo somente leitura para o período “Hoje”, permitindo validar a cadeia do Funil de ponta a ponta sem alterar preço, estoque, ROAS ou anúncios.
+6. O status não inventa sucesso: quando uma dependência falha ou não está disponível, o módulo aparece como falha/atenção e mostra qual teste quebrou.
+
+**Cuidados:** o diagnóstico rápido não dispara coleta pesada no Seller Center; a coleta real do Funil só ocorre por ação explícita no botão de diagnóstico.
