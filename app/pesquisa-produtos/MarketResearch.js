@@ -137,6 +137,11 @@ export default function MarketResearch(){
   const [mode,setMode]=useState('standard');
   const [page,setPage]=useState(1);
   const [saved,setSaved]=useState([]);
+  const [historyOpen,setHistoryOpen]=useState(false);
+  const [historyFilter,setHistoryFilter]=useState('');
+  const [historyShowAll,setHistoryShowAll]=useState(false);
+  const [selectedHistoryId,setSelectedHistoryId]=useState(null);
+  const [comparison,setComparison]=useState(null);
   const [diagnostics,setDiagnostics]=useState(null);
   const [diagnosticsOpen,setDiagnosticsOpen]=useState(false);
   const [overviewVisible,setOverviewVisible]=useState(true);
@@ -145,7 +150,19 @@ export default function MarketResearch(){
   const [assistantObjective,setAssistantObjective]=useState('sales');
   const fileRef=useRef(null);
   const PAGE_SIZE=20;
-  useEffect(()=>{try{setSaved(JSON.parse(localStorage.getItem('gs_market_saved')||'[]'))}catch{}},[]);
+  useEffect(()=>{
+    try{
+      const stored=JSON.parse(localStorage.getItem('gs_market_saved')||'[]');
+      const list=Array.isArray(stored)?stored.slice(0,50):[];
+      setSaved(list);
+      if(list.length)setSelectedHistoryId(list[0].id);
+      setHistoryOpen(localStorage.getItem('historico_aberto')==='true');
+    }catch{
+      setSaved([]);
+      setHistoryOpen(false);
+    }
+  },[]);
+  useEffect(()=>{try{localStorage.setItem('historico_aberto',historyOpen?'true':'false')}catch{}},[historyOpen]);
 
   const bench=useMemo(()=>stats(rows),[rows]);
   const prepared=useMemo(()=>rows.map(r=>({...r,score:opportunityScore(r,bench),confidence:confidence(r)})),[rows,bench]);
@@ -170,9 +187,107 @@ export default function MarketResearch(){
 
   function loadPayload(payload,source='arquivo'){
     const normalized=extractRows(payload).map(normalizeOne).filter(r=>r.itemId||r.title);
+    const diag=payload?.diagnostics??payload?.data?.diagnostics??null;
     setRows(normalized);
-    setDiagnostics(payload?.diagnostics??payload?.data?.diagnostics??null);
+    setDiagnostics(diag);
     setMessage(normalized.length?`${normalized.length} anúncios carregados de ${source}.`:'Nenhum anúncio válido foi encontrado nessa coleta.');
+    return {normalized,diagnostics:diag};
+  }
+
+  function compactRows(list){
+    return list.map(({raw,...row})=>row);
+  }
+  function historyEntry(term,list,diag,searchMode=mode){
+    const snapshot=stats(list);
+    const coverageValues=Object.values(snapshot.coverage||{});
+    const snapshotQuality=list.length?Math.round(coverageValues.reduce((sum,value)=>sum+value,0)/(list.length*Math.max(1,coverageValues.length))*100):0;
+    return {
+      id:Date.now(),
+      query:String(term||'Pesquisa importada').trim()||'Pesquisa importada',
+      date:new Date().toISOString(),
+      mode:searchMode,
+      count:list.length,
+      quality:snapshotQuality,
+      rows:compactRows(list),
+      diagnostics:diag||null,
+      summary:{
+        priceMedian:snapshot.priceMedian,
+        soldMedian:snapshot.soldMedian,
+        monthlyMedian:snapshot.monthlyMedian,
+        mainLocation:snapshot.mainLocation,
+        coverage:snapshot.coverage
+      }
+    };
+  }
+  function persistHistory(next){
+    const limited=next.slice(0,50);
+    setSaved(limited);
+    try{localStorage.setItem('gs_market_saved',JSON.stringify(limited))}catch{}
+    return limited;
+  }
+  function saveSnapshot(term,list,diag,searchMode=mode){
+    if(!list.length)return null;
+    const entry=historyEntry(term,list,diag,searchMode);
+    persistHistory([entry,...saved]);
+    setSelectedHistoryId(entry.id);
+    return entry;
+  }
+  function reopenResearch(entry){
+    if(!entry)return;
+    if(!Array.isArray(entry.rows)||!entry.rows.length){
+      setMessage('Esta pesquisa foi salva por uma versão antiga e não possui os anúncios necessários para reabrir.');
+      return;
+    }
+    setQuery(entry.query||'');
+    setMode(entry.mode||'standard');
+    setRows(entry.rows.map((row,index)=>({...row,index,key:row.key||row.itemId||row.shopId||String(index)})));
+    setDiagnostics(entry.diagnostics||null);
+    setComparison(null);
+    setActiveTab('overview');
+    setMessage(`${entry.rows.length} anúncios reabertos do histórico, sem nova coleta.`);
+  }
+  function deleteResearch(entry){
+    if(!entry)return;
+    const next=persistHistory(saved.filter(item=>item.id!==entry.id));
+    if(selectedHistoryId===entry.id)setSelectedHistoryId(next[0]?.id??null);
+    setComparison(current=>current?.historyId===entry.id?null:current);
+  }
+  function comparableDelta(before,after){
+    if(before==null||after==null)return null;
+    return after-before;
+  }
+  async function repeatAndCompare(entry){
+    if(!entry||busy)return;
+    const term=String(entry.query||'').trim();
+    if(!term){setMessage('Esta pesquisa não possui um termo válido para repetir.');return}
+    setBusy(true);
+    setMessage('Repetindo a pesquisa para comparar com o histórico…');
+    try{
+      const searchMode=entry.mode||'standard';
+      const pagesByMode={quick:1,standard:3,deep:5};
+      const data=await motorData('marketplaceSearch',{query:term,sort:'relevance',pages:pagesByMode[searchMode]},75000);
+      const result=loadPayload(data,'nova coleta para comparação');
+      const currentStats=stats(result.normalized);
+      const previous=entry.summary||stats(Array.isArray(entry.rows)?entry.rows:[]);
+      setComparison({
+        historyId:entry.id,
+        previousDate:entry.date,
+        currentDate:new Date().toISOString(),
+        before:previous,
+        after:currentStats,
+        deltas:{
+          priceMedian:comparableDelta(previous?.priceMedian,currentStats.priceMedian),
+          soldMedian:comparableDelta(previous?.soldMedian,currentStats.soldMedian),
+          monthlyMedian:comparableDelta(previous?.monthlyMedian,currentStats.monthlyMedian)
+        }
+      });
+      setQuery(term);
+      setMode(searchMode);
+      saveSnapshot(term,result.normalized,result.diagnostics,searchMode);
+      setMessage('Nova coleta concluída e salva. A comparação usa apenas campos disponíveis nas duas pesquisas.');
+    }catch(error){
+      setMessage('Não consegui repetir a pesquisa: '+String(error?.message||error)+'.');
+    }finally{setBusy(false)}
   }
 
   async function search(){
@@ -229,7 +344,13 @@ export default function MarketResearch(){
     };
   },[query,keywords,variations,bench.priceMedian,concentration.shops,concentration.share,rows.length]);
   useEffect(()=>setPage(1),[sort,minSold,maxPrice,rows.length]);
-  function saveResearch(){if(!rows.length)return;const entry={id:Date.now(),query:query.trim()||'Pesquisa importada',count:rows.length,quality,date:new Date().toISOString()};const next=[entry,...saved.filter(x=>x.query!==entry.query)].slice(0,10);setSaved(next);try{localStorage.setItem('gs_market_saved',JSON.stringify(next))}catch{}setMessage('Pesquisa salva neste navegador.');}
+  function saveResearch(){if(!rows.length)return;saveSnapshot(query.trim()||'Pesquisa importada',rows,diagnostics,mode);setMessage('Pesquisa salva neste navegador.');}
+  const selectedHistory=useMemo(()=>saved.find(item=>item.id===selectedHistoryId)||saved[0]||null,[saved,selectedHistoryId]);
+  const filteredHistory=useMemo(()=>{
+    const term=historyFilter.trim().toLowerCase();
+    return term?saved.filter(item=>String(item.query||'').toLowerCase().includes(term)):saved;
+  },[saved,historyFilter]);
+  const visibleHistory=historyShowAll?filteredHistory:filteredHistory.slice(0,6);
   const tabs=[['overview','Visão geral'],['results','Resultados'],['top','Oportunidades'],['keywords','Palavras-chave'],['competition','Concorrência'],['insights','Insights']];
 
   return <div className={styles.page}>
@@ -246,10 +367,57 @@ export default function MarketResearch(){
         <button type="button" className={styles.secondary} onClick={()=>fileRef.current?.click()}>Importar coleta</button>
         <input ref={fileRef} hidden type="file" accept="application/json,.json" onChange={e=>onFile(e.target.files?.[0])}/>
       </div>
-      <div className={styles.message}>{message}</div>
+      <div className={styles.searchStatusRow}>
+        <div className={styles.message} aria-live="polite">{message}</div>
+        <div className={styles.statusActions}>
+          <button type="button" className={historyOpen?styles.historyToggleOpen:styles.historyToggle} aria-expanded={historyOpen} aria-controls="pesquisas-anteriores" onClick={()=>setHistoryOpen(v=>!v)}>
+            <span aria-hidden="true">◷</span><b>{historyOpen?'Ocultar histórico':'Histórico de pesquisas'}</b><em>{saved.length}</em><span aria-hidden="true">{historyOpen?'⌃':'⌄'}</span>
+          </button>
+          <button type="button" className={styles.diagnosticLink} onClick={()=>setDiagnosticsOpen(v=>!v)} aria-expanded={diagnosticsOpen} aria-controls="diagnostico-coleta">🔧 {diagnosticsOpen?'Ocultar diagnóstico':'Diagnóstico da coleta'}</button>
+        </div>
+      </div>
     </section>
 
-    {rows.length>0&&<section className={styles.qualityCard}><div className={styles.qualityHead}><div><span>COBERTURA DOS DADOS</span><b>{qualityLabel} · {quality}%</b></div><em data-level={quality>=75?'high':quality>=45?'mid':'low'}>{qualityLabel}</em></div><div className={styles.coverageGrid}>{[['Preço','price'],['Vendas','sold'],['Vendas 30d','monthly'],['Localização','location'],['Avaliação','rating'],['Reviews','reviews']].map(([label,key])=><div key={key}><b>{bench.coverage[key]}/{rows.length}</b><span>{label}</span><i><u style={{width:(bench.coverage[key]/rows.length*100)+'%'}}/></i></div>)}</div>{suspiciousSales&&<div className={styles.dataWarning}>⚠️ Todos os anúncios vieram com vendas = 0. O Gestor não assume que isso significa ausência de demanda; este campo está marcado como suspeito até uma nova coleta confirmar.</div>}<button type="button" className={styles.diagnosticToggle} onClick={()=>setDiagnosticsOpen(v=>!v)}>🔧 {diagnosticsOpen?'Ocultar diagnóstico':'Diagnóstico da coleta'}</button>{diagnosticsOpen&&<div className={styles.diagnosticPanel}><div className={styles.diagnosticIntro}><b>Motor Sênior × Gestor</b><span>{diagnostics?'O Motor informou a cobertura antes da normalização. Assim dá para saber exatamente onde um campo se perdeu.':'Esta coleta não trouxe diagnóstico do Motor. Instale a v0.17.9 e faça uma nova pesquisa para gerar essa comparação.'}</span></div>{diagnostics&&<><div className={styles.diagnosticActions}><button type="button" className={styles.secondary} onClick={downloadDiagnostics}>Baixar diagnóstico técnico</button>{diagnostics?.mode==='diagnostic-only'&&<span>Modo diagnóstico: amostra controlada de {diagnostics?.sampleSize||0} item(ns), sem enriquecimento misturado.</span>}</div><div className={styles.diagnosticGrid}>{[['Preço','price','price'],['Vendas','sold','sold'],['Vendas 30d','monthlySold','monthly'],['Localização','shopLocation','location'],['Avaliação','rating','rating'],['Reviews','reviewCount','reviews']].map(([label,motorKey,gestorKey])=>{const motor=Number(diagnostics?.coverage?.[motorKey]??0),gestor=Number(bench.coverage?.[gestorKey]??0);const status=motor===0?'source':gestor<motor?'normalizer':'ok';return <div key={label} data-status={status}><b>{label}</b><span>Motor: {motor}/{rows.length}</span><span>Gestor: {gestor}/{rows.length}</span><strong>{status==='ok'?'✓ aproveitado':status==='normalizer'?'⚠ normalização':'○ não veio da busca'}</strong></div>})}</div>{Array.isArray(diagnostics.detectedPaths)&&diagnostics.detectedPaths.length>0&&<details className={styles.detectedPaths}><summary>Campos estruturados detectados pelo Motor</summary><code>{diagnostics.detectedPaths.join(' · ')}</code></details>}</>}</div>}</section>}
+    {historyOpen&&<section id="pesquisas-anteriores" className={styles.historyCard} aria-label="Pesquisas anteriores">
+      <div className={styles.historyHeader}>
+        <div><span>HISTÓRICO</span><h2>Pesquisas anteriores</h2><p>Reabra uma coleta salva ou repita a mesma busca para comparar os dados disponíveis.</p></div>
+        <label className={styles.historySearch}><span className={styles.srOnly}>Filtrar histórico por termo</span><span aria-hidden="true">⌕</span><input value={historyFilter} onChange={e=>{setHistoryFilter(e.target.value);setHistoryShowAll(false)}} placeholder="Filtrar por termo"/></label>
+      </div>
+      {!saved.length?<div className={styles.historyEmpty}><span aria-hidden="true">◷</span><b>Nenhuma pesquisa salva ainda</b><p>Quando você salvar uma pesquisa, ela aparecerá aqui com os dados realmente coletados.</p></div>:
+      <div className={styles.historyGrid}>
+        <div className={styles.historyList} role="list" aria-label="Lista de pesquisas salvas">
+          {!filteredHistory.length?<div className={styles.historyNoMatch}>Nenhuma pesquisa corresponde a “{historyFilter}”.</div>:visibleHistory.map(entry=><button type="button" role="listitem" key={entry.id} className={(selectedHistory?.id===entry.id)?styles.historyItemActive:styles.historyItem} onClick={()=>setSelectedHistoryId(entry.id)}>
+            <span><b>{entry.query||'Pesquisa sem termo'}</b><small>{entry.date?new Date(entry.date).toLocaleString('pt-BR'):'Data não disponível'}</small></span>
+            <span><strong>{entry.count??(Array.isArray(entry.rows)?entry.rows.length:'—')}</strong><small>anúncios</small></span>
+          </button>)}
+          {filteredHistory.length>6&&<button type="button" className={styles.viewAllHistory} onClick={()=>setHistoryShowAll(v=>!v)}>{historyShowAll?'Mostrar menos':'Ver todas'} ({filteredHistory.length})</button>}
+        </div>
+        <div className={styles.historyDetails}>
+          {selectedHistory&&<>
+            <div className={styles.historyDetailHead}><div><span>PESQUISA SELECIONADA</span><h3>{selectedHistory.query||'Pesquisa sem termo'}</h3><p>{selectedHistory.date?new Date(selectedHistory.date).toLocaleString('pt-BR'):'Data não disponível'} · {selectedHistory.mode==='quick'?'Rápida':selectedHistory.mode==='deep'?'Profunda':'Padrão'}</p></div><em>{selectedHistory.quality==null?'Qualidade —':'Qualidade '+selectedHistory.quality+'%'}</em></div>
+            <div className={styles.historyMetrics}>
+              <div><span>Anúncios</span><b>{selectedHistory.count??(Array.isArray(selectedHistory.rows)?selectedHistory.rows.length:'—')}</b></div>
+              <div><span>Preço mediano</span><b>{selectedHistory.summary?.priceMedian!=null?money(selectedHistory.summary.priceMedian):'Não coletado'}</b></div>
+              <div><span>Vendas medianas</span><b>{selectedHistory.summary?.soldMedian!=null?compact(selectedHistory.summary.soldMedian):'Não coletado'}</b></div>
+              <div><span>Vendas 30 dias</span><b>{selectedHistory.summary?.monthlyMedian!=null?compact(selectedHistory.summary.monthlyMedian):'Não coletado'}</b></div>
+            </div>
+            {comparison?.historyId===selectedHistory.id&&<div className={styles.comparisonBox} aria-live="polite">
+              <b>Comparação com nova coleta</b>
+              <div><span>Preço mediano</span><strong>{comparison.before?.priceMedian!=null&&comparison.after?.priceMedian!=null?`${money(comparison.before.priceMedian)} → ${money(comparison.after.priceMedian)}`:'Sem dados comparáveis'}</strong></div>
+              <div><span>Vendas medianas</span><strong>{comparison.before?.soldMedian!=null&&comparison.after?.soldMedian!=null?`${compact(comparison.before.soldMedian)} → ${compact(comparison.after.soldMedian)}`:'Sem dados comparáveis'}</strong></div>
+              <div><span>Vendas 30 dias</span><strong>{comparison.before?.monthlyMedian!=null&&comparison.after?.monthlyMedian!=null?`${compact(comparison.before.monthlyMedian)} → ${compact(comparison.after.monthlyMedian)}`:'Sem dados comparáveis'}</strong></div>
+            </div>}
+            <div className={styles.historyActions}>
+              <button type="button" onClick={()=>reopenResearch(selectedHistory)} disabled={!Array.isArray(selectedHistory.rows)||!selectedHistory.rows.length} title={!Array.isArray(selectedHistory.rows)||!selectedHistory.rows.length?'Pesquisa antiga sem snapshot dos anúncios':''}>Reabrir pesquisa</button>
+              <button type="button" onClick={()=>repeatAndCompare(selectedHistory)} disabled={busy}>Repetir e comparar</button>
+              <button type="button" className={styles.deleteHistory} onClick={()=>deleteResearch(selectedHistory)}>Excluir</button>
+            </div>
+          </>}
+        </div>
+      </div>}
+    </section>}
+
+    {rows.length>0&&<section className={styles.qualityCard}><div className={styles.qualityHead}><div><span>COBERTURA DOS DADOS</span><b>{qualityLabel} · {quality}%</b></div><em data-level={quality>=75?'high':quality>=45?'mid':'low'}>{qualityLabel}</em></div><div className={styles.coverageGrid}>{[['Preço','price'],['Vendas','sold'],['Vendas 30d','monthly'],['Localização','location'],['Avaliação','rating'],['Reviews','reviews']].map(([label,key])=><div key={key}><b>{bench.coverage[key]}/{rows.length}</b><span>{label}</span><i><u style={{width:(bench.coverage[key]/rows.length*100)+'%'}}/></i></div>)}</div>{suspiciousSales&&<div className={styles.dataWarning}>⚠️ Todos os anúncios vieram com vendas = 0. O Gestor não assume que isso significa ausência de demanda; este campo está marcado como suspeito até uma nova coleta confirmar.</div>}{diagnosticsOpen&&<div id="diagnostico-coleta" className={styles.diagnosticPanel}><div className={styles.diagnosticIntro}><b>Motor Sênior × Gestor</b><span>{diagnostics?'O Motor informou a cobertura antes da normalização. Assim dá para saber exatamente onde um campo se perdeu.':'Esta coleta não trouxe diagnóstico do Motor. Instale a v0.17.9 e faça uma nova pesquisa para gerar essa comparação.'}</span></div>{diagnostics&&<><div className={styles.diagnosticActions}><button type="button" className={styles.secondary} onClick={downloadDiagnostics}>Baixar diagnóstico técnico</button>{diagnostics?.mode==='diagnostic-only'&&<span>Modo diagnóstico: amostra controlada de {diagnostics?.sampleSize||0} item(ns), sem enriquecimento misturado.</span>}</div><div className={styles.diagnosticGrid}>{[['Preço','price','price'],['Vendas','sold','sold'],['Vendas 30d','monthlySold','monthly'],['Localização','shopLocation','location'],['Avaliação','rating','rating'],['Reviews','reviewCount','reviews']].map(([label,motorKey,gestorKey])=>{const motor=Number(diagnostics?.coverage?.[motorKey]??0),gestor=Number(bench.coverage?.[gestorKey]??0);const status=motor===0?'source':gestor<motor?'normalizer':'ok';return <div key={label} data-status={status}><b>{label}</b><span>Motor: {motor}/{rows.length}</span><span>Gestor: {gestor}/{rows.length}</span><strong>{status==='ok'?'✓ aproveitado':status==='normalizer'?'⚠ normalização':'○ não veio da busca'}</strong></div>})}</div>{Array.isArray(diagnostics.detectedPaths)&&diagnostics.detectedPaths.length>0&&<details className={styles.detectedPaths}><summary>Campos estruturados detectados pelo Motor</summary><code>{diagnostics.detectedPaths.join(' · ')}</code></details>}</>}</div>}</section>}
 
     <nav className={styles.tabs} aria-label="Seções da Pesquisa de Produtos">
       <div className={styles.tabScroller}>{tabs.map(([id,label])=><button key={id} type="button" className={activeTab===id?styles.activeTab:''} onClick={()=>setActiveTab(id)}>{label}</button>)}</div>
