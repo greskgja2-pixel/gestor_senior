@@ -58,7 +58,7 @@ test('Pesquisa exporta diagnóstico técnico da extensão',()=>{
 
 test('Pesquisa integra Assistente de Criação com abas e controles de visibilidade',()=>{
   for(const expected of [
-    'Assistente de Criação do Anúncio','overviewVisible','assistantVisible','assistantTab',
+    'ASSISTENTE DE CRIAÇÃO DO ANÚNCIO','overviewVisible','assistantVisible','assistantTab',
     'Ocultar visão geral','Mostrar visão geral','Ocultar assistente','Mostrar assistente',
     'Categoria / NCM','Referências','Checklist'
   ]) assert.ok(page.includes(expected),expected);
