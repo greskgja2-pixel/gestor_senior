@@ -593,3 +593,15 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 5. `pdp/get_pc` fica como fallback pontual futuro quando algum campo realmente faltar. `get_ratings` fica reservado para análise profunda/mineração de avaliações, não para os 36/60 itens em massa.
 6. A v0.18.6 mantém o modo diagnóstico antigo como ferramenta auxiliar, mas `marketplaceSearch` agora usa a nova ação `GS_COLLECT_NATURAL_SEARCH`.
 7. Guardrail: ausência de campo continua `null`; não misturar fontes silenciosamente; não inferir Ads por `adsid` isolado.
+
+
+### 2026-09-29 — ChatGPT — Assistente de Criação do Anúncio na Pesquisa de Produtos
+**Arquivos:** `app/pesquisa-produtos/MarketResearch.js`, `app/pesquisa-produtos/pesquisa-produtos.module.css`, `tests/market-research-v2.test.mjs`.
+
+1. A página Pesquisa de Produtos ganhou o bloco **Assistente de Criação do Anúncio** abaixo do conteúdo principal, ocupando a área inferior da página como no mockup aprovado.
+2. Foram adicionados controles independentes para **mostrar/ocultar a Visão Geral** e **mostrar/ocultar o Assistente**, nos pontos de cabeçalho aprovados pelo usuário.
+3. Para manter a tela limpa, o Assistente usa abas internas: Estratégia, Título, Descrição, Imagens, Categoria/NCM, Variações, Referências e Checklist. Só uma seção do assistente aparece por vez.
+4. Nesta primeira implementação, título, descrição, variações, faixa de preço, concorrência e referências usam somente dados já coletados pela Pesquisa de Produtos e cálculos determinísticos. O sistema não inventa categoria ou NCM quando a busca não fornece evidência suficiente; esses campos ficam explicitamente marcados para revisão.
+5. Variações são inferidas de termos observáveis nos títulos (ex.: menino/menina, ursinho/ursinha, Homem-Aranha, princesa, floral, cores e temas conhecidos) e ordenadas pela força observada de vendas/30d ou vendas acumuladas nos anúncios que contêm o termo.
+6. Referências usam anúncios reais da coleta, priorizados por vendas/30d/vendas, com botão para abrir o anúncio e a imagem em nova aba. Download direto de imagem não foi forçado nesta etapa porque depende de permissões/CORS do host da Shopee.
+7. O layout recebeu responsividade para desktop, tablet e mobile e testes de regressão para presença das abas, toggles e honestidade de Categoria/NCM.
