@@ -394,7 +394,7 @@ export default function MarketResearch(){
       <div className={styles.searchStatusRow}>
         <div className={styles.message} aria-live="polite">{message}{rows.length>0&&<span className={styles.currentDepth}>Profundidade usada: <b>{modeLabel(currentResearchMode)}</b></span>}</div>
         <div className={styles.statusActions}>
-          <button type="button" className={styles.saveSearchBtn} onClick={exportCurrentResearch} disabled={!rows.length}>⇧ Exportar coleta</button>
+          <button type="button" className={styles.saveSearchBtn} onClick={exportCurrentResearch} disabled={!rows.length} title="Exportar a coleta atual em JSON">⇧ Exportar coleta</button>
           <button type="button" className={historyOpen?styles.historyToggleOpen:styles.historyToggle} aria-expanded={historyOpen} aria-controls="pesquisas-anteriores" onClick={()=>setHistoryOpen(v=>!v)}>
             <span aria-hidden="true">◷</span><b>{historyOpen?'Ocultar histórico':'Histórico de pesquisas'}</b><em>{saved.length}</em><span aria-hidden="true">{historyOpen?'⌃':'⌄'}</span>
           </button>
