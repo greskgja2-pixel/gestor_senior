@@ -306,8 +306,9 @@ export default function MarketResearch(){
     try{
       const pagesByMode={quick:1,standard:3,deep:5};
       const data=await motorData('marketplaceSearch',{query:term,sort:'relevance',pages:pagesByMode[mode]},75000);
-      loadPayload(data,'busca ao vivo');
+      const result=loadPayload(data,'busca ao vivo');
       setCurrentResearchMode(mode);
+      if(result.normalized.length)saveSnapshot(term,result.normalized,result.diagnostics,mode);
     }catch(error){
       setMessage('Não consegui concluir a pesquisa automática: '+String(error?.message||error)+'. Verifique se o Motor Senior está conectado e tente novamente.');
     }finally{setBusy(false)}
@@ -317,8 +318,9 @@ export default function MarketResearch(){
     if(!file)return;
     try{
       const text=await file.text();
-      loadPayload(JSON.parse(text),file.name);
+      const result=loadPayload(JSON.parse(text),file.name);
       setCurrentResearchMode(null);
+      if(result.normalized.length)saveSnapshot(query.trim()||'Pesquisa importada',result.normalized,result.diagnostics,null);
     }catch{setMessage('Não consegui ler esse JSON. Use um arquivo exportado pelo Coletor Shopee.')}
   }
 
@@ -355,7 +357,10 @@ export default function MarketResearch(){
     };
   },[query,keywords,variations,bench.priceMedian,concentration.shops,concentration.share,rows.length]);
   useEffect(()=>setPage(1),[sort,minSold,maxPrice,rows.length]);
-  function saveResearch(){if(!rows.length)return;saveSnapshot(query.trim()||'Pesquisa importada',rows,diagnostics,currentResearchMode);setMessage('Pesquisa salva neste navegador.');}
+  function exportCurrentResearch(){
+    if(!rows.length)return;
+    exportResearch(historyEntry(query.trim()||'Pesquisa importada',rows,diagnostics,currentResearchMode));
+  }
   function exportResearch(entry){
     if(!entry)return;
     const blob=new Blob([JSON.stringify(entry,null,2)],{type:'application/json'});
@@ -389,11 +394,10 @@ export default function MarketResearch(){
       <div className={styles.searchStatusRow}>
         <div className={styles.message} aria-live="polite">{message}{rows.length>0&&<span className={styles.currentDepth}>Profundidade usada: <b>{modeLabel(currentResearchMode)}</b></span>}</div>
         <div className={styles.statusActions}>
-          <button type="button" className={styles.saveSearchBtn} onClick={saveResearch} disabled={!rows.length}>☆ Salvar pesquisa</button>
+          <button type="button" className={styles.saveSearchBtn} onClick={exportCurrentResearch} disabled={!rows.length}>⇧ Exportar coleta</button>
           <button type="button" className={historyOpen?styles.historyToggleOpen:styles.historyToggle} aria-expanded={historyOpen} aria-controls="pesquisas-anteriores" onClick={()=>setHistoryOpen(v=>!v)}>
             <span aria-hidden="true">◷</span><b>{historyOpen?'Ocultar histórico':'Histórico de pesquisas'}</b><em>{saved.length}</em><span aria-hidden="true">{historyOpen?'⌃':'⌄'}</span>
           </button>
-          <button type="button" className={styles.diagnosticLink} onClick={()=>setDiagnosticsOpen(v=>!v)} aria-expanded={diagnosticsOpen} aria-controls="diagnostico-coleta">🔧 {diagnosticsOpen?'Ocultar diagnóstico':'Diagnóstico da coleta'}</button>
         </div>
       </div>
     </section>
@@ -443,14 +447,23 @@ export default function MarketResearch(){
       </div>}
     </section>}
 
-    {rows.length>0&&<section className={styles.qualityCard}><div className={styles.qualityHead}><div><span>COBERTURA DOS DADOS</span><b>{qualityLabel} · {quality}%</b></div><em data-level={quality>=75?'high':quality>=45?'mid':'low'}>{qualityLabel}</em></div><div className={styles.coverageGrid}>{[['Preço','price'],['Vendas','sold'],['Vendas 30d','monthly'],['Localização','location'],['Avaliação','rating'],['Reviews','reviews']].map(([label,key])=><div key={key}><b>{bench.coverage[key]}/{rows.length}</b><span>{label}</span><i><u style={{width:(bench.coverage[key]/rows.length*100)+'%'}}/></i></div>)}</div>{suspiciousSales&&<div className={styles.dataWarning}>⚠️ Todos os anúncios vieram com vendas = 0. O Gestor não assume que isso significa ausência de demanda; este campo está marcado como suspeito até uma nova coleta confirmar.</div>}{diagnosticsOpen&&<div id="diagnostico-coleta" className={styles.diagnosticPanel}><div className={styles.diagnosticIntro}><b>Motor Sênior × Gestor</b><span>{diagnostics?'O Motor informou a cobertura antes da normalização. Assim dá para saber exatamente onde um campo se perdeu.':'Esta coleta não trouxe diagnóstico do Motor. Instale a v0.17.9 e faça uma nova pesquisa para gerar essa comparação.'}</span></div>{diagnostics&&<><div className={styles.diagnosticActions}><button type="button" className={styles.secondary} onClick={downloadDiagnostics}>Baixar diagnóstico técnico</button>{diagnostics?.mode==='diagnostic-only'&&<span>Modo diagnóstico: amostra controlada de {diagnostics?.sampleSize||0} item(ns), sem enriquecimento misturado.</span>}</div><div className={styles.diagnosticGrid}>{[['Preço','price','price'],['Vendas','sold','sold'],['Vendas 30d','monthlySold','monthly'],['Localização','shopLocation','location'],['Avaliação','rating','rating'],['Reviews','reviewCount','reviews']].map(([label,motorKey,gestorKey])=>{const motor=Number(diagnostics?.coverage?.[motorKey]??0),gestor=Number(bench.coverage?.[gestorKey]??0);const status=motor===0?'source':gestor<motor?'normalizer':'ok';return <div key={label} data-status={status}><b>{label}</b><span>Motor: {motor}/{rows.length}</span><span>Gestor: {gestor}/{rows.length}</span><strong>{status==='ok'?'✓ aproveitado':status==='normalizer'?'⚠ normalização':'○ não veio da busca'}</strong></div>})}</div>{Array.isArray(diagnostics.detectedPaths)&&diagnostics.detectedPaths.length>0&&<details className={styles.detectedPaths}><summary>Campos estruturados detectados pelo Motor</summary><code>{diagnostics.detectedPaths.join(' · ')}</code></details>}</>}</div>}</section>}
+    <section className={styles.analysisCard}>
+      <div className={styles.analysisHeader}>
+        <div><span>ANÁLISE DA PESQUISA</span><h2>Visão geral</h2><p>Resultados, oportunidades, palavras-chave, concorrência e insights da coleta atual.</p></div>
+        <div className={styles.analysisHeaderActions}>
+          <button type="button" className={styles.infoButton} onClick={()=>setDiagnosticsOpen(v=>!v)} aria-expanded={diagnosticsOpen} aria-controls="cobertura-dados">ⓘ Cobertura dos dados</button>
+          <button type="button" className={styles.sectionToggle} onClick={()=>setOverviewVisible(v=>!v)} aria-expanded={overviewVisible} aria-controls="conteudo-visao-geral">{overviewVisible?'⌃ Ocultar visão geral':'⌄ Mostrar visão geral'}</button>
+        </div>
+      </div>
 
-    <nav className={styles.tabs} aria-label="Seções da Pesquisa de Produtos">
-      <div className={styles.tabScroller}>{tabs.map(([id,label])=><button key={id} type="button" className={activeTab===id?styles.activeTab:''} onClick={()=>setActiveTab(id)}>{label}</button>)}</div>
-      <button type="button" className={styles.sectionToggle} onClick={()=>setOverviewVisible(v=>!v)}>{overviewVisible?'◉ Ocultar visão geral':'◉ Mostrar visão geral'}</button>
-    </nav>
+      {diagnosticsOpen&&rows.length>0&&<section id="cobertura-dados" className={styles.qualityCard}><div className={styles.qualityHead}><div><span>COBERTURA DOS DADOS</span><b>{qualityLabel} · {quality}%</b></div><em data-level={quality>=75?'high':quality>=45?'mid':'low'}>{qualityLabel}</em></div><div className={styles.coverageGrid}>{[['Preço','price'],['Vendas','sold'],['Vendas 30d','monthly'],['Localização','location'],['Avaliação','rating'],['Reviews','reviews']].map(([label,key])=><div key={key}><b>{bench.coverage[key]}/{rows.length}</b><span>{label}</span><i><u style={{width:(bench.coverage[key]/rows.length*100)+'%'}}/></i></div>)}</div>{suspiciousSales&&<div className={styles.dataWarning}>⚠️ Todos os anúncios vieram com vendas = 0. O Gestor não assume que isso significa ausência de demanda; este campo está marcado como suspeito até uma nova coleta confirmar.</div>}<div id="diagnostico-coleta" className={styles.diagnosticPanel}><div className={styles.diagnosticIntro}><b>Motor Sênior × Gestor</b><span>{diagnostics?'O Motor informou a cobertura antes da normalização. Assim dá para saber exatamente onde um campo se perdeu.':'Esta coleta não trouxe diagnóstico do Motor. Faça uma nova pesquisa para gerar essa comparação quando o Motor disponibilizar o diagnóstico.'}</span></div>{diagnostics&&<><div className={styles.diagnosticActions}><button type="button" className={styles.secondary} onClick={downloadDiagnostics}>Baixar diagnóstico técnico</button>{diagnostics?.mode==='diagnostic-only'&&<span>Modo diagnóstico: amostra controlada de {diagnostics?.sampleSize||0} item(ns), sem enriquecimento misturado.</span>}</div><div className={styles.diagnosticGrid}>{[['Preço','price','price'],['Vendas','sold','sold'],['Vendas 30d','monthlySold','monthly'],['Localização','shopLocation','location'],['Avaliação','rating','rating'],['Reviews','reviewCount','reviews']].map(([label,motorKey,gestorKey])=>{const motor=Number(diagnostics?.coverage?.[motorKey]??0),gestor=Number(bench.coverage?.[gestorKey]??0);const status=motor===0?'source':gestor<motor?'normalizer':'ok';return <div key={label} data-status={status}><b>{label}</b><span>Motor: {motor}/{rows.length}</span><span>Gestor: {gestor}/{rows.length}</span><strong>{status==='ok'?'✓ aproveitado':status==='normalizer'?'⚠ normalização':'○ não veio da busca'}</strong></div>})}</div>{Array.isArray(diagnostics.detectedPaths)&&diagnostics.detectedPaths.length>0&&<details className={styles.detectedPaths}><summary>Campos estruturados detectados pelo Motor</summary><code>{diagnostics.detectedPaths.join(' · ')}</code></details>}</>}</div></section>}
 
-    {activeTab==='overview'&&overviewVisible&&<>
+      {overviewVisible&&<div id="conteudo-visao-geral" className={styles.analysisBody}>
+        <nav className={styles.tabs} aria-label="Seções da Pesquisa de Produtos">
+          <div className={styles.tabScroller}>{tabs.map(([id,label])=><button key={id} type="button" className={activeTab===id?styles.activeTab:''} onClick={()=>setActiveTab(id)}>{id==='overview'?'Resumo':label}</button>)}</div>
+        </nav>
+
+    {activeTab==='overview'&&<>
       <section className={styles.kpis}>
         <article><span>Preço mediano</span><strong>{bench.coverage.price?money(bench.priceMedian):'Não coletado'}</strong><small>{bench.coverage.price}/{rows.length||0} anúncios com preço</small></article>
         <article><span>Vendas medianas</span><strong>{bench.coverage.sold?compact(bench.soldMedian):'Não coletado'}</strong><small>{bench.coverage.sold}/{rows.length||0} anúncios com vendas</small></article>
@@ -519,6 +532,9 @@ export default function MarketResearch(){
         <article><span>🧪</span><div><b>Confiabilidade</b><p>Qualidade geral: {qualityLabel.toLowerCase()} ({quality}%). Dados ausentes continuam ausentes e não viram zero.</p></div></article>
       </div>
     </section>}
+
+      </div>}
+    </section>
 
     {rows.length>0&&<section className={styles.creationAssistant}>
       <div className={styles.assistantHeader}>
