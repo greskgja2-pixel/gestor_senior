@@ -237,6 +237,7 @@ function Tone({tone='info',children}){
 export default function MarketResearch(){
   const [query,setQuery]=useState('');
   const [rows,setRows]=useState([]);
+  const [removedRows,setRemovedRows]=useState([]);
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState('Digite o produto e clique em pesquisar. Você também pode importar uma coleta salva.');
   const [sort,setSort]=useState('score');
@@ -313,9 +314,33 @@ export default function MarketResearch(){
     const normalized=extractRows(payload).map(normalizeOne).filter(r=>r.itemId||r.title);
     const diag=payload?.diagnostics??payload?.data?.diagnostics??null;
     setRows(normalized);
+    setRemovedRows([]);
     setDiagnostics(diag);
     setMessage(normalized.length?`${normalized.length} anúncios carregados de ${source}.`:'Nenhum anúncio válido foi encontrado nessa coleta.');
     return {normalized,diagnostics:diag};
+  }
+
+  function removeFromAnalysis(row){
+    if(!row)return;
+    setRows(current=>current.filter(item=>item.key!==row.key));
+    setRemovedRows(current=>[{row},...current]);
+    setPage(1);
+  }
+  function undoLastRemoval(){
+    setRemovedRows(current=>{
+      if(!current.length)return current;
+      const [last,...rest]=current;
+      setRows(rowsNow=>[...rowsNow,last.row].sort((a,b)=>(a.index??0)-(b.index??0)));
+      return rest;
+    });
+  }
+  function restoreAllRemoved(){
+    setRemovedRows(current=>{
+      if(!current.length)return current;
+      setRows(rowsNow=>[...rowsNow,...current.map(item=>item.row)].sort((a,b)=>(a.index??0)-(b.index??0)));
+      return [];
+    });
+    setPage(1);
   }
 
   function compactRows(list){
@@ -850,8 +875,20 @@ export default function MarketResearch(){
               <select aria-label="Ordenar resultados" value={sort} onChange={e=>setSort(e.target.value)}><option value="score">Melhor oportunidade</option><option value="sales">Mais vendidos</option><option value="monthly">Mais vendas 30d</option><option value="price">Menor preço</option></select>
             </div>
           </div>
-          {!filtered.length?<div className={styles.empty}>Faça uma pesquisa automática ou importe uma coleta para começar.</div>:<>
-          <div className={styles.tableWrap}><table><thead><tr><th>Produto</th><th>Preço</th><th>Vendas</th><th>30 dias</th><th>Avaliações</th><th>Local</th><th>Oportunidade</th><th>Confiança</th><th><span className={styles.srOnly}>Abrir anúncio</span></th></tr></thead><tbody>
+          <div className={styles.refineGuide} role="note">
+            <div className={styles.refineGuideIcon}><Icon name="trash"/></div>
+            <div className={styles.refineGuideText}>
+              <b>Refine os resultados antes de decidir</b>
+              <p>Encontrou um item que não corresponde ao produto pesquisado? Clique em <strong>Remover da análise</strong>. Ele deixa de influenciar demanda, preço, concorrência, palavras-chave e oportunidades.</p>
+              <small><strong>{rows.length}</strong> usados na análise{removedRows.length?<> · <strong>{removedRows.length}</strong> removidos</>:null}</small>
+            </div>
+            {removedRows.length>0&&<div className={styles.refineGuideActions}>
+              <button type="button" onClick={undoLastRemoval}>Desfazer última</button>
+              <button type="button" onClick={restoreAllRemoved}>Restaurar todos</button>
+            </div>}
+          </div>
+          {!filtered.length?<div className={styles.empty}>{removedRows.length?'Todos os resultados foram removidos da análise. Use “Desfazer última” ou “Restaurar todos” para recuperar itens.':'Faça uma pesquisa automática ou importe uma coleta para começar.'}</div>:<>
+          <div className={styles.tableWrap}><table><thead><tr><th>Produto</th><th>Preço</th><th>Vendas</th><th>30 dias</th><th>Avaliações</th><th>Local</th><th>Oportunidade</th><th>Confiança</th><th><span className={styles.srOnly}>Ações</span></th></tr></thead><tbody>
             {paged.map(r=><tr key={r.key}>
               <td><div className={styles.product}>{r.image?<img src={r.image} alt=""/>:<div className={styles.noImg}><Icon name="tag"/></div>}<div><b title={r.title}>{r.title}</b><small>{r.preferred?'Vendedor Indicado · ':''}{r.itemId?'ID '+r.itemId:'ID não coletado'}</small></div></div></td>
               <td><b>{money(r.price)}</b>{r.discount?<small className={styles.discount}>-{r.discount}%</small>:null}</td>
@@ -861,7 +898,7 @@ export default function MarketResearch(){
               <td>{r.location||'—'}</td>
               <td><span className={styles.score} data-level={r.score>=70?'high':r.score>=50?'mid':'low'}>{r.score}<small>{r.score>=70?'Forte':r.score>=50?'Média':'Fraca'}</small></span></td>
               <td><span className={styles.confidence} data-level={r.confidence.label==='Alta'?'high':r.confidence.label==='Média'?'mid':'low'}>{r.confidence.label}<small>{r.confidence.value}%</small></span></td>
-              <td>{r.url?<a href={r.url} target="_blank" rel="noreferrer">Abrir ↗</a>:'—'}</td>
+              <td><div className={styles.rowActions}>{r.url?<a href={r.url} target="_blank" rel="noreferrer">Abrir ↗</a>:null}<button type="button" className={styles.removeResultBtn} onClick={()=>removeFromAnalysis(r)} title="Retirar este produto dos cálculos e da análise"><Icon name="trash"/>Remover da análise</button></div></td>
             </tr>)}
           </tbody></table></div>
           <div className={styles.resultCards}>{paged.map(r=><article key={r.key}>
@@ -876,6 +913,7 @@ export default function MarketResearch(){
               <span className={styles.score} data-level={r.score>=70?'high':r.score>=50?'mid':'low'}>{r.score}<small>{r.score>=70?'Forte':r.score>=50?'Média':'Fraca'}</small></span>
               <span className={styles.confidence} data-level={r.confidence.label==='Alta'?'high':r.confidence.label==='Média'?'mid':'low'}>Confiança {r.confidence.label}<small>{r.confidence.value}%</small></span>
               {r.url&&<a href={r.url} target="_blank" rel="noreferrer">Abrir ↗</a>}
+              <button type="button" className={styles.removeResultBtn} onClick={()=>removeFromAnalysis(r)}><Icon name="trash"/>Remover da análise</button>
             </div>
           </article>)}</div></>}
           {filtered.length>0&&<div className={styles.pagination}><span>Mostrando {(page-1)*PAGE_SIZE+1}–{Math.min(page*PAGE_SIZE,filtered.length)} de {filtered.length}</span><div><button type="button" aria-label="Página anterior" disabled={page<=1} onClick={()=>setPage(p=>p-1)}>←</button><b>{page} / {pages}</b><button type="button" aria-label="Próxima página" disabled={page>=pages} onClick={()=>setPage(p=>p+1)}>→</button></div></div>}
