@@ -144,3 +144,44 @@
 .kpis{gap:8px}.kpis article{min-height:95px}.summaryGrid{gap:8px}
 @media(max-width:900px){.searchOptionsRow{align-items:stretch;flex-direction:column}.searchOptionsRow .searchCostField{margin-left:0;width:100%}.historyGrid{grid-template-columns:1fr}.decisionStrip{grid-template-columns:1fr 1fr}.analysisEmptyState{grid-template-columns:auto 1fr}.analysisEmptyState button{grid-column:1/-1;width:100%}}
 @media(max-width:560px){.searchTopline>div{grid-template-columns:auto 1fr}.searchLine{grid-template-columns:1fr!important}.searchLine>button{width:100%}.searchOptionsRow .modeRow{display:grid;grid-template-columns:1fr 1fr}.searchOptionsRow .modeRow>span{grid-column:1/-1}.searchOptionsRow .modeRow button{width:100%}.searchOptionsRow .searchCostField{grid-template-columns:auto auto auto 1fr}.statusActions{display:grid!important;grid-template-columns:1fr 1fr;width:100%}.statusActions button{width:100%}.decisionStrip{grid-template-columns:1fr}.analysisEmptyState{grid-template-columns:1fr;text-align:center}.analysisEmptyState>span{margin:auto}}
+
+
+/* Ajuste final de hierarquia - versão estável */
+.searchCard{display:flex;flex-direction:column;gap:0}
+.searchCard>.searchLine{order:1}
+.searchCard>.modeRow{order:2;margin:10px 0 0;padding-top:10px;border-top:1px solid var(--gs-shell-border)}
+.searchCard>.searchStatusRow{order:3;display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:10px;margin-top:10px;padding-top:10px;border-top:1px dashed var(--gs-shell-border)}
+.searchStatusRow>.message{grid-column:1;min-width:0;margin:0}
+.searchStatusRow>.searchCostField{grid-column:2;margin:0}
+.searchStatusRow>.statusActions{grid-column:3;margin:0;justify-content:flex-end}
+.modeRow>span{font-weight:900;color:var(--gs-shell-muted)}
+.historyCard{padding-bottom:12px}
+.historyHeader{align-items:center}
+.historyGrid{grid-template-columns:minmax(320px,.8fr) minmax(0,1.2fr);min-height:0;align-items:start}
+.historyList{max-height:430px;background:#f7faff}
+.historyDetails{min-height:0;align-self:start;background:#fff}
+.historyDetailHead{padding-bottom:10px}
+.historyActions{margin-top:12px;padding-top:10px;border-top:1px solid var(--gs-shell-border)}
+.historyItem,.historyItemActive{box-shadow:none}
+.historyItemActive{box-shadow:0 0 0 2px rgba(23,105,232,.07)}
+.historyProfit{display:inline-block!important}
+.analysisCard[data-empty="true"] .analysisHeaderActions{display:none}
+.analysisCard[data-empty="true"]::after{content:'Nenhuma pesquisa aberta. Escolha uma pesquisa no histórico e clique em “Reabrir pesquisa”, ou faça uma nova busca.';display:block;margin-top:12px;padding:18px;border:1px dashed #b9c9dd;border-radius:12px;background:#f8fbff;color:var(--gs-shell-muted);font-size:9px;line-height:1.5;text-align:center}
+.analysisCard[data-empty="true"]{padding-bottom:14px}
+.analysisCard[data-empty="false"] .analysisHeader{padding-bottom:4px}
+.analysisCard[data-empty="false"] .tabs{margin-top:10px}
+@media(max-width:980px){
+  .searchCard>.searchStatusRow{grid-template-columns:1fr 1fr}
+  .searchStatusRow>.message{grid-column:1/-1}
+  .searchStatusRow>.searchCostField{grid-column:1}
+  .searchStatusRow>.statusActions{grid-column:2}
+  .historyGrid{grid-template-columns:1fr}
+}
+@media(max-width:620px){
+  .searchCard>.searchStatusRow{grid-template-columns:1fr}
+  .searchStatusRow>.message,.searchStatusRow>.searchCostField,.searchStatusRow>.statusActions{grid-column:1;width:100%}
+  .searchStatusRow>.statusActions{display:grid!important;grid-template-columns:1fr 1fr}
+  .modeRow{display:grid!important;grid-template-columns:1fr 1fr}
+  .modeRow>span{grid-column:1/-1}
+  .modeRow button{width:100%}
+}
