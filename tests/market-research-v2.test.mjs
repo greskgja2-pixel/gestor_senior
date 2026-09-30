@@ -57,24 +57,19 @@ test('Pesquisa exporta diagnóstico técnico da extensão',()=>{
 
 
 test('Pesquisa integra Assistente de Criação com abas e controles de visibilidade',()=>{
-  assert.match(page,/Assistente de Criação do Anúncio/);
-  assert.match(page,/overviewVisible/);
-  assert.match(page,/assistantVisible/);
-  assert.match(page,/assistantTab/);
-  assert.match(page,/Ocultar visão geral/);
-  assert.match(page,/Mostrar visão geral/);
-  assert.match(page,/Ocultar assistente/);
-  assert.match(page,/Mostrar assistente/);
-  assert.match(page,/Categoria \/ NCM/);
-  assert.match(page,/Referências/);
-  assert.match(page,/Checklist/);
-  assert.match(css,/\.creationAssistant/);
-  assert.match(css,/\.assistantTabs/);
-  assert.match(css,/\.sectionToggle/);
+  for(const expected of [
+    'Assistente de Criação do Anúncio','overviewVisible','assistantVisible','assistantTab',
+    'Ocultar visão geral','Mostrar visão geral','Ocultar assistente','Mostrar assistente',
+    'Categoria / NCM','Referências','Checklist'
+  ]) assert.ok(page.includes(expected),expected);
+  for(const expected of ['.creationAssistant','.assistantTabs','.sectionToggle'])
+    assert.ok(css.includes(expected),expected);
 });
 
 test('Assistente preserva honestidade de dados em categoria e NCM',()=>{
-  assert.match(page,/A busca pública atual não devolve, de forma confiável/);
-  assert.match(page,/Não confirmado pela pesquisa/);
-  assert.match(page,/O Gestor não vai inventar esse campo/);
+  for(const expected of [
+    'A busca pública atual não devolve, de forma confiável',
+    'Não confirmado pela pesquisa',
+    'O Gestor não vai inventar esse campo'
+  ]) assert.ok(page.includes(expected),expected);
 });
