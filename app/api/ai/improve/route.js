@@ -5,6 +5,7 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const MODEL = "gemini-3-flash-preview";
+const GROQ_MODEL = process.env.GROQ_MODEL?.trim() || "qwen/qwen3.6-27b";
 const AUDITOR_AI_URL = process.env.AUDITOR_AI_URL?.trim() || "https://auditor-ia-oficial.vercel.app/api/mobile-analysis";
 
 function sameOrigin(request) {
@@ -182,6 +183,38 @@ async function callGeminiDirect(prompt) {
   return text;
 }
 
+async function callGroqDirect(prompt) {
+  const apiKey = process.env.GROQ_API_KEY?.trim();
+  if (!apiKey) return null;
+
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: GROQ_MODEL,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.2,
+      max_completion_tokens: 2400,
+      stream: false,
+    }),
+    signal: AbortSignal.timeout(30000),
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(payload?.error?.message || "Não foi possível concluir a sugestão com a I.A. de fallback.");
+    error.status = response.status;
+    throw error;
+  }
+
+  const text = cleanText(payload?.choices?.[0]?.message?.content, 12000);
+  if (!text) throw new Error("Resposta vazia da I.A. de fallback.");
+  return text;
+}
+
 async function callAuditorAI(body) {
   const response = await fetch(AUDITOR_AI_URL, {
     method: "POST",
@@ -238,9 +271,13 @@ function chooseOfficialCategory(suggestion, candidates, currentCategory) {
 
 export async function GET() {
   return NextResponse.json({
-    configured: true,
-    source: process.env.GEMINI_API_KEY?.trim() ? "local:GEMINI_API_KEY" : "auditor-ia-oficial",
-    model: MODEL,
+    configured: Boolean(process.env.GEMINI_API_KEY?.trim() || process.env.GROQ_API_KEY?.trim()),
+    providers: {
+      gemini: Boolean(process.env.GEMINI_API_KEY?.trim()),
+      groq: Boolean(process.env.GROQ_API_KEY?.trim()),
+    },
+    primaryModel: MODEL,
+    fallbackModel: GROQ_MODEL,
   });
 }
 
@@ -252,15 +289,42 @@ export async function POST(request) {
   catch { return NextResponse.json({ error: "Corpo JSON inválido." }, { status: 400 }); }
 
   try {
-    const direct = await callGeminiDirect(promptFor(body || {}));
+    const prompt = promptFor(body || {});
+    let direct = null;
+    let provider = null;
+    let model = null;
+    let geminiError = null;
+
+    try {
+      direct = await callGeminiDirect(prompt);
+      if (direct) {
+        provider = "gemini";
+        model = MODEL;
+      }
+    } catch (error) {
+      geminiError = String(error?.message || error);
+    }
+
+    if (!direct) {
+      try {
+        direct = await callGroqDirect(prompt);
+        if (direct) {
+          provider = "groq";
+          model = GROQ_MODEL;
+        }
+      } catch (error) {
+        if (!process.env.GEMINI_API_KEY?.trim()) geminiError = null;
+      }
+    }
+
     if (direct) {
       if (body.type === "category") {
         const categoryId = direct.match(/\b\d{3,}\b/)?.[0] || "";
         const allowed = new Set((body.candidates || []).map((c) => String(c.id)));
         if (!categoryId || !allowed.has(categoryId)) throw new Error("A IA não retornou uma categoria válida da lista oficial da Shopee.");
-        return NextResponse.json({ categoryId, model: MODEL, source: "local" });
+        return NextResponse.json({ categoryId, model, provider });
       }
-      return NextResponse.json({ text: direct, model: MODEL, source: "local" });
+      return NextResponse.json({ text: direct, model, provider, fallbackFrom: provider === "groq" && geminiError ? "gemini" : null });
     }
 
     const analysis = await callAuditorAI(body || {});
