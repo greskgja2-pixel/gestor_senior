@@ -163,6 +163,22 @@ function resaleScoreLabel(score){
   if(score>=50)return 'Vale estudar';
   return 'Cautela';
 }
+function financeAnalysis(price,cost,config){
+  const sale=n(price),productCost=n(cost);
+  if(!(sale>0)||productCost==null||productCost<0)return null;
+  const commissionRate=Math.max(0,n(config?.commissionRate)??20)/100;
+  const fixedFee=Math.max(0,n(config?.fixedFee)??4.5);
+  const packagingCost=Math.max(0,n(config?.packagingCost)??0);
+  const taxRate=Math.max(0,n(config?.taxRate)??0)/100;
+  const otherCost=Math.max(0,n(config?.otherCost)??0);
+  const commission=sale*commissionRate,tax=sale*taxRate;
+  const profit=sale-productCost-commission-fixedFee-packagingCost-tax-otherCost;
+  return{sale,productCost,commissionRate,commission,fixedFee,packagingCost,taxRate,tax,otherCost,profit,marginPct:profit/sale*100};
+}
+function absoluteMarginScore(margin){
+  if(margin==null||!Number.isFinite(Number(margin)))return 50;
+  return Math.max(0,Math.min(100,Math.round((Number(margin)+10)/50*100)));
+}
 
 export default function MarketResearch(){
   const [query,setQuery]=useState('');
@@ -177,6 +193,8 @@ export default function MarketResearch(){
   const [currentResearchMode,setCurrentResearchMode]=useState(null);
   const [page,setPage]=useState(1);
   const [saved,setSaved]=useState([]);
+  const [researchCosts,setResearchCosts]=useState({});
+  const [financeConfig,setFinanceConfig]=useState({commissionRate:20,fixedFee:4.5,packagingCost:0,taxRate:0,otherCost:0});
   const [historyOpen,setHistoryOpen]=useState(false);
   const [historyFilter,setHistoryFilter]=useState('');
   const [historyShowAll,setHistoryShowAll]=useState(false);
@@ -195,6 +213,10 @@ export default function MarketResearch(){
       const stored=JSON.parse(localStorage.getItem('gs_market_saved')||'[]');
       const list=Array.isArray(stored)?stored.slice(0,50):[];
       setSaved(list);
+      const savedCosts=JSON.parse(localStorage.getItem('gs_market_research_costs')||'{}');
+      if(savedCosts&&typeof savedCosts==='object')setResearchCosts(savedCosts);
+      const finance=JSON.parse(localStorage.getItem('gs_shopee_finance_config')||'null');
+      if(finance&&typeof finance==='object')setFinanceConfig(x=>({...x,...finance}));
       if(list.length)setSelectedHistoryId(list[0].id);
       setHistoryOpen(localStorage.getItem('historico_aberto')==='true');
     }catch{
@@ -295,6 +317,21 @@ export default function MarketResearch(){
     const next=persistHistory(saved.filter(item=>item.id!==entry.id));
     if(selectedHistoryId===entry.id)setSelectedHistoryId(next[0]?.id??null);
     setComparison(current=>current?.historyId===entry.id?null:current);
+  }
+  function researchKey(entryOrQuery){
+    const value=typeof entryOrQuery==='string'?entryOrQuery:entryOrQuery?.query;
+    return String(value||'').trim().toLowerCase();
+  }
+  function saveResearchCost(entry,value){
+    const key=researchKey(entry);
+    if(!key)return;
+    const raw=String(value??'').trim();
+    const parsed=raw===''?null:Number(raw.replace(',','.'));
+    const next={...researchCosts};
+    if(parsed==null||!Number.isFinite(parsed)||parsed<0)delete next[key];
+    else next[key]=parsed;
+    setResearchCosts(next);
+    try{localStorage.setItem('gs_market_research_costs',JSON.stringify(next))}catch{}
   }
   function comparableDelta(before,after){
     if(before==null||after==null)return null;
@@ -415,24 +452,32 @@ export default function MarketResearch(){
   const resaleRanking=useMemo(()=>{
     const unique=[],seen=new Set();
     saved.forEach(entry=>{
-      const key=String(entry.query||'').trim().toLowerCase();
+      const key=researchKey(entry);
       if(!key||seen.has(key))return;
       seen.add(key);unique.push(entry);
     });
-    const metrics=unique.map(entry=>({entry,metrics:researchMetrics(entry)}));
-    const demands=metrics.map(x=>x.metrics.demand),revenues=metrics.map(x=>x.metrics.revenueProxy),reviews=metrics.map(x=>x.metrics.reviewMedian),shares=metrics.map(x=>x.metrics.sellerShare);
-    return metrics.map(({entry,metrics:m})=>{
-      const breakdown={
+    const metrics=unique.map(entry=>{
+      const m=researchMetrics(entry),cost=n(researchCosts[researchKey(entry)]),finance=financeAnalysis(m.price,cost,financeConfig);
+      return{entry,metrics:m,cost,finance};
+    });
+    const demands=metrics.map(x=>x.metrics.demand),revenues=metrics.map(x=>x.metrics.revenueProxy),reviews=metrics.map(x=>x.metrics.reviewMedian),shares=metrics.map(x=>x.metrics.sellerShare),profits=metrics.map(x=>x.finance?.profit??null);
+    return metrics.map(({entry,metrics:m,cost,finance})=>{
+      const base={
         demand:relativeMetricScore(demands,m.demand,true),
         revenue:relativeMetricScore(revenues,m.revenueProxy,true),
         competition:relativeMetricScore(shares,m.sellerShare,false),
         social:relativeMetricScore(reviews,m.reviewMedian,true),
         quality:Math.max(0,Math.min(100,Math.round(m.quality||0)))
       };
-      const score=Math.round(breakdown.demand*.35+breakdown.revenue*.25+breakdown.competition*.20+breakdown.social*.10+breakdown.quality*.10);
-      return{entry,metrics:m,breakdown,score,label:resaleScoreLabel(score)};
+      const profitability=finance?Math.round(absoluteMarginScore(finance.marginPct)*.6+relativeMetricScore(profits,finance.profit,true)*.4):null;
+      const provisional=profitability==null;
+      const breakdown={...base,profitability};
+      const score=provisional
+        ?Math.round(base.demand*.35+base.revenue*.25+base.competition*.20+base.social*.10+base.quality*.10)
+        :Math.round(base.demand*.25+base.revenue*.15+base.competition*.15+base.social*.05+base.quality*.10+profitability*.30);
+      return{entry,metrics:m,cost,finance,breakdown,score,provisional,label:provisional?'Custo pendente · '+resaleScoreLabel(score):resaleScoreLabel(score)};
     }).sort((a,b)=>b.score-a.score||String(b.entry.date||'').localeCompare(String(a.entry.date||'')));
-  },[saved]);
+  },[saved,researchCosts,financeConfig]);
   const resaleScoreById=useMemo(()=>Object.fromEntries(resaleRanking.map(x=>[x.entry.id,x])),[resaleRanking]);
   const selectedResale=selectedHistory?resaleScoreById[selectedHistory.id]||null:null;
   const tabs=[['overview','Visão geral'],['results','Resultados'],['top','Oportunidades'],['keywords','Palavras-chave'],['competition','Concorrência'],['insights','Insights']];
@@ -468,7 +513,7 @@ export default function MarketResearch(){
       </div>
       {!saved.length?<div className={styles.historyEmpty}><span aria-hidden="true">◷</span><b>Nenhuma pesquisa salva ainda</b><p>Quando você salvar uma pesquisa, ela aparecerá aqui com os dados realmente coletados.</p></div>:<>
       {resaleRanking.length>0&&<section className={styles.resaleRanking}>
-        <div className={styles.resaleRankingHead}><div><span>COMPARAÇÃO PARA REVENDA</span><h3>Ranking de oportunidade</h3><p>Score relativo entre as pesquisas salvas. Ele mede sinais de mercado, não substitui a conta de custo, frete, taxas e margem.</p></div><div className={styles.resaleFormula}>Demanda 35% · Potencial comercial 25% · Concorrência 20% · Prova social 10% · Dados 10%</div></div>
+        <div className={styles.resaleRankingHead}><div><span>COMPARAÇÃO PARA REVENDA</span><h3>Ranking de oportunidade</h3><p>Quando o custo é informado, o ranking considera a margem líquida estimada usando as taxas configuradas no Gestor.</p></div><div className={styles.resaleFormula}>Com custo: Demanda 25% · Rentabilidade 30% · Potencial 15% · Concorrência 15% · Prova social 5% · Dados 10%</div></div>
         <div className={styles.resaleTop}>{resaleRanking.slice(0,3).map((item,index)=><button type="button" key={item.entry.id} onClick={()=>setSelectedHistoryId(item.entry.id)} className={index===0?styles.resaleWinner:styles.resaleCandidate}>
           <span className={styles.resalePosition}>{index+1}º</span><div><b>{item.entry.query}</b><small>{item.label}</small></div><strong>{item.score}<em>/100</em></strong>
         </button>)}</div>
@@ -493,10 +538,27 @@ export default function MarketResearch(){
             {selectedResale&&<div className={styles.resaleBreakdown}>
               <div><span>Demanda</span><b>{selectedResale.breakdown.demand}</b><i><u style={{width:selectedResale.breakdown.demand+'%'}}/></i></div>
               <div><span>Potencial comercial</span><b>{selectedResale.breakdown.revenue}</b><i><u style={{width:selectedResale.breakdown.revenue+'%'}}/></i></div>
+              <div><span>Rentabilidade</span><b>{selectedResale.breakdown.profitability==null?'—':selectedResale.breakdown.profitability}</b><i><u style={{width:(selectedResale.breakdown.profitability??0)+'%'}}/></i></div>
               <div><span>Concorrência</span><b>{selectedResale.breakdown.competition}</b><i><u style={{width:selectedResale.breakdown.competition+'%'}}/></i></div>
               <div><span>Prova social</span><b>{selectedResale.breakdown.social}</b><i><u style={{width:selectedResale.breakdown.social+'%'}}/></i></div>
               <div><span>Qualidade dos dados</span><b>{selectedResale.breakdown.quality}</b><i><u style={{width:selectedResale.breakdown.quality+'%'}}/></i></div>
             </div>}
+            <section className={styles.costAnalysis}>
+              <div className={styles.costEntry}>
+                <label>Custo do produto (R$)<input inputMode="decimal" placeholder="Ex.: 12,50" value={researchCosts[researchKey(selectedHistory)]??''} onChange={e=>saveResearchCost(selectedHistory,e.target.value)}/></label>
+                <small>Salvo para este termo e reaproveitado nas próximas pesquisas iguais.</small>
+              </div>
+              <div className={styles.feeSummary}>
+                <span>Taxas usadas do Gestor</span>
+                <b>{Number(financeConfig.commissionRate||0).toLocaleString('pt-BR',{maximumFractionDigits:1})}% + {money(financeConfig.fixedFee||0)} fixa</b>
+                <small>{Number(financeConfig.packagingCost||0)>0?'Embalagem '+money(financeConfig.packagingCost)+'. ':''}{Number(financeConfig.taxRate||0)>0?'Impostos '+Number(financeConfig.taxRate).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%. ':''}{Number(financeConfig.otherCost||0)>0?'Outros '+money(financeConfig.otherCost)+'.':''}</small>
+              </div>
+              <div className={styles.profitPreview} data-profit={selectedResale?.finance?.profit>=0?'positive':'negative'}>
+                <span>Preço de referência</span><b>{selectedResale?.metrics?.price!=null?money(selectedResale.metrics.price):'Não coletado'}</b>
+                <span>Lucro estimado / venda</span><strong>{selectedResale?.finance?money(selectedResale.finance.profit):'Informe o custo'}</strong>
+                <small>{selectedResale?.finance?'Margem estimada '+selectedResale.finance.marginPct.toLocaleString('pt-BR',{maximumFractionDigits:1})+'%':'O ranking fica provisório até você informar o custo.'}</small>
+              </div>
+            </section>
             <div className={styles.historyMetrics}>
               <div><span>Anúncios</span><b>{selectedHistory.count??(Array.isArray(selectedHistory.rows)?selectedHistory.rows.length:'—')}</b></div>
               <div><span>Preço mediano</span><b>{selectedHistory.summary?.priceMedian!=null?money(selectedHistory.summary.priceMedian):'Não coletado'}</b></div>
