@@ -180,11 +180,65 @@ function absoluteMarginScore(margin){
   return Math.max(0,Math.min(100,Math.round((Number(margin)+10)/50*100)));
 }
 
+/* ---- Apresentação para leigos: tradução de números em texto + tom (cor NUNCA é o único sinal) ---- */
+const MARGIN_GOOD_PCT=20,MARGIN_TIGHT_PCT=10; // heurísticas de leitura; ajustáveis (MARGIN_TIGHT_PCT igual ao Super Anúncio)
+function toneOfScore(score){return score>=65?'good':score>=50?'warn':'bad'}
+function marginInfo(pct){
+  if(pct==null||!Number.isFinite(Number(pct)))return null;
+  if(pct>=MARGIN_GOOD_PCT)return{tone:'good',label:'Margem saudável'};
+  if(pct>=MARGIN_TIGHT_PCT)return{tone:'warn',label:'Margem apertada'};
+  return{tone:'bad',label:pct<0?'Prejuízo':'Margem baixa'};
+}
+function demandInfo(score){
+  if(score>=65)return{tone:'good',label:'Demanda forte'};
+  if(score>=40)return{tone:'warn',label:'Demanda moderada'};
+  return{tone:'bad',label:'Demanda fraca'};
+}
+function competitionInfo(share){
+  if(share==null||!Number.isFinite(Number(share)))return{tone:'info',label:'Concorrência sem dados'};
+  if(share>=45)return{tone:'bad',label:'Concorrência alta'};
+  if(share>=25)return{tone:'warn',label:'Concorrência média'};
+  return{tone:'good',label:'Concorrência baixa'};
+}
+function dataQualityInfo(pct){
+  if(pct==null||!Number.isFinite(Number(pct)))return{tone:'info',label:'Qualidade dos dados não informada'};
+  if(pct>=75)return{tone:'good',label:'Dados completos'};
+  if(pct>=45)return{tone:'warn',label:'Dados parciais'};
+  return{tone:'bad',label:'Poucos dados disponíveis'};
+}
+const ICONS={
+  search:<><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></>,
+  import:<><path d="M12 4v12M7 11l5 5 5-5M5 20h14"/></>,
+  export:<><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></>,
+  trash:<><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></>,
+  clock:<><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>,
+  info:<><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></>,
+  up:<><path d="M6 15l6-6 6 6"/></>,
+  down:<><path d="M6 9l6 6 6-6"/></>,
+  sparkle:<><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/></>,
+  tag:<><path d="M3 12V4h8l10 10-8 8z"/><path d="M7.5 8.5h.01"/></>,
+  trend:<><path d="M3 17l6-6 4 4 8-8M15 7h6v6"/></>,
+  store:<><path d="M4 9l1-5h14l1 5M4 9v11h16V9M4 9a3 3 0 006 0 3 3 0 006 0 3 3 0 004 0M10 20v-6h4v6"/></>,
+  shield:<><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></>,
+  check:<><path d="M5 12.5l4.5 4.5L19 7.5"/></>,
+  alert:<><path d="M12 4l9 16H3zM12 10v4M12 17h.01"/></>,
+  x:<><path d="M6 6l12 12M18 6L6 18"/></>,
+  repeat:<><path d="M17 2l4 4-4 4M3 11V9a3 3 0 013-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 01-3 3H3"/></>,
+  open:<><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></>
+};
+function Icon({name}){
+  return <svg className={styles.icon} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">{ICONS[name]||null}</svg>;
+}
+const TONE_ICON={good:'check',warn:'alert',bad:'x',info:'info'};
+function Tone({tone='info',children}){
+  return <span className={styles.tone} data-tone={tone}><Icon name={TONE_ICON[tone]||'info'}/>{children}</span>;
+}
+
 export default function MarketResearch(){
   const [query,setQuery]=useState('');
   const [rows,setRows]=useState([]);
   const [busy,setBusy]=useState(false);
-  const [message,setMessage]=useState('Pesquise pela extensão ou importe um JSON do Coletor Shopee.');
+  const [message,setMessage]=useState('Digite o produto e clique em pesquisar. Você também pode importar uma coleta salva.');
   const [sort,setSort]=useState('score');
   const [minSold,setMinSold]=useState('');
   const [maxPrice,setMaxPrice]=useState('');
@@ -204,7 +258,7 @@ export default function MarketResearch(){
   const [diagnostics,setDiagnostics]=useState(null);
   const [diagnosticsOpen,setDiagnosticsOpen]=useState(false);
   const [overviewVisible,setOverviewVisible]=useState(true);
-  const [assistantVisible,setAssistantVisible]=useState(true);
+  const [assistantVisible,setAssistantVisible]=useState(false);
   const [assistantTab,setAssistantTab]=useState('strategy');
   const [assistantObjective,setAssistantObjective]=useState('sales');
   const fileRef=useRef(null);
@@ -499,179 +553,307 @@ export default function MarketResearch(){
   })),[saved,researchCosts,financeConfig]);
   const tabs=[['overview','Visão geral'],['results','Resultados'],['top','Oportunidades'],['keywords','Palavras-chave'],['competition','Concorrência'],['insights','Insights']];
 
+  const relCount=resaleRanking.length;
+  const openQuality=dataQualityInfo(rows.length?quality:null);
+  const openCompetition=competitionInfo(concentration.shops?concentration.share:null);
+
   return <div className={styles.page}>
     <header className={styles.header}>
-      <div><span className={styles.eyebrow}>INTELIGÊNCIA DE MERCADO</span><h1>Pesquisa de Produtos</h1><p>Pesquise na Shopee de forma automática pelo Motor Senior e compare demanda, preço, concorrência e oportunidades.</p></div>
+      <span className={styles.eyebrow}>Inteligência de mercado</span>
+      <h1>Pesquisa de Produtos</h1>
+      <p>Pesquise um produto na Shopee e veja se vale a pena revender: demanda, preço, concorrência e lucro estimado.</p>
     </header>
 
-    <section className={styles.searchCard}>
-      <div className={styles.modeRow}><span>Profundidade</span>{[['quick','Rápida · 1 pág.'],['standard','Padrão · 3 págs.'],['deep','Profunda · 5 págs.']].map(([id,label])=><button key={id} type="button" className={mode===id?styles.modeActive:''} onClick={()=>setMode(id)}>{label}</button>)}</div>
-      <div className={styles.searchLine}>
-        <div className={styles.searchBox}><span>⌕</span><input value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>e.key==='Enter'&&!busy&&search()} placeholder="Ex.: TAG saída maternidade"/></div>
-        <button type="button" onClick={search} disabled={busy}>{busy?'Coletando automaticamente…':'Pesquisar automaticamente'}</button>
-        <button type="button" className={styles.secondary} onClick={()=>fileRef.current?.click()}>Importar coleta</button>
-        <input ref={fileRef} hidden type="file" accept="application/json,.json" onChange={e=>onFile(e.target.files?.[0])}/>
+    {/* 1 · PESQUISA (azul) */}
+    <section className={styles.searchCard} aria-labelledby="titulo-pesquisa">
+      <div className={styles.cardTitle}>
+        <span className={styles.cardIcon} aria-hidden="true"><Icon name="search"/></span>
+        <div><h2 id="titulo-pesquisa">Nova pesquisa</h2><p>Siga os 3 passos e clique em pesquisar.</p></div>
       </div>
-      <div className={styles.searchStatusRow}>
-        <div className={styles.message} aria-live="polite">{message}{rows.length>0&&<span className={styles.currentDepth}>Profundidade usada: <b>{modeLabel(currentResearchMode)}</b></span>}</div>
-        <label className={styles.searchCostField}>Custo do produto <span>R$</span><input inputMode="decimal" placeholder="0,00" value={searchCostDraft} onChange={e=>setSearchCostDraft(e.target.value)} onBlur={commitSearchCost}/><small>opcional · taxas do Gestor aplicadas automaticamente</small></label>
-        <div className={styles.statusActions}>
-          <button type="button" className={styles.saveSearchBtn} onClick={exportCurrentResearch} disabled={!rows.length} title="Exportar a coleta atual em JSON">⇧ Exportar coleta</button>
+
+      <div className={styles.step}>
+        <label className={styles.stepLabel} htmlFor="pesquisa-termo"><i>1</i>O que deseja pesquisar?</label>
+        <div className={styles.searchLine}>
+          <div className={styles.searchBox}>
+            <Icon name="search"/>
+            <input id="pesquisa-termo" value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>e.key==='Enter'&&!busy&&search()} placeholder="Ex.: TAG saída maternidade"/>
+          </div>
+          <button type="button" className={styles.primaryBtn} onClick={search} disabled={busy}>{busy?'Coletando automaticamente…':'Pesquisar automaticamente'}</button>
+        </div>
+      </div>
+
+      <div className={styles.stepsRow}>
+        <div className={styles.step}>
+          <div className={styles.stepLabel} id="passo-profundidade"><i>2</i>Profundidade</div>
+          <div className={styles.depthGrid} role="radiogroup" aria-labelledby="passo-profundidade">
+            {[['quick','Rápida','Teste inicial','1 pág.'],['standard','Padrão','Recomendada','3 págs.'],['deep','Profunda','Análise mais completa','5 págs.']].map(([id,name,hint,pagesLabel])=><button key={id} type="button" role="radio" aria-checked={mode===id} className={mode===id?styles.depthActive:styles.depth} onClick={()=>setMode(id)}>
+              <b>{name}</b><span>{hint}</span><small>{pagesLabel}</small>
+            </button>)}
+          </div>
+        </div>
+        <div className={styles.step}>
+          <label className={styles.stepLabel} htmlFor="pesquisa-custo"><i>3</i>Custo do produto <em>opcional</em></label>
+          <div className={styles.costBox}><span>R$</span><input id="pesquisa-custo" inputMode="decimal" placeholder="0,00" value={searchCostDraft} onChange={e=>setSearchCostDraft(e.target.value)} onBlur={commitSearchCost}/></div>
+          <p className={styles.hint}>Usado para estimar lucro e margem. As taxas da Shopee vêm das Configurações do Gestor.</p>
+        </div>
+      </div>
+
+      <div className={styles.searchFooter}>
+        <div className={styles.message} aria-live="polite">
+          <span>{message}</span>
+          {rows.length>0&&<span className={styles.currentDepth}>Profundidade usada: <b>{modeLabel(currentResearchMode)}</b></span>}
+        </div>
+        <div className={styles.secondaryActions}>
+          <button type="button" className={styles.ghostBtn} onClick={()=>fileRef.current?.click()}><Icon name="import"/>Importar coleta</button>
+          <button type="button" className={styles.ghostBtn} onClick={exportCurrentResearch} disabled={!rows.length} title="Exportar a coleta atual em JSON"><Icon name="export"/>Exportar coleta</button>
           <button type="button" className={historyOpen?styles.historyToggleOpen:styles.historyToggle} aria-expanded={historyOpen} aria-controls="pesquisas-anteriores" onClick={()=>setHistoryOpen(v=>!v)}>
-            <span aria-hidden="true">◷</span><b>{historyOpen?'Ocultar histórico':'Histórico de pesquisas'}</b><em>{saved.length}</em><span aria-hidden="true">{historyOpen?'⌃':'⌄'}</span>
+            <Icon name="clock"/><b>{historyOpen?'Ocultar histórico':'Histórico de pesquisas'}</b><em>{saved.length}</em><Icon name={historyOpen?'up':'down'}/>
           </button>
+          <input ref={fileRef} hidden type="file" accept="application/json,.json" onChange={e=>onFile(e.target.files?.[0])}/>
         </div>
       </div>
     </section>
 
+    {/* 2 · HISTÓRICO (roxo) */}
     {historyOpen&&<section id="pesquisas-anteriores" className={styles.historyCard} aria-label="Pesquisas anteriores">
       <div className={styles.historyHeader}>
-        <div><span>HISTÓRICO</span><h2>Pesquisas anteriores</h2><p>Reabra uma coleta salva ou repita a mesma busca para comparar os dados disponíveis.</p></div>
-        <label className={styles.historySearch}><span className={styles.srOnly}>Filtrar histórico por termo</span><span aria-hidden="true">⌕</span><input value={historyFilter} onChange={e=>{setHistoryFilter(e.target.value);setHistoryShowAll(false)}} placeholder="Filtrar por termo"/></label>
+        <div><span className={styles.kicker}>Histórico</span><h2>Pesquisas anteriores</h2><p>Escolha uma pesquisa para ver o resumo. Abra a que parecer mais promissora ou repita a busca para comparar.</p></div>
+        <label className={styles.historySearch}><span className={styles.srOnly}>Filtrar histórico por termo</span><Icon name="search"/><input value={historyFilter} onChange={e=>{setHistoryFilter(e.target.value);setHistoryShowAll(false)}} placeholder="Filtrar por termo"/></label>
       </div>
-      {!saved.length?<div className={styles.historyEmpty}><span aria-hidden="true">◷</span><b>Nenhuma pesquisa salva ainda</b><p>Quando você salvar uma pesquisa, ela aparecerá aqui com os dados realmente coletados.</p></div>:<>
+      {!saved.length?<div className={styles.historyEmpty}><Icon name="clock"/><b>Nenhuma pesquisa salva ainda</b><p>Faça uma pesquisa acima. Ela será salva aqui automaticamente, com os dados realmente coletados.</p></div>:<>
       <div className={styles.historyGrid}>
         <div className={styles.historyList} role="list" aria-label="Lista de pesquisas salvas">
-          {!filteredHistory.length?<div className={styles.historyNoMatch}>Nenhuma pesquisa corresponde a “{historyFilter}”.</div>:visibleHistory.map(entry=><div key={entry.id} className={(selectedHistory?.id===entry.id)?styles.historyItemActive:styles.historyItem}>
-            <button type="button" role="listitem" className={styles.historyItemMain} onClick={()=>setSelectedHistoryId(entry.id)}>
-              <span><b>{entry.query||'Pesquisa sem termo'}</b><small>{entry.date?new Date(entry.date).toLocaleString('pt-BR'):'Data não disponível'} · {modeLabel(entry.mode)}</small></span>
-              <span>{resaleScoreById[entry.id]&&<em className={styles.resaleMiniScore}>{resaleScoreById[entry.id].score}</em>}<strong>{entry.count??(Array.isArray(entry.rows)?entry.rows.length:'—')}</strong><small>anúncios</small>{historyFinanceById[entry.id]&&<small className={styles.historyProfit}>Lucro {money(historyFinanceById[entry.id].profit)} · {historyFinanceById[entry.id].marginPct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</small>}</span>
-            </button>
-            <div className={styles.historyItemTools}>
-              <button type="button" className={styles.historyExport} onClick={()=>exportResearch(entry)} title="Exportar pesquisa" aria-label={`Exportar pesquisa ${entry.query||''}`}>⇧</button>
-              <button type="button" className={styles.historyTrash} onClick={()=>deleteResearch(entry)} title="Excluir pesquisa" aria-label={`Excluir pesquisa ${entry.query||''}`}>🗑</button>
-            </div>
-          </div>)}
+          {!filteredHistory.length?<div className={styles.historyNoMatch}>Nenhuma pesquisa corresponde a “{historyFilter}”.</div>:visibleHistory.map(entry=>{
+            const resale=resaleScoreById[entry.id],fin=historyFinanceById[entry.id],margin=fin?marginInfo(fin.marginPct):null,active=selectedHistory?.id===entry.id;
+            return <div key={entry.id} role="listitem" className={active?styles.historyItemActive:styles.historyItem}>
+              <button type="button" className={styles.historyItemMain} aria-pressed={active} onClick={()=>setSelectedHistoryId(entry.id)}>
+                <span className={styles.hiInfo}>
+                  <b>{entry.query||'Pesquisa sem termo'}</b>
+                  <small>{entry.date?new Date(entry.date).toLocaleDateString('pt-BR'):'Data não disponível'} · {modeLabel(entry.mode)}</small>
+                  <small>{entry.count??(Array.isArray(entry.rows)?entry.rows.length:'—')} anúncios analisados</small>
+                  {resale?<Tone tone={toneOfScore(resale.score)}>Score {resale.score} · {resaleScoreLabel(resale.score)}</Tone>:<span className={styles.mutedChip}>Coleta anterior · sem nota</span>}
+                </span>
+                <span className={styles.hiMoney}>
+                  {fin?<>
+                    <span className={styles.profitBig} data-tone={fin.profit>0?'good':'bad'}><small>Lucro estimado</small><strong>{money(fin.profit)}</strong></span>
+                    <Tone tone={margin.tone}>Margem {fin.marginPct.toLocaleString('pt-BR',{maximumFractionDigits:1})}% · {margin.label}</Tone>
+                  </>:<span className={styles.needCost}>Informe o custo para ver lucro e margem</span>}
+                </span>
+              </button>
+              <div className={styles.historyItemTools}>
+                <button type="button" className={styles.iconBtn} onClick={()=>exportResearch(entry)} title="Exportar pesquisa" aria-label={`Exportar pesquisa ${entry.query||''}`}><Icon name="export"/></button>
+                <button type="button" className={`${styles.iconBtn} ${styles.iconBtnDanger}`} onClick={()=>deleteResearch(entry)} title="Excluir pesquisa" aria-label={`Excluir pesquisa ${entry.query||''}`}><Icon name="trash"/></button>
+              </div>
+            </div>;
+          })}
           {filteredHistory.length>6&&<button type="button" className={styles.viewAllHistory} onClick={()=>setHistoryShowAll(v=>!v)}>{historyShowAll?'Mostrar menos':'Ver todas'} ({filteredHistory.length})</button>}
         </div>
-        <div className={styles.historyDetails}>
-          {selectedHistory&&<>
-            <div className={styles.historyDetailHead}><div><span>PESQUISA SELECIONADA</span><h3>{selectedHistory.query||'Pesquisa sem termo'}</h3><p>{selectedHistory.date?new Date(selectedHistory.date).toLocaleString('pt-BR'):'Data não disponível'} · {modeLabel(selectedHistory.mode)}</p></div><div className={styles.historyDetailBadges}>{selectedResale&&<strong className={styles.resaleMainScore}>{selectedResale.score}<small>/100</small><i>{selectedResale.label}</i></strong>}<em>{selectedHistory.quality==null?'Qualidade —':'Qualidade '+selectedHistory.quality+'%'}</em></div></div>
-            {comparison?.historyId===selectedHistory.id&&<div className={styles.comparisonBox} aria-live="polite">
-              <b>Comparação com nova coleta</b>
-              <div><span>Preço mediano</span><strong>{comparison.before?.priceMedian!=null&&comparison.after?.priceMedian!=null?`${money(comparison.before.priceMedian)} → ${money(comparison.after.priceMedian)}`:'Sem dados comparáveis'}</strong></div>
-              <div><span>Vendas medianas</span><strong>{comparison.before?.soldMedian!=null&&comparison.after?.soldMedian!=null?`${compact(comparison.before.soldMedian)} → ${compact(comparison.after.soldMedian)}`:'Sem dados comparáveis'}</strong></div>
-              <div><span>Vendas 30 dias</span><strong>{comparison.before?.monthlyMedian!=null&&comparison.after?.monthlyMedian!=null?`${compact(comparison.before.monthlyMedian)} → ${compact(comparison.after.monthlyMedian)}`:'Sem dados comparáveis'}</strong></div>
-            </div>}
-            <div className={styles.historyActions}>
-              <button type="button" onClick={()=>reopenResearch(selectedHistory)} disabled={!Array.isArray(selectedHistory.rows)||!selectedHistory.rows.length} title={!Array.isArray(selectedHistory.rows)||!selectedHistory.rows.length?'Pesquisa antiga sem snapshot dos anúncios':''}>Reabrir pesquisa</button>
-              <button type="button" onClick={()=>repeatAndCompare(selectedHistory)} disabled={busy}>Repetir e comparar</button>
-              <button type="button" className={styles.deleteHistory} onClick={()=>deleteResearch(selectedHistory)}>Excluir</button>
-            </div>
-          </>}
+
+        <div className={`${styles.historyDetails} ${styles.decisionCard}`}>
+          {selectedHistory&&(()=>{
+            const m=researchMetrics(selectedHistory),cost=n(researchCosts[researchKey(selectedHistory)]),fin=historyFinanceById[selectedHistory.id],margin=fin?marginInfo(fin.marginPct):null;
+            const monthly=selectedHistory.summary?.monthlyMedian!=null;
+            const competition=competitionInfo(m.sellerShare),dataQ=dataQualityInfo(n(selectedHistory.quality));
+            const demandText=m.demand==null?'Sem dados de demanda':(relCount>=3&&selectedResale?demandInfo(selectedResale.breakdown.demand).label+' (vs. suas pesquisas)':'Demanda: '+compact(m.demand)+(monthly?' vendas em 30 dias':' vendas acumuladas'));
+            const demandTone=m.demand==null?'info':(relCount>=3&&selectedResale?demandInfo(selectedResale.breakdown.demand).tone:'info');
+            const hasRows=Array.isArray(selectedHistory.rows)&&selectedHistory.rows.length>0;
+            return <>
+              <div className={styles.decisionHead}>
+                <div><span className={styles.kicker}>Resumo da oportunidade</span><h3>{selectedHistory.query||'Pesquisa sem termo'}</h3><p>{selectedHistory.date?new Date(selectedHistory.date).toLocaleString('pt-BR'):'Data não disponível'} · {modeLabel(selectedHistory.mode)}</p></div>
+                {selectedResale&&<div className={styles.scoreBox} data-tone={toneOfScore(selectedResale.score)}><strong>{selectedResale.score}<small> / 100</small></strong><span>{resaleScoreLabel(selectedResale.score)}</span></div>}
+              </div>
+              {selectedResale?.provisional&&<p className={styles.provisional}><Icon name="info"/>Nota provisória: informe o custo para incluir lucro e margem no cálculo.</p>}
+
+              <div className={styles.decisionGrid}>
+                <div><span>Preço mediano encontrado</span><b>{money(m.price)}</b></div>
+                <div><span>Custo informado</span>
+                  <div className={styles.costInline}><em>R$</em><input key={selectedHistory.id+':'+(cost??'')} defaultValue={cost!=null?String(cost).replace('.',','):''} placeholder="0,00" inputMode="decimal" aria-label="Custo do produto desta pesquisa" onBlur={e=>saveResearchCost(selectedHistory,e.target.value)} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur()}}/></div>
+                </div>
+                <div data-tone={fin?(fin.profit>0?'good':'bad'):'none'}><span>Lucro estimado por venda</span><b>{fin?money(fin.profit):'—'}</b>{!fin&&<small>Informe o custo</small>}</div>
+                <div data-tone={margin?margin.tone:'none'}><span>Margem estimada</span><b>{fin?fin.marginPct.toLocaleString('pt-BR',{maximumFractionDigits:1})+'%':'—'}</b>{margin?<Tone tone={margin.tone}>{margin.label}</Tone>:<small>Informe o custo</small>}</div>
+                <div><span>Anúncios encontrados</span><b>{selectedHistory.count??(Array.isArray(selectedHistory.rows)?selectedHistory.rows.length:'—')}</b></div>
+              </div>
+
+              <div className={styles.chips}>
+                <Tone tone={demandTone}>{demandText}</Tone>
+                <Tone tone={competition.tone}>{competition.label}</Tone>
+                <Tone tone={dataQ.tone}>{dataQ.label}</Tone>
+              </div>
+
+              {comparison?.historyId===selectedHistory.id&&<div className={styles.comparisonBox} aria-live="polite">
+                <b>Comparação com nova coleta</b>
+                <div><span>Preço mediano</span><strong>{comparison.before?.priceMedian!=null&&comparison.after?.priceMedian!=null?`${money(comparison.before.priceMedian)} → ${money(comparison.after.priceMedian)}`:'Sem dados comparáveis'}</strong></div>
+                <div><span>Vendas medianas</span><strong>{comparison.before?.soldMedian!=null&&comparison.after?.soldMedian!=null?`${compact(comparison.before.soldMedian)} → ${compact(comparison.after.soldMedian)}`:'Sem dados comparáveis'}</strong></div>
+                <div><span>Vendas 30 dias</span><strong>{comparison.before?.monthlyMedian!=null&&comparison.after?.monthlyMedian!=null?`${compact(comparison.before.monthlyMedian)} → ${compact(comparison.after.monthlyMedian)}`:'Sem dados comparáveis'}</strong></div>
+              </div>}
+
+              {selectedResale&&<details className={styles.scoreWhy}>
+                <summary>Como esta nota é calculada</summary>
+                <p>A nota compara as suas pesquisas salvas entre si, usando só os dados coletados. Não é uma previsão de vendas.</p>
+                <div className={styles.breakdown}>{[['Demanda','demand'],['Faturamento estimado','revenue'],['Pouca concorrência','competition'],['Avaliações','social'],['Qualidade dos dados','quality'],['Rentabilidade','profitability']].map(([label,key])=>{const v=selectedResale.breakdown[key];return <div key={key}><span>{label}</span><b>{v==null?'sem custo':v+' / 100'}</b><i><u style={{width:(v==null?0:v)+'%'}}/></i></div>})}</div>
+              </details>}
+
+              <div className={styles.historyActions}>
+                <button type="button" className={styles.primaryBtn} onClick={()=>reopenResearch(selectedHistory)} disabled={!hasRows} title={!hasRows?'Pesquisa salva por uma versão antiga, sem os anúncios':''}><Icon name="open"/>Abrir pesquisa</button>
+                <button type="button" className={styles.ghostBtn} onClick={()=>repeatAndCompare(selectedHistory)} disabled={busy}><Icon name="repeat"/>Repetir e comparar</button>
+                <button type="button" className={styles.ghostBtn} onClick={()=>exportResearch(selectedHistory)}><Icon name="export"/>Exportar</button>
+                <button type="button" className={`${styles.ghostBtn} ${styles.deleteHistory}`} onClick={()=>deleteResearch(selectedHistory)}><Icon name="trash"/>Excluir</button>
+              </div>
+            </>;
+          })()}
         </div>
       </div></>}
     </section>}
 
-    <section className={styles.analysisCard} data-empty={rows.length?'false':'true'}>
+    {/* 3 · ANÁLISE (azul) */}
+    <section className={styles.analysisCard} data-empty={rows.length?'false':'true'} aria-labelledby="titulo-analise">
       <div className={styles.analysisHeader}>
-        <div><span>ANÁLISE DA PESQUISA</span><h2>{rows.length?'Pesquisa aberta':'Visão geral'}</h2><p>{rows.length?(query||'Pesquisa atual')+' · '+rows.length+' anúncios carregados':'Abra uma pesquisa do histórico ou faça uma nova busca para ver a análise.'}</p></div>
-        <div className={styles.analysisHeaderActions}>
-          <button type="button" className={styles.infoButton} onClick={()=>setDiagnosticsOpen(v=>!v)} aria-expanded={diagnosticsOpen} aria-controls="cobertura-dados">ⓘ Cobertura dos dados</button>
-          <button type="button" className={styles.sectionToggle} onClick={()=>setOverviewVisible(v=>!v)} aria-expanded={overviewVisible} aria-controls="conteudo-visao-geral">{overviewVisible?'⌃ Ocultar visão geral':'⌄ Mostrar visão geral'}</button>
-        </div>
+        <div><span className={styles.kicker}>Análise da pesquisa</span><h2 id="titulo-analise">{rows.length?(query.trim()||'Pesquisa aberta'):'Nenhuma pesquisa aberta'}</h2>{rows.length>0&&<p>{rows.length} anúncios carregados</p>}</div>
+        {rows.length>0&&<div className={styles.analysisHeaderActions}>
+          <button type="button" className={styles.infoButton} onClick={()=>setDiagnosticsOpen(v=>!v)} aria-expanded={diagnosticsOpen} aria-controls="cobertura-dados"><Icon name="info"/>Qualidade dos dados</button>
+          <button type="button" className={styles.sectionToggle} onClick={()=>setOverviewVisible(v=>!v)} aria-expanded={overviewVisible} aria-controls="conteudo-visao-geral"><Icon name={overviewVisible?'up':'down'}/>{overviewVisible?'Ocultar visão geral':'Mostrar visão geral'}</button>
+        </div>}
       </div>
 
-      {diagnosticsOpen&&rows.length>0&&<section id="cobertura-dados" className={styles.qualityCard}><div className={styles.qualityHead}><div><span>COBERTURA DOS DADOS</span><b>{qualityLabel} · {quality}%</b></div><em data-level={quality>=75?'high':quality>=45?'mid':'low'}>{qualityLabel}</em></div><div className={styles.coverageGrid}>{[['Preço','price'],['Vendas','sold'],['Vendas 30d','monthly'],['Localização','location'],['Avaliação','rating'],['Reviews','reviews']].map(([label,key])=><div key={key}><b>{bench.coverage[key]}/{rows.length}</b><span>{label}</span><i><u style={{width:(bench.coverage[key]/rows.length*100)+'%'}}/></i></div>)}</div>{suspiciousSales&&<div className={styles.dataWarning}>⚠️ Todos os anúncios vieram com vendas = 0. O Gestor não assume que isso significa ausência de demanda; este campo está marcado como suspeito até uma nova coleta confirmar.</div>}<div id="diagnostico-coleta" className={styles.diagnosticPanel}><div className={styles.diagnosticIntro}><b>Motor Sênior × Gestor</b><span>{diagnostics?'O Motor informou a cobertura antes da normalização. Assim dá para saber exatamente onde um campo se perdeu.':'Esta coleta não trouxe diagnóstico do Motor. Faça uma nova pesquisa para gerar essa comparação quando o Motor disponibilizar o diagnóstico.'}</span></div>{diagnostics&&<><div className={styles.diagnosticActions}><button type="button" className={styles.secondary} onClick={downloadDiagnostics}>Baixar diagnóstico técnico</button>{diagnostics?.mode==='diagnostic-only'&&<span>Modo diagnóstico: amostra controlada de {diagnostics?.sampleSize||0} item(ns), sem enriquecimento misturado.</span>}</div><div className={styles.diagnosticGrid}>{[['Preço','price','price'],['Vendas','sold','sold'],['Vendas 30d','monthlySold','monthly'],['Localização','shopLocation','location'],['Avaliação','rating','rating'],['Reviews','reviewCount','reviews']].map(([label,motorKey,gestorKey])=>{const motor=Number(diagnostics?.coverage?.[motorKey]??0),gestor=Number(bench.coverage?.[gestorKey]??0);const status=motor===0?'source':gestor<motor?'normalizer':'ok';return <div key={label} data-status={status}><b>{label}</b><span>Motor: {motor}/{rows.length}</span><span>Gestor: {gestor}/{rows.length}</span><strong>{status==='ok'?'✓ aproveitado':status==='normalizer'?'⚠ normalização':'○ não veio da busca'}</strong></div>})}</div>{Array.isArray(diagnostics.detectedPaths)&&diagnostics.detectedPaths.length>0&&<details className={styles.detectedPaths}><summary>Campos estruturados detectados pelo Motor</summary><code>{diagnostics.detectedPaths.join(' · ')}</code></details>}</>}</div></section>}
+      {rows.length===0&&<div className={styles.emptyState}>
+        <span className={styles.emptyIcon} aria-hidden="true"><Icon name="search"/></span>
+        <div>
+          <b>Selecione uma pesquisa no histórico ou faça uma nova busca para ver a análise completa.</b>
+          <p>{selectedHistory?`Pesquisa selecionada: ${selectedHistory.query||'sem termo'}.`:'Você ainda não tem pesquisas salvas. Comece pelo passo 1 acima.'}</p>
+        </div>
+        {selectedHistory&&<button type="button" className={styles.primaryBtn} onClick={()=>reopenResearch(selectedHistory)} disabled={!Array.isArray(selectedHistory.rows)||!selectedHistory.rows.length}>Abrir pesquisa selecionada</button>}
+      </div>}
+
+      {diagnosticsOpen&&rows.length>0&&<section id="cobertura-dados" className={styles.qualityCard}>
+        <div className={styles.qualityHead}>
+          <div><span className={styles.kicker}>COBERTURA DOS DADOS</span><b>{qualityLabel} · {quality}%</b><p>Mostra quantos anúncios vieram com cada informação. O que não veio continua “não coletado” e nunca vira zero.</p></div>
+          <Tone tone={openQuality.tone}>{openQuality.label}</Tone>
+        </div>
+        <div className={styles.coverageGrid}>{[['Preço','price'],['Vendas','sold'],['Vendas 30d','monthly'],['Localização','location'],['Avaliação','rating'],['Reviews','reviews']].map(([label,key])=><div key={key}><b>{bench.coverage[key]}/{rows.length}</b><span>{label}</span><i><u style={{width:(bench.coverage[key]/rows.length*100)+'%'}}/></i></div>)}</div>
+        <p className={styles.preferredLine}>Anúncios de Vendedor Indicado: <b>{rows.filter(r=>r.preferred).length}</b></p>
+        {suspiciousSales&&<div className={styles.dataWarning}><Icon name="alert"/><span>Todos os anúncios vieram com vendas = 0. O Gestor não assume que isso significa ausência de demanda; este campo está marcado como suspeito até uma nova coleta confirmar.</span></div>}
+        <details className={styles.techDetails}>
+          <summary>Ver detalhes técnicos</summary>
+          <div id="diagnostico-coleta" className={styles.diagnosticPanel}>
+            <div className={styles.diagnosticIntro}><b>Motor Sênior × Gestor</b><span>{diagnostics?'O Motor informou a cobertura antes da normalização. Assim dá para saber exatamente onde um campo se perdeu.':'Esta coleta não trouxe diagnóstico do Motor. Faça uma nova pesquisa para gerar essa comparação quando o Motor disponibilizar o diagnóstico.'}</span></div>
+            {diagnostics&&<>
+              <div className={styles.diagnosticActions}><button type="button" className={styles.ghostBtn} onClick={downloadDiagnostics}><Icon name="export"/>Baixar diagnóstico técnico</button>{diagnostics?.mode==='diagnostic-only'&&<span>Modo diagnóstico: amostra controlada de {diagnostics?.sampleSize||0} item(ns), sem enriquecimento misturado.</span>}</div>
+              <div className={styles.diagnosticGrid}>{[['Preço','price','price'],['Vendas','sold','sold'],['Vendas 30d','monthlySold','monthly'],['Localização','shopLocation','location'],['Avaliação','rating','rating'],['Reviews','reviewCount','reviews']].map(([label,motorKey,gestorKey])=>{const motor=Number(diagnostics?.coverage?.[motorKey]??0),gestor=Number(bench.coverage?.[gestorKey]??0);const status=motor===0?'source':gestor<motor?'normalizer':'ok';return <div key={label} data-status={status}><b>{label}</b><span>Motor: {motor}/{rows.length}</span><span>Gestor: {gestor}/{rows.length}</span><strong>{status==='ok'?'✓ aproveitado':status==='normalizer'?'⚠ normalização':'○ não veio da busca'}</strong></div>})}</div>
+              {Array.isArray(diagnostics.detectedPaths)&&diagnostics.detectedPaths.length>0&&<details className={styles.detectedPaths}><summary>Campos estruturados detectados pelo Motor</summary><code>{diagnostics.detectedPaths.join(' · ')}</code></details>}
+            </>}
+          </div>
+        </details>
+      </section>}
 
       {rows.length>0&&overviewVisible&&<div id="conteudo-visao-geral" className={styles.analysisBody}>
         <nav className={styles.tabs} aria-label="Seções da Pesquisa de Produtos">
-          <div className={styles.tabScroller}>{tabs.map(([id,label])=><button key={id} type="button" className={activeTab===id?styles.activeTab:''} onClick={()=>setActiveTab(id)}>{id==='overview'?'Resumo':label}</button>)}</div>
+          <div className={styles.tabScroller}>{tabs.map(([id,label])=><button key={id} type="button" aria-current={activeTab===id?'page':undefined} className={activeTab===id?styles.activeTab:''} onClick={()=>setActiveTab(id)}>{id==='overview'?'Resumo':label}</button>)}</div>
         </nav>
 
-    {activeTab==='overview'&&<>
-      <section className={styles.kpis}>
-        <article><span>Preço mediano</span><strong>{bench.coverage.price?money(bench.priceMedian):'Não coletado'}</strong><small>{bench.coverage.price}/{rows.length||0} anúncios com preço</small></article>
-        <article><span>Vendas medianas</span><strong>{bench.coverage.sold?compact(bench.soldMedian):'Não coletado'}</strong><small>{bench.coverage.sold}/{rows.length||0} anúncios com vendas</small></article>
-        <article><span>Vendas 30 dias</span><strong>{bench.coverage.monthly?compact(bench.monthlyMedian):'Não coletado'}</strong><small>{bench.coverage.monthly}/{rows.length||0} anúncios com o campo</small></article>
-        <article><span>Lojas únicas</span><strong>{concentration.shops||'—'}</strong><small>{concentration.shops?concentration.share+'% nas 5 lojas com mais resultados':'shop_id não coletado'}</small></article>
-      </section>
-      <section className={styles.panel}>
-        <div className={styles.panelHead}><div><h2>Resumo da pesquisa</h2><p>Use as abas para navegar sem deixar a tela longa.</p></div></div>
-        <div className={styles.summaryGrid}>
-          <div><span>Anúncios coletados</span><b>{rows.length}</b></div>
-          <div><span>Cobertura dos dados</span><b>{quality}%</b></div>
-          <div><span>Lojas identificadas</span><b>{concentration.shops||'—'}</b></div>
-          <div><span>Vendedor Indicado</span><b>{rows.filter(r=>r.preferred).length}</b></div>
-        </div>
-      </section>
-    </>}
+        {activeTab==='overview'&&<section className={styles.kpis} aria-label="Resumo simples da pesquisa">
+          <article><span>Preço mediano</span><strong>{bench.coverage.price?money(bench.priceMedian):'Não coletado'}</strong><small>Preço do anúncio “do meio”. {bench.coverage.price}/{rows.length} com preço.</small></article>
+          <article><span>Vendas medianas</span><strong>{bench.coverage.sold?compact(bench.soldMedian):'Não coletado'}</strong><small>Total vendido por anúncio. {bench.coverage.sold}/{rows.length} com vendas.</small></article>
+          <article><span>Vendas em 30 dias</span><strong>{bench.coverage.monthly?compact(bench.monthlyMedian):'Não coletado'}</strong><small>Vendas recentes por anúncio. {bench.coverage.monthly}/{rows.length} com o campo.</small></article>
+          <article><span>Lojas concorrentes</span><strong>{concentration.shops||'—'}</strong>{concentration.shops?<Tone tone={openCompetition.tone}>{openCompetition.label}</Tone>:null}<small>{concentration.shops?'As 5 maiores lojas concentram '+concentration.share+'% dos anúncios.':'shop_id não coletado'}</small></article>
+          <article><span>Qualidade dos dados</span><strong>{quality}%</strong><Tone tone={openQuality.tone}>{openQuality.label}</Tone><small>Quanto da coleta veio completo.</small></article>
+        </section>}
 
-    {activeTab==='results'&&<section className={styles.panel}>
-      <div className={styles.panelHead}>
-        <div><h2>Radar de oportunidades</h2><p>O score é determinístico e usa somente os dados carregados; não é uma nota gerada por IA.</p></div>
-        <div className={styles.filters}>
-          <input inputMode="numeric" value={minSold} onChange={e=>setMinSold(e.target.value)} placeholder="Vendas mín."/>
-          <input inputMode="decimal" value={maxPrice} onChange={e=>setMaxPrice(e.target.value)} placeholder="Preço máx."/>
-          <select value={sort} onChange={e=>setSort(e.target.value)}><option value="score">Melhor oportunidade</option><option value="sales">Mais vendidos</option><option value="monthly">Mais vendas 30d</option><option value="price">Menor preço</option></select>
-        </div>
-      </div>
-      {!filtered.length?<div className={styles.empty}>Faça uma pesquisa automática ou importe uma coleta para começar.</div>:
-      <div className={styles.tableWrap}><table><thead><tr><th>Produto</th><th>Preço</th><th>Vendas</th><th>30 dias</th><th>Avaliações</th><th>Local</th><th>Oportunidade</th><th>Confiança</th><th></th></tr></thead><tbody>
-        {paged.map(r=><tr key={r.key}>
-          <td><div className={styles.product}>{r.image?<img src={r.image} alt=""/>:<div className={styles.noImg}>▧</div>}<div><b title={r.title}>{r.title}</b><small>{r.preferred?'Vendedor Indicado · ':''}{r.itemId?'ID '+r.itemId:'ID não coletado'}</small></div></div></td>
-          <td><b>{money(r.price)}</b>{r.discount?<small className={styles.discount}>-{r.discount}%</small>:null}</td>
-          <td><b>{compact(r.sold)}</b><small>{r.revenue!=null?money(r.revenue)+' estimado bruto':'—'}</small></td>
-          <td><b>{compact(r.monthlySold)}</b><small>{r.monthlyRevenue!=null?money(r.monthlyRevenue)+' / 30d':'não coletado'}</small></td>
-          <td><b>{r.rating!=null?'★ '+number(r.rating):'—'}</b><small>{r.reviews!=null?compact(r.reviews)+' avaliações':'—'}</small></td>
-          <td>{r.location||'—'}</td>
-          <td><span className={styles.score} data-level={r.score>=70?'high':r.score>=50?'mid':'low'}>{r.score}</span></td>
-          <td><span className={styles.confidence} data-level={r.confidence.label==='Alta'?'high':r.confidence.label==='Média'?'mid':'low'}>{r.confidence.label}<small>{r.confidence.value}%</small></span></td>
-          <td>{r.url?<a href={r.url} target="_blank" rel="noreferrer">Abrir ↗</a>:'—'}</td>
-        </tr>)}
-      </tbody></table></div>}
-      {filtered.length>0&&<div className={styles.pagination}><span>Mostrando {(page-1)*PAGE_SIZE+1}–{Math.min(page*PAGE_SIZE,filtered.length)} de {filtered.length}</span><div><button disabled={page<=1} onClick={()=>setPage(p=>p-1)}>←</button><b>{page} / {pages}</b><button disabled={page>=pages} onClick={()=>setPage(p=>p+1)}>→</button></div></div>}
-    </section>}
+        {activeTab==='results'&&<section className={styles.panel}>
+          <div className={styles.panelHead}>
+            <div><h2>Radar de oportunidades</h2><p>A nota usa somente os dados carregados e não é gerada por IA.</p></div>
+            <div className={styles.filters}>
+              <input inputMode="numeric" aria-label="Vendas mínimas" value={minSold} onChange={e=>setMinSold(e.target.value)} placeholder="Vendas mín."/>
+              <input inputMode="decimal" aria-label="Preço máximo" value={maxPrice} onChange={e=>setMaxPrice(e.target.value)} placeholder="Preço máx."/>
+              <select aria-label="Ordenar resultados" value={sort} onChange={e=>setSort(e.target.value)}><option value="score">Melhor oportunidade</option><option value="sales">Mais vendidos</option><option value="monthly">Mais vendas 30d</option><option value="price">Menor preço</option></select>
+            </div>
+          </div>
+          {!filtered.length?<div className={styles.empty}>Faça uma pesquisa automática ou importe uma coleta para começar.</div>:<>
+          <div className={styles.tableWrap}><table><thead><tr><th>Produto</th><th>Preço</th><th>Vendas</th><th>30 dias</th><th>Avaliações</th><th>Local</th><th>Oportunidade</th><th>Confiança</th><th><span className={styles.srOnly}>Abrir anúncio</span></th></tr></thead><tbody>
+            {paged.map(r=><tr key={r.key}>
+              <td><div className={styles.product}>{r.image?<img src={r.image} alt=""/>:<div className={styles.noImg}><Icon name="tag"/></div>}<div><b title={r.title}>{r.title}</b><small>{r.preferred?'Vendedor Indicado · ':''}{r.itemId?'ID '+r.itemId:'ID não coletado'}</small></div></div></td>
+              <td><b>{money(r.price)}</b>{r.discount?<small className={styles.discount}>-{r.discount}%</small>:null}</td>
+              <td><b>{compact(r.sold)}</b><small>{r.revenue!=null?money(r.revenue)+' estimado bruto':'—'}</small></td>
+              <td><b>{compact(r.monthlySold)}</b><small>{r.monthlyRevenue!=null?money(r.monthlyRevenue)+' / 30d':'não coletado'}</small></td>
+              <td><b>{r.rating!=null?'★ '+number(r.rating):'—'}</b><small>{r.reviews!=null?compact(r.reviews)+' avaliações':'—'}</small></td>
+              <td>{r.location||'—'}</td>
+              <td><span className={styles.score} data-level={r.score>=70?'high':r.score>=50?'mid':'low'}>{r.score}<small>{r.score>=70?'Forte':r.score>=50?'Média':'Fraca'}</small></span></td>
+              <td><span className={styles.confidence} data-level={r.confidence.label==='Alta'?'high':r.confidence.label==='Média'?'mid':'low'}>{r.confidence.label}<small>{r.confidence.value}%</small></span></td>
+              <td>{r.url?<a href={r.url} target="_blank" rel="noreferrer">Abrir ↗</a>:'—'}</td>
+            </tr>)}
+          </tbody></table></div>
+          <div className={styles.resultCards}>{paged.map(r=><article key={r.key}>
+            <div className={styles.product}>{r.image?<img src={r.image} alt=""/>:<div className={styles.noImg}><Icon name="tag"/></div>}<div><b title={r.title}>{r.title}</b><small>{r.preferred?'Vendedor Indicado · ':''}{r.itemId?'ID '+r.itemId:'ID não coletado'}</small></div></div>
+            <dl>
+              <div><dt>Preço</dt><dd>{money(r.price)}{r.discount?<small className={styles.discount}> -{r.discount}%</small>:null}</dd></div>
+              <div><dt>Vendas</dt><dd>{compact(r.sold)}</dd></div>
+              <div><dt>30 dias</dt><dd>{compact(r.monthlySold)}</dd></div>
+              <div><dt>Avaliação</dt><dd>{r.rating!=null?'★ '+number(r.rating):'—'}</dd></div>
+            </dl>
+            <div className={styles.resultCardFoot}>
+              <span className={styles.score} data-level={r.score>=70?'high':r.score>=50?'mid':'low'}>{r.score}<small>{r.score>=70?'Forte':r.score>=50?'Média':'Fraca'}</small></span>
+              <span className={styles.confidence} data-level={r.confidence.label==='Alta'?'high':r.confidence.label==='Média'?'mid':'low'}>Confiança {r.confidence.label}<small>{r.confidence.value}%</small></span>
+              {r.url&&<a href={r.url} target="_blank" rel="noreferrer">Abrir ↗</a>}
+            </div>
+          </article>)}</div></>}
+          {filtered.length>0&&<div className={styles.pagination}><span>Mostrando {(page-1)*PAGE_SIZE+1}–{Math.min(page*PAGE_SIZE,filtered.length)} de {filtered.length}</span><div><button type="button" aria-label="Página anterior" disabled={page<=1} onClick={()=>setPage(p=>p-1)}>←</button><b>{page} / {pages}</b><button type="button" aria-label="Próxima página" disabled={page>=pages} onClick={()=>setPage(p=>p+1)}>→</button></div></div>}
+        </section>}
 
-    {activeTab==='top'&&<section className={styles.panel}>
-      <div className={styles.panelHead}><div><h2>Oportunidades com evidência</h2><p>O score é acompanhado pela confiança, baseada na quantidade de campos realmente disponíveis.</p></div></div>
-      <div className={styles.topList}>{top.length?top.map((r,i)=><div key={r.key}><span>{i+1}</span><div><b>{r.title}</b><small>{money(r.price)} · {compact(r.sold)} vendidos</small></div><strong>{r.score}</strong></div>):<div className={styles.emptySmall}>Sem dados ainda.</div>}</div>
-    </section>}
+        {activeTab==='top'&&<section className={styles.panel}>
+          <div className={styles.panelHead}><div><h2>Oportunidades com evidência</h2><p>A nota vem acompanhada da confiança, baseada na quantidade de campos realmente disponíveis.</p></div></div>
+          <div className={styles.topList}>{top.length?top.map((r,i)=><div key={r.key}><span>{i+1}</span><div><b>{r.title}</b><small>{money(r.price)} · {compact(r.sold)} vendidos</small></div><strong>{r.score}</strong></div>):<div className={styles.emptySmall}>Sem dados ainda.</div>}</div>
+        </section>}
 
-    {activeTab==='keywords'&&<section className={styles.panel}>
-      <div className={styles.panelHead}><div><h2>Palavras-chave dos concorrentes</h2><p>Extraídas dos títulos sem IA. Frequência, preço e vendas aparecem somente quando existem na coleta.</p></div></div>
-      <div className={styles.keywordTable}>{keywords.length?keywords.map(k=><div key={k.word}><b>{k.word}</b><span>{k.count} anúncios</span><span>{k.price!=null?money(k.price):'preço —'}</span><span>{k.sales!=null?compact(k.sales)+' vendas medianas':'vendas —'}</span></div>):<div className={styles.empty}>Sem termos recorrentes suficientes.</div>}</div>
-    </section>}
+        {activeTab==='keywords'&&<section className={styles.panel}>
+          <div className={styles.panelHead}><div><h2>Palavras-chave dos concorrentes</h2><p>Extraídas dos títulos, sem IA. Frequência, preço e vendas aparecem somente quando existem na coleta.</p></div></div>
+          {keywords.length?<ul className={styles.keywordList}>{keywords.map(k=><li key={k.word}>
+            <b>{k.word}</b>
+            <span><em>Anúncios</em>{k.count}</span>
+            <span><em>Preço</em>{k.price!=null?money(k.price):'—'}</span>
+            <span><em>Vendas medianas</em>{k.sales!=null?compact(k.sales):'—'}</span>
+          </li>)}</ul>:<div className={styles.empty}>Sem termos recorrentes suficientes.</div>}
+        </section>}
 
-    {activeTab==='competition'&&<section className={styles.competitionGrid}>
-      <div className={styles.panel}><div className={styles.panelHead}><div><h2>Concentração de vendedores</h2><p>Muitos anúncios podem pertencer à mesma loja.</p></div></div><div className={styles.bigMetric}><strong>{concentration.shops||'—'}</strong><span>lojas únicas identificadas</span></div><div className={styles.bigMetric}><strong>{concentration.shops?concentration.share+'%':'—'}</strong><span>dos anúncios nas 5 lojas com mais resultados</span></div></div>
-      <div className={styles.panel}><div className={styles.panelHead}><div><h2>Origem dos anúncios</h2><p>Somente localizações realmente coletadas.</p></div></div><div className={styles.bigMetric}><strong>{bench.mainLocation==='—'?'Não coletado':bench.mainLocation}</strong><span>origem mais comum</span></div><div className={styles.bigMetric}><strong>{bench.coverage.location}/{rows.length||0}</strong><span>anúncios com localização</span></div></div>
-    </section>}
+        {activeTab==='competition'&&<section className={styles.competitionGrid}>
+          <div className={styles.panel}><div className={styles.panelHead}><div><h2>Concentração de vendedores</h2><p>Muitos anúncios podem pertencer à mesma loja.</p></div></div><div className={styles.bigMetric}><strong>{concentration.shops||'—'}</strong><span>lojas únicas identificadas</span></div><div className={styles.bigMetric}><strong>{concentration.shops?concentration.share+'%':'—'}</strong><span>dos anúncios nas 5 lojas com mais resultados</span></div></div>
+          <div className={styles.panel}><div className={styles.panelHead}><div><h2>Origem dos anúncios</h2><p>Somente localizações realmente coletadas.</p></div></div><div className={styles.bigMetric}><strong>{bench.mainLocation==='—'?'Não coletado':bench.mainLocation}</strong><span>origem mais comum</span></div><div className={styles.bigMetric}><strong>{bench.coverage.location}/{rows.length||0}</strong><span>anúncios com localização</span></div></div>
+        </section>}
 
-    {activeTab==='insights'&&<section className={styles.panel}>
-      <div className={styles.panelHead}><div><h2>Insights da coleta</h2><p>Conclusões descritivas baseadas apenas nos campos disponíveis.</p></div></div>
-      <div className={styles.insightGrid}>
-        <article><span>💰</span><div><b>Preço</b><p>{bench.coverage.price?'Mediana observada: '+money(bench.priceMedian)+' em '+bench.coverage.price+' anúncios.':'Preço insuficiente para análise.'}</p></div></article>
-        <article><span>📈</span><div><b>Demanda</b><p>{bench.coverage.sold?'Vendas disponíveis em '+bench.coverage.sold+' de '+rows.length+' anúncios.'+(suspiciousSales?' O padrão de zeros foi marcado como suspeito.':''):'A coleta atual não permite avaliar demanda por vendas.'}</p></div></article>
-        <article><span>🏪</span><div><b>Concorrência</b><p>{concentration.shops?concentration.shops+' lojas únicas; as 5 com mais resultados concentram '+concentration.share+'% dos anúncios.':'Sem shop_id suficiente para medir concentração.'}</p></div></article>
-        <article><span>🔎</span><div><b>Termos recorrentes</b><p>{keywords.length?'Mais usados: '+keywords.slice(0,5).map(k=>k.word).join(', ')+'.':'Sem títulos suficientes.'}</p></div></article>
-        <article><span>🧪</span><div><b>Confiabilidade</b><p>Qualidade geral: {qualityLabel.toLowerCase()} ({quality}%). Dados ausentes continuam ausentes e não viram zero.</p></div></article>
-      </div>
-    </section>}
-
+        {activeTab==='insights'&&<section className={styles.panel}>
+          <div className={styles.panelHead}><div><h2>Insights da coleta</h2><p>Conclusões descritivas baseadas apenas nos campos disponíveis.</p></div></div>
+          <div className={styles.insightGrid}>
+            <article><span aria-hidden="true"><Icon name="tag"/></span><div><b>Preço</b><p>{bench.coverage.price?'Mediana observada: '+money(bench.priceMedian)+' em '+bench.coverage.price+' anúncios.':'Preço insuficiente para análise.'}</p></div></article>
+            <article><span aria-hidden="true"><Icon name="trend"/></span><div><b>Demanda</b><p>{bench.coverage.sold?'Vendas disponíveis em '+bench.coverage.sold+' de '+rows.length+' anúncios.'+(suspiciousSales?' O padrão de zeros foi marcado como suspeito.':''):'A coleta atual não permite avaliar demanda por vendas.'}</p></div></article>
+            <article><span aria-hidden="true"><Icon name="store"/></span><div><b>Concorrência</b><p>{concentration.shops?concentration.shops+' lojas únicas; as 5 com mais resultados concentram '+concentration.share+'% dos anúncios.':'Sem shop_id suficiente para medir concentração.'}</p></div></article>
+            <article><span aria-hidden="true"><Icon name="search"/></span><div><b>Termos recorrentes</b><p>{keywords.length?'Mais usados: '+keywords.slice(0,5).map(k=>k.word).join(', ')+'.':'Sem títulos suficientes.'}</p></div></article>
+            <article><span aria-hidden="true"><Icon name="shield"/></span><div><b>Confiabilidade</b><p>Qualidade geral: {qualityLabel.toLowerCase()} ({quality}%). Dados ausentes continuam ausentes e não viram zero.</p></div></article>
+          </div>
+        </section>}
       </div>}
     </section>
 
+    {/* 4 · ASSISTENTE (roxo de acento) */}
     {rows.length>0&&<section className={styles.creationAssistant}>
       <div className={styles.assistantHeader}>
-        <div><span className={styles.assistantEyebrow}>✨ ASSISTENTE DE CRIAÇÃO DO ANÚNCIO</span><h2>Crie o anúncio usando os sinais desta pesquisa</h2><p>As sugestões abaixo usam apenas os dados coletados. Onde a pesquisa não prova algo, o Gestor sinaliza para revisão.</p></div>
-        <button type="button" className={styles.assistantToggle} onClick={()=>setAssistantVisible(v=>!v)}>{assistantVisible?'⌃ Ocultar assistente':'⌄ Mostrar assistente'}</button>
+        <div><span className={styles.assistantEyebrow}><Icon name="sparkle"/>ASSISTENTE DE CRIAÇÃO DO ANÚNCIO</span><h2>Crie o anúncio usando os sinais desta pesquisa</h2><p>As sugestões usam apenas os dados coletados. Onde a pesquisa não prova algo, o Gestor sinaliza para revisão.</p></div>
+        <button type="button" className={styles.assistantToggle} aria-expanded={assistantVisible} onClick={()=>setAssistantVisible(v=>!v)}><Icon name={assistantVisible?'up':'down'}/>{assistantVisible?'Ocultar assistente':'Mostrar assistente'}</button>
       </div>
 
       {assistantVisible&&<>
         <div className={styles.assistantSummary}>
-          <div><span>🎯 Tema forte</span><b>{assistant.theme}</b></div>
-          <div><span>👑 Melhor variação</span><b>{assistant.bestVariation}</b></div>
-          <div><span>🏷 Faixa de preço</span><b>{assistant.priceRange}</b></div>
-          <div><span>📊 Concorrência</span><b>{assistant.competition}</b></div>
-          <label><span>Objetivo da recomendação</span><select value={assistantObjective} onChange={e=>setAssistantObjective(e.target.value)}><option value="sales">🏆 Mais vendido</option><option value="competition">🎯 Menor concorrência</option><option value="price">💰 Melhor preço</option></select></label>
+          <div><span>Tema forte</span><b>{assistant.theme}</b></div>
+          <div><span>Melhor variação</span><b>{assistant.bestVariation}</b></div>
+          <div><span>Faixa de preço</span><b>{assistant.priceRange}</b></div>
+          <div><span>Concorrência</span><b>{assistant.competition}</b></div>
+          <div className={styles.objective}><span id="rotulo-objetivo">Objetivo da recomendação</span>
+            <div role="group" aria-labelledby="rotulo-objetivo">{[['sales','Mais vendido'],['competition','Menor concorrência'],['price','Melhor preço']].map(([id,label])=><button key={id} type="button" aria-pressed={assistantObjective===id} className={assistantObjective===id?styles.objectiveActive:''} onClick={()=>setAssistantObjective(id)}>{label}</button>)}</div>
+          </div>
         </div>
 
         <div className={styles.assistantTabs} role="tablist" aria-label="Etapas do Assistente de Criação">
           {[
-            ['strategy','Estratégia','🎯'],['title','Título','✍'],['description','Descrição','▤'],['images','Imagens','▧'],
-            ['category','Categoria / NCM','◇'],['variations','Variações','▦'],['references','Referências','↗'],['checklist','Checklist','☑']
-          ].map(([id,label,icon])=><button key={id} type="button" role="tab" aria-selected={assistantTab===id} className={assistantTab===id?styles.assistantTabActive:''} onClick={()=>setAssistantTab(id)}><span>{icon}</span>{label}</button>)}
+            ['strategy','Estratégia'],['title','Título'],['description','Descrição'],['images','Imagens'],
+            ['category','Categoria / NCM'],['variations','Variações'],['references','Referências'],['checklist','Checklist']
+          ].map(([id,label],i)=><button key={id} type="button" role="tab" aria-selected={assistantTab===id} className={assistantTab===id?styles.assistantTabActive:''} onClick={()=>setAssistantTab(id)}><i>{i+1}</i>{label}</button>)}
         </div>
 
         <div className={styles.assistantContent}>
@@ -686,13 +868,13 @@ export default function MarketResearch(){
             <div className={styles.recommendationHead}><div><span>Título sugerido</span><b>Baseado nas palavras e variações da pesquisa</b></div><em>Rascunho</em></div>
             <div className={styles.titleSuggestion}>{assistant.suggestedTitle||'Ainda não há dados suficientes para sugerir um título.'}</div>
             <p><b>Por que este título?</b> Combina a pesquisa principal com a variação mais forte detectada sem copiar integralmente o título de um concorrente.</p>
-            <div className={styles.assistantActions}><button onClick={()=>copyText(assistant.suggestedTitle)}>Copiar título</button><button className={styles.secondaryAction} onClick={()=>setAssistantTab('strategy')}>Ver evidências</button><button className={styles.secondaryAction} onClick={()=>setActiveTab('keywords')}>Ver palavras usadas</button></div>
+            <div className={styles.assistantActions}><button type="button" onClick={()=>copyText(assistant.suggestedTitle)}>Copiar título</button><button type="button" className={styles.secondaryAction} onClick={()=>setAssistantTab('strategy')}>Ver evidências</button><button type="button" className={styles.secondaryAction} onClick={()=>setActiveTab('keywords')}>Ver palavras usadas</button></div>
           </div>}
 
           {assistantTab==='description'&&<div className={styles.recommendationBox}>
             <div className={styles.recommendationHead}><div><span>Descrição sugerida</span><b>Rascunho para você completar com os dados reais do produto</b></div><em>Revisar</em></div>
-            <textarea className={styles.descriptionDraft} readOnly value={assistant.description}/>
-            <div className={styles.assistantActions}><button onClick={()=>copyText(assistant.description)}>Copiar descrição</button></div>
+            <textarea className={styles.descriptionDraft} aria-label="Descrição sugerida" readOnly value={assistant.description}/>
+            <div className={styles.assistantActions}><button type="button" onClick={()=>copyText(assistant.description)}>Copiar descrição</button></div>
           </div>}
 
           {assistantTab==='images'&&<div className={styles.referenceGrid}>
@@ -709,7 +891,7 @@ export default function MarketResearch(){
           </div>}
 
           {assistantTab==='references'&&<div className={styles.referenceGrid}>
-            {referenceProducts.length?referenceProducts.map((r,i)=><article key={r.key}><div className={styles.referenceImage}>{r.image?<img src={r.image} alt=""/>:<span>Sem imagem</span>}</div><div><span>{i===0?'🔥 Referência principal':'Concorrente '+(i+1)}</span><b>{r.title}</b><small>{money(r.price)} · {compact(r.sold)} vendas · {r.rating!=null?'★ '+number(r.rating):'sem nota'}</small><div className={styles.referenceActions}>{r.url&&<a href={r.url} target="_blank" rel="noreferrer">Ver anúncio ↗</a>}{r.image&&<a href={r.image} target="_blank" rel="noreferrer">Abrir imagem</a>}</div></div></article>):<div className={styles.empty}>Sem concorrentes utilizáveis nesta coleta.</div>}
+            {referenceProducts.length?referenceProducts.map((r,i)=><article key={r.key}><div className={styles.referenceImage}>{r.image?<img src={r.image} alt=""/>:<span>Sem imagem</span>}</div><div><span>{i===0?'Referência principal':'Concorrente '+(i+1)}</span><b>{r.title}</b><small>{money(r.price)} · {compact(r.sold)} vendas · {r.rating!=null?'★ '+number(r.rating):'sem nota'}</small><div className={styles.referenceActions}>{r.url&&<a href={r.url} target="_blank" rel="noreferrer">Ver anúncio ↗</a>}{r.image&&<a href={r.image} target="_blank" rel="noreferrer">Abrir imagem</a>}</div></div></article>):<div className={styles.empty}>Sem concorrentes utilizáveis nesta coleta.</div>}
           </div>}
 
           {assistantTab==='checklist'&&<div className={styles.checklistGrid}>
@@ -722,11 +904,10 @@ export default function MarketResearch(){
               ['Confirmar NCM com base no produto real',false],
               ['Escolher concorrente de referência',referenceProducts.length>0],
               ['Criar imagens próprias inspiradas na estratégia',false]
-            ].map(([label,done])=><div key={label} data-done={done?'yes':'no'}><span>{done?'✓':'○'}</span><b>{label}</b></div>)}
+            ].map(([label,done])=><div key={label} data-done={done?'yes':'no'}><span aria-hidden="true">{done?'✓':'○'}</span><b>{label}</b><small>{done?'Pronto':'A fazer'}</small></div>)}
           </div>}
         </div>
       </>}
     </section>}
   </div>;
 }
- 

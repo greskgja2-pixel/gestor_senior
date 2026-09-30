@@ -612,3 +612,15 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 - Preservados o contrato JSON, a URL existente e `Cache-Control: no-store`; a extensão instalada pode obter o valor corrigido em “Verificar agora”, sem reinstalação.
 - Atualizado o teste de versão antiga para conferir o registro compartilhado e seus consumidores. `npm run prebuild`: 114 testes passaram.
 - Nenhum ZIP novo foi criado ou hospedado nesta correção; nenhuma lógica de coleta foi alterada.
+
+### 2026-09-30 — Claude — Pesquisa de Produtos: reorganização de UX para leigos
+**Arquivos:** `app/pesquisa-produtos/MarketResearch.js`, `app/pesquisa-produtos/pesquisa-produtos.module.css` (reescrito, sem CSS legado duplicado), `tests/market-research-v2.test.mjs`. Branch local `claude/pesquisa-produtos-ux` (não commitado/deployado).
+
+1. Só UX/hierarquia: APIs, coleta, `opportunityScore`, cálculos e `financeAnalysis` intactos; helpers novos são apenas rótulos/ícones/tons.
+2. Busca em 3 passos (o que pesquisar → profundidade Rápida/Padrão/Profunda → custo opcional). Importar/Exportar/Histórico viraram ações secundárias.
+3. Histórico: cada linha mostra nome, data, profundidade, score + rótulo, anúncios, lucro e margem em destaque, exportar/excluir. Painel "Resumo da oportunidade" com ações Abrir pesquisa / Repetir e comparar / Exportar / Excluir.
+4. Sem pesquisa aberta: só estado vazio "Nenhuma pesquisa aberta". Com pesquisa: 5 indicadores simples → abas Resultados/Oportunidades/Palavras-chave/Concorrência/Insights. "Cobertura dos dados" e diagnóstico do Motor ficam atrás de "Qualidade dos dados"/"Ver detalhes técnicos".
+5. Cor nunca é o único sinal (chips com texto + ícone). Limiares são heurísticas ajustáveis: margem ≥20% saudável, ≥10% apertada; score ≥65 bom, ≥50 atenção; concorrência ≥45% alta, ≥25% média. Demanda relativa só com ≥3 pesquisas salvas; antes disso mostra o fato (vendas).
+6. Mobile: blocos verticais, `resultCards` no lugar da tabela (≤900px), palavras-chave com quebra natural. Assistente de Criação agora começa recolhido (mudança de comportamento).
+**Validação:** `node --test` da lista do prebuild: 117 passaram; `tsc --noEmit --allowJs` ok; QA visual em Chromium com harness sintético (desktop + 390px, sem overflow horizontal). **Não validado:** `next build` (npm 403 no sandbox) e dados reais da extensão.
+**Pendente:** revisar no deploy real; "Excluir" continua sem confirmação (comportamento original).
