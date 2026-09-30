@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import {MOTOR_RELEASE} from '../../lib/motor-release';
 
 export const metadata={title:'Motor Sênior — Atualizações'};
 
@@ -6,8 +7,8 @@ export default function MotorSeniorUpdatePage(){
   return <main style={{minHeight:'100vh',background:'#07111d',color:'#edf5fd',padding:'32px 18px',fontFamily:'system-ui,Segoe UI,sans-serif'}}>
     <section style={{maxWidth:720,margin:'0 auto',border:'1px solid #27415e',borderRadius:18,background:'#0c1c2d',padding:24}}>
       <small style={{color:'#8ddcff',fontWeight:800}}>ATUALIZAÇÕES OFICIAIS</small>
-      <h1 style={{margin:'8px 0',color:'#f2d36d'}}>Motor Sênior v0.17.9</h1>
-      <p style={{color:'#b8c9d8',lineHeight:1.6}}>Esta é a versão oficial mais recente registrada pelo Gestor Sênior. A v0.17.9 melhora a Pesquisa de Produtos: aproveita aliases estruturados de vendas, vendas em 30 dias, localização e avaliações, e envia um diagnóstico de cobertura para comparar o que o Motor encontrou com o que o Gestor normalizou. O Messenger da versão anterior continua incluído.</p>
+      <h1 style={{margin:'8px 0',color:'#f2d36d'}}>Motor Sênior v{MOTOR_RELEASE.version}</h1>
+      <p style={{color:'#b8c9d8',lineHeight:1.6}}>Esta é a versão mais recente registrada pelo Gestor Sênior. {MOTOR_RELEASE.notes}</p>
       <div style={{margin:'18px 0',padding:14,borderRadius:12,background:'#10263b',border:'1px solid #294866'}}>
         <b>Como funciona</b>
         <p style={{color:'#b8c9d8',margin:'7px 0 0'}}>O Motor consulta o manifesto oficial do Gestor a cada 6 horas e também ao iniciar. Se a versão publicada for superior à instalada, aparece uma notificação e o painel mostra a atualização disponível.</p>

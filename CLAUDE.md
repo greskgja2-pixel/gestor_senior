@@ -605,3 +605,10 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 5. Variações são inferidas de termos observáveis nos títulos (ex.: menino/menina, ursinho/ursinha, Homem-Aranha, princesa, floral, cores e temas conhecidos) e ordenadas pela força observada de vendas/30d ou vendas acumuladas nos anúncios que contêm o termo.
 6. Referências usam anúncios reais da coleta, priorizados por vendas/30d/vendas, com botão para abrir o anúncio e a imagem em nova aba. Download direto de imagem não foi forçado nesta etapa porque depende de permissões/CORS do host da Shopee.
 7. O layout recebeu responsividade para desktop, tablet e mobile e testes de regressão para presença das abas, toggles e honestidade de Categoria/NCM.
+
+### 2026-09-30 — Codex — Canal de atualização do Motor sincronizado com v0.18.6
+- Causa: o ZIP v0.18.6 já havia sido distribuído, mas `/api/extension/latest` e `/motor-senior` ainda anunciavam v0.17.9.
+- Metadados centralizados em `lib/motor-release.js`, consumidos pela API e pela página. Nome do pacote e data conferidos na referência do artefato distribuído; notas baseadas no registro v0.18.6 acima.
+- Preservados o contrato JSON, a URL existente e `Cache-Control: no-store`; a extensão instalada pode obter o valor corrigido em “Verificar agora”, sem reinstalação.
+- Atualizado o teste de versão antiga para conferir o registro compartilhado e seus consumidores. `npm run prebuild`: 114 testes passaram.
+- Nenhum ZIP novo foi criado ou hospedado nesta correção; nenhuma lógica de coleta foi alterada.
