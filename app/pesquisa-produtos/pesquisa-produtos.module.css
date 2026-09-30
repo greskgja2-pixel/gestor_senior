@@ -118,3 +118,14 @@
 @media(max-width:1000px){.costAnalysis{grid-template-columns:1fr 1fr}.profitPreview{grid-column:1/-1}.resaleBreakdown{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:650px){.costAnalysis{grid-template-columns:1fr}.profitPreview{grid-column:auto}.resaleBreakdown{grid-template-columns:1fr 1fr}}
 @media(max-width:430px){.resaleBreakdown{grid-template-columns:1fr}}
+
+
+/* Histórico enxuto + custo na pesquisa */
+.searchStatusRow{align-items:center}
+.searchCostField{display:grid;grid-template-columns:auto auto minmax(72px,95px);align-items:center;gap:5px;margin-left:auto;padding:6px 8px;border:1px solid #c8d9f2;border-radius:10px;background:#f8fbff;color:var(--gs-shell-muted);font-size:8px;font-weight:900;white-space:nowrap}.searchCostField>span{color:var(--gs-shell-accent)}.searchCostField input{width:100%;min-width:0;border:1px solid var(--gs-shell-border);border-radius:7px;background:#fff;color:var(--gs-shell-text);padding:6px 7px;font-size:9px;font-weight:900;outline:0}.searchCostField input:focus{border-color:#8bb3ef;box-shadow:0 0 0 2px rgba(23,105,232,.08)}.searchCostField small{grid-column:1/-1;font-size:7px;font-weight:600;color:var(--gs-shell-muted)}
+.historyProfit{margin-top:4px!important;padding:3px 6px;border-radius:999px;background:#edf8f1;color:#16784f!important;font-weight:900;white-space:nowrap}
+.historyItemMain>span:last-child{min-width:78px}
+.historyDetails{min-height:auto}
+.historyDetailHead{padding-bottom:10px}
+@media(max-width:900px){.searchStatusRow{align-items:flex-start}.searchCostField{margin-left:0}.statusActions{margin-left:0}}
+@media(max-width:620px){.searchCostField{width:100%;grid-template-columns:auto auto 1fr}.historyItemMain{grid-template-columns:minmax(0,1fr) auto}.historyProfit{white-space:normal}}
