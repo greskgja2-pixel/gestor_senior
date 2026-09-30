@@ -259,8 +259,9 @@ export default function MarketResearch(){
   const [diagnosticsOpen,setDiagnosticsOpen]=useState(false);
   const [overviewVisible,setOverviewVisible]=useState(true);
   const [assistantVisible,setAssistantVisible]=useState(false);
-  const [assistantTab,setAssistantTab]=useState('strategy');
+  const [assistantTab,setAssistantTab]=useState('product');
   const [assistantObjective,setAssistantObjective]=useState('sales');
+  const [productDetails,setProductDetails]=useState({material:'',size:'',colors:'',contents:'',audience:'',differentials:'',usage:'',notes:''});
   const fileRef=useRef(null);
   const PAGE_SIZE=20;
   useEffect(()=>{
@@ -477,14 +478,37 @@ export default function MarketResearch(){
   const assistant=useMemo(()=>{
     const base=titleCase(query.trim()||keywords.slice(0,3).map(k=>k.word).join(' ')||'Produto');
     const bestVariation=variations[0]?.name||null;
-    const suggestedTitle=[base,bestVariation&&!base.toLowerCase().includes(bestVariation.toLowerCase())?bestVariation:null,'Shopee'].filter(Boolean).join(' · ').slice(0,120);
     const topTerms=keywords.slice(0,6).map(k=>k.word);
+    const filled=Object.values(productDetails).filter(v=>String(v||'').trim()).length;
+    const completeness=Math.round(filled/8*100);
+    const titleParts=[base,productDetails.material,productDetails.size,productDetails.colors,bestVariation&&!base.toLowerCase().includes(String(bestVariation).toLowerCase())?bestVariation:null]
+      .map(v=>String(v||'').trim()).filter(Boolean);
+    const suggestedTitle=titleParts.filter((v,i,a)=>a.findIndex(x=>x.toLowerCase()===v.toLowerCase())===i).join(' · ').slice(0,120);
+    const interest=[
+      productDetails.material?`Material: ${productDetails.material}.`:null,
+      productDetails.size?`Tamanho/medidas: ${productDetails.size}.`:null,
+      productDetails.colors?`Cor(es): ${productDetails.colors}.`:null,
+      productDetails.contents?`Conteúdo do produto/kit: ${productDetails.contents}.`:null
+    ].filter(Boolean).join(' ');
+    const desire=[
+      productDetails.differentials?`Diferenciais e benefícios: ${productDetails.differentials}.`:null,
+      productDetails.audience?`Indicado para: ${productDetails.audience}.`:null,
+      productDetails.usage?`Uso/aplicação: ${productDetails.usage}.`:null,
+      productDetails.notes?`Informações adicionais: ${productDetails.notes}.`:null
+    ].filter(Boolean).join(' ');
     const description=[
-      `Produto relacionado a ${base.toLowerCase()}.`,
-      bestVariation?`Variação em destaque na pesquisa: ${bestVariation}.`:null,
-      topTerms.length?`Termos recorrentes observados: ${topTerms.join(', ')}.`:null,
-      'Revise medidas, materiais, conteúdo do kit e prazo antes de publicar.'
-    ].filter(Boolean).join('\n\n');
+      'ATENÇÃO',
+      `Conheça ${base}${productDetails.colors?' na cor '+productDetails.colors:''}${productDetails.size?' — '+productDetails.size:''}. Uma apresentação clara para destacar o que realmente importa no produto.`,
+      '',
+      'INTERESSE',
+      interest||'Complete material, medidas, cores e conteúdo do produto para gerar esta parte com precisão.',
+      '',
+      'DESEJO',
+      desire||'Adicione diferenciais, público e forma de uso para transformar características em benefícios reais.',
+      '',
+      'AÇÃO',
+      `Confira as informações, escolha a variação desejada e garanta seu ${base.toLowerCase()}.`
+    ].join('\n');
     return{
       theme:base||'—',
       bestVariation:bestVariation||'Sem padrão claro',
@@ -492,10 +516,30 @@ export default function MarketResearch(){
       competition:concentration.shops&&rows.length?(concentration.share>=45?'Alta':concentration.share>=25?'Média':'Baixa'):'Sem dados',
       suggestedTitle,
       description,
-      topTerms
+      topTerms,
+      completeness
     };
-  },[query,keywords,variations,bench.priceMedian,concentration.shops,concentration.share,rows.length]);
+  },[query,keywords,variations,bench.priceMedian,concentration.shops,concentration.share,rows.length,productDetails]);
   useEffect(()=>setPage(1),[sort,minSold,maxPrice,rows.length]);
+  useEffect(()=>{
+    const key=researchKey(query);
+    const empty={material:'',size:'',colors:'',contents:'',audience:'',differentials:'',usage:'',notes:''};
+    if(!key){setProductDetails(empty);return}
+    try{
+      const map=JSON.parse(localStorage.getItem('gs_market_product_details')||'{}');
+      setProductDetails({...empty,...(map?.[key]||{})});
+    }catch{setProductDetails(empty)}
+  },[query]);
+  function updateProductDetail(field,value){
+    const next={...productDetails,[field]:value};
+    setProductDetails(next);
+    const key=researchKey(query);
+    if(!key)return;
+    try{
+      const map=JSON.parse(localStorage.getItem('gs_market_product_details')||'{}');
+      localStorage.setItem('gs_market_product_details',JSON.stringify({...map,[key]:next}));
+    }catch{}
+  }
   function exportCurrentResearch(){
     if(!rows.length)return;
     exportResearch(historyEntry(query.trim()||'Pesquisa importada',rows,diagnostics,currentResearchMode));
@@ -851,12 +895,30 @@ export default function MarketResearch(){
 
         <div className={styles.assistantTabs} role="tablist" aria-label="Etapas do Assistente de Criação">
           {[
-            ['strategy','Estratégia'],['title','Título'],['description','Descrição'],['images','Imagens'],
+            ['product','Dados do produto'],['strategy','Estratégia'],['title','Título'],['description','Descrição'],['images','Imagens'],
             ['category','Categoria / NCM'],['variations','Variações'],['references','Referências'],['checklist','Checklist']
           ].map(([id,label],i)=><button key={id} type="button" role="tab" aria-selected={assistantTab===id} className={assistantTab===id?styles.assistantTabActive:''} onClick={()=>setAssistantTab(id)}><i>{i+1}</i>{label}</button>)}
         </div>
 
         <div className={styles.assistantContent}>
+          {assistantTab==='product'&&<section className={styles.productInfoPanel}>
+            <div className={styles.productInfoHead}>
+              <div><span>ANTES DE GERAR TÍTULO E DESCRIÇÃO</span><h3>Conte mais sobre o produto</h3><p>A pesquisa mostra o mercado, mas não sabe exatamente como é o seu produto. Preencha o que souber para o assistente não inventar características e montar uma descrição AIDA mais completa.</p></div>
+              <div className={styles.productInfoProgress}><b>{assistant.completeness}%</b><span>preenchido</span></div>
+            </div>
+            <div className={styles.productInfoGrid}>
+              <label><span>Material</span><input value={productDetails.material} onChange={e=>updateProductDetail('material',e.target.value)} placeholder="Ex.: papel fotográfico 180g, algodão, MDF..."/></label>
+              <label><span>Tamanho / medidas</span><input value={productDetails.size} onChange={e=>updateProductDetail('size',e.target.value)} placeholder="Ex.: 20 × 15 cm, tamanho M..."/></label>
+              <label><span>Cor(es)</span><input value={productDetails.colors} onChange={e=>updateProductDetail('colors',e.target.value)} placeholder="Ex.: rosa, azul, colorido..."/></label>
+              <label><span>Conteúdo do produto / kit</span><input value={productDetails.contents} onChange={e=>updateProductDetail('contents',e.target.value)} placeholder="Ex.: 6 peças, 10 tags, 1 suporte..."/></label>
+              <label><span>Público / para quem é</span><input value={productDetails.audience} onChange={e=>updateProductDetail('audience',e.target.value)} placeholder="Ex.: mães, crianças, festas infantis..."/></label>
+              <label><span>Uso / aplicação</span><input value={productDetails.usage} onChange={e=>updateProductDetail('usage',e.target.value)} placeholder="Ex.: decoração, presente, organização..."/></label>
+              <label className={styles.productInfoWide}><span>Diferenciais / benefícios</span><textarea value={productDetails.differentials} onChange={e=>updateProductDetail('differentials',e.target.value)} placeholder="Ex.: resistente, fácil de montar, personalizado, reutilizável..."/></label>
+              <label className={styles.productInfoWide}><span>Outras informações importantes</span><textarea value={productDetails.notes} onChange={e=>updateProductDetail('notes',e.target.value)} placeholder="Prazo, cuidados, personalização, compatibilidade, limitações ou qualquer detalhe relevante."/></label>
+            </div>
+            <div className={styles.productInfoActions}><button type="button" className={styles.primaryBtn} onClick={()=>setAssistantTab('title')}>Criar título</button><button type="button" className={styles.ghostBtn} onClick={()=>setAssistantTab('description')}>Criar descrição AIDA</button></div>
+          </section>}
+
           {assistantTab==='strategy'&&<div className={styles.strategyGrid}>
             <article><span>Demanda observada</span><strong>{bench.coverage.monthly?compact(bench.monthlyMedian)+' vendas/30d medianas':'Sem dados de 30 dias'}</strong><small>Base: {bench.coverage.monthly}/{rows.length} anúncios com vendas 30d.</small></article>
             <article><span>Variação mais forte</span><strong>{assistant.bestVariation}</strong><small>{variations[0]?variations[0].count+' anúncios encontrados com esse termo.':'Nenhum padrão de variação claro nos títulos.'}</small></article>
@@ -865,14 +927,16 @@ export default function MarketResearch(){
           </div>}
 
           {assistantTab==='title'&&<div className={styles.recommendationBox}>
-            <div className={styles.recommendationHead}><div><span>Título sugerido</span><b>Baseado nas palavras e variações da pesquisa</b></div><em>Rascunho</em></div>
+            <div className={styles.recommendationHead}><div><span>Título sugerido</span><b>Pesquisa + informações reais do seu produto</b></div><em>{assistant.completeness>=50?'Mais completo':'Faltam dados'}</em></div>
+            {assistant.completeness<50&&<div className={styles.assistantWarning}>Preencha mais informações em “Dados do produto” para melhorar o título e evitar termos genéricos. <button type="button" onClick={()=>setAssistantTab('product')}>Completar agora</button></div>}
             <div className={styles.titleSuggestion}>{assistant.suggestedTitle||'Ainda não há dados suficientes para sugerir um título.'}</div>
             <p><b>Por que este título?</b> Combina a pesquisa principal com a variação mais forte detectada sem copiar integralmente o título de um concorrente.</p>
             <div className={styles.assistantActions}><button type="button" onClick={()=>copyText(assistant.suggestedTitle)}>Copiar título</button><button type="button" className={styles.secondaryAction} onClick={()=>setAssistantTab('strategy')}>Ver evidências</button><button type="button" className={styles.secondaryAction} onClick={()=>setActiveTab('keywords')}>Ver palavras usadas</button></div>
           </div>}
 
           {assistantTab==='description'&&<div className={styles.recommendationBox}>
-            <div className={styles.recommendationHead}><div><span>Descrição sugerida</span><b>Rascunho para você completar com os dados reais do produto</b></div><em>Revisar</em></div>
+            <div className={styles.recommendationHead}><div><span>Descrição AIDA sugerida</span><b>Atenção · Interesse · Desejo · Ação, usando os dados informados</b></div><em>{assistant.completeness>=50?'AIDA':'Faltam dados'}</em></div>
+            {assistant.completeness<50&&<div className={styles.assistantWarning}>A descrição ainda está genérica. Complete material, medidas, cores, conteúdo e diferenciais para gerar um texto melhor. <button type="button" onClick={()=>setAssistantTab('product')}>Adicionar informações</button></div>}
             <textarea className={styles.descriptionDraft} aria-label="Descrição sugerida" readOnly value={assistant.description}/>
             <div className={styles.assistantActions}><button type="button" onClick={()=>copyText(assistant.description)}>Copiar descrição</button></div>
           </div>}
@@ -899,7 +963,8 @@ export default function MarketResearch(){
               ['Escolher tema / público',assistant.theme!=='—'],
               ['Definir variações principais',variations.length>0],
               ['Revisar título sugerido',Boolean(assistant.suggestedTitle)],
-              ['Completar descrição com dados reais',false],
+              ['Informar características reais do produto',assistant.completeness>=50],
+              ['Revisar descrição AIDA',assistant.completeness>=50],
               ['Confirmar categoria na Shopee',false],
               ['Confirmar NCM com base no produto real',false],
               ['Escolher concorrente de referência',referenceProducts.length>0],
