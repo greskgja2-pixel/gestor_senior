@@ -194,6 +194,7 @@ export default function MarketResearch(){
   const [page,setPage]=useState(1);
   const [saved,setSaved]=useState([]);
   const [researchCosts,setResearchCosts]=useState({});
+  const [searchCostDraft,setSearchCostDraft]=useState('');
   const [financeConfig,setFinanceConfig]=useState({commissionRate:20,fixedFee:4.5,packagingCost:0,taxRate:0,otherCost:0});
   const [historyOpen,setHistoryOpen]=useState(false);
   const [historyFilter,setHistoryFilter]=useState('');
@@ -225,6 +226,11 @@ export default function MarketResearch(){
     }
   },[]);
   useEffect(()=>{try{localStorage.setItem('historico_aberto',historyOpen?'true':'false')}catch{}},[historyOpen]);
+  useEffect(()=>{
+    const key=String(query||'').trim().toLowerCase();
+    const stored=key?researchCosts[key]:null;
+    setSearchCostDraft(stored==null?'':String(stored).replace('.',','));
+  },[query]);
 
   const bench=useMemo(()=>stats(rows),[rows]);
   const prepared=useMemo(()=>rows.map(r=>({...r,score:opportunityScore(r,bench),confidence:confidence(r)})),[rows,bench]);
@@ -333,6 +339,11 @@ export default function MarketResearch(){
     setResearchCosts(next);
     try{localStorage.setItem('gs_market_research_costs',JSON.stringify(next))}catch{}
   }
+  function commitSearchCost(){
+    const key=researchKey(query);
+    if(!key)return;
+    saveResearchCost(query,searchCostDraft);
+  }
   function comparableDelta(before,after){
     if(before==null||after==null)return null;
     return after-before;
@@ -375,6 +386,7 @@ export default function MarketResearch(){
   async function search(){
     const term=query.trim();
     if(!term){setMessage('Digite uma palavra-chave para pesquisar.');return}
+    commitSearchCost();
     setBusy(true);setMessage('Pedindo ao Motor Sênior para coletar a busca da Shopee…');
     try{
       const pagesByMode={quick:1,standard:3,deep:5};
@@ -480,6 +492,11 @@ export default function MarketResearch(){
   },[saved,researchCosts,financeConfig]);
   const resaleScoreById=useMemo(()=>Object.fromEntries(resaleRanking.map(x=>[x.entry.id,x])),[resaleRanking]);
   const selectedResale=selectedHistory?resaleScoreById[selectedHistory.id]||null:null;
+  const historyFinanceById=useMemo(()=>Object.fromEntries(saved.map(entry=>{
+    const metrics=researchMetrics(entry);
+    const cost=n(researchCosts[researchKey(entry)]);
+    return[entry.id,financeAnalysis(metrics.price,cost,financeConfig)];
+  })),[saved,researchCosts,financeConfig]);
   const tabs=[['overview','Visão geral'],['results','Resultados'],['top','Oportunidades'],['keywords','Palavras-chave'],['competition','Concorrência'],['insights','Insights']];
 
   return <div className={styles.page}>
@@ -497,6 +514,7 @@ export default function MarketResearch(){
       </div>
       <div className={styles.searchStatusRow}>
         <div className={styles.message} aria-live="polite">{message}{rows.length>0&&<span className={styles.currentDepth}>Profundidade usada: <b>{modeLabel(currentResearchMode)}</b></span>}</div>
+        <label className={styles.searchCostField}>Custo do produto <span>R$</span><input inputMode="decimal" placeholder="0,00" value={searchCostDraft} onChange={e=>setSearchCostDraft(e.target.value)} onBlur={commitSearchCost}/><small>opcional · taxas do Gestor aplicadas automaticamente</small></label>
         <div className={styles.statusActions}>
           <button type="button" className={styles.saveSearchBtn} onClick={exportCurrentResearch} disabled={!rows.length} title="Exportar a coleta atual em JSON">⇧ Exportar coleta</button>
           <button type="button" className={historyOpen?styles.historyToggleOpen:styles.historyToggle} aria-expanded={historyOpen} aria-controls="pesquisas-anteriores" onClick={()=>setHistoryOpen(v=>!v)}>
@@ -512,18 +530,12 @@ export default function MarketResearch(){
         <label className={styles.historySearch}><span className={styles.srOnly}>Filtrar histórico por termo</span><span aria-hidden="true">⌕</span><input value={historyFilter} onChange={e=>{setHistoryFilter(e.target.value);setHistoryShowAll(false)}} placeholder="Filtrar por termo"/></label>
       </div>
       {!saved.length?<div className={styles.historyEmpty}><span aria-hidden="true">◷</span><b>Nenhuma pesquisa salva ainda</b><p>Quando você salvar uma pesquisa, ela aparecerá aqui com os dados realmente coletados.</p></div>:<>
-      {resaleRanking.length>0&&<section className={styles.resaleRanking}>
-        <div className={styles.resaleRankingHead}><div><span>COMPARAÇÃO PARA REVENDA</span><h3>Ranking de oportunidade</h3><p>Quando o custo é informado, o ranking considera a margem líquida estimada usando as taxas configuradas no Gestor.</p></div><div className={styles.resaleFormula}>Com custo: Demanda 25% · Rentabilidade 30% · Potencial 15% · Concorrência 15% · Prova social 5% · Dados 10%</div></div>
-        <div className={styles.resaleTop}>{resaleRanking.slice(0,3).map((item,index)=><button type="button" key={item.entry.id} onClick={()=>setSelectedHistoryId(item.entry.id)} className={index===0?styles.resaleWinner:styles.resaleCandidate}>
-          <span className={styles.resalePosition}>{index+1}º</span><div><b>{item.entry.query}</b><small>{item.label}</small></div><strong>{item.score}<em>/100</em></strong>
-        </button>)}</div>
-      </section>}
       <div className={styles.historyGrid}>
         <div className={styles.historyList} role="list" aria-label="Lista de pesquisas salvas">
           {!filteredHistory.length?<div className={styles.historyNoMatch}>Nenhuma pesquisa corresponde a “{historyFilter}”.</div>:visibleHistory.map(entry=><div key={entry.id} className={(selectedHistory?.id===entry.id)?styles.historyItemActive:styles.historyItem}>
             <button type="button" role="listitem" className={styles.historyItemMain} onClick={()=>setSelectedHistoryId(entry.id)}>
               <span><b>{entry.query||'Pesquisa sem termo'}</b><small>{entry.date?new Date(entry.date).toLocaleString('pt-BR'):'Data não disponível'} · {modeLabel(entry.mode)}</small></span>
-              <span>{resaleScoreById[entry.id]&&<em className={styles.resaleMiniScore}>{resaleScoreById[entry.id].score}</em>}<strong>{entry.count??(Array.isArray(entry.rows)?entry.rows.length:'—')}</strong><small>anúncios</small></span>
+              <span>{resaleScoreById[entry.id]&&<em className={styles.resaleMiniScore}>{resaleScoreById[entry.id].score}</em>}<strong>{entry.count??(Array.isArray(entry.rows)?entry.rows.length:'—')}</strong><small>anúncios</small>{historyFinanceById[entry.id]&&<small className={styles.historyProfit}>Lucro {money(historyFinanceById[entry.id].profit)} · {historyFinanceById[entry.id].marginPct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</small>}</span>
             </button>
             <div className={styles.historyItemTools}>
               <button type="button" className={styles.historyExport} onClick={()=>exportResearch(entry)} title="Exportar pesquisa" aria-label={`Exportar pesquisa ${entry.query||''}`}>⇧</button>
@@ -535,36 +547,6 @@ export default function MarketResearch(){
         <div className={styles.historyDetails}>
           {selectedHistory&&<>
             <div className={styles.historyDetailHead}><div><span>PESQUISA SELECIONADA</span><h3>{selectedHistory.query||'Pesquisa sem termo'}</h3><p>{selectedHistory.date?new Date(selectedHistory.date).toLocaleString('pt-BR'):'Data não disponível'} · {modeLabel(selectedHistory.mode)}</p></div><div className={styles.historyDetailBadges}>{selectedResale&&<strong className={styles.resaleMainScore}>{selectedResale.score}<small>/100</small><i>{selectedResale.label}</i></strong>}<em>{selectedHistory.quality==null?'Qualidade —':'Qualidade '+selectedHistory.quality+'%'}</em></div></div>
-            {selectedResale&&<div className={styles.resaleBreakdown}>
-              <div><span>Demanda</span><b>{selectedResale.breakdown.demand}</b><i><u style={{width:selectedResale.breakdown.demand+'%'}}/></i></div>
-              <div><span>Potencial comercial</span><b>{selectedResale.breakdown.revenue}</b><i><u style={{width:selectedResale.breakdown.revenue+'%'}}/></i></div>
-              <div><span>Rentabilidade</span><b>{selectedResale.breakdown.profitability==null?'—':selectedResale.breakdown.profitability}</b><i><u style={{width:(selectedResale.breakdown.profitability??0)+'%'}}/></i></div>
-              <div><span>Concorrência</span><b>{selectedResale.breakdown.competition}</b><i><u style={{width:selectedResale.breakdown.competition+'%'}}/></i></div>
-              <div><span>Prova social</span><b>{selectedResale.breakdown.social}</b><i><u style={{width:selectedResale.breakdown.social+'%'}}/></i></div>
-              <div><span>Qualidade dos dados</span><b>{selectedResale.breakdown.quality}</b><i><u style={{width:selectedResale.breakdown.quality+'%'}}/></i></div>
-            </div>}
-            <section className={styles.costAnalysis}>
-              <div className={styles.costEntry}>
-                <label>Custo do produto (R$)<input inputMode="decimal" placeholder="Ex.: 12,50" value={researchCosts[researchKey(selectedHistory)]??''} onChange={e=>saveResearchCost(selectedHistory,e.target.value)}/></label>
-                <small>Salvo para este termo e reaproveitado nas próximas pesquisas iguais.</small>
-              </div>
-              <div className={styles.feeSummary}>
-                <span>Taxas usadas do Gestor</span>
-                <b>{Number(financeConfig.commissionRate||0).toLocaleString('pt-BR',{maximumFractionDigits:1})}% + {money(financeConfig.fixedFee||0)} fixa</b>
-                <small>{Number(financeConfig.packagingCost||0)>0?'Embalagem '+money(financeConfig.packagingCost)+'. ':''}{Number(financeConfig.taxRate||0)>0?'Impostos '+Number(financeConfig.taxRate).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%. ':''}{Number(financeConfig.otherCost||0)>0?'Outros '+money(financeConfig.otherCost)+'.':''}</small>
-              </div>
-              <div className={styles.profitPreview} data-profit={selectedResale?.finance?.profit>=0?'positive':'negative'}>
-                <span>Preço de referência</span><b>{selectedResale?.metrics?.price!=null?money(selectedResale.metrics.price):'Não coletado'}</b>
-                <span>Lucro estimado / venda</span><strong>{selectedResale?.finance?money(selectedResale.finance.profit):'Informe o custo'}</strong>
-                <small>{selectedResale?.finance?'Margem estimada '+selectedResale.finance.marginPct.toLocaleString('pt-BR',{maximumFractionDigits:1})+'%':'O ranking fica provisório até você informar o custo.'}</small>
-              </div>
-            </section>
-            <div className={styles.historyMetrics}>
-              <div><span>Anúncios</span><b>{selectedHistory.count??(Array.isArray(selectedHistory.rows)?selectedHistory.rows.length:'—')}</b></div>
-              <div><span>Preço mediano</span><b>{selectedHistory.summary?.priceMedian!=null?money(selectedHistory.summary.priceMedian):'Não coletado'}</b></div>
-              <div><span>Vendas medianas</span><b>{selectedHistory.summary?.soldMedian!=null?compact(selectedHistory.summary.soldMedian):'Não coletado'}</b></div>
-              <div><span>Vendas 30 dias</span><b>{selectedHistory.summary?.monthlyMedian!=null?compact(selectedHistory.summary.monthlyMedian):'Não coletado'}</b></div>
-            </div>
             {comparison?.historyId===selectedHistory.id&&<div className={styles.comparisonBox} aria-live="polite">
               <b>Comparação com nova coleta</b>
               <div><span>Preço mediano</span><strong>{comparison.before?.priceMedian!=null&&comparison.after?.priceMedian!=null?`${money(comparison.before.priceMedian)} → ${money(comparison.after.priceMedian)}`:'Sem dados comparáveis'}</strong></div>
