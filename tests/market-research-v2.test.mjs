@@ -87,8 +87,20 @@ test('Histórico de pesquisas é recolhível, persistente e acessível',()=>{
 
 test('Histórico preserva snapshots e ações sem inventar dados',()=>{
   for(const expected of [
-    'slice(0,50)','compactRows','Reabrir pesquisa','Repetir e comparar','Excluir',
+    'slice(0,50)','compactRows','Abrir pesquisa','Repetir e comparar','Excluir',
     'Não coletado','Sem dados comparáveis','versão antiga'
   ]) assert.ok(page.includes(expected),expected);
   assert.match(page,/localStorage\.setItem\('gs_market_saved'/);
+});
+
+test('UX para leigos: fluxo em 3 passos, estado vazio e detalhes técnicos recolhidos',()=>{
+  for(const expected of [
+    'Pesquisar automaticamente','Rápida','Padrão','Profunda','role="radiogroup"',
+    'Nenhuma pesquisa aberta','Selecione uma pesquisa no histórico ou faça uma nova busca para ver a análise completa.',
+    'Abrir pesquisa selecionada','Qualidade dos dados','Ver detalhes técnicos',
+    'Resumo da oportunidade','Margem saudável','Poucos dados disponíveis','Concorrência'
+  ]) assert.ok(page.includes(expected),expected);
+  for(const expected of ['.resultCards','.keywordList','.decisionCard','.tone','.primaryBtn'])
+    assert.ok(css.includes(expected),expected);
+  assert.ok(!page.includes('dangerouslySetInnerHTML'));
 });
