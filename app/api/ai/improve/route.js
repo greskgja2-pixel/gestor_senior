@@ -40,6 +40,47 @@ function promptFor(body) {
   const title = cleanText(body.title, 500);
   const description = cleanText(body.description, 10000);
   const currentCategory = cleanText(body.currentCategory, 500);
+  const marketContext = cleanText(body.marketContext, 12000);
+
+  if (type === "market-title") {
+    return `Você é especialista em criação de anúncios para Shopee Brasil.
+
+Crie o MELHOR TÍTULO possível para o produto com base exclusivamente nas informações fornecidas abaixo.
+
+REGRAS OBRIGATÓRIAS:
+- português do Brasil;
+- máximo de 120 caracteres;
+- priorize clareza, intenção de compra e SEO natural;
+- use as palavras-chave da pesquisa apenas quando fizerem sentido real para o produto;
+- NÃO invente marca, material, cor, tamanho, quantidade, compatibilidade, certificação, benefício ou qualquer característica não informada;
+- evite spam, repetição e símbolos desnecessários;
+- não use "Shopee" no título;
+- entregue SOMENTE o título final, sem aspas, justificativa ou prefixos.
+
+CONTEXTO DA PESQUISA E DO PRODUTO:
+${marketContext}`;
+  }
+
+  if (type === "market-description") {
+    return `Você é especialista em copywriting para Shopee Brasil.
+
+Crie uma DESCRIÇÃO COMPLETA usando a estrutura AIDA (Atenção, Interesse, Desejo e Ação) com base exclusivamente nas informações fornecidas.
+
+REGRAS OBRIGATÓRIAS:
+- português do Brasil;
+- não invente nenhum dado;
+- se alguma característica importante não foi informada, simplesmente não a mencione;
+- transforme características reais em benefícios sem exageros ou promessas não comprovadas;
+- use parágrafos curtos e leitura fácil no celular;
+- pode usar emojis leves, sem excesso;
+- não use Markdown com #;
+- não invente preço, frete, garantia, prazo, brinde, desconto ou estoque;
+- inclua especificações objetivas quando existirem;
+- entregue SOMENTE a descrição final pronta para revisão.
+
+CONTEXTO DA PESQUISA E DO PRODUTO:
+${marketContext}`;
+  }
 
   if (type === "title") {
     return `Você é especialista em anúncios da Shopee Brasil.
@@ -223,12 +264,12 @@ export async function POST(request) {
     }
 
     const analysis = await callAuditorAI(body || {});
-    if (body.type === "title") {
+    if (body.type === "title" || body.type === "market-title") {
       const text = cleanText(analysis?.optimizedTitle, 500);
       if (!text) throw new Error("O Auditor I.A. não retornou um título otimizado.");
       return NextResponse.json({ text, model: MODEL, source: "auditor-ia-oficial" });
     }
-    if (body.type === "description") {
+    if (body.type === "description" || body.type === "market-description") {
       const text = cleanText(analysis?.optimizedDescription, 12000);
       if (!text) throw new Error("O Auditor I.A. não retornou uma descrição otimizada.");
       return NextResponse.json({ text, model: MODEL, source: "auditor-ia-oficial" });
