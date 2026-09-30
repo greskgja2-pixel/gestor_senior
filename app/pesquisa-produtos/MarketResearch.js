@@ -269,10 +269,13 @@ export default function MarketResearch(){
       const result=loadPayload(data,'nova coleta para comparação');
       const currentStats=stats(result.normalized);
       const previous=entry.summary||stats(Array.isArray(entry.rows)?entry.rows:[]);
+      setQuery(term);
+      setMode(searchMode);
+      const newEntry=saveSnapshot(term,result.normalized,result.diagnostics,searchMode);
       setComparison({
-        historyId:entry.id,
+        historyId:newEntry?.id??entry.id,
         previousDate:entry.date,
-        currentDate:new Date().toISOString(),
+        currentDate:newEntry?.date??new Date().toISOString(),
         before:previous,
         after:currentStats,
         deltas:{
@@ -281,9 +284,6 @@ export default function MarketResearch(){
           monthlyMedian:comparableDelta(previous?.monthlyMedian,currentStats.monthlyMedian)
         }
       });
-      setQuery(term);
-      setMode(searchMode);
-      saveSnapshot(term,result.normalized,result.diagnostics,searchMode);
       setMessage('Nova coleta concluída e salva. A comparação usa apenas campos disponíveis nas duas pesquisas.');
     }catch(error){
       setMessage('Não consegui repetir a pesquisa: '+String(error?.message||error)+'.');
