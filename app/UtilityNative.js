@@ -20,16 +20,31 @@ const DEFAULT_PROVIDERS={
   whatsapp:{provider:'Meta WhatsApp Cloud API',configured:false},
   push:{provider:null,configured:false}
 };
+const DEFAULT_FINANCE={
+  commissionRate:20,
+  fixedFee:4.5,
+  packagingCost:0,
+  taxRate:0,
+  otherCost:0
+};
 
 export default function UtilityNative({section}){
   const [theme,setTheme]=useState('dark');
   const [prefs,setPrefs]=useState(DEFAULT_PREFS);
   const [providers,setProviders]=useState(DEFAULT_PROVIDERS);
+  const [finance,setFinance]=useState(DEFAULT_FINANCE);
+  const [financeMessage,setFinanceMessage]=useState('');
   const [prefState,setPrefState]=useState({loading:false,saving:false,message:''});
   const [testState,setTestState]=useState({channel:'',message:''});
   const [health,setHealth]=useState({running:false,checkedAt:'',summary:'idle',modules:[],error:'',reportId:''});
 
-  useEffect(()=>{try{setTheme(localStorage.getItem('gs_theme')||'dark')}catch{}},[]);
+  useEffect(()=>{
+    try{
+      setTheme(localStorage.getItem('gs_theme')||'dark');
+      const raw=JSON.parse(localStorage.getItem('gs_shopee_finance_config')||'null');
+      if(raw&&typeof raw==='object')setFinance({...DEFAULT_FINANCE,...raw});
+    }catch{}
+  },[]);
   useEffect(()=>{
     if(section!=='config')return;
     let alive=true;setPrefState(x=>({...x,loading:true,message:''}));
@@ -185,6 +200,18 @@ export default function UtilityNative({section}){
     }catch(e){setPrefState({loading:false,saving:false,message:String(e?.message||e)})}
   }
 
+  function saveFinance(){
+    const clean={
+      commissionRate:Math.max(0,Number(finance.commissionRate)||0),
+      fixedFee:Math.max(0,Number(finance.fixedFee)||0),
+      packagingCost:Math.max(0,Number(finance.packagingCost)||0),
+      taxRate:Math.max(0,Number(finance.taxRate)||0),
+      otherCost:Math.max(0,Number(finance.otherCost)||0)
+    };
+    setFinance(clean);
+    try{localStorage.setItem('gs_shopee_finance_config',JSON.stringify(clean));setFinanceMessage('Taxas e custos padrão salvos.')}catch{setFinanceMessage('Não foi possível salvar neste navegador.')}
+  }
+
   async function testChannel(channel){
     setTestState({channel,message:''});
     try{
@@ -214,6 +241,16 @@ export default function UtilityNative({section}){
   const velocityPct=Number(prefs.categories?.competitor_velocity_whatsapp_pct??100);
   const velocityRate=Number(prefs.categories?.competitor_velocity_whatsapp_min_sales_per_day??5);
   return <div className={styles.page}><header><h1>Configurações</h1><p>Configure como o Gestor Sênior deve falar com você e quais alertas deseja acompanhar.</p></header>
+    <section className={styles.panel}><h2>💰 Taxas e custos da Shopee</h2><p>Estes valores são usados pelos cálculos de margem do Gestor. A Pesquisa de Produtos também usa automaticamente esta mesma configuração.</p>
+      <div className={styles.formGrid}>
+        <label>Comissão Shopee (%)<input type="number" min="0" step="0.1" value={finance.commissionRate} onChange={e=>setFinance(x=>({...x,commissionRate:e.target.value}))}/><small>Padrão atual do Gestor: 20%.</small></label>
+        <label>Taxa fixa por venda (R$)<input type="number" min="0" step="0.01" value={finance.fixedFee} onChange={e=>setFinance(x=>({...x,fixedFee:e.target.value}))}/><small>Padrão atual do Gestor: R$ 4,50.</small></label>
+        <label>Embalagem por venda (R$)<input type="number" min="0" step="0.01" value={finance.packagingCost} onChange={e=>setFinance(x=>({...x,packagingCost:e.target.value}))}/></label>
+        <label>Impostos (%)<input type="number" min="0" step="0.1" value={finance.taxRate} onChange={e=>setFinance(x=>({...x,taxRate:e.target.value}))}/></label>
+        <label>Outros custos por venda (R$)<input type="number" min="0" step="0.01" value={finance.otherCost} onChange={e=>setFinance(x=>({...x,otherCost:e.target.value}))}/></label>
+      </div>
+      <div className={styles.saveLine}><button type="button" onClick={saveFinance}>Salvar taxas e custos</button>{financeMessage&&<span>{financeMessage}</span>}</div>
+    </section>
     <section className={styles.panel}><h2>🔔 Lembretes e notificações</h2><p>Nome, e-mail e celular ficam vinculados à loja conectada. Os canais externos só enviam quando o respectivo provedor estiver configurado no servidor.</p>
       <div className={styles.formGrid}>
         <label>Como quer ser chamado?<input value={prefs.display_name||''} onChange={e=>setPrefs(x=>({...x,display_name:e.target.value}))} placeholder="Seu nome"/></label>
