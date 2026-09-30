@@ -262,6 +262,7 @@ export default function MarketResearch(){
   const [assistantTab,setAssistantTab]=useState('product');
   const [assistantObjective,setAssistantObjective]=useState('sales');
   const [productDetails,setProductDetails]=useState({material:'',size:'',colors:'',contents:'',audience:'',differentials:'',usage:'',notes:''});
+  const [aiListing,setAiListing]=useState({title:'',description:'',loadingTitle:false,loadingDescription:false,error:''});
   const fileRef=useRef(null);
   const PAGE_SIZE=20;
   useEffect(()=>{
@@ -533,12 +534,50 @@ export default function MarketResearch(){
   function updateProductDetail(field,value){
     const next={...productDetails,[field]:value};
     setProductDetails(next);
+    setAiListing(x=>({...x,title:'',description:'',error:''}));
     const key=researchKey(query);
     if(!key)return;
     try{
       const map=JSON.parse(localStorage.getItem('gs_market_product_details')||'{}');
       localStorage.setItem('gs_market_product_details',JSON.stringify({...map,[key]:next}));
     }catch{}
+  }
+  function aiMarketContext(){
+    return [
+      `Produto pesquisado: ${query.trim()||assistant.theme}`,
+      `Objetivo: ${assistantObjective==='sales'?'priorizar conversão e vendas':assistantObjective==='competition'?'diferenciação com menor concorrência':'posicionamento de preço'}`,
+      `Material: ${productDetails.material||'não informado'}`,
+      `Tamanho/medidas: ${productDetails.size||'não informado'}`,
+      `Cores: ${productDetails.colors||'não informado'}`,
+      `Conteúdo do produto/kit: ${productDetails.contents||'não informado'}`,
+      `Público: ${productDetails.audience||'não informado'}`,
+      `Uso/aplicação: ${productDetails.usage||'não informado'}`,
+      `Diferenciais/benefícios: ${productDetails.differentials||'não informado'}`,
+      `Outras informações: ${productDetails.notes||'não informado'}`,
+      `Palavras-chave recorrentes da pesquisa: ${assistant.topTerms.length?assistant.topTerms.join(', '):'não disponíveis'}`,
+      `Variação mais forte observada: ${assistant.bestVariation}`,
+      `Preço mediano observado: ${bench.priceMedian!=null?money(bench.priceMedian):'não coletado'}`,
+      `Concorrência observada: ${assistant.competition}`
+    ].join('\n');
+  }
+  async function generateWithAI(kind){
+    const isTitle=kind==='title';
+    setAiListing(x=>({...x,[isTitle?'loadingTitle':'loadingDescription']:true,error:''}));
+    try{
+      const response=await fetch('/api/ai/improve',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          type:isTitle?'market-title':'market-description',
+          marketContext:aiMarketContext()
+        })
+      });
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok||!data?.text)throw new Error(data?.error||'A I.A. não conseguiu gerar o conteúdo.');
+      setAiListing(x=>({...x,[kind]:String(data.text).trim(),[isTitle?'loadingTitle':'loadingDescription']:false,error:''}));
+    }catch(error){
+      setAiListing(x=>({...x,[kind]:isTitle?assistant.suggestedTitle:assistant.description,[isTitle?'loadingTitle':'loadingDescription']:false,error:'A I.A. falhou agora. O Gestor exibiu o rascunho local como alternativa.'}));
+    }
   }
   function exportCurrentResearch(){
     if(!rows.length)return;
@@ -916,7 +955,7 @@ export default function MarketResearch(){
               <label className={styles.productInfoWide}><span>Diferenciais / benefícios</span><textarea value={productDetails.differentials} onChange={e=>updateProductDetail('differentials',e.target.value)} placeholder="Ex.: resistente, fácil de montar, personalizado, reutilizável..."/></label>
               <label className={styles.productInfoWide}><span>Outras informações importantes</span><textarea value={productDetails.notes} onChange={e=>updateProductDetail('notes',e.target.value)} placeholder="Prazo, cuidados, personalização, compatibilidade, limitações ou qualquer detalhe relevante."/></label>
             </div>
-            <div className={styles.productInfoActions}><button type="button" className={styles.primaryBtn} onClick={()=>setAssistantTab('title')}>Criar título</button><button type="button" className={styles.ghostBtn} onClick={()=>setAssistantTab('description')}>Criar descrição AIDA</button></div>
+            <div className={styles.productInfoActions}><button type="button" className={styles.primaryBtn} onClick={()=>{setAssistantTab('title');generateWithAI('title')}}>Criar título com I.A.</button><button type="button" className={styles.ghostBtn} onClick={()=>{setAssistantTab('description');generateWithAI('description')}}>Criar descrição AIDA com I.A.</button></div>
           </section>}
 
           {assistantTab==='strategy'&&<div className={styles.strategyGrid}>
@@ -929,16 +968,18 @@ export default function MarketResearch(){
           {assistantTab==='title'&&<div className={styles.recommendationBox}>
             <div className={styles.recommendationHead}><div><span>Título sugerido</span><b>Pesquisa + informações reais do seu produto</b></div><em>{assistant.completeness>=50?'Mais completo':'Faltam dados'}</em></div>
             {assistant.completeness<50&&<div className={styles.assistantWarning}>Preencha mais informações em “Dados do produto” para melhorar o título e evitar termos genéricos. <button type="button" onClick={()=>setAssistantTab('product')}>Completar agora</button></div>}
-            <div className={styles.titleSuggestion}>{assistant.suggestedTitle||'Ainda não há dados suficientes para sugerir um título.'}</div>
-            <p><b>Por que este título?</b> Combina a pesquisa principal com a variação mais forte detectada sem copiar integralmente o título de um concorrente.</p>
-            <div className={styles.assistantActions}><button type="button" onClick={()=>copyText(assistant.suggestedTitle)}>Copiar título</button><button type="button" className={styles.secondaryAction} onClick={()=>setAssistantTab('strategy')}>Ver evidências</button><button type="button" className={styles.secondaryAction} onClick={()=>setActiveTab('keywords')}>Ver palavras usadas</button></div>
+            {aiListing.error&&<div className={styles.assistantWarning}>{aiListing.error}</div>}
+            <div className={styles.titleSuggestion}>{aiListing.loadingTitle?'A I.A. está criando o título…':(aiListing.title||'Clique em “Gerar com I.A.” para criar o título.')}</div>
+            <p><b>Como é criado?</b> A I.A. recebe os dados reais do produto, palavras-chave e sinais da pesquisa. Ela é proibida de inventar características.</p>
+            <div className={styles.assistantActions}><button type="button" onClick={()=>generateWithAI('title')} disabled={aiListing.loadingTitle}>{aiListing.loadingTitle?'Gerando…':'Gerar com I.A.'}</button><button type="button" className={styles.secondaryAction} onClick={()=>copyText(aiListing.title)} disabled={!aiListing.title}>Copiar título</button><button type="button" className={styles.secondaryAction} onClick={()=>setAssistantTab('product')}>Editar dados do produto</button></div>
           </div>}
 
           {assistantTab==='description'&&<div className={styles.recommendationBox}>
             <div className={styles.recommendationHead}><div><span>Descrição AIDA sugerida</span><b>Atenção · Interesse · Desejo · Ação, usando os dados informados</b></div><em>{assistant.completeness>=50?'AIDA':'Faltam dados'}</em></div>
             {assistant.completeness<50&&<div className={styles.assistantWarning}>A descrição ainda está genérica. Complete material, medidas, cores, conteúdo e diferenciais para gerar um texto melhor. <button type="button" onClick={()=>setAssistantTab('product')}>Adicionar informações</button></div>}
-            <textarea className={styles.descriptionDraft} aria-label="Descrição sugerida" readOnly value={assistant.description}/>
-            <div className={styles.assistantActions}><button type="button" onClick={()=>copyText(assistant.description)}>Copiar descrição</button></div>
+            {aiListing.error&&<div className={styles.assistantWarning}>{aiListing.error}</div>}
+            <textarea className={styles.descriptionDraft} aria-label="Descrição sugerida" readOnly value={aiListing.loadingDescription?'A I.A. está criando a descrição AIDA…':aiListing.description}/>
+            <div className={styles.assistantActions}><button type="button" onClick={()=>generateWithAI('description')} disabled={aiListing.loadingDescription}>{aiListing.loadingDescription?'Gerando…':'Gerar com I.A.'}</button><button type="button" className={styles.secondaryAction} onClick={()=>copyText(aiListing.description)} disabled={!aiListing.description}>Copiar descrição</button><button type="button" className={styles.secondaryAction} onClick={()=>setAssistantTab('product')}>Editar dados do produto</button></div>
           </div>}
 
           {assistantTab==='images'&&<div className={styles.referenceGrid}>
@@ -962,9 +1003,9 @@ export default function MarketResearch(){
             {[
               ['Escolher tema / público',assistant.theme!=='—'],
               ['Definir variações principais',variations.length>0],
-              ['Revisar título sugerido',Boolean(assistant.suggestedTitle)],
+              ['Gerar e revisar título com I.A.',Boolean(aiListing.title)],
               ['Informar características reais do produto',assistant.completeness>=50],
-              ['Revisar descrição AIDA',assistant.completeness>=50],
+              ['Gerar e revisar descrição AIDA com I.A.',Boolean(aiListing.description)],
               ['Confirmar categoria na Shopee',false],
               ['Confirmar NCM com base no produto real',false],
               ['Escolher concorrente de referência',referenceProducts.length>0],
