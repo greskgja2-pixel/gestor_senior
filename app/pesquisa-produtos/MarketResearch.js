@@ -124,6 +124,12 @@ function copyText(text){
   if(typeof navigator==='undefined'||!navigator.clipboard||!text)return;
   navigator.clipboard.writeText(String(text)).catch(()=>{});
 }
+function modeLabel(value){
+  if(value==='quick')return 'Rápida · 1 pág.';
+  if(value==='standard')return 'Padrão · 3 págs.';
+  if(value==='deep')return 'Profunda · 5 págs.';
+  return 'Não registrada';
+}
 
 export default function MarketResearch(){
   const [query,setQuery]=useState('');
@@ -135,6 +141,7 @@ export default function MarketResearch(){
   const [maxPrice,setMaxPrice]=useState('');
   const [activeTab,setActiveTab]=useState('overview');
   const [mode,setMode]=useState('standard');
+  const [currentResearchMode,setCurrentResearchMode]=useState(null);
   const [page,setPage]=useState(1);
   const [saved,setSaved]=useState([]);
   const [historyOpen,setHistoryOpen]=useState(false);
@@ -240,6 +247,7 @@ export default function MarketResearch(){
     }
     setQuery(entry.query||'');
     setMode(entry.mode||'standard');
+    setCurrentResearchMode(entry.mode||null);
     setRows(entry.rows.map((row,index)=>({...row,index,key:row.key||row.itemId||row.shopId||String(index)})));
     setDiagnostics(entry.diagnostics||null);
     setComparison(null);
@@ -271,6 +279,7 @@ export default function MarketResearch(){
       const previous=entry.summary||stats(Array.isArray(entry.rows)?entry.rows:[]);
       setQuery(term);
       setMode(searchMode);
+      setCurrentResearchMode(searchMode);
       const newEntry=saveSnapshot(term,result.normalized,result.diagnostics,searchMode);
       setComparison({
         historyId:newEntry?.id??entry.id,
@@ -298,6 +307,7 @@ export default function MarketResearch(){
       const pagesByMode={quick:1,standard:3,deep:5};
       const data=await motorData('marketplaceSearch',{query:term,sort:'relevance',pages:pagesByMode[mode]},75000);
       loadPayload(data,'busca ao vivo');
+      setCurrentResearchMode(mode);
     }catch(error){
       setMessage('Não consegui concluir a pesquisa automática: '+String(error?.message||error)+'. Verifique se o Motor Senior está conectado e tente novamente.');
     }finally{setBusy(false)}
@@ -308,6 +318,7 @@ export default function MarketResearch(){
     try{
       const text=await file.text();
       loadPayload(JSON.parse(text),file.name);
+      setCurrentResearchMode(null);
     }catch{setMessage('Não consegui ler esse JSON. Use um arquivo exportado pelo Coletor Shopee.')}
   }
 
@@ -344,7 +355,16 @@ export default function MarketResearch(){
     };
   },[query,keywords,variations,bench.priceMedian,concentration.shops,concentration.share,rows.length]);
   useEffect(()=>setPage(1),[sort,minSold,maxPrice,rows.length]);
-  function saveResearch(){if(!rows.length)return;saveSnapshot(query.trim()||'Pesquisa importada',rows,diagnostics,mode);setMessage('Pesquisa salva neste navegador.');}
+  function saveResearch(){if(!rows.length)return;saveSnapshot(query.trim()||'Pesquisa importada',rows,diagnostics,currentResearchMode);setMessage('Pesquisa salva neste navegador.');}
+  function exportResearch(entry){
+    if(!entry)return;
+    const blob=new Blob([JSON.stringify(entry,null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob),a=document.createElement('a');
+    const safeName=String(entry.query||'pesquisa').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/gi,'-').replace(/^-+|-+$/g,'').toLowerCase()||'pesquisa';
+    a.href=url;
+    a.download=`pesquisa-${safeName}-${entry.id}.json`;
+    document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }
   const selectedHistory=useMemo(()=>saved.find(item=>item.id===selectedHistoryId)||saved[0]||null,[saved,selectedHistoryId]);
   const filteredHistory=useMemo(()=>{
     const term=historyFilter.trim().toLowerCase();
@@ -356,7 +376,6 @@ export default function MarketResearch(){
   return <div className={styles.page}>
     <header className={styles.header}>
       <div><span className={styles.eyebrow}>INTELIGÊNCIA DE MERCADO</span><h1>Pesquisa de Produtos</h1><p>Pesquise na Shopee de forma automática pelo Motor Senior e compare demanda, preço, concorrência e oportunidades.</p></div>
-      <div className={styles.headerActions}><button type="button" onClick={saveResearch} disabled={!rows.length}>☆ Salvar pesquisa</button><div className={styles.headerBadge}><b>{rows.length}</b><span>anúncios analisados</span></div></div>
     </header>
 
     <section className={styles.searchCard}>
@@ -368,8 +387,9 @@ export default function MarketResearch(){
         <input ref={fileRef} hidden type="file" accept="application/json,.json" onChange={e=>onFile(e.target.files?.[0])}/>
       </div>
       <div className={styles.searchStatusRow}>
-        <div className={styles.message} aria-live="polite">{message}</div>
+        <div className={styles.message} aria-live="polite">{message}{rows.length>0&&<span className={styles.currentDepth}>Profundidade usada: <b>{modeLabel(currentResearchMode)}</b></span>}</div>
         <div className={styles.statusActions}>
+          <button type="button" className={styles.saveSearchBtn} onClick={saveResearch} disabled={!rows.length}>☆ Salvar pesquisa</button>
           <button type="button" className={historyOpen?styles.historyToggleOpen:styles.historyToggle} aria-expanded={historyOpen} aria-controls="pesquisas-anteriores" onClick={()=>setHistoryOpen(v=>!v)}>
             <span aria-hidden="true">◷</span><b>{historyOpen?'Ocultar histórico':'Histórico de pesquisas'}</b><em>{saved.length}</em><span aria-hidden="true">{historyOpen?'⌃':'⌄'}</span>
           </button>
@@ -386,15 +406,21 @@ export default function MarketResearch(){
       {!saved.length?<div className={styles.historyEmpty}><span aria-hidden="true">◷</span><b>Nenhuma pesquisa salva ainda</b><p>Quando você salvar uma pesquisa, ela aparecerá aqui com os dados realmente coletados.</p></div>:
       <div className={styles.historyGrid}>
         <div className={styles.historyList} role="list" aria-label="Lista de pesquisas salvas">
-          {!filteredHistory.length?<div className={styles.historyNoMatch}>Nenhuma pesquisa corresponde a “{historyFilter}”.</div>:visibleHistory.map(entry=><button type="button" role="listitem" key={entry.id} className={(selectedHistory?.id===entry.id)?styles.historyItemActive:styles.historyItem} onClick={()=>setSelectedHistoryId(entry.id)}>
-            <span><b>{entry.query||'Pesquisa sem termo'}</b><small>{entry.date?new Date(entry.date).toLocaleString('pt-BR'):'Data não disponível'}</small></span>
-            <span><strong>{entry.count??(Array.isArray(entry.rows)?entry.rows.length:'—')}</strong><small>anúncios</small></span>
-          </button>)}
+          {!filteredHistory.length?<div className={styles.historyNoMatch}>Nenhuma pesquisa corresponde a “{historyFilter}”.</div>:visibleHistory.map(entry=><div key={entry.id} className={(selectedHistory?.id===entry.id)?styles.historyItemActive:styles.historyItem}>
+            <button type="button" role="listitem" className={styles.historyItemMain} onClick={()=>setSelectedHistoryId(entry.id)}>
+              <span><b>{entry.query||'Pesquisa sem termo'}</b><small>{entry.date?new Date(entry.date).toLocaleString('pt-BR'):'Data não disponível'} · {modeLabel(entry.mode)}</small></span>
+              <span><strong>{entry.count??(Array.isArray(entry.rows)?entry.rows.length:'—')}</strong><small>anúncios</small></span>
+            </button>
+            <div className={styles.historyItemTools}>
+              <button type="button" className={styles.historyExport} onClick={()=>exportResearch(entry)} title="Exportar pesquisa" aria-label={`Exportar pesquisa ${entry.query||''}`}>⇧</button>
+              <button type="button" className={styles.historyTrash} onClick={()=>deleteResearch(entry)} title="Excluir pesquisa" aria-label={`Excluir pesquisa ${entry.query||''}`}>🗑</button>
+            </div>
+          </div>)}
           {filteredHistory.length>6&&<button type="button" className={styles.viewAllHistory} onClick={()=>setHistoryShowAll(v=>!v)}>{historyShowAll?'Mostrar menos':'Ver todas'} ({filteredHistory.length})</button>}
         </div>
         <div className={styles.historyDetails}>
           {selectedHistory&&<>
-            <div className={styles.historyDetailHead}><div><span>PESQUISA SELECIONADA</span><h3>{selectedHistory.query||'Pesquisa sem termo'}</h3><p>{selectedHistory.date?new Date(selectedHistory.date).toLocaleString('pt-BR'):'Data não disponível'} · {selectedHistory.mode==='quick'?'Rápida':selectedHistory.mode==='deep'?'Profunda':'Padrão'}</p></div><em>{selectedHistory.quality==null?'Qualidade —':'Qualidade '+selectedHistory.quality+'%'}</em></div>
+            <div className={styles.historyDetailHead}><div><span>PESQUISA SELECIONADA</span><h3>{selectedHistory.query||'Pesquisa sem termo'}</h3><p>{selectedHistory.date?new Date(selectedHistory.date).toLocaleString('pt-BR'):'Data não disponível'} · {modeLabel(selectedHistory.mode)}</p></div><em>{selectedHistory.quality==null?'Qualidade —':'Qualidade '+selectedHistory.quality+'%'}</em></div>
             <div className={styles.historyMetrics}>
               <div><span>Anúncios</span><b>{selectedHistory.count??(Array.isArray(selectedHistory.rows)?selectedHistory.rows.length:'—')}</b></div>
               <div><span>Preço mediano</span><b>{selectedHistory.summary?.priceMedian!=null?money(selectedHistory.summary.priceMedian):'Não coletado'}</b></div>
