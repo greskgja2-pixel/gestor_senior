@@ -130,6 +130,39 @@ function modeLabel(value){
   if(value==='deep')return 'Profunda · 5 págs.';
   return 'Não registrada';
 }
+function researchMetrics(entry){
+  const list=Array.isArray(entry?.rows)?entry.rows:[];
+  const snapshot=entry?.summary||stats(list);
+  const concentration=sellerConcentration(list);
+  const demand=snapshot?.monthlyMedian??snapshot?.soldMedian??null;
+  const price=snapshot?.priceMedian??null;
+  const reviewMedian=snapshot?.reviewMedian??median(list.map(r=>n(r?.reviews)));
+  const sellerShare=n(snapshot?.sellerTop5Share)??(concentration.shops?concentration.share:null);
+  return{
+    demand,
+    price,
+    revenueProxy:demand!=null&&price!=null?demand*price:null,
+    reviewMedian,
+    sellerShare,
+    shops:n(snapshot?.shops)??(concentration.shops||null),
+    quality:n(entry?.quality)??0
+  };
+}
+function relativeMetricScore(values,value,higherIsBetter=true){
+  if(value==null||!Number.isFinite(Number(value)))return 35;
+  const clean=values.filter(v=>v!=null&&Number.isFinite(Number(v))).map(v=>Math.log1p(Math.max(0,Number(v))));
+  if(clean.length<2)return 50;
+  const x=Math.log1p(Math.max(0,Number(value))),min=Math.min(...clean),max=Math.max(...clean);
+  if(max===min)return 50;
+  const pct=(x-min)/(max-min);
+  return Math.round((higherIsBetter?pct:1-pct)*100);
+}
+function resaleScoreLabel(score){
+  if(score>=80)return 'Sinal muito forte';
+  if(score>=65)return 'Boa oportunidade';
+  if(score>=50)return 'Vale estudar';
+  return 'Cautela';
+}
 
 export default function MarketResearch(){
   const [query,setQuery]=useState('');
@@ -222,6 +255,9 @@ export default function MarketResearch(){
         soldMedian:snapshot.soldMedian,
         monthlyMedian:snapshot.monthlyMedian,
         mainLocation:snapshot.mainLocation,
+        reviewMedian:snapshot.reviewMedian,
+        shops:sellerConcentration(list).shops,
+        sellerTop5Share:sellerConcentration(list).share,
         coverage:snapshot.coverage
       }
     };
@@ -376,6 +412,29 @@ export default function MarketResearch(){
     return term?saved.filter(item=>String(item.query||'').toLowerCase().includes(term)):saved;
   },[saved,historyFilter]);
   const visibleHistory=historyShowAll?filteredHistory:filteredHistory.slice(0,6);
+  const resaleRanking=useMemo(()=>{
+    const unique=[],seen=new Set();
+    saved.forEach(entry=>{
+      const key=String(entry.query||'').trim().toLowerCase();
+      if(!key||seen.has(key))return;
+      seen.add(key);unique.push(entry);
+    });
+    const metrics=unique.map(entry=>({entry,metrics:researchMetrics(entry)}));
+    const demands=metrics.map(x=>x.metrics.demand),revenues=metrics.map(x=>x.metrics.revenueProxy),reviews=metrics.map(x=>x.metrics.reviewMedian),shares=metrics.map(x=>x.metrics.sellerShare);
+    return metrics.map(({entry,metrics:m})=>{
+      const breakdown={
+        demand:relativeMetricScore(demands,m.demand,true),
+        revenue:relativeMetricScore(revenues,m.revenueProxy,true),
+        competition:relativeMetricScore(shares,m.sellerShare,false),
+        social:relativeMetricScore(reviews,m.reviewMedian,true),
+        quality:Math.max(0,Math.min(100,Math.round(m.quality||0)))
+      };
+      const score=Math.round(breakdown.demand*.35+breakdown.revenue*.25+breakdown.competition*.20+breakdown.social*.10+breakdown.quality*.10);
+      return{entry,metrics:m,breakdown,score,label:resaleScoreLabel(score)};
+    }).sort((a,b)=>b.score-a.score||String(b.entry.date||'').localeCompare(String(a.entry.date||'')));
+  },[saved]);
+  const resaleScoreById=useMemo(()=>Object.fromEntries(resaleRanking.map(x=>[x.entry.id,x])),[resaleRanking]);
+  const selectedResale=selectedHistory?resaleScoreById[selectedHistory.id]||null:null;
   const tabs=[['overview','Visão geral'],['results','Resultados'],['top','Oportunidades'],['keywords','Palavras-chave'],['competition','Concorrência'],['insights','Insights']];
 
   return <div className={styles.page}>
@@ -407,13 +466,19 @@ export default function MarketResearch(){
         <div><span>HISTÓRICO</span><h2>Pesquisas anteriores</h2><p>Reabra uma coleta salva ou repita a mesma busca para comparar os dados disponíveis.</p></div>
         <label className={styles.historySearch}><span className={styles.srOnly}>Filtrar histórico por termo</span><span aria-hidden="true">⌕</span><input value={historyFilter} onChange={e=>{setHistoryFilter(e.target.value);setHistoryShowAll(false)}} placeholder="Filtrar por termo"/></label>
       </div>
-      {!saved.length?<div className={styles.historyEmpty}><span aria-hidden="true">◷</span><b>Nenhuma pesquisa salva ainda</b><p>Quando você salvar uma pesquisa, ela aparecerá aqui com os dados realmente coletados.</p></div>:
+      {!saved.length?<div className={styles.historyEmpty}><span aria-hidden="true">◷</span><b>Nenhuma pesquisa salva ainda</b><p>Quando você salvar uma pesquisa, ela aparecerá aqui com os dados realmente coletados.</p></div>:<>
+      {resaleRanking.length>0&&<section className={styles.resaleRanking}>
+        <div className={styles.resaleRankingHead}><div><span>COMPARAÇÃO PARA REVENDA</span><h3>Ranking de oportunidade</h3><p>Score relativo entre as pesquisas salvas. Ele mede sinais de mercado, não substitui a conta de custo, frete, taxas e margem.</p></div><div className={styles.resaleFormula}>Demanda 35% · Potencial comercial 25% · Concorrência 20% · Prova social 10% · Dados 10%</div></div>
+        <div className={styles.resaleTop}>{resaleRanking.slice(0,3).map((item,index)=><button type="button" key={item.entry.id} onClick={()=>setSelectedHistoryId(item.entry.id)} className={index===0?styles.resaleWinner:styles.resaleCandidate}>
+          <span className={styles.resalePosition}>{index+1}º</span><div><b>{item.entry.query}</b><small>{item.label}</small></div><strong>{item.score}<em>/100</em></strong>
+        </button>)}</div>
+      </section>}
       <div className={styles.historyGrid}>
         <div className={styles.historyList} role="list" aria-label="Lista de pesquisas salvas">
           {!filteredHistory.length?<div className={styles.historyNoMatch}>Nenhuma pesquisa corresponde a “{historyFilter}”.</div>:visibleHistory.map(entry=><div key={entry.id} className={(selectedHistory?.id===entry.id)?styles.historyItemActive:styles.historyItem}>
             <button type="button" role="listitem" className={styles.historyItemMain} onClick={()=>setSelectedHistoryId(entry.id)}>
               <span><b>{entry.query||'Pesquisa sem termo'}</b><small>{entry.date?new Date(entry.date).toLocaleString('pt-BR'):'Data não disponível'} · {modeLabel(entry.mode)}</small></span>
-              <span><strong>{entry.count??(Array.isArray(entry.rows)?entry.rows.length:'—')}</strong><small>anúncios</small></span>
+              <span>{resaleScoreById[entry.id]&&<em className={styles.resaleMiniScore}>{resaleScoreById[entry.id].score}</em>}<strong>{entry.count??(Array.isArray(entry.rows)?entry.rows.length:'—')}</strong><small>anúncios</small></span>
             </button>
             <div className={styles.historyItemTools}>
               <button type="button" className={styles.historyExport} onClick={()=>exportResearch(entry)} title="Exportar pesquisa" aria-label={`Exportar pesquisa ${entry.query||''}`}>⇧</button>
@@ -424,7 +489,14 @@ export default function MarketResearch(){
         </div>
         <div className={styles.historyDetails}>
           {selectedHistory&&<>
-            <div className={styles.historyDetailHead}><div><span>PESQUISA SELECIONADA</span><h3>{selectedHistory.query||'Pesquisa sem termo'}</h3><p>{selectedHistory.date?new Date(selectedHistory.date).toLocaleString('pt-BR'):'Data não disponível'} · {modeLabel(selectedHistory.mode)}</p></div><em>{selectedHistory.quality==null?'Qualidade —':'Qualidade '+selectedHistory.quality+'%'}</em></div>
+            <div className={styles.historyDetailHead}><div><span>PESQUISA SELECIONADA</span><h3>{selectedHistory.query||'Pesquisa sem termo'}</h3><p>{selectedHistory.date?new Date(selectedHistory.date).toLocaleString('pt-BR'):'Data não disponível'} · {modeLabel(selectedHistory.mode)}</p></div><div className={styles.historyDetailBadges}>{selectedResale&&<strong className={styles.resaleMainScore}>{selectedResale.score}<small>/100</small><i>{selectedResale.label}</i></strong>}<em>{selectedHistory.quality==null?'Qualidade —':'Qualidade '+selectedHistory.quality+'%'}</em></div></div>
+            {selectedResale&&<div className={styles.resaleBreakdown}>
+              <div><span>Demanda</span><b>{selectedResale.breakdown.demand}</b><i><u style={{width:selectedResale.breakdown.demand+'%'}}/></i></div>
+              <div><span>Potencial comercial</span><b>{selectedResale.breakdown.revenue}</b><i><u style={{width:selectedResale.breakdown.revenue+'%'}}/></i></div>
+              <div><span>Concorrência</span><b>{selectedResale.breakdown.competition}</b><i><u style={{width:selectedResale.breakdown.competition+'%'}}/></i></div>
+              <div><span>Prova social</span><b>{selectedResale.breakdown.social}</b><i><u style={{width:selectedResale.breakdown.social+'%'}}/></i></div>
+              <div><span>Qualidade dos dados</span><b>{selectedResale.breakdown.quality}</b><i><u style={{width:selectedResale.breakdown.quality+'%'}}/></i></div>
+            </div>}
             <div className={styles.historyMetrics}>
               <div><span>Anúncios</span><b>{selectedHistory.count??(Array.isArray(selectedHistory.rows)?selectedHistory.rows.length:'—')}</b></div>
               <div><span>Preço mediano</span><b>{selectedHistory.summary?.priceMedian!=null?money(selectedHistory.summary.priceMedian):'Não coletado'}</b></div>
@@ -444,7 +516,7 @@ export default function MarketResearch(){
             </div>
           </>}
         </div>
-      </div>}
+      </div></>}
     </section>}
 
     <section className={styles.analysisCard}>
