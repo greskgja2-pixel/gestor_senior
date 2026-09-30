@@ -624,3 +624,14 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 6. Mobile: blocos verticais, `resultCards` no lugar da tabela (≤900px), palavras-chave com quebra natural. Assistente de Criação agora começa recolhido (mudança de comportamento).
 **Validação:** `node --test` da lista do prebuild: 117 passaram; `tsc --noEmit --allowJs` ok; QA visual em Chromium com harness sintético (desktop + 390px, sem overflow horizontal). **Não validado:** `next build` (npm 403 no sandbox) e dados reais da extensão.
 **Pendente:** revisar no deploy real; "Excluir" continua sem confirmação (comportamento original).
+
+
+## 2026-09-30 — Pesquisa de Produto: refinamento manual do Radar
+- Branch: `feat/radar-refinar-resultados`.
+- Arquivos alterados: `app/pesquisa-produtos/MarketResearch.js` e `app/pesquisa-produtos/pesquisa-produtos.module.css`.
+- O Radar de oportunidades agora permite retirar resultados irrelevantes com **Remover da análise**.
+- A remoção é reversível na sessão: **Desfazer última** e **Restaurar todos**.
+- Ao remover um item, ele sai de `rows`, portanto todos os cálculos determinísticos derivados são recalculados com a amostra refinada (preço, demanda, concorrência, palavras-chave, oportunidades etc.).
+- Nova orientação visual explica ao usuário por que limpar resultados e mostra quantos itens continuam sendo usados e quantos foram removidos.
+- `loadPayload` zera a lista de removidos ao carregar uma nova coleta, evitando misturar exclusões entre pesquisas.
+- Não houve alteração em APIs, coleta, Motor Sênior ou regras de IA.
