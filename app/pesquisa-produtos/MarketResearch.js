@@ -903,7 +903,7 @@ export default function MarketResearch(){
               {selectedResultKeys.length>0&&<button type="button" className={styles.bulkDeleteBtn} onClick={removeSelectedFromAnalysis}><Icon name="trash"/>Excluir selecionados ({selectedResultKeys.length})</button>}
               {removedRows.length>0&&<button type="button" onClick={undoLastRemoval}>Desfazer última</button>}
               {removedRows.length>0&&<button type="button" onClick={restoreAllRemoved}>Restaurar todos</button>}
-            </div>}
+            </div>
           </div>
           {!filtered.length?<div className={styles.empty}>{removedRows.length?'Todos os resultados foram removidos da análise. Use “Desfazer última” ou “Restaurar todos” para recuperar itens.':'Faça uma pesquisa automática ou importe uma coleta para começar.'}</div>:<>
           <div className={styles.tableWrap}><table><thead><tr><th className={styles.selectCol}><input type="checkbox" aria-label="Selecionar todos os resultados desta página" checked={paged.length>0&&paged.every(r=>selectedResultKeys.includes(r.key))} onChange={toggleCurrentPageSelection}/></th><th>Produto</th><th>Preço</th><th>Vendas</th><th>30 dias</th><th>Avaliações</th><th>Local</th><th>Oportunidade</th><th>Confiança</th><th><span className={styles.srOnly}>Abrir anúncio</span></th></tr></thead><tbody>
