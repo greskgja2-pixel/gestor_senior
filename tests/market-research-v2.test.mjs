@@ -73,3 +73,22 @@ test('Assistente preserva honestidade de dados em categoria e NCM',()=>{
     'O Gestor não vai inventar esse campo'
   ]) assert.ok(page.includes(expected),expected);
 });
+
+
+test('Histórico de pesquisas é recolhível, persistente e acessível',()=>{
+  for(const expected of [
+    'historico_aberto','historyOpen','Histórico de pesquisas','Ocultar histórico',
+    'aria-expanded={historyOpen}','aria-controls="pesquisas-anteriores"','id="pesquisas-anteriores"',
+    'Pesquisas anteriores','Filtrar por termo','Ver todas'
+  ]) assert.ok(page.includes(expected),expected);
+  for(const expected of ['.historyCard','.historyGrid','.historyToggleOpen','.historyDetails'])
+    assert.ok(css.includes(expected),expected);
+});
+
+test('Histórico preserva snapshots e ações sem inventar dados',()=>{
+  for(const expected of [
+    'slice(0,50)','compactRows','Reabrir pesquisa','Repetir e comparar','Excluir',
+    'Não coletado','Sem dados comparáveis','versão antiga'
+  ]) assert.ok(page.includes(expected),expected);
+  assert.match(page,/localStorage\.setItem\('gs_market_saved'/);
+});
