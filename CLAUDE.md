@@ -635,3 +635,14 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 - Nova orientação visual explica ao usuário por que limpar resultados e mostra quantos itens continuam sendo usados e quantos foram removidos.
 - `loadPayload` zera a lista de removidos ao carregar uma nova coleta, evitando misturar exclusões entre pesquisas.
 - Não houve alteração em APIs, coleta, Motor Sênior ou regras de IA.
+
+
+## 2026-09-30 — Radar: seleção em lote para limpar resultados
+- Branch: `feat/radar-selecao-lote`.
+- Substituído o botão individual **Remover da análise** por caixas de seleção.
+- Cada linha possui checkbox; o cabeçalho permite selecionar todos os resultados da página atual.
+- Após selecionar um ou mais itens, aparece **Excluir selecionados (N)** no bloco de orientação.
+- A exclusão em lote retira os itens de `rows`, portanto os indicadores derivados são recalculados com a amostra refinada.
+- Mantidos **Desfazer última** e **Restaurar todos**.
+- No mobile, cada card tem a opção **Selecionar para excluir**.
+- A seleção é limpa ao trocar página, ordenação ou filtros, evitando exclusões acidentais fora da visualização atual.

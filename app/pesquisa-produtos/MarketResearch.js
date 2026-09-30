@@ -238,6 +238,7 @@ export default function MarketResearch(){
   const [query,setQuery]=useState('');
   const [rows,setRows]=useState([]);
   const [removedRows,setRemovedRows]=useState([]);
+  const [selectedResultKeys,setSelectedResultKeys]=useState([]);
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState('Digite o produto e clique em pesquisar. Você também pode importar uma coleta salva.');
   const [sort,setSort]=useState('score');
@@ -315,15 +316,28 @@ export default function MarketResearch(){
     const diag=payload?.diagnostics??payload?.data?.diagnostics??null;
     setRows(normalized);
     setRemovedRows([]);
+    setSelectedResultKeys([]);
     setDiagnostics(diag);
     setMessage(normalized.length?`${normalized.length} anúncios carregados de ${source}.`:'Nenhum anúncio válido foi encontrado nessa coleta.');
     return {normalized,diagnostics:diag};
   }
 
-  function removeFromAnalysis(row){
-    if(!row)return;
-    setRows(current=>current.filter(item=>item.key!==row.key));
-    setRemovedRows(current=>[{row},...current]);
+  function toggleResultSelection(key){
+    setSelectedResultKeys(current=>current.includes(key)?current.filter(item=>item!==key):[...current,key]);
+  }
+  function toggleCurrentPageSelection(){
+    const pageKeys=paged.map(item=>item.key);
+    const allSelected=pageKeys.length>0&&pageKeys.every(key=>selectedResultKeys.includes(key));
+    setSelectedResultKeys(current=>allSelected?current.filter(key=>!pageKeys.includes(key)):[...new Set([...current,...pageKeys])]);
+  }
+  function removeSelectedFromAnalysis(){
+    if(!selectedResultKeys.length)return;
+    const selectedSet=new Set(selectedResultKeys);
+    const selectedRows=rows.filter(item=>selectedSet.has(item.key));
+    if(!selectedRows.length){setSelectedResultKeys([]);return}
+    setRows(current=>current.filter(item=>!selectedSet.has(item.key)));
+    setRemovedRows(current=>[...selectedRows.map(row=>({row})),...current]);
+    setSelectedResultKeys([]);
     setPage(1);
   }
   function undoLastRemoval(){
@@ -331,6 +345,7 @@ export default function MarketResearch(){
       if(!current.length)return current;
       const [last,...rest]=current;
       setRows(rowsNow=>[...rowsNow,last.row].sort((a,b)=>(a.index??0)-(b.index??0)));
+      setSelectedResultKeys([]);
       return rest;
     });
   }
@@ -340,6 +355,7 @@ export default function MarketResearch(){
       setRows(rowsNow=>[...rowsNow,...current.map(item=>item.row)].sort((a,b)=>(a.index??0)-(b.index??0)));
       return [];
     });
+    setSelectedResultKeys([]);
     setPage(1);
   }
 
@@ -547,6 +563,7 @@ export default function MarketResearch(){
     };
   },[query,keywords,variations,bench.priceMedian,concentration.shops,concentration.share,rows.length,productDetails]);
   useEffect(()=>setPage(1),[sort,minSold,maxPrice,rows.length]);
+  useEffect(()=>setSelectedResultKeys([]),[sort,minSold,maxPrice,page]);
   useEffect(()=>{
     const key=researchKey(query);
     const empty={material:'',size:'',colors:'',contents:'',audience:'',differentials:'',usage:'',notes:''};
@@ -879,17 +896,19 @@ export default function MarketResearch(){
             <div className={styles.refineGuideIcon}><Icon name="trash"/></div>
             <div className={styles.refineGuideText}>
               <b>Refine os resultados antes de decidir</b>
-              <p>Encontrou um item que não corresponde ao produto pesquisado? Clique em <strong>Remover da análise</strong>. Ele deixa de influenciar demanda, preço, concorrência, palavras-chave e oportunidades.</p>
-              <small><strong>{rows.length}</strong> usados na análise{removedRows.length?<> · <strong>{removedRows.length}</strong> removidos</>:null}</small>
+              <p>Marque as caixas dos produtos que não correspondem à busca e depois clique em <strong>Excluir selecionados</strong>. Eles deixam de influenciar demanda, preço, concorrência, palavras-chave e oportunidades.</p>
+              <small><strong>{rows.length}</strong> usados na análise{removedRows.length?<> · <strong>{removedRows.length}</strong> removidos</>:null}{selectedResultKeys.length?<> · <strong>{selectedResultKeys.length}</strong> selecionados</>:null}</small>
             </div>
-            {removedRows.length>0&&<div className={styles.refineGuideActions}>
-              <button type="button" onClick={undoLastRemoval}>Desfazer última</button>
-              <button type="button" onClick={restoreAllRemoved}>Restaurar todos</button>
-            </div>}
+            <div className={styles.refineGuideActions}>
+              {selectedResultKeys.length>0&&<button type="button" className={styles.bulkDeleteBtn} onClick={removeSelectedFromAnalysis}><Icon name="trash"/>Excluir selecionados ({selectedResultKeys.length})</button>}
+              {removedRows.length>0&&<button type="button" onClick={undoLastRemoval}>Desfazer última</button>}
+              {removedRows.length>0&&<button type="button" onClick={restoreAllRemoved}>Restaurar todos</button>}
+            </div>
           </div>
           {!filtered.length?<div className={styles.empty}>{removedRows.length?'Todos os resultados foram removidos da análise. Use “Desfazer última” ou “Restaurar todos” para recuperar itens.':'Faça uma pesquisa automática ou importe uma coleta para começar.'}</div>:<>
-          <div className={styles.tableWrap}><table><thead><tr><th>Produto</th><th>Preço</th><th>Vendas</th><th>30 dias</th><th>Avaliações</th><th>Local</th><th>Oportunidade</th><th>Confiança</th><th><span className={styles.srOnly}>Ações</span></th></tr></thead><tbody>
-            {paged.map(r=><tr key={r.key}>
+          <div className={styles.tableWrap}><table><thead><tr><th className={styles.selectCol}><input type="checkbox" aria-label="Selecionar todos os resultados desta página" checked={paged.length>0&&paged.every(r=>selectedResultKeys.includes(r.key))} onChange={toggleCurrentPageSelection}/></th><th>Produto</th><th>Preço</th><th>Vendas</th><th>30 dias</th><th>Avaliações</th><th>Local</th><th>Oportunidade</th><th>Confiança</th><th><span className={styles.srOnly}>Abrir anúncio</span></th></tr></thead><tbody>
+            {paged.map(r=><tr key={r.key} className={selectedResultKeys.includes(r.key)?styles.selectedRow:''}>
+              <td className={styles.selectCol}><input type="checkbox" aria-label={'Selecionar '+r.title} checked={selectedResultKeys.includes(r.key)} onChange={()=>toggleResultSelection(r.key)}/></td>
               <td><div className={styles.product}>{r.image?<img src={r.image} alt=""/>:<div className={styles.noImg}><Icon name="tag"/></div>}<div><b title={r.title}>{r.title}</b><small>{r.preferred?'Vendedor Indicado · ':''}{r.itemId?'ID '+r.itemId:'ID não coletado'}</small></div></div></td>
               <td><b>{money(r.price)}</b>{r.discount?<small className={styles.discount}>-{r.discount}%</small>:null}</td>
               <td><b>{compact(r.sold)}</b><small>{r.revenue!=null?money(r.revenue)+' estimado bruto':'—'}</small></td>
@@ -898,10 +917,11 @@ export default function MarketResearch(){
               <td>{r.location||'—'}</td>
               <td><span className={styles.score} data-level={r.score>=70?'high':r.score>=50?'mid':'low'}>{r.score}<small>{r.score>=70?'Forte':r.score>=50?'Média':'Fraca'}</small></span></td>
               <td><span className={styles.confidence} data-level={r.confidence.label==='Alta'?'high':r.confidence.label==='Média'?'mid':'low'}>{r.confidence.label}<small>{r.confidence.value}%</small></span></td>
-              <td><div className={styles.rowActions}>{r.url?<a href={r.url} target="_blank" rel="noreferrer">Abrir ↗</a>:null}<button type="button" className={styles.removeResultBtn} onClick={()=>removeFromAnalysis(r)} title="Retirar este produto dos cálculos e da análise"><Icon name="trash"/>Remover da análise</button></div></td>
+              <td><div className={styles.rowActions}>{r.url?<a href={r.url} target="_blank" rel="noreferrer">Abrir ↗</a>:'—'}</div></td>
             </tr>)}
           </tbody></table></div>
-          <div className={styles.resultCards}>{paged.map(r=><article key={r.key}>
+          <div className={styles.resultCards}>{paged.map(r=><article key={r.key} className={selectedResultKeys.includes(r.key)?styles.selectedCard:''}>
+            <label className={styles.mobileSelect}><input type="checkbox" checked={selectedResultKeys.includes(r.key)} onChange={()=>toggleResultSelection(r.key)}/><span>Selecionar para excluir</span></label>
             <div className={styles.product}>{r.image?<img src={r.image} alt=""/>:<div className={styles.noImg}><Icon name="tag"/></div>}<div><b title={r.title}>{r.title}</b><small>{r.preferred?'Vendedor Indicado · ':''}{r.itemId?'ID '+r.itemId:'ID não coletado'}</small></div></div>
             <dl>
               <div><dt>Preço</dt><dd>{money(r.price)}{r.discount?<small className={styles.discount}> -{r.discount}%</small>:null}</dd></div>
@@ -913,7 +933,6 @@ export default function MarketResearch(){
               <span className={styles.score} data-level={r.score>=70?'high':r.score>=50?'mid':'low'}>{r.score}<small>{r.score>=70?'Forte':r.score>=50?'Média':'Fraca'}</small></span>
               <span className={styles.confidence} data-level={r.confidence.label==='Alta'?'high':r.confidence.label==='Média'?'mid':'low'}>Confiança {r.confidence.label}<small>{r.confidence.value}%</small></span>
               {r.url&&<a href={r.url} target="_blank" rel="noreferrer">Abrir ↗</a>}
-              <button type="button" className={styles.removeResultBtn} onClick={()=>removeFromAnalysis(r)}><Icon name="trash"/>Remover da análise</button>
             </div>
           </article>)}</div></>}
           {filtered.length>0&&<div className={styles.pagination}><span>Mostrando {(page-1)*PAGE_SIZE+1}–{Math.min(page*PAGE_SIZE,filtered.length)} de {filtered.length}</span><div><button type="button" aria-label="Página anterior" disabled={page<=1} onClick={()=>setPage(p=>p-1)}>←</button><b>{page} / {pages}</b><button type="button" aria-label="Próxima página" disabled={page>=pages} onClick={()=>setPage(p=>p+1)}>→</button></div></div>}
