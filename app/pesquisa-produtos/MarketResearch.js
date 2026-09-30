@@ -505,16 +505,19 @@ export default function MarketResearch(){
     </header>
 
     <section className={styles.searchCard}>
-      <div className={styles.modeRow}><span>Profundidade</span>{[['quick','Rápida · 1 pág.'],['standard','Padrão · 3 págs.'],['deep','Profunda · 5 págs.']].map(([id,label])=><button key={id} type="button" className={mode===id?styles.modeActive:''} onClick={()=>setMode(id)}>{label}</button>)}</div>
+      <div className={styles.searchTopline}><div><span className={styles.searchStep}>1</span><b>O que você quer pesquisar?</b><small>Digite o produto ou termo que deseja avaliar para revenda.</small></div></div>
       <div className={styles.searchLine}>
         <div className={styles.searchBox}><span>⌕</span><input value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>e.key==='Enter'&&!busy&&search()} placeholder="Ex.: TAG saída maternidade"/></div>
         <button type="button" onClick={search} disabled={busy}>{busy?'Coletando automaticamente…':'Pesquisar automaticamente'}</button>
         <button type="button" className={styles.secondary} onClick={()=>fileRef.current?.click()}>Importar coleta</button>
         <input ref={fileRef} hidden type="file" accept="application/json,.json" onChange={e=>onFile(e.target.files?.[0])}/>
       </div>
+      <div className={styles.searchOptionsRow}>
+        <div className={styles.modeRow}><span><b>2</b> Profundidade</span>{[['quick','Rápida · 1 pág.'],['standard','Padrão · 3 págs.'],['deep','Profunda · 5 págs.']].map(([id,label])=><button key={id} type="button" className={mode===id?styles.modeActive:''} onClick={()=>setMode(id)}>{label}</button>)}</div>
+        <label className={styles.searchCostField}><span className={styles.costStep}>3</span><b>Custo do produto</b><span>R$</span><input inputMode="decimal" placeholder="0,00" value={searchCostDraft} onChange={e=>setSearchCostDraft(e.target.value)} onBlur={commitSearchCost}/><small>opcional · taxas do Gestor aplicadas automaticamente</small></label>
+      </div>
       <div className={styles.searchStatusRow}>
         <div className={styles.message} aria-live="polite">{message}{rows.length>0&&<span className={styles.currentDepth}>Profundidade usada: <b>{modeLabel(currentResearchMode)}</b></span>}</div>
-        <label className={styles.searchCostField}>Custo do produto <span>R$</span><input inputMode="decimal" placeholder="0,00" value={searchCostDraft} onChange={e=>setSearchCostDraft(e.target.value)} onBlur={commitSearchCost}/><small>opcional · taxas do Gestor aplicadas automaticamente</small></label>
         <div className={styles.statusActions}>
           <button type="button" className={styles.saveSearchBtn} onClick={exportCurrentResearch} disabled={!rows.length} title="Exportar a coleta atual em JSON">⇧ Exportar coleta</button>
           <button type="button" className={historyOpen?styles.historyToggleOpen:styles.historyToggle} aria-expanded={historyOpen} aria-controls="pesquisas-anteriores" onClick={()=>setHistoryOpen(v=>!v)}>
@@ -546,7 +549,13 @@ export default function MarketResearch(){
         </div>
         <div className={styles.historyDetails}>
           {selectedHistory&&<>
-            <div className={styles.historyDetailHead}><div><span>PESQUISA SELECIONADA</span><h3>{selectedHistory.query||'Pesquisa sem termo'}</h3><p>{selectedHistory.date?new Date(selectedHistory.date).toLocaleString('pt-BR'):'Data não disponível'} · {modeLabel(selectedHistory.mode)}</p></div><div className={styles.historyDetailBadges}>{selectedResale&&<strong className={styles.resaleMainScore}>{selectedResale.score}<small>/100</small><i>{selectedResale.label}</i></strong>}<em>{selectedHistory.quality==null?'Qualidade —':'Qualidade '+selectedHistory.quality+'%'}</em></div></div>
+            <div className={styles.historyDetailHead}><div><span>PESQUISA SELECIONADA</span><h3>{selectedHistory.query||'Pesquisa sem termo'}</h3><p>{selectedHistory.date?new Date(selectedHistory.date).toLocaleString('pt-BR'):'Data não disponível'} · {modeLabel(selectedHistory.mode)}</p></div><div className={styles.historyDetailBadges}>{selectedResale&&<strong className={styles.resaleMainScore}>{selectedResale.score}<small>/100</small><i>{selectedResale.label}</i></strong>}</div></div>
+            <div className={styles.decisionStrip}>
+              <label><span>Custo</span><div>R$ <input inputMode="decimal" value={researchCosts[researchKey(selectedHistory)]??''} placeholder="0,00" onChange={e=>saveResearchCost(selectedHistory,e.target.value)}/></div></label>
+              <div><span>Preço de referência</span><b>{selectedResale?.metrics?.price!=null?money(selectedResale.metrics.price):'—'}</b></div>
+              <div data-tone={selectedResale?.finance?.profit>=0?'positive':'negative'}><span>Lucro / venda</span><b>{selectedResale?.finance?money(selectedResale.finance.profit):'Informe o custo'}</b></div>
+              <div><span>Margem</span><b>{selectedResale?.finance?selectedResale.finance.marginPct.toLocaleString('pt-BR',{maximumFractionDigits:1})+'%':'—'}</b></div>
+            </div>
             {comparison?.historyId===selectedHistory.id&&<div className={styles.comparisonBox} aria-live="polite">
               <b>Comparação com nova coleta</b>
               <div><span>Preço mediano</span><strong>{comparison.before?.priceMedian!=null&&comparison.after?.priceMedian!=null?`${money(comparison.before.priceMedian)} → ${money(comparison.after.priceMedian)}`:'Sem dados comparáveis'}</strong></div>
@@ -565,16 +574,22 @@ export default function MarketResearch(){
 
     <section className={styles.analysisCard}>
       <div className={styles.analysisHeader}>
-        <div><span>ANÁLISE DA PESQUISA</span><h2>Visão geral</h2><p>Resultados, oportunidades, palavras-chave, concorrência e insights da coleta atual.</p></div>
+        <div><span>ANÁLISE DA PESQUISA</span><h2>{rows.length?'Pesquisa aberta':'Visão geral'}</h2><p>{rows.length?(query||'Pesquisa atual')+' · '+rows.length+' anúncios carregados':'Escolha uma pesquisa do histórico e abra para visualizar resultados, oportunidades, palavras-chave e concorrência.'}</p></div>
         <div className={styles.analysisHeaderActions}>
-          <button type="button" className={styles.infoButton} onClick={()=>setDiagnosticsOpen(v=>!v)} aria-expanded={diagnosticsOpen} aria-controls="cobertura-dados">ⓘ Cobertura dos dados</button>
-          <button type="button" className={styles.sectionToggle} onClick={()=>setOverviewVisible(v=>!v)} aria-expanded={overviewVisible} aria-controls="conteudo-visao-geral">{overviewVisible?'⌃ Ocultar visão geral':'⌄ Mostrar visão geral'}</button>
+          {rows.length>0&&<button type="button" className={styles.infoButton} onClick={()=>setDiagnosticsOpen(v=>!v)} aria-expanded={diagnosticsOpen} aria-controls="cobertura-dados">ⓘ Cobertura dos dados</button>}
+          {rows.length>0&&<button type="button" className={styles.sectionToggle} onClick={()=>setOverviewVisible(v=>!v)} aria-expanded={overviewVisible} aria-controls="conteudo-visao-geral">{overviewVisible?'⌃ Ocultar análise':'⌄ Mostrar análise'}</button>}
         </div>
       </div>
 
+      {!rows.length&&<div className={styles.analysisEmptyState}>
+        <span>◫</span>
+        <div><b>Nenhuma pesquisa aberta</b><p>Selecione uma pesquisa acima e clique em “Reabrir pesquisa”, ou faça uma nova busca.</p></div>
+        {selectedHistory&&<button type="button" onClick={()=>reopenResearch(selectedHistory)}>Abrir “{selectedHistory.query}”</button>}
+      </div>}
+
       {diagnosticsOpen&&rows.length>0&&<section id="cobertura-dados" className={styles.qualityCard}><div className={styles.qualityHead}><div><span>COBERTURA DOS DADOS</span><b>{qualityLabel} · {quality}%</b></div><em data-level={quality>=75?'high':quality>=45?'mid':'low'}>{qualityLabel}</em></div><div className={styles.coverageGrid}>{[['Preço','price'],['Vendas','sold'],['Vendas 30d','monthly'],['Localização','location'],['Avaliação','rating'],['Reviews','reviews']].map(([label,key])=><div key={key}><b>{bench.coverage[key]}/{rows.length}</b><span>{label}</span><i><u style={{width:(bench.coverage[key]/rows.length*100)+'%'}}/></i></div>)}</div>{suspiciousSales&&<div className={styles.dataWarning}>⚠️ Todos os anúncios vieram com vendas = 0. O Gestor não assume que isso significa ausência de demanda; este campo está marcado como suspeito até uma nova coleta confirmar.</div>}<div id="diagnostico-coleta" className={styles.diagnosticPanel}><div className={styles.diagnosticIntro}><b>Motor Sênior × Gestor</b><span>{diagnostics?'O Motor informou a cobertura antes da normalização. Assim dá para saber exatamente onde um campo se perdeu.':'Esta coleta não trouxe diagnóstico do Motor. Faça uma nova pesquisa para gerar essa comparação quando o Motor disponibilizar o diagnóstico.'}</span></div>{diagnostics&&<><div className={styles.diagnosticActions}><button type="button" className={styles.secondary} onClick={downloadDiagnostics}>Baixar diagnóstico técnico</button>{diagnostics?.mode==='diagnostic-only'&&<span>Modo diagnóstico: amostra controlada de {diagnostics?.sampleSize||0} item(ns), sem enriquecimento misturado.</span>}</div><div className={styles.diagnosticGrid}>{[['Preço','price','price'],['Vendas','sold','sold'],['Vendas 30d','monthlySold','monthly'],['Localização','shopLocation','location'],['Avaliação','rating','rating'],['Reviews','reviewCount','reviews']].map(([label,motorKey,gestorKey])=>{const motor=Number(diagnostics?.coverage?.[motorKey]??0),gestor=Number(bench.coverage?.[gestorKey]??0);const status=motor===0?'source':gestor<motor?'normalizer':'ok';return <div key={label} data-status={status}><b>{label}</b><span>Motor: {motor}/{rows.length}</span><span>Gestor: {gestor}/{rows.length}</span><strong>{status==='ok'?'✓ aproveitado':status==='normalizer'?'⚠ normalização':'○ não veio da busca'}</strong></div>})}</div>{Array.isArray(diagnostics.detectedPaths)&&diagnostics.detectedPaths.length>0&&<details className={styles.detectedPaths}><summary>Campos estruturados detectados pelo Motor</summary><code>{diagnostics.detectedPaths.join(' · ')}</code></details>}</>}</div></section>}
 
-      {overviewVisible&&<div id="conteudo-visao-geral" className={styles.analysisBody}>
+      {rows.length>0&&overviewVisible&&<div id="conteudo-visao-geral" className={styles.analysisBody}>
         <nav className={styles.tabs} aria-label="Seções da Pesquisa de Produtos">
           <div className={styles.tabScroller}>{tabs.map(([id,label])=><button key={id} type="button" className={activeTab===id?styles.activeTab:''} onClick={()=>setActiveTab(id)}>{id==='overview'?'Resumo':label}</button>)}</div>
         </nav>
