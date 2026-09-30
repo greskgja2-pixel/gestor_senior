@@ -104,6 +104,27 @@ function stats(rows){
   return {priceMedian,soldMedian,monthlyMedian,reviewMedian,mainLocation,coverage:{price:coverage(rows,'price'),sold:coverage(rows,'sold'),monthly:coverage(rows,'monthlySold'),location:coverage(rows,'location'),rating:coverage(rows,'rating'),reviews:coverage(rows,'reviews')}};
 }
 
+
+function titleCase(text){
+  return String(text||'').trim().split(/\s+/).filter(Boolean).map(w=>w.length<=2?w.toLowerCase():w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' ');
+}
+function variationInsights(rows){
+  const defs=[
+    ['Menina',/\bmenina\b/i],['Menino',/\bmenino\b/i],['Ursinha',/\bursinha\b/i],['Ursinho',/\bursinho\b/i],
+    ['Homem-Aranha',/homem[-\s]?aranha|spider[-\s]?man/i],['Princesa',/\bprincesa\b/i],['Floral',/\bfloral\b|\bflores?\b/i],
+    ['Rosa',/\brosa\b/i],['Azul',/\bazul\b/i],['Safari',/\bsafari\b/i],['Dinossauro',/dinossaur/i],['Unicórnio',/unic[oó]rn/i]
+  ];
+  return defs.map(([name,re])=>{
+    const hits=rows.filter(r=>re.test(String(r.title||'')));
+    const strength=hits.reduce((sum,r)=>sum+(n(r.monthlySold)??n(r.sold)??0),0);
+    return {name,count:hits.length,strength};
+  }).filter(x=>x.count>0).sort((a,b)=>b.strength-a.strength||b.count-a.count);
+}
+function copyText(text){
+  if(typeof navigator==='undefined'||!navigator.clipboard||!text)return;
+  navigator.clipboard.writeText(String(text)).catch(()=>{});
+}
+
 export default function MarketResearch(){
   const [query,setQuery]=useState('');
   const [rows,setRows]=useState([]);
@@ -118,6 +139,10 @@ export default function MarketResearch(){
   const [saved,setSaved]=useState([]);
   const [diagnostics,setDiagnostics]=useState(null);
   const [diagnosticsOpen,setDiagnosticsOpen]=useState(false);
+  const [overviewVisible,setOverviewVisible]=useState(true);
+  const [assistantVisible,setAssistantVisible]=useState(true);
+  const [assistantTab,setAssistantTab]=useState('strategy');
+  const [assistantObjective,setAssistantObjective]=useState('sales');
   const fileRef=useRef(null);
   const PAGE_SIZE=20;
   useEffect(()=>{try{setSaved(JSON.parse(localStorage.getItem('gs_market_saved')||'[]'))}catch{}},[]);
@@ -180,6 +205,29 @@ export default function MarketResearch(){
   const pages=Math.max(1,Math.ceil(filtered.length/PAGE_SIZE));
   const paged=filtered.slice((page-1)*PAGE_SIZE,page*PAGE_SIZE);
   const top=filtered.filter(r=>r.confidence.value>=50).slice(0,5);
+  const variations=useMemo(()=>variationInsights(rows),[rows]);
+  const referenceProducts=useMemo(()=>[...rows].filter(r=>r.url).sort((a,b)=>(n(b.monthlySold)??n(b.sold)??0)-(n(a.monthlySold)??n(a.sold)??0)).slice(0,3),[rows]);
+  const assistant=useMemo(()=>{
+    const base=titleCase(query.trim()||keywords.slice(0,3).map(k=>k.word).join(' ')||'Produto');
+    const bestVariation=variations[0]?.name||null;
+    const suggestedTitle=[base,bestVariation&&!base.toLowerCase().includes(bestVariation.toLowerCase())?bestVariation:null,'Shopee'].filter(Boolean).join(' · ').slice(0,120);
+    const topTerms=keywords.slice(0,6).map(k=>k.word);
+    const description=[
+      `Produto relacionado a ${base.toLowerCase()}.`,
+      bestVariation?`Variação em destaque na pesquisa: ${bestVariation}.`:null,
+      topTerms.length?`Termos recorrentes observados: ${topTerms.join(', ')}.`:null,
+      'Revise medidas, materiais, conteúdo do kit e prazo antes de publicar.'
+    ].filter(Boolean).join('\n\n');
+    return{
+      theme:base||'—',
+      bestVariation:bestVariation||'Sem padrão claro',
+      priceRange:bench.priceMedian!=null?`${money(Math.max(0,bench.priceMedian*.8))} – ${money(bench.priceMedian*1.2)}`:'Não coletado',
+      competition:concentration.shops&&rows.length?(concentration.share>=45?'Alta':concentration.share>=25?'Média':'Baixa'):'Sem dados',
+      suggestedTitle,
+      description,
+      topTerms
+    };
+  },[query,keywords,variations,bench.priceMedian,concentration.shops,concentration.share,rows.length]);
   useEffect(()=>setPage(1),[sort,minSold,maxPrice,rows.length]);
   function saveResearch(){if(!rows.length)return;const entry={id:Date.now(),query:query.trim()||'Pesquisa importada',count:rows.length,quality,date:new Date().toISOString()};const next=[entry,...saved.filter(x=>x.query!==entry.query)].slice(0,10);setSaved(next);try{localStorage.setItem('gs_market_saved',JSON.stringify(next))}catch{}setMessage('Pesquisa salva neste navegador.');}
   const tabs=[['overview','Visão geral'],['results','Resultados'],['top','Oportunidades'],['keywords','Palavras-chave'],['competition','Concorrência'],['insights','Insights']];
@@ -204,10 +252,11 @@ export default function MarketResearch(){
     {rows.length>0&&<section className={styles.qualityCard}><div className={styles.qualityHead}><div><span>COBERTURA DOS DADOS</span><b>{qualityLabel} · {quality}%</b></div><em data-level={quality>=75?'high':quality>=45?'mid':'low'}>{qualityLabel}</em></div><div className={styles.coverageGrid}>{[['Preço','price'],['Vendas','sold'],['Vendas 30d','monthly'],['Localização','location'],['Avaliação','rating'],['Reviews','reviews']].map(([label,key])=><div key={key}><b>{bench.coverage[key]}/{rows.length}</b><span>{label}</span><i><u style={{width:(bench.coverage[key]/rows.length*100)+'%'}}/></i></div>)}</div>{suspiciousSales&&<div className={styles.dataWarning}>⚠️ Todos os anúncios vieram com vendas = 0. O Gestor não assume que isso significa ausência de demanda; este campo está marcado como suspeito até uma nova coleta confirmar.</div>}<button type="button" className={styles.diagnosticToggle} onClick={()=>setDiagnosticsOpen(v=>!v)}>🔧 {diagnosticsOpen?'Ocultar diagnóstico':'Diagnóstico da coleta'}</button>{diagnosticsOpen&&<div className={styles.diagnosticPanel}><div className={styles.diagnosticIntro}><b>Motor Sênior × Gestor</b><span>{diagnostics?'O Motor informou a cobertura antes da normalização. Assim dá para saber exatamente onde um campo se perdeu.':'Esta coleta não trouxe diagnóstico do Motor. Instale a v0.17.9 e faça uma nova pesquisa para gerar essa comparação.'}</span></div>{diagnostics&&<><div className={styles.diagnosticActions}><button type="button" className={styles.secondary} onClick={downloadDiagnostics}>Baixar diagnóstico técnico</button>{diagnostics?.mode==='diagnostic-only'&&<span>Modo diagnóstico: amostra controlada de {diagnostics?.sampleSize||0} item(ns), sem enriquecimento misturado.</span>}</div><div className={styles.diagnosticGrid}>{[['Preço','price','price'],['Vendas','sold','sold'],['Vendas 30d','monthlySold','monthly'],['Localização','shopLocation','location'],['Avaliação','rating','rating'],['Reviews','reviewCount','reviews']].map(([label,motorKey,gestorKey])=>{const motor=Number(diagnostics?.coverage?.[motorKey]??0),gestor=Number(bench.coverage?.[gestorKey]??0);const status=motor===0?'source':gestor<motor?'normalizer':'ok';return <div key={label} data-status={status}><b>{label}</b><span>Motor: {motor}/{rows.length}</span><span>Gestor: {gestor}/{rows.length}</span><strong>{status==='ok'?'✓ aproveitado':status==='normalizer'?'⚠ normalização':'○ não veio da busca'}</strong></div>})}</div>{Array.isArray(diagnostics.detectedPaths)&&diagnostics.detectedPaths.length>0&&<details className={styles.detectedPaths}><summary>Campos estruturados detectados pelo Motor</summary><code>{diagnostics.detectedPaths.join(' · ')}</code></details>}</>}</div>}</section>}
 
     <nav className={styles.tabs} aria-label="Seções da Pesquisa de Produtos">
-      {tabs.map(([id,label])=><button key={id} type="button" className={activeTab===id?styles.activeTab:''} onClick={()=>setActiveTab(id)}>{label}</button>)}
+      <div className={styles.tabScroller}>{tabs.map(([id,label])=><button key={id} type="button" className={activeTab===id?styles.activeTab:''} onClick={()=>setActiveTab(id)}>{label}</button>)}</div>
+      <button type="button" className={styles.sectionToggle} onClick={()=>setOverviewVisible(v=>!v)}>{overviewVisible?'◉ Ocultar visão geral':'◉ Mostrar visão geral'}</button>
     </nav>
 
-    {activeTab==='overview'&&<>
+    {activeTab==='overview'&&overviewVisible&&<>
       <section className={styles.kpis}>
         <article><span>Preço mediano</span><strong>{bench.coverage.price?money(bench.priceMedian):'Não coletado'}</strong><small>{bench.coverage.price}/{rows.length||0} anúncios com preço</small></article>
         <article><span>Vendas medianas</span><strong>{bench.coverage.sold?compact(bench.soldMedian):'Não coletado'}</strong><small>{bench.coverage.sold}/{rows.length||0} anúncios com vendas</small></article>
@@ -275,6 +324,82 @@ export default function MarketResearch(){
         <article><span>🔎</span><div><b>Termos recorrentes</b><p>{keywords.length?'Mais usados: '+keywords.slice(0,5).map(k=>k.word).join(', ')+'.':'Sem títulos suficientes.'}</p></div></article>
         <article><span>🧪</span><div><b>Confiabilidade</b><p>Qualidade geral: {qualityLabel.toLowerCase()} ({quality}%). Dados ausentes continuam ausentes e não viram zero.</p></div></article>
       </div>
+    </section>}
+
+    {rows.length>0&&<section className={styles.creationAssistant}>
+      <div className={styles.assistantHeader}>
+        <div><span className={styles.assistantEyebrow}>✨ ASSISTENTE DE CRIAÇÃO DO ANÚNCIO</span><h2>Crie o anúncio usando os sinais desta pesquisa</h2><p>As sugestões abaixo usam apenas os dados coletados. Onde a pesquisa não prova algo, o Gestor sinaliza para revisão.</p></div>
+        <button type="button" className={styles.assistantToggle} onClick={()=>setAssistantVisible(v=>!v)}>{assistantVisible?'⌃ Ocultar assistente':'⌄ Mostrar assistente'}</button>
+      </div>
+
+      {assistantVisible&&<>
+        <div className={styles.assistantSummary}>
+          <div><span>🎯 Tema forte</span><b>{assistant.theme}</b></div>
+          <div><span>👑 Melhor variação</span><b>{assistant.bestVariation}</b></div>
+          <div><span>🏷 Faixa de preço</span><b>{assistant.priceRange}</b></div>
+          <div><span>📊 Concorrência</span><b>{assistant.competition}</b></div>
+          <label><span>Objetivo da recomendação</span><select value={assistantObjective} onChange={e=>setAssistantObjective(e.target.value)}><option value="sales">🏆 Mais vendido</option><option value="competition">🎯 Menor concorrência</option><option value="price">💰 Melhor preço</option></select></label>
+        </div>
+
+        <div className={styles.assistantTabs} role="tablist" aria-label="Etapas do Assistente de Criação">
+          {[
+            ['strategy','Estratégia','🎯'],['title','Título','✍'],['description','Descrição','▤'],['images','Imagens','▧'],
+            ['category','Categoria / NCM','◇'],['variations','Variações','▦'],['references','Referências','↗'],['checklist','Checklist','☑']
+          ].map(([id,label,icon])=><button key={id} type="button" role="tab" aria-selected={assistantTab===id} className={assistantTab===id?styles.assistantTabActive:''} onClick={()=>setAssistantTab(id)}><span>{icon}</span>{label}</button>)}
+        </div>
+
+        <div className={styles.assistantContent}>
+          {assistantTab==='strategy'&&<div className={styles.strategyGrid}>
+            <article><span>Demanda observada</span><strong>{bench.coverage.monthly?compact(bench.monthlyMedian)+' vendas/30d medianas':'Sem dados de 30 dias'}</strong><small>Base: {bench.coverage.monthly}/{rows.length} anúncios com vendas 30d.</small></article>
+            <article><span>Variação mais forte</span><strong>{assistant.bestVariation}</strong><small>{variations[0]?variations[0].count+' anúncios encontrados com esse termo.':'Nenhum padrão de variação claro nos títulos.'}</small></article>
+            <article><span>Preço de referência</span><strong>{bench.priceMedian!=null?money(bench.priceMedian):'Sem dados'}</strong><small>Mediana dos preços realmente coletados.</small></article>
+            <article><span>Concentração</span><strong>{assistant.competition}</strong><small>{concentration.shops?concentration.shops+' lojas únicas; top 5 concentram '+concentration.share+'%.':'Sem shop_id suficiente.'}</small></article>
+          </div>}
+
+          {assistantTab==='title'&&<div className={styles.recommendationBox}>
+            <div className={styles.recommendationHead}><div><span>Título sugerido</span><b>Baseado nas palavras e variações da pesquisa</b></div><em>Rascunho</em></div>
+            <div className={styles.titleSuggestion}>{assistant.suggestedTitle||'Ainda não há dados suficientes para sugerir um título.'}</div>
+            <p><b>Por que este título?</b> Combina a pesquisa principal com a variação mais forte detectada sem copiar integralmente o título de um concorrente.</p>
+            <div className={styles.assistantActions}><button onClick={()=>copyText(assistant.suggestedTitle)}>Copiar título</button><button className={styles.secondaryAction} onClick={()=>setAssistantTab('strategy')}>Ver evidências</button><button className={styles.secondaryAction} onClick={()=>setActiveTab('keywords')}>Ver palavras usadas</button></div>
+          </div>}
+
+          {assistantTab==='description'&&<div className={styles.recommendationBox}>
+            <div className={styles.recommendationHead}><div><span>Descrição sugerida</span><b>Rascunho para você completar com os dados reais do produto</b></div><em>Revisar</em></div>
+            <textarea className={styles.descriptionDraft} readOnly value={assistant.description}/>
+            <div className={styles.assistantActions}><button onClick={()=>copyText(assistant.description)}>Copiar descrição</button></div>
+          </div>}
+
+          {assistantTab==='images'&&<div className={styles.referenceGrid}>
+            {referenceProducts.length?referenceProducts.map((r,i)=><article key={r.key}><div className={styles.referenceImage}>{r.image?<img src={r.image} alt=""/>:<span>Sem imagem</span>}</div><div><span>Referência {i+1}</span><b>{r.title}</b><small>{money(r.price)} · {compact(r.sold)} vendas</small><div className={styles.referenceActions}>{r.url&&<a href={r.url} target="_blank" rel="noreferrer">Ver anúncio ↗</a>}{r.image&&<a href={r.image} target="_blank" rel="noreferrer">Abrir imagem</a>}</div></div></article>):<div className={styles.empty}>Nenhum concorrente com URL disponível nesta coleta.</div>}
+          </div>}
+
+          {assistantTab==='category'&&<div className={styles.categoryGrid}>
+            <article><span>Categoria sugerida</span><strong>Revisar no cadastro da Shopee</strong><p>A busca pública atual não devolve, de forma confiável para todos os resultados, a categoria de cadastro do concorrente. O Gestor não vai inventar esse campo.</p></article>
+            <article><span>NCM sugerido</span><strong>Não confirmado pela pesquisa</strong><p>NCM depende da natureza/material do produto. O sistema só deve sugerir quando houver evidência suficiente e deve sempre pedir revisão fiscal.</p></article>
+          </div>}
+
+          {assistantTab==='variations'&&<div className={styles.variationList}>
+            {variations.length?variations.slice(0,6).map((v,i)=><div key={v.name}><span>{i+1}</span><b>{v.name}</b><small>{v.count} anúncios com o termo</small><em>{i===0?'Mais forte':'Alternativa'}</em></div>):<div className={styles.empty}>A pesquisa ainda não mostrou padrões claros de modelo, personagem ou público.</div>}
+          </div>}
+
+          {assistantTab==='references'&&<div className={styles.referenceGrid}>
+            {referenceProducts.length?referenceProducts.map((r,i)=><article key={r.key}><div className={styles.referenceImage}>{r.image?<img src={r.image} alt=""/>:<span>Sem imagem</span>}</div><div><span>{i===0?'🔥 Referência principal':'Concorrente '+(i+1)}</span><b>{r.title}</b><small>{money(r.price)} · {compact(r.sold)} vendas · {r.rating!=null?'★ '+number(r.rating):'sem nota'}</small><div className={styles.referenceActions}>{r.url&&<a href={r.url} target="_blank" rel="noreferrer">Ver anúncio ↗</a>}{r.image&&<a href={r.image} target="_blank" rel="noreferrer">Abrir imagem</a>}</div></div></article>):<div className={styles.empty}>Sem concorrentes utilizáveis nesta coleta.</div>}
+          </div>}
+
+          {assistantTab==='checklist'&&<div className={styles.checklistGrid}>
+            {[
+              ['Escolher tema / público',assistant.theme!=='—'],
+              ['Definir variações principais',variations.length>0],
+              ['Revisar título sugerido',Boolean(assistant.suggestedTitle)],
+              ['Completar descrição com dados reais',false],
+              ['Confirmar categoria na Shopee',false],
+              ['Confirmar NCM com base no produto real',false],
+              ['Escolher concorrente de referência',referenceProducts.length>0],
+              ['Criar imagens próprias inspiradas na estratégia',false]
+            ].map(([label,done])=><div key={label} data-done={done?'yes':'no'}><span>{done?'✓':'○'}</span><b>{label}</b></div>)}
+          </div>}
+        </div>
+      </>}
     </section>}
   </div>;
 }
