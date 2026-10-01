@@ -17,6 +17,8 @@
   --pp-muted:var(--gs-shell-muted,#5f7288);
   width:100%;
   max-width:1200px;
+  display:flex;
+  flex-direction:column;
   margin:0 auto;
   padding:24px 24px 48px;
   color:var(--gs-shell-text);
@@ -34,7 +36,7 @@
 .kicker{display:block;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--pp-muted)}
 
 /* ---------- Cabeçalho ---------- */
-.header{margin-bottom:24px}
+.header{margin-bottom:24px;order:0}
 .eyebrow{display:block;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--pp-blue)}
 .header h1{margin:4px 0 8px;font-size:30px;line-height:1.15}
 .header p{max-width:680px;color:var(--pp-muted);font-size:15px}
@@ -47,10 +49,10 @@
   box-shadow:0 4px 16px rgba(25,56,91,.05);
 }
 .searchCard,.historyCard,.analysisCard,.creationAssistant{margin-bottom:24px;padding:24px;border-top-width:4px}
-.searchCard{border-top-color:var(--pp-blue)}
-.historyCard{border-top-color:var(--pp-violet)}
-.analysisCard{border-top-color:var(--pp-blue)}
-.creationAssistant{border-top-color:var(--pp-violet);padding:0;overflow:hidden}
+.searchCard{border-top-color:var(--pp-blue);order:1}
+.analysisCard{border-top-color:var(--pp-blue);order:2}
+.creationAssistant{border-top-color:var(--pp-violet);padding:0;overflow:hidden;order:3}
+.historyCard{border-top-color:var(--pp-violet);order:4}
 .panel{padding:20px;margin-bottom:16px;box-shadow:none}
 
 /* ---------- Botões ---------- */
@@ -85,6 +87,10 @@
    1 · PESQUISA
    ========================================================================== */
 .cardTitle{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.cardTitle>div{min-width:0;flex:1}
+.sectionIconToggle{display:grid;place-items:center;flex:none;width:40px;height:40px;border:1px solid var(--gs-shell-border);border-radius:10px;background:var(--gs-shell-card);color:var(--pp-blue);cursor:pointer}
+.sectionIconToggle:hover{background:var(--gs-shell-soft)}
+.sectionIconToggle .icon{width:18px;height:18px}
 .cardIcon{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:rgba(23,105,232,.1);color:var(--pp-blue)}
 .cardTitle h2{font-size:18px}
 .cardTitle p{color:var(--pp-muted);font-size:13px}
@@ -133,6 +139,7 @@
    2 · HISTÓRICO
    ========================================================================== */
 .historyHeader{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:20px}
+.historyHeaderActions{display:flex;align-items:center;justify-content:flex-end;gap:8px}
 .historyHeader .kicker{color:var(--pp-violet)}
 .historyHeader h2{margin:4px 0;font-size:20px}
 .historyHeader p{max-width:560px;color:var(--pp-muted);font-size:13px}
@@ -470,7 +477,8 @@
   .secondaryActions{display:grid;grid-template-columns:1fr 1fr}
   .secondaryActions .historyToggle,.secondaryActions .historyToggleOpen{grid-column:1/-1;justify-content:center}
   .historyHeader{flex-direction:column;align-items:stretch}
-  .historySearch{min-width:0;width:100%}
+  .historyHeaderActions{width:100%;justify-content:space-between}
+  .historySearch{min-width:0;flex:1;width:auto}
   .historyItem,.historyItemActive{flex-direction:column}
   .historyItemTools{flex-direction:row;justify-content:flex-end;padding:0 12px 12px}
   .decisionCard{padding:16px}
