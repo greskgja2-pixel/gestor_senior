@@ -646,3 +646,10 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 - Mantidos **Desfazer última** e **Restaurar todos**.
 - No mobile, cada card tem a opção **Selecionar para excluir**.
 - A seleção é limpa ao trocar página, ordenação ou filtros, evitando exclusões acidentais fora da visualização atual.
+
+
+## 2026-09-30 — Correção: refinamento agora recalcula resumo financeiro
+- Branch: `fix/radar-recalculo-refinamento`.
+- Problema: a tabela usava `rows` refinados, mas o card “Resumo da oportunidade” continuava lendo o snapshot salvo em `saved`, então preço mediano, demanda, lucro e margem permaneciam com os valores anteriores.
+- Correção: toda exclusão, desfazer ou restauração sincroniza a pesquisa salva atual com os `rows` refinados e recalcula `summary`, `quality`, `count`, concentração de vendedores e métricas derivadas.
+- Como `resaleRanking` e `historyFinanceById` dependem de `saved`, lucro, margem, nota e demais indicadores passam a reagir à limpeza da amostra.
