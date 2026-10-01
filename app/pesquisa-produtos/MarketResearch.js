@@ -253,6 +253,8 @@ export default function MarketResearch(){
   const [searchCostDraft,setSearchCostDraft]=useState('');
   const [financeConfig,setFinanceConfig]=useState({commissionRate:20,fixedFee:4.5,packagingCost:0,taxRate:0,otherCost:0});
   const [historyOpen,setHistoryOpen]=useState(false);
+  const [searchVisible,setSearchVisible]=useState(true);
+  const [analysisVisible,setAnalysisVisible]=useState(true);
   const [historyFilter,setHistoryFilter]=useState('');
   const [historyShowAll,setHistoryShowAll]=useState(false);
   const [selectedHistoryId,setSelectedHistoryId]=useState(null);
@@ -738,8 +740,10 @@ export default function MarketResearch(){
       <div className={styles.cardTitle}>
         <span className={styles.cardIcon} aria-hidden="true"><Icon name="search"/></span>
         <div><h2 id="titulo-pesquisa">Nova pesquisa</h2><p>Siga os 3 passos e clique em pesquisar.</p></div>
+        <button type="button" className={styles.sectionIconToggle} aria-label={searchVisible?'Recolher card de pesquisa':'Mostrar card de pesquisa'} aria-expanded={searchVisible} onClick={()=>setSearchVisible(v=>!v)}><Icon name={searchVisible?'up':'down'}/></button>
       </div>
 
+      {searchVisible&&<>
       <div className={styles.step}>
         <label className={styles.stepLabel} htmlFor="pesquisa-termo"><i>1</i>O que deseja pesquisar?</label>
         <div className={styles.searchLine}>
@@ -775,20 +779,22 @@ export default function MarketResearch(){
         <div className={styles.secondaryActions}>
           <button type="button" className={styles.ghostBtn} onClick={()=>fileRef.current?.click()}><Icon name="import"/>Importar coleta</button>
           <button type="button" className={styles.ghostBtn} onClick={exportCurrentResearch} disabled={!rows.length} title="Exportar a coleta atual em JSON"><Icon name="export"/>Exportar coleta</button>
-          <button type="button" className={historyOpen?styles.historyToggleOpen:styles.historyToggle} aria-expanded={historyOpen} aria-controls="pesquisas-anteriores" onClick={()=>setHistoryOpen(v=>!v)}>
-            <Icon name="clock"/><b>{historyOpen?'Ocultar histórico':'Histórico de pesquisas'}</b><em>{saved.length}</em><Icon name={historyOpen?'up':'down'}/>
-          </button>
           <input ref={fileRef} hidden type="file" accept="application/json,.json" onChange={e=>onFile(e.target.files?.[0])}/>
         </div>
       </div>
+      </>}
     </section>
 
-    {/* 2 · HISTÓRICO (roxo) */}
-    {historyOpen&&<section id="pesquisas-anteriores" className={styles.historyCard} aria-label="Pesquisas anteriores">
+    {/* 4 · HISTÓRICO (roxo) */}
+    <section id="pesquisas-anteriores" className={styles.historyCard} aria-label="Pesquisas anteriores">
       <div className={styles.historyHeader}>
         <div><span className={styles.kicker}>Histórico</span><h2>Pesquisas anteriores</h2><p>Escolha uma pesquisa para ver o resumo. Abra a que parecer mais promissora ou repita a busca para comparar.</p></div>
-        <label className={styles.historySearch}><span className={styles.srOnly}>Filtrar histórico por termo</span><Icon name="search"/><input value={historyFilter} onChange={e=>{setHistoryFilter(e.target.value);setHistoryShowAll(false)}} placeholder="Filtrar por termo"/></label>
+        <div className={styles.historyHeaderActions}>
+          {historyOpen&&<label className={styles.historySearch}><span className={styles.srOnly}>Filtrar histórico por termo</span><Icon name="search"/><input value={historyFilter} onChange={e=>{setHistoryFilter(e.target.value);setHistoryShowAll(false)}} placeholder="Filtrar por termo"/></label>}
+          <button type="button" className={styles.sectionIconToggle} aria-label={historyOpen?'Recolher histórico':'Mostrar histórico'} aria-expanded={historyOpen} onClick={()=>setHistoryOpen(v=>!v)}><Icon name={historyOpen?'up':'down'}/></button>
+        </div>
       </div>
+      {historyOpen&&<>
       {!saved.length?<div className={styles.historyEmpty}><Icon name="clock"/><b>Nenhuma pesquisa salva ainda</b><p>Faça uma pesquisa acima. Ela será salva aqui automaticamente, com os dados realmente coletados.</p></div>:<>
       <div className={styles.historyGrid}>
         <div className={styles.historyList} role="list" aria-label="Lista de pesquisas salvas">
@@ -872,18 +878,21 @@ export default function MarketResearch(){
           })()}
         </div>
       </div></>}
-    </section>}
+      </>}
+    </section>
 
-    {/* 3 · ANÁLISE (azul) */}
+    {/* 2 · ANÁLISE (azul) */}
     <section className={styles.analysisCard} data-empty={rows.length?'false':'true'} aria-labelledby="titulo-analise">
       <div className={styles.analysisHeader}>
         <div><span className={styles.kicker}>Análise da pesquisa</span><h2 id="titulo-analise">{rows.length?(query.trim()||'Pesquisa aberta'):'Nenhuma pesquisa aberta'}</h2>{rows.length>0&&<p>{rows.length} anúncios carregados</p>}</div>
-        {rows.length>0&&<div className={styles.analysisHeaderActions}>
-          <button type="button" className={styles.infoButton} onClick={()=>setDiagnosticsOpen(v=>!v)} aria-expanded={diagnosticsOpen} aria-controls="cobertura-dados"><Icon name="info"/>Qualidade dos dados</button>
-          <button type="button" className={styles.sectionToggle} onClick={()=>setOverviewVisible(v=>!v)} aria-expanded={overviewVisible} aria-controls="conteudo-visao-geral"><Icon name={overviewVisible?'up':'down'}/>{overviewVisible?'Ocultar visão geral':'Mostrar visão geral'}</button>
-        </div>}
+        <div className={styles.analysisHeaderActions}>
+          {rows.length>0&&analysisVisible&&<button type="button" className={styles.infoButton} onClick={()=>setDiagnosticsOpen(v=>!v)} aria-expanded={diagnosticsOpen} aria-controls="cobertura-dados"><Icon name="info"/>Qualidade dos dados</button>}
+          {rows.length>0&&analysisVisible&&<button type="button" className={styles.sectionToggle} onClick={()=>setOverviewVisible(v=>!v)} aria-expanded={overviewVisible} aria-controls="conteudo-visao-geral"><Icon name={overviewVisible?'up':'down'}/>{overviewVisible?'Ocultar visão geral':'Mostrar visão geral'}</button>}
+          <button type="button" className={styles.sectionIconToggle} aria-label={analysisVisible?'Recolher card de análise':'Mostrar card de análise'} aria-expanded={analysisVisible} onClick={()=>setAnalysisVisible(v=>!v)}><Icon name={analysisVisible?'up':'down'}/></button>
+        </div>
       </div>
 
+      {analysisVisible&&<>
       {rows.length===0&&<div className={styles.emptyState}>
         <span className={styles.emptyIcon} aria-hidden="true"><Icon name="search"/></span>
         <div>
@@ -1013,9 +1022,10 @@ export default function MarketResearch(){
           </div>
         </section>}
       </div>}
+      </>}
     </section>
 
-    {/* 4 · ASSISTENTE (roxo de acento) */}
+    {/* 3 · ASSISTENTE (roxo de acento) */}
     {rows.length>0&&<section className={styles.creationAssistant}>
       <div className={styles.assistantHeader}>
         <div><span className={styles.assistantEyebrow}><Icon name="sparkle"/>ASSISTENTE DE CRIAÇÃO DO ANÚNCIO</span><h2>Crie o anúncio usando os sinais desta pesquisa</h2><p>As sugestões usam apenas os dados coletados. Onde a pesquisa não prova algo, o Gestor sinaliza para revisão.</p></div>
