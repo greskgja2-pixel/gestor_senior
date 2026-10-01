@@ -322,6 +322,38 @@ export default function MarketResearch(){
     return {normalized,diagnostics:diag};
   }
 
+  function syncRefinedResearch(nextRows){
+    if(!selectedHistoryId)return;
+    setSaved(current=>{
+      const next=current.map(entry=>{
+        if(entry.id!==selectedHistoryId)return entry;
+        const snapshot=stats(nextRows);
+        const coverageValues=Object.values(snapshot.coverage||{});
+        const snapshotQuality=nextRows.length?Math.round(coverageValues.reduce((sum,value)=>sum+value,0)/(nextRows.length*Math.max(1,coverageValues.length))*100):0;
+        const concentration=sellerConcentration(nextRows);
+        return{
+          ...entry,
+          count:nextRows.length,
+          quality:snapshotQuality,
+          rows:compactRows(nextRows),
+          summary:{
+            priceMedian:snapshot.priceMedian,
+            soldMedian:snapshot.soldMedian,
+            monthlyMedian:snapshot.monthlyMedian,
+            mainLocation:snapshot.mainLocation,
+            reviewMedian:snapshot.reviewMedian,
+            shops:concentration.shops,
+            sellerTop5Share:concentration.share,
+            coverage:snapshot.coverage
+          },
+          refinedAt:new Date().toISOString()
+        };
+      });
+      try{localStorage.setItem('gs_market_saved',JSON.stringify(next.slice(0,50)))}catch{}
+      return next;
+    });
+  }
+
   function toggleResultSelection(key){
     setSelectedResultKeys(current=>current.includes(key)?current.filter(item=>item!==key):[...current,key]);
   }
@@ -335,7 +367,11 @@ export default function MarketResearch(){
     const selectedSet=new Set(selectedResultKeys);
     const selectedRows=rows.filter(item=>selectedSet.has(item.key));
     if(!selectedRows.length){setSelectedResultKeys([]);return}
-    setRows(current=>current.filter(item=>!selectedSet.has(item.key)));
+    setRows(current=>{
+      const next=current.filter(item=>!selectedSet.has(item.key));
+      syncRefinedResearch(next);
+      return next;
+    });
     setRemovedRows(current=>[...selectedRows.map(row=>({row})),...current]);
     setSelectedResultKeys([]);
     setPage(1);
@@ -344,7 +380,11 @@ export default function MarketResearch(){
     setRemovedRows(current=>{
       if(!current.length)return current;
       const [last,...rest]=current;
-      setRows(rowsNow=>[...rowsNow,last.row].sort((a,b)=>(a.index??0)-(b.index??0)));
+      setRows(rowsNow=>{
+        const next=[...rowsNow,last.row].sort((a,b)=>(a.index??0)-(b.index??0));
+        syncRefinedResearch(next);
+        return next;
+      });
       setSelectedResultKeys([]);
       return rest;
     });
@@ -352,7 +392,11 @@ export default function MarketResearch(){
   function restoreAllRemoved(){
     setRemovedRows(current=>{
       if(!current.length)return current;
-      setRows(rowsNow=>[...rowsNow,...current.map(item=>item.row)].sort((a,b)=>(a.index??0)-(b.index??0)));
+      setRows(rowsNow=>{
+        const next=[...rowsNow,...current.map(item=>item.row)].sort((a,b)=>(a.index??0)-(b.index??0));
+        syncRefinedResearch(next);
+        return next;
+      });
       return [];
     });
     setSelectedResultKeys([]);
