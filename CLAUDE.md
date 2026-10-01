@@ -653,3 +653,13 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 - Problema: a tabela usava `rows` refinados, mas o card “Resumo da oportunidade” continuava lendo o snapshot salvo em `saved`, então preço mediano, demanda, lucro e margem permaneciam com os valores anteriores.
 - Correção: toda exclusão, desfazer ou restauração sincroniza a pesquisa salva atual com os `rows` refinados e recalcula `summary`, `quality`, `count`, concentração de vendedores e métricas derivadas.
 - Como `resaleRanking` e `historyFinanceById` dependem de `saved`, lucro, margem, nota e demais indicadores passam a reagir à limpeza da amostra.
+
+
+## 2026-09-30 — Pesquisa de Produtos: nova ordem dos cards
+- Branch: `feat/reordenar-cards-pesquisa`.
+- Ordem visual após a área de pesquisa: 1) Nova pesquisa, 2) Análise da pesquisa, 3) Assistente de Criação, 4) Histórico.
+- A ordem é controlada por `order` no container da página para evitar duplicação dos blocos grandes.
+- Card Nova pesquisa ganhou botão de recolher/mostrar.
+- Card Análise da pesquisa ganhou botão de recolher/mostrar o card inteiro; os controles de qualidade e visão geral permanecem quando expandido.
+- Histórico agora permanece como quarto card e tem botão próprio de recolher/mostrar; o antigo botão de histórico dentro do rodapé da pesquisa foi removido.
+- Assistente de Criação permanece com seu próprio controle de mostrar/ocultar.
