@@ -789,7 +789,7 @@ export default function MarketResearch(){
         <div><span className={styles.kicker}>Histórico</span><h2>Pesquisas anteriores</h2><p>Escolha uma pesquisa para ver o resumo. Abra a que parecer mais promissora ou repita a busca para comparar.</p></div>
         <div className={styles.historyHeaderActions}>
           <label className={styles.historySearch}><span className={styles.srOnly}>Filtrar histórico por termo</span><Icon name="search"/><input value={historyFilter} onChange={e=>{setHistoryFilter(e.target.value);setHistoryShowAll(false)}} placeholder="Filtrar por termo"/></label>
-          <button type="button" className={styles.sectionIconToggle} aria-label={historyOpen?'Recolher histórico':'Mostrar histórico'} aria-expanded={historyOpen} onClick={()=>setHistoryOpen(v=>!v)}><Icon name={historyOpen?'up':'down'}/></button>
+          <button type="button" className={styles.sectionIconToggle} title={historyOpen?'Ocultar histórico':'Histórico de pesquisas'} aria-label={historyOpen?'Ocultar histórico':'Histórico de pesquisas'} aria-expanded={historyOpen} aria-controls="pesquisas-anteriores" onClick={()=>setHistoryOpen(v=>!v)}><Icon name={historyOpen?'up':'down'}/></button>
         </div>
       </div>
       {!saved.length?<div className={styles.historyEmpty}><Icon name="clock"/><b>Nenhuma pesquisa salva ainda</b><p>Faça uma pesquisa acima. Ela será salva aqui automaticamente, com os dados realmente coletados.</p></div>:<>
