@@ -241,7 +241,8 @@ export default function MarketResearch(){
   const [selectedResultKeys,setSelectedResultKeys]=useState([]);
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState('Digite o produto e clique em pesquisar. Você também pode importar uma coleta salva.');
-  const [sort,setSort]=useState('score');
+  const [sort,setSort]=useState('relevance');
+  const [sortDirection,setSortDirection]=useState('desc');
   const [minSold,setMinSold]=useState('');
   const [maxPrice,setMaxPrice]=useState('');
   const [activeTab,setActiveTab]=useState('overview');
@@ -296,14 +297,50 @@ export default function MarketResearch(){
   const prepared=useMemo(()=>rows.map(r=>({...r,score:opportunityScore(r,bench),confidence:confidence(r)})),[rows,bench]);
   const filtered=useMemo(()=>{
     let list=prepared.filter(r=>(!minSold||n(r.sold)>=Number(minSold))&&(!maxPrice||n(r.price)<=Number(maxPrice)));
+    const dir=sortDirection==='asc'?1:-1;
+    const value=(row,key)=>{
+      if(key==='relevance'||key==='product')return n(row.index)??Number.MAX_SAFE_INTEGER;
+      if(key==='sales')return n(row.sold);
+      if(key==='monthly')return n(row.monthlySold);
+      if(key==='price')return n(row.price);
+      if(key==='rating')return n(row.rating);
+      if(key==='location')return String(row.location||'').toLocaleLowerCase('pt-BR');
+      if(key==='score')return n(row.score);
+      if(key==='confidence')return n(row.confidence?.value);
+      return null;
+    };
     list=[...list].sort((a,b)=>{
-      if(sort==='sales')return (n(b.sold)??-1)-(n(a.sold)??-1);
-      if(sort==='monthly')return (n(b.monthlySold)??-1)-(n(a.monthlySold)??-1);
-      if(sort==='price')return (n(a.price)??Infinity)-(n(b.price)??Infinity);
-      return (b.score??-1)-(a.score??-1);
+      if(sort==='relevance'||sort==='product'){
+        const av=n(a.index)??Number.MAX_SAFE_INTEGER,bv=n(b.index)??Number.MAX_SAFE_INTEGER;
+        return sortDirection==='asc'?av-bv:bv-av;
+      }
+      if(sort==='location'){
+        return String(value(a,sort)).localeCompare(String(value(b,sort)),'pt-BR')*dir;
+      }
+      const av=value(a,sort),bv=value(b,sort);
+      if(av==null&&bv==null)return (n(a.index)??0)-(n(b.index)??0);
+      if(av==null)return 1;
+      if(bv==null)return -1;
+      return (av-bv)*dir;
     });
     return list;
-  },[prepared,sort,minSold,maxPrice]);
+  },[prepared,sort,sortDirection,minSold,maxPrice]);
+
+  function sortByColumn(key){
+    setSort(current=>{
+      if(current===key){
+        setSortDirection(direction=>direction==='asc'?'desc':'asc');
+        return current;
+      }
+      setSortDirection(key==='price'||key==='location'||key==='product'||key==='relevance'?'asc':'desc');
+      return key;
+    });
+    setPage(1);
+  }
+  function SortHeader({column,children}){
+    const active=sort===column;
+    return <button type="button" className={styles.sortHeader} data-active={active?'true':'false'} onClick={()=>sortByColumn(column)}>{children}<span aria-hidden="true">{active?(sortDirection==='asc'?'▲':'▼'):'↕'}</span></button>;
+  }
 
   function downloadDiagnostics(){
     if(!diagnostics)return;
@@ -933,11 +970,11 @@ export default function MarketResearch(){
 
         {activeTab==='results'&&<section className={styles.panel}>
           <div className={styles.panelHead}>
-            <div><h2>Radar de oportunidades</h2><p>A nota usa somente os dados carregados e não é gerada por IA.</p></div>
+            <div><h2>Radar de oportunidades</h2><p>Por padrão, os anúncios permanecem na mesma ordem de relevância coletada da Shopee. A nota de oportunidade não reorganiza a lista.</p></div>
             <div className={styles.filters}>
               <input inputMode="numeric" aria-label="Vendas mínimas" value={minSold} onChange={e=>setMinSold(e.target.value)} placeholder="Vendas mín."/>
               <input inputMode="decimal" aria-label="Preço máximo" value={maxPrice} onChange={e=>setMaxPrice(e.target.value)} placeholder="Preço máx."/>
-              <select aria-label="Ordenar resultados" value={sort} onChange={e=>setSort(e.target.value)}><option value="score">Melhor oportunidade</option><option value="sales">Mais vendidos</option><option value="monthly">Mais vendas 30d</option><option value="price">Menor preço</option></select>
+              <select aria-label="Ordenar resultados" value={sort} onChange={e=>{const value=e.target.value;setSort(value);setSortDirection(value==='price'||value==='relevance'?'asc':'desc')}}><option value="relevance">Relevância da Shopee</option><option value="score">Melhor oportunidade</option><option value="sales">Mais vendidos</option><option value="monthly">Mais vendas 30d</option><option value="price">Menor preço</option></select>
             </div>
           </div>
           <div className={styles.refineGuide} role="note">
@@ -954,7 +991,7 @@ export default function MarketResearch(){
             </div>
           </div>
           {!filtered.length?<div className={styles.empty}>{removedRows.length?'Todos os resultados foram removidos da análise. Use “Desfazer última” ou “Restaurar todos” para recuperar itens.':'Faça uma pesquisa automática ou importe uma coleta para começar.'}</div>:<>
-          <div className={styles.tableWrap}><table><thead><tr><th className={styles.selectCol}><input type="checkbox" aria-label="Selecionar todos os resultados desta página" checked={paged.length>0&&paged.every(r=>selectedResultKeys.includes(r.key))} onChange={toggleCurrentPageSelection}/></th><th>Produto</th><th>Preço</th><th>Vendas</th><th>30 dias</th><th>Avaliações</th><th>Local</th><th>Oportunidade</th><th>Confiança</th><th><span className={styles.srOnly}>Abrir anúncio</span></th></tr></thead><tbody>
+          <div className={styles.tableWrap}><table><thead><tr><th className={styles.selectCol}><input type="checkbox" aria-label="Selecionar todos os resultados desta página" checked={paged.length>0&&paged.every(r=>selectedResultKeys.includes(r.key))} onChange={toggleCurrentPageSelection}/></th><th><SortHeader column="product">Produto</SortHeader></th><th><SortHeader column="price">Preço</SortHeader></th><th><SortHeader column="sales">Vendas</SortHeader></th><th><SortHeader column="monthly">30 dias</SortHeader></th><th><SortHeader column="rating">Avaliações</SortHeader></th><th><SortHeader column="location">Local</SortHeader></th><th><SortHeader column="score">Oportunidade</SortHeader></th><th><SortHeader column="confidence">Confiança</SortHeader></th><th><span className={styles.srOnly}>Abrir anúncio</span></th></tr></thead><tbody>
             {paged.map(r=><tr key={r.key} className={selectedResultKeys.includes(r.key)?styles.selectedRow:''}>
               <td className={styles.selectCol}><input type="checkbox" aria-label={'Selecionar '+r.title} checked={selectedResultKeys.includes(r.key)} onChange={()=>toggleResultSelection(r.key)}/></td>
               <td><div className={styles.product}>{r.image?<img src={r.image} alt=""/>:<div className={styles.noImg}><Icon name="tag"/></div>}<div><b title={r.title}>{r.title}</b><small>{r.preferred?'Vendedor Indicado · ':''}{r.itemId?'ID '+r.itemId:'ID não coletado'}</small></div></div></td>
