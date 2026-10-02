@@ -240,6 +240,8 @@ export default function MarketResearch(){
   const [removedRows,setRemovedRows]=useState([]);
   const [selectedResultKeys,setSelectedResultKeys]=useState([]);
   const [titleFilter,setTitleFilter]=useState('');
+  const [radarTitleSearch,setRadarTitleSearch]=useState('');
+  const [favoriteKeys,setFavoriteKeys]=useState([]);
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState('Digite o produto e clique em pesquisar. Você também pode importar uma coleta salva.');
   const [sort,setSort]=useState('relevance');
@@ -282,6 +284,8 @@ export default function MarketResearch(){
       if(finance&&typeof finance==='object')setFinanceConfig(x=>({...x,...finance}));
       if(list.length)setSelectedHistoryId(list[0].id);
       setHistoryOpen(localStorage.getItem('historico_aberto')==='true');
+      const favorites=JSON.parse(localStorage.getItem('gs_market_favorites')||'[]');
+      if(Array.isArray(favorites))setFavoriteKeys(favorites.map(item=>String(item?.key||item?.itemId||'')).filter(Boolean));
     }catch{
       setSaved([]);
       setHistoryOpen(false);
@@ -396,6 +400,37 @@ export default function MarketResearch(){
     });
   }
 
+  function favoriteSnapshot(row){
+    return {
+      key:String(row.key||row.itemId||''),
+      title:row.title||'Produto sem título',
+      itemId:row.itemId||'',
+      shopId:row.shopId||'',
+      image:row.image||null,
+      price:row.price??null,
+      sold:row.sold??null,
+      monthlySold:row.monthlySold??null,
+      rating:row.rating??null,
+      reviews:row.reviews??null,
+      location:row.location||null,
+      url:row.url||null,
+      preferred:Boolean(row.preferred),
+      searchQuery:query.trim()||null,
+      savedAt:new Date().toISOString()
+    };
+  }
+  function toggleFavorite(row){
+    const key=String(row?.key||row?.itemId||'');
+    if(!key)return;
+    try{
+      const current=JSON.parse(localStorage.getItem('gs_market_favorites')||'[]');
+      const list=Array.isArray(current)?current:[];
+      const exists=list.some(item=>String(item?.key||item?.itemId||'')===key);
+      const next=exists?list.filter(item=>String(item?.key||item?.itemId||'')!==key):[favoriteSnapshot(row),...list];
+      localStorage.setItem('gs_market_favorites',JSON.stringify(next.slice(0,300)));
+      setFavoriteKeys(next.map(item=>String(item?.key||item?.itemId||'')).filter(Boolean));
+    }catch{}
+  }
   function toggleResultSelection(key){
     setSelectedResultKeys(current=>current.includes(key)?current.filter(item=>item!==key):[...current,key]);
   }
@@ -611,8 +646,10 @@ export default function MarketResearch(){
   const quality=rows.length?Math.round(coverageValues.reduce((s,v)=>s+v,0)/(rows.length*Math.max(1,coverageValues.length))*100):0;
   const qualityLabel=quality>=75?'Alta':quality>=45?'Média':'Baixa';
   const suspiciousSales=rows.length>=20&&bench.coverage?.sold===rows.length&&rows.every(r=>r.sold===0);
-  const pages=Math.max(1,Math.ceil(filtered.length/PAGE_SIZE));
-  const paged=filtered.slice((page-1)*PAGE_SIZE,page*PAGE_SIZE);
+  const normalizedRadarSearch=String(radarTitleSearch||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+  const tableFiltered=normalizedRadarSearch?filtered.filter(r=>String(r.title||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().includes(normalizedRadarSearch)):filtered;
+  const pages=Math.max(1,Math.ceil(tableFiltered.length/PAGE_SIZE));
+  const paged=tableFiltered.slice((page-1)*PAGE_SIZE,page*PAGE_SIZE);
   const top=filtered.filter(r=>r.confidence.value>=50).slice(0,5);
   const variations=useMemo(()=>variationInsights(rows),[rows]);
   const referenceProducts=useMemo(()=>[...rows].filter(r=>r.url).sort((a,b)=>(n(b.monthlySold)??n(b.sold)??0)-(n(a.monthlySold)??n(a.sold)??0)).slice(0,3),[rows]);
@@ -661,7 +698,7 @@ export default function MarketResearch(){
       completeness
     };
   },[query,keywords,variations,bench.priceMedian,concentration.shops,concentration.share,rows.length,productDetails]);
-  useEffect(()=>setPage(1),[sort,minSold,maxPrice,rows.length]);
+  useEffect(()=>setPage(1),[sort,minSold,maxPrice,radarTitleSearch,rows.length]);
   useEffect(()=>setSelectedResultKeys([]),[sort,minSold,maxPrice,page]);
   useEffect(()=>{
     const key=researchKey(query);
@@ -1015,8 +1052,17 @@ export default function MarketResearch(){
               {removedRows.length>0&&<button type="button" onClick={restoreAllRemoved}>Restaurar todos</button>}
             </div>
           </div>
-          {!filtered.length?<div className={styles.empty}>{removedRows.length?'Todos os resultados foram removidos da análise. Use “Desfazer última” ou “Restaurar todos” para recuperar itens.':'Faça uma pesquisa automática ou importe uma coleta para começar.'}</div>:<>
-          <div className={styles.tableWrap}><table><thead><tr><th className={styles.selectCol}><input type="checkbox" aria-label="Selecionar todos os resultados desta página" checked={paged.length>0&&paged.every(r=>selectedResultKeys.includes(r.key))} onChange={toggleCurrentPageSelection}/></th><th><SortHeader column="product">Produto</SortHeader></th><th><SortHeader column="price">Preço</SortHeader></th><th><SortHeader column="sales">Vendas</SortHeader></th><th><SortHeader column="monthly">30 dias</SortHeader></th><th><SortHeader column="rating">Avaliações</SortHeader></th><th><SortHeader column="location">Local</SortHeader></th><th><SortHeader column="score">Oportunidade</SortHeader></th><th><SortHeader column="confidence">Confiança</SortHeader></th><th><span className={styles.srOnly}>Abrir anúncio</span></th></tr></thead><tbody>
+          <div className={styles.radarSearchBar}>
+            <div className={styles.radarSearchLabel}><Icon name="search"/><div><b>Pesquisar dentro deste Radar</b><small>Mostra somente anúncios cujo título contém o texto digitado. Não altera os cálculos da análise.</small></div></div>
+            <div className={styles.radarSearchInput}>
+              <Icon name="search"/>
+              <input value={radarTitleSearch} onChange={e=>setRadarTitleSearch(e.target.value)} placeholder="Ex.: tag maternidade" aria-label="Pesquisar nos títulos do Radar de oportunidades"/>
+              {radarTitleSearch&&<button type="button" onClick={()=>setRadarTitleSearch('')} aria-label="Limpar pesquisa">×</button>}
+            </div>
+            {radarTitleSearch.trim()&&<span className={styles.radarSearchCount}><strong>{tableFiltered.length}</strong> de {filtered.length} anúncios encontrados</span>}
+          </div>
+          {!tableFiltered.length?<div className={styles.empty}>{radarTitleSearch.trim()?'Nenhum anúncio desta tabela contém “'+radarTitleSearch.trim()+'” no título.':removedRows.length?'Todos os resultados foram removidos da análise. Use “Desfazer última” ou “Restaurar todos” para recuperar itens.':'Faça uma pesquisa automática ou importe uma coleta para começar.'}</div>:<>
+          <div className={styles.tableWrap}><table><thead><tr><th className={styles.selectCol}><input type="checkbox" aria-label="Selecionar todos os resultados desta página" checked={paged.length>0&&paged.every(r=>selectedResultKeys.includes(r.key))} onChange={toggleCurrentPageSelection}/></th><th><SortHeader column="product">Produto</SortHeader></th><th><SortHeader column="price">Preço</SortHeader></th><th><SortHeader column="sales">Vendas</SortHeader></th><th><SortHeader column="monthly">30 dias</SortHeader></th><th><SortHeader column="rating">Avaliações</SortHeader></th><th><SortHeader column="location">Local</SortHeader></th><th><SortHeader column="score">Oportunidade</SortHeader></th><th><SortHeader column="confidence">Confiança</SortHeader></th><th className={styles.favoriteCol}>Favorito</th><th><span className={styles.srOnly}>Abrir anúncio</span></th></tr></thead><tbody>
             {paged.map(r=><tr key={r.key} className={selectedResultKeys.includes(r.key)?styles.selectedRow:''}>
               <td className={styles.selectCol}><input type="checkbox" aria-label={'Selecionar '+r.title} checked={selectedResultKeys.includes(r.key)} onChange={()=>toggleResultSelection(r.key)}/></td>
               <td><div className={styles.product}>{r.image?<img src={r.image} alt=""/>:<div className={styles.noImg}><Icon name="tag"/></div>}<div><b title={r.title}>{r.title}</b><small>{r.preferred?'Vendedor Indicado · ':''}{r.itemId?'ID '+r.itemId:'ID não coletado'}</small></div></div></td>
@@ -1027,6 +1073,7 @@ export default function MarketResearch(){
               <td>{r.location||'—'}</td>
               <td><span className={styles.score} data-level={r.score>=70?'high':r.score>=50?'mid':'low'}>{r.score}<small>{r.score>=70?'Forte':r.score>=50?'Média':'Fraca'}</small></span></td>
               <td><span className={styles.confidence} data-level={r.confidence.label==='Alta'?'high':r.confidence.label==='Média'?'mid':'low'}>{r.confidence.label}<small>{r.confidence.value}%</small></span></td>
+              <td className={styles.favoriteCol}><button type="button" className={favoriteKeys.includes(String(r.key))?styles.favoriteBtnActive:styles.favoriteBtn} onClick={()=>toggleFavorite(r)} aria-pressed={favoriteKeys.includes(String(r.key))} title={favoriteKeys.includes(String(r.key))?'Remover dos Favoritos':'Salvar nos Favoritos'}><span aria-hidden="true">{favoriteKeys.includes(String(r.key))?'★':'☆'}</span></button></td>
               <td><div className={styles.rowActions}>{r.url?<a href={r.url} target="_blank" rel="noreferrer">Abrir ↗</a>:'—'}</div></td>
             </tr>)}
           </tbody></table></div>
@@ -1040,12 +1087,13 @@ export default function MarketResearch(){
               <div><dt>Avaliação</dt><dd>{r.rating!=null?'★ '+number(r.rating):'—'}</dd></div>
             </dl>
             <div className={styles.resultCardFoot}>
+              <button type="button" className={favoriteKeys.includes(String(r.key))?styles.mobileFavoriteActive:styles.mobileFavorite} onClick={()=>toggleFavorite(r)} aria-pressed={favoriteKeys.includes(String(r.key))}><span aria-hidden="true">{favoriteKeys.includes(String(r.key))?'★':'☆'}</span>{favoriteKeys.includes(String(r.key))?'Favoritado':'Salvar favorito'}</button>
               <span className={styles.score} data-level={r.score>=70?'high':r.score>=50?'mid':'low'}>{r.score}<small>{r.score>=70?'Forte':r.score>=50?'Média':'Fraca'}</small></span>
               <span className={styles.confidence} data-level={r.confidence.label==='Alta'?'high':r.confidence.label==='Média'?'mid':'low'}>Confiança {r.confidence.label}<small>{r.confidence.value}%</small></span>
               {r.url&&<a href={r.url} target="_blank" rel="noreferrer">Abrir ↗</a>}
             </div>
           </article>)}</div></>}
-          {filtered.length>0&&<div className={styles.pagination}><span>Mostrando {(page-1)*PAGE_SIZE+1}–{Math.min(page*PAGE_SIZE,filtered.length)} de {filtered.length}</span><div><button type="button" aria-label="Página anterior" disabled={page<=1} onClick={()=>setPage(p=>p-1)}>←</button><b>{page} / {pages}</b><button type="button" aria-label="Próxima página" disabled={page>=pages} onClick={()=>setPage(p=>p+1)}>→</button></div></div>}
+          {tableFiltered.length>0&&<div className={styles.pagination}><span>Mostrando {(page-1)*PAGE_SIZE+1}–{Math.min(page*PAGE_SIZE,tableFiltered.length)} de {tableFiltered.length}</span><div><button type="button" aria-label="Página anterior" disabled={page<=1} onClick={()=>setPage(p=>p-1)}>←</button><b>{page} / {pages}</b><button type="button" aria-label="Próxima página" disabled={page>=pages} onClick={()=>setPage(p=>p+1)}>→</button></div></div>}
         </section>}
 
         {activeTab==='top'&&<section className={styles.panel}>
