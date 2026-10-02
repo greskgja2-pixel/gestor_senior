@@ -104,3 +104,15 @@ test('UX para leigos: fluxo em 3 passos, estado vazio e detalhes técnicos recol
     assert.ok(css.includes(expected),expected);
   assert.ok(!page.includes('dangerouslySetInnerHTML'));
 });
+
+
+test('Radar preserva relevancia da Shopee e permite ordenar colunas',()=>{
+  assert.match(page,/useState\('relevance'\)/);
+  assert.match(page,/Relevância da Shopee/);
+  assert.match(page,/same order|mesma ordem de relevância|mesma ordem de relevancia/i);
+  for(const key of ['product','price','sales','monthly','rating','location','score','confidence']){
+    assert.ok(page.includes(`column="${key}"`),'coluna não ordenável: '+key);
+  }
+  assert.match(page,/function SortHeader/);
+  assert.match(css,/\.sortHeader/);
+});
