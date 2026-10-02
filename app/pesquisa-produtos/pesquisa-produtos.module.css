@@ -532,3 +532,13 @@
 /* Dados reais do produto para título e descrição AIDA */
 .productInfoPanel{padding:14px;border:1px solid var(--gs-shell-border);border-radius:12px;background:#fbfcff}.productInfoHead{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.productInfoHead>div:first-child>span{display:block;font-size:8px;font-weight:1000;letter-spacing:.1em;color:var(--gs-shell-accent)}.productInfoHead h3{margin:4px 0 3px;font-size:16px}.productInfoHead p{margin:0;max-width:720px;color:var(--gs-shell-muted);font-size:9px;line-height:1.5}.productInfoProgress{min-width:90px;text-align:center;padding:10px;border-radius:10px;background:#eef4ff;border:1px solid #c8d9f2}.productInfoProgress b{display:block;font-size:18px;color:var(--gs-shell-accent)}.productInfoProgress span{display:block;margin-top:3px;font-size:8px;color:var(--gs-shell-muted)}.productInfoGrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:12px}.productInfoGrid label{display:block}.productInfoGrid label>span{display:block;margin-bottom:5px;font-size:8px;font-weight:900;color:var(--gs-shell-muted)}.productInfoGrid input,.productInfoGrid textarea{width:100%;border:1px solid var(--gs-shell-border);border-radius:9px;background:#fff;color:var(--gs-shell-text);padding:9px 10px;font:inherit;font-size:9px;outline:0}.productInfoGrid textarea{min-height:84px;resize:vertical}.productInfoGrid input:focus,.productInfoGrid textarea:focus{border-color:#8bb3ef;box-shadow:0 0 0 3px rgba(23,105,232,.08)}.productInfoWide{grid-column:1/-1}.productInfoActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.assistantWarning{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0;padding:9px 10px;border:1px solid #efd7a0;border-radius:9px;background:#fff9e8;color:#755b17;font-size:8px;line-height:1.4}.assistantWarning button{border:0;background:transparent;color:#7b5e00;font-weight:1000;cursor:pointer;text-decoration:underline;white-space:nowrap}
 @media(max-width:720px){.productInfoHead{flex-direction:column}.productInfoProgress{width:100%;text-align:left}.productInfoGrid{grid-template-columns:1fr}.productInfoWide{grid-column:auto}.productInfoActions{display:grid;grid-template-columns:1fr}.assistantWarning{align-items:flex-start;flex-direction:column}}
+
+.sortHeader{
+  display:inline-flex;align-items:center;gap:5px;
+  border:0;background:transparent;color:inherit;
+  font:inherit;font-weight:800;cursor:pointer;padding:0;
+}
+.sortHeader span{font-size:10px;opacity:.55}
+.sortHeader[data-active="true"]{color:var(--pp-blue)}
+.sortHeader[data-active="true"] span{opacity:1}
+.sortHeader:hover{color:var(--pp-blue)}
