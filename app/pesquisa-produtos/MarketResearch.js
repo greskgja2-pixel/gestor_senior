@@ -239,6 +239,7 @@ export default function MarketResearch(){
   const [rows,setRows]=useState([]);
   const [removedRows,setRemovedRows]=useState([]);
   const [selectedResultKeys,setSelectedResultKeys]=useState([]);
+  const [titleFilter,setTitleFilter]=useState('');
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState('Digite o produto e clique em pesquisar. Você também pode importar uma coleta salva.');
   const [sort,setSort]=useState('relevance');
@@ -295,6 +296,8 @@ export default function MarketResearch(){
 
   const bench=useMemo(()=>stats(rows),[rows]);
   const prepared=useMemo(()=>rows.map(r=>({...r,score:opportunityScore(r,bench),confidence:confidence(r)})),[rows,bench]);
+  const normalizedTitleFilter=useMemo(()=>String(titleFilter||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase(),[titleFilter]);
+  const titleMatches=useMemo(()=>normalizedTitleFilter?rows.filter(r=>String(r.title||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().includes(normalizedTitleFilter)):[],[rows,normalizedTitleFilter]);
   const filtered=useMemo(()=>{
     let list=prepared.filter(r=>(!minSold||n(r.sold)>=Number(minSold))&&(!maxPrice||n(r.price)<=Number(maxPrice)));
     const dir=sortDirection==='asc'?1:-1;
@@ -401,19 +404,32 @@ export default function MarketResearch(){
     const allSelected=pageKeys.length>0&&pageKeys.every(key=>selectedResultKeys.includes(key));
     setSelectedResultKeys(current=>allSelected?current.filter(key=>!pageKeys.includes(key)):[...new Set([...current,...pageKeys])]);
   }
-  function removeSelectedFromAnalysis(){
-    if(!selectedResultKeys.length)return;
-    const selectedSet=new Set(selectedResultKeys);
+  function removeRowsByKeys(keys){
+    const selectedSet=new Set(keys);
     const selectedRows=rows.filter(item=>selectedSet.has(item.key));
-    if(!selectedRows.length){setSelectedResultKeys([]);return}
+    if(!selectedRows.length)return;
     setRows(current=>{
       const next=current.filter(item=>!selectedSet.has(item.key));
       syncRefinedResearch(next);
       return next;
     });
     setRemovedRows(current=>[...selectedRows.map(row=>({row})),...current]);
-    setSelectedResultKeys([]);
+    setSelectedResultKeys(current=>current.filter(key=>!selectedSet.has(key)));
     setPage(1);
+  }
+  function removeSelectedFromAnalysis(){
+    if(!selectedResultKeys.length)return;
+    removeRowsByKeys(selectedResultKeys);
+  }
+  function selectTitleMatches(){
+    if(!titleMatches.length)return;
+    setSelectedResultKeys(current=>[...new Set([...current,...titleMatches.map(item=>item.key)])]);
+    setPage(1);
+  }
+  function removeTitleMatches(){
+    if(!titleMatches.length)return;
+    removeRowsByKeys(titleMatches.map(item=>item.key));
+    setTitleFilter('');
   }
   function undoLastRemoval(){
     setRemovedRows(current=>{
@@ -983,6 +999,15 @@ export default function MarketResearch(){
               <b>Refine os resultados antes de decidir</b>
               <p>Marque as caixas dos produtos que não correspondem à busca e depois clique em <strong>Excluir selecionados</strong>. Eles deixam de influenciar demanda, preço, concorrência, palavras-chave e oportunidades.</p>
               <small><strong>{rows.length}</strong> usados na análise{removedRows.length?<> · <strong>{removedRows.length}</strong> removidos</>:null}{selectedResultKeys.length?<> · <strong>{selectedResultKeys.length}</strong> selecionados</>:null}</small>
+              <div className={styles.titleWordTool}>
+                <label htmlFor="radar-title-word"><Icon name="search"/>Excluir anúncios por palavra no título</label>
+                <div className={styles.titleWordLine}>
+                  <input id="radar-title-word" value={titleFilter} onChange={e=>setTitleFilter(e.target.value)} placeholder="Ex.: acrílico" autoComplete="off"/>
+                  <button type="button" onClick={selectTitleMatches} disabled={!titleMatches.length}>Selecionar {titleMatches.length||0}</button>
+                  <button type="button" className={styles.titleDeleteBtn} onClick={removeTitleMatches} disabled={!titleMatches.length}><Icon name="trash"/>Excluir {titleMatches.length||0}</button>
+                </div>
+                {titleFilter.trim()?<small className={styles.titleWordStatus}>{titleMatches.length?<><strong>{titleMatches.length}</strong> anúncio{titleMatches.length===1?'':'s'} contêm “{titleFilter.trim()}” no título. A busca ignora maiúsculas/minúsculas e acentos.</>:<>Nenhum anúncio contém “{titleFilter.trim()}” no título.</>}</small>:<small className={styles.titleWordStatus}>Digite uma palavra para localizar todos os títulos que a contêm, como “acrílico”.</small>}
+              </div>
             </div>
             <div className={styles.refineGuideActions}>
               {selectedResultKeys.length>0&&<button type="button" className={styles.bulkDeleteBtn} onClick={removeSelectedFromAnalysis}><Icon name="trash"/>Excluir selecionados ({selectedResultKeys.length})</button>}
