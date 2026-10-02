@@ -319,6 +319,26 @@
 .refineGuideActions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px}
 .refineGuideActions button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:0 11px;border:1px solid var(--gs-shell-border);border-radius:9px;background:var(--gs-shell-card);color:var(--pp-blue);font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap}
 .refineGuideActions .bulkDeleteBtn{border-color:rgba(200,60,60,.3);background:rgba(200,60,60,.06);color:var(--pp-bad)}
+.radarSearchBar{display:grid;grid-template-columns:minmax(240px,1fr) minmax(260px,420px) auto;gap:12px;align-items:center;margin:0 0 16px;padding:12px 14px;border:1px solid var(--gs-shell-border);border-radius:12px;background:var(--gs-shell-soft)}
+.radarSearchLabel{display:flex;align-items:center;gap:10px;min-width:0}
+.radarSearchLabel>.icon{flex:none;color:var(--pp-blue)}
+.radarSearchLabel b,.radarSearchLabel small{display:block}
+.radarSearchLabel b{font-size:13px}
+.radarSearchLabel small{margin-top:2px;font-size:11px;line-height:1.4;color:var(--pp-muted)}
+.radarSearchInput{display:flex;align-items:center;gap:8px;height:40px;padding:0 10px;border:1px solid var(--gs-shell-border);border-radius:10px;background:var(--gs-shell-card)}
+.radarSearchInput>.icon{flex:none;color:var(--pp-muted)}
+.radarSearchInput input{min-width:0;flex:1;border:0;outline:0;background:transparent;color:var(--gs-shell-text);font:inherit;font-size:13px}
+.radarSearchInput button{display:grid;place-items:center;width:28px;height:28px;border:0;border-radius:7px;background:var(--gs-shell-soft);color:var(--pp-muted);font-size:18px;cursor:pointer}
+.radarSearchCount{font-size:12px;color:var(--pp-muted);white-space:nowrap}
+.radarSearchCount strong{color:var(--gs-shell-text)}
+.favoriteCol{width:68px!important;text-align:center!important}
+.favoriteBtn,.favoriteBtnActive{display:grid;place-items:center;width:36px;height:36px;margin:auto;border:1px solid var(--gs-shell-border);border-radius:10px;background:var(--gs-shell-card);font-size:21px;line-height:1;cursor:pointer}
+.favoriteBtn{color:var(--pp-muted)}
+.favoriteBtnActive{border-color:rgba(214,140,0,.35);background:rgba(214,140,0,.1);color:#d68c00}
+.mobileFavorite,.mobileFavoriteActive{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 10px;border:1px solid var(--gs-shell-border);border-radius:9px;background:var(--gs-shell-card);font-size:12px;font-weight:800;cursor:pointer}
+.mobileFavorite{color:var(--pp-muted)}
+.mobileFavoriteActive{border-color:rgba(214,140,0,.35);background:rgba(214,140,0,.1);color:#b87300}
+.mobileFavorite span,.mobileFavoriteActive span{font-size:17px}
 .rowActions{display:flex;align-items:center;justify-content:flex-end;gap:8px;white-space:nowrap}
 .selectCol{width:42px!important;min-width:42px!important;text-align:center!important}
 .selectCol input,.mobileSelect input{width:18px;height:18px;accent-color:var(--pp-blue);cursor:pointer}
@@ -518,6 +538,8 @@
   .coverageGrid{grid-template-columns:1fr 1fr}
   .diagnosticGrid{grid-template-columns:1fr 1fr}
   .filters{justify-content:flex-start}
+  .radarSearchBar{grid-template-columns:1fr}
+  .radarSearchCount{white-space:normal}
   .refineGuide{flex-wrap:wrap}
   .titleWordLine{grid-template-columns:1fr 1fr}
   .titleWordLine input{grid-column:1/-1}
