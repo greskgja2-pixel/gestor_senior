@@ -13,6 +13,12 @@ const money=v=>n(v)==null?'—':n(v).toLocaleString('pt-BR',{style:'currency',cu
 const num=v=>n(v)==null?'—':n(v).toLocaleString('pt-BR',{maximumFractionDigits:2});
 const when=v=>{if(!v)return'—';const d=new Date(v);return Number.isNaN(d.getTime())?'—':d.toLocaleString('pt-BR')};
 const metric=(r,k)=>r?.metrics?.[k]??r?.ads_snapshot?.manual?.[k]??r?.ads_snapshot?.[k]??null;
+function competitorCheckStatus(detail={}){
+  if(typeof window==='undefined')return;
+  const payload={at:Date.now(),...detail};
+  try{sessionStorage.setItem('gs_competitor_check_status',JSON.stringify(payload))}catch{}
+  try{window.dispatchEvent(new CustomEvent('gs-competitor-check-status',{detail:payload}))}catch{}
+}
 const titles={
   concorrentes:['Concorrentes','Acompanhe preço, vendas e mudanças dos concorrentes vinculados aos anúncios já analisados.','⌘'],
   'shopee-ads':['Shopee Ads','Veja campanhas, ROAS, meta, investimento e resultados sem sair do Gestor.','◎'],
@@ -308,6 +314,7 @@ function searchPositionLabel(position,page,found,maxPages=3,itemsPerPage=60){
     const withinPage=((Math.max(1,pos)-1)%perPage)+1;
     return resolvedPage+'ª página · '+withinPage+'º anúncio';
   }
+  if(found===true)return'Anúncio encontrado · posição não disponível';
   if(found===false)return'Não encontrado até '+maxPages+'ª página';
   return'Aguardando leitura';
 }
@@ -509,22 +516,10 @@ function Competitors({items}){
     if(autoRecheckRef.current||monitor.phase!=='success'||!rows.length)return;
     const dueRows=rows.filter(r=>r.watch&&dueInfo(r.watch?.next_check_at).due);
     if(!dueRows.length)return;
-
-    const runWhenMotorReady=()=>{
-      const ready=document.documentElement?.dataset?.gsExtensionBridge==='ready'
-        ||document.getElementById('gs-extension-bridge-marker')
-        ||document.querySelector('meta[name="gestor-senior-extension"]');
-      if(!ready)return false;
-      autoRecheckRef.current=true;
-      setTimeout(()=>recheckAll(),500);
-      return true;
-    };
-
-    if(runWhenMotorReady())return;
-    const onReady=()=>runWhenMotorReady();
-    window.addEventListener('gs-extension-ready',onReady,{once:true});
-    const timer=setTimeout(()=>window.removeEventListener('gs-extension-ready',onReady),8000);
-    return()=>{clearTimeout(timer);window.removeEventListener('gs-extension-ready',onReady)};
+    autoRecheckRef.current=true;
+    competitorCheckStatus({phase:'queued',message:`${dueRows.length} concorrente(s) vencido(s) aguardando checagem em segundo plano.`,due:dueRows.length});
+    const timer=setTimeout(()=>recheckAll(),700);
+    return()=>clearTimeout(timer);
   },[monitor.phase,rows]);
 
   async function updateWatch(watch,patch){
@@ -539,40 +534,51 @@ function Competitors({items}){
     const list=arr(group).filter(r=>r.watch?.id);
     if(!list.length)return{updated:0,failed:0};
     const first=list[0],keyword=String(first.watch?.settings?.search_keyword||first.owner||'').trim();
-    const maxPages=Math.max(1,Math.min(5,n(first.watch?.settings?.search_max_pages)??3));
+    const maxPages=10;
     const phaseKey=String(first.ownerItemId);
     if(!silent)setVisibilityPhase(x=>({...x,[phaseKey]:'loading'}));
     try{
-      // Motor Sênior 0.18.6: usa diretamente o fluxo de Pesquisa Natural.
-      // Evita ações legadas que fazem o próprio Motor exibir "ação não reconhecida".
-      const data=await visibilityViaMega({keyword,maxPages});
-      let updated=0;
+      const data=await fetchJsonWithTimeout('/api/competitor-background-check',{
+        method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',
+        body:JSON.stringify({
+          watch_ids:list.map(r=>r.watch.id),
+          owner_item_id:String(first.ownerItemId),
+          keyword,max_pages:maxPages
+        })
+      },60000);
+      let updated=0,failed=0;
       for(const row of list){
-        const normalized=normalizeSearchVisibility(data,{ownerItemId:row.ownerItemId,competitorItemId:row.competitorItemId,maxPages});
+        const normalized=arr(data?.results).find(x=>String(x?.watch_id)===String(row.watch.id));
+        if(!normalized){failed++;continue}
         await fetchJsonWithTimeout('/api/competitor-visibility',{
           method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({
-            watch_id:row.watch.id,keyword:normalized.keyword||keyword,searched_at:normalized.searchedAt,
-            max_pages:normalized.maxPages,items_per_page:normalized.itemsPerPage,
-            competitor_found:normalized.competitor.found,competitor_position:normalized.competitor.position,competitor_page:normalized.competitor.page,
-            owner_found:normalized.owner.found,owner_position:normalized.owner.position,owner_page:normalized.owner.page,
-            competitor_ads_status:normalized.ads.status,competitor_ads_evidence:normalized.ads.evidence,
-            source:'motor-senior-search',confidence:'observed',
-            raw:{results_count:normalized.rawCount,search_order:'relevance',session_observed:true}
+            watch_id:row.watch.id,keyword:normalized.keyword||keyword,searched_at:normalized.searched_at,
+            max_pages:normalized.max_pages||maxPages,items_per_page:normalized.items_per_page||60,
+            competitor_found:normalized.competitor?.found===true,competitor_position:normalized.competitor?.position,competitor_page:normalized.competitor?.page,
+            owner_found:normalized.owner?.found===true,owner_position:normalized.owner?.position,owner_page:normalized.owner?.page,
+            competitor_ads_status:normalized.ads?.status||'unknown',competitor_ads_evidence:normalized.ads?.evidence||null,
+            source:'server-background-search',confidence:normalized.found_by==='direct-item'?'direct':'observed',
+            raw:{
+              found_by:normalized.found_by||null,
+              search_order:'relevance',
+              background:true,
+              diagnostics:normalized.diagnostics||null
+            }
           })
         },15000);
         const market=normalized.market||{};
-        const hasMarketData=n(market.price)!=null||n(market.sold)!=null||n(market.monthlySold)!=null||market.preferred!==null||!!market.location||!!market.shopName||!!market.shopUsername||!!market.shopUrl;
+        const hasMarketData=n(market.price)!=null||n(market.sold)!=null||n(market.monthlySold)!=null||market.preferred!==null||!!market.location||!!market.shopName||!!market.shopUsername||!!market.shopUrl||!!market.title;
         if(hasMarketData){
           await fetchJsonWithTimeout('/api/competitor-monitor',{
             method:'POST',headers:{'Content-Type':'application/json'},
             body:JSON.stringify({
               watch_id:row.watch.id,
-              collected_at:normalized.searchedAt,
+              collected_at:normalized.searched_at,
               title:competitorTitle(market.title,row.title,row.watch?.competitor_title),
               price:n(market.price),sold:n(market.sold),rating:n(market.rating),
               image_url:row.image||null,
-              source:'shopee-search-structured',confidence:'observed',
+              source:'server-background-search',confidence:normalized.found_by==='direct-item'?'direct':'observed',
               raw:{
                 originalPrice:n(market.originalPrice),
                 monthlySold:n(market.monthlySold),
@@ -581,35 +587,41 @@ function Competitors({items}){
                 shopName:market.shopName||null,
                 shopUsername:market.shopUsername||null,
                 shopUrl:market.shopUrl||null,
-                searchRank:normalized.competitor.position,
-                searchPage:normalized.competitor.page,
-                keyword:normalized.keyword||keyword
+                searchRank:normalized.competitor?.position??null,
+                searchPage:normalized.competitor?.page??null,
+                keyword:normalized.keyword||keyword,
+                foundBy:normalized.found_by||null,
+                background:true
               }
             })
           },15000);
         }
         updated++;
       }
-      if(!silent)setVisibilityPhase(x=>({...x,[phaseKey]:'success'}));
-      return{updated,failed:0};
+      if(!silent)setVisibilityPhase(x=>({...x,[phaseKey]:failed?'error':'success'}));
+      return{updated,failed,total:list.length,found:n(data?.found)??0};
     }catch(error){
       if(!silent)setVisibilityPhase(x=>({...x,[phaseKey]:'error',error:String(error?.message||error)}));
-      return{updated:0,failed:list.length,error};
+      return{updated:0,failed:list.length,error,total:list.length};
     }
   }
 
   async function checkCompetitor(row){
     if(!row?.watch?.id)return;
     setCheckingCompetitor(row.key);
+    competitorCheckStatus({phase:'running',message:'Checando 1 concorrente em segundo plano…',done:0,total:1});
     try{
       const result=await collectVisibilityGroup([row],{silent:true});
       await loadMonitor();
       if(result.failed){
-        setMonitor(x=>({...x,phase:'error',error:'Não foi possível atualizar este concorrente pela Pesquisa Natural do Motor Sênior.'}));
+        competitorCheckStatus({phase:'error',message:'A checagem deste concorrente precisa de nova tentativa.',done:1,total:1,failed:1});
+        setMonitor(x=>({...x,phase:'error',error:'Não foi possível atualizar este concorrente em segundo plano.'}));
       }else{
+        competitorCheckStatus({phase:'success',message:'Concorrente atualizado em segundo plano.',done:1,total:1,updated:1});
         setMonitor(x=>({...x,phase:'success',error:''}));
       }
     }catch(e){
+      competitorCheckStatus({phase:'error',message:'Falha na checagem do concorrente.',done:1,total:1,failed:1});
       setMonitor(x=>({...x,phase:'error',error:'Falha ao checar o concorrente: '+String(e?.message||e)}));
     }finally{setCheckingCompetitor('')}
   }
@@ -621,29 +633,38 @@ function Competitors({items}){
       if(!grouped.has(String(row.ownerItemId)))grouped.set(String(row.ownerItemId),[]);
       grouped.get(String(row.ownerItemId)).push(row);
     }
-    const visibilityGroups=[...grouped.values()].slice(0,6);
+    const visibilityGroups=[...grouped.values()];
     if(!visibilityGroups.length)return;
 
+    const totalCompetitors=visibilityGroups.reduce((sum,g)=>sum+g.length,0);
     const totalSteps=visibilityGroups.length;
-    let done=0,updated=0,failed=0;
+    let done=0,updated=0,failed=0,processed=0;
     setBulkPhase('loading');
-    setBulkProgress({done:0,total:totalSteps,label:'Preparando rechecagem pela Pesquisa Natural…'});
+    setBulkProgress({done:0,total:totalSteps,label:'Preparando checagem em segundo plano…'});
+    competitorCheckStatus({phase:'running',message:`Checando ${totalCompetitors} concorrente(s) em segundo plano…`,done:0,total:totalCompetitors});
 
     for(let i=0;i<visibilityGroups.length;i++){
-      setBulkProgress({done,total:totalSteps,label:`Atualizando grupo ${i+1} de ${visibilityGroups.length}…`});
-      const result=await collectVisibilityGroup(visibilityGroups[i],{silent:true});
+      const group=visibilityGroups[i];
+      setBulkProgress({done,total:totalSteps,label:`Atualizando grupo ${i+1} de ${visibilityGroups.length} em segundo plano…`});
+      competitorCheckStatus({phase:'running',message:`Checando concorrentes em segundo plano: ${processed}/${totalCompetitors}`,done:processed,total:totalCompetitors});
+      const result=await collectVisibilityGroup(group,{silent:true});
       updated+=result.updated||0;
       failed+=result.failed||0;
+      processed+=group.length;
       done++;
-      setBulkProgress({done,total:totalSteps,label:`${done} de ${totalSteps} etapas concluídas`});
+      setBulkProgress({done,total:totalSteps,label:`${done} de ${totalSteps} grupos concluídos`});
+      competitorCheckStatus({phase:'running',message:`Checagem em segundo plano: ${processed}/${totalCompetitors}`,done:processed,total:totalCompetitors,updated,failed});
     }
 
     await loadMonitor();
     setBulkProgress({done:totalSteps,total:totalSteps,label:'Rechecagem concluída.'});
     setBulkPhase(failed?'error':'success');
     if(failed){
-      setMonitor(x=>({...x,error:`${updated} concorrente(s) atualizados; ${failed} aguardam nova tentativa.`}));
+      const message=`${updated} concorrente(s) atualizados; ${failed} aguardam nova tentativa.`;
+      competitorCheckStatus({phase:'error',message,done:totalCompetitors,total:totalCompetitors,updated,failed});
+      setMonitor(x=>({...x,error:message}));
     }else{
+      competitorCheckStatus({phase:'success',message:`${updated} concorrente(s) atualizados em segundo plano.`,done:totalCompetitors,total:totalCompetitors,updated,failed:0});
       setMonitor(x=>({...x,error:''}));
     }
     setTimeout(()=>{setBulkPhase('idle');setBulkProgress({done:0,total:0,label:''})},3500);
