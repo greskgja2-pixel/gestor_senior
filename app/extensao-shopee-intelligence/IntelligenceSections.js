@@ -698,55 +698,109 @@ function Competitors({items}){
     for(const watch of targets){
       setBulkProgress({done,total:totalSteps,label:`Verificando anúncio ${done+1} de ${targets.length}…`});
       try{
-        const data=await motorData('collectProduct',{url:watch.competitor_url,reason:'manual-competitor-refresh',expectedItemId:String(watch.competitor_item_id),includeVisibleText:true,detectLabels:['Indicado','Vendedor Indicado','Preferred Seller']},45000);
-        const p=data?.product||data;
-        const itemId=String(p?.itemId??p?.item_id??''),shopId=String(p?.shopId??p?.shop_id??'');
-        if(itemId!==String(watch.competitor_item_id)||shopId!==String(watch.competitor_shop_id))throw new Error('A extensão retornou outro anúncio.');
-        const source=String(p?.ratingSource||p?.validationSource||p?.source||data?.source||'').toLowerCase();
-        const structured=/pdp_get_pc|structured|api/.test(source)||p?.ratingDebug?.pdpGetPc?.ok===true||p?.rating_debug?.pdp_get_pc?.ok===true||p?.validation?.pdpGetPc?.ok===true;
-        if(!structured)throw new Error('A coleta estruturada deste concorrente não foi confirmada.');
-
-        let publicProduct=null;
+        const row=filtered.find(r=>r.watch?.id===watch.id)||null;
+        const keyword=String(watch?.settings?.search_keyword||row?.owner||'').trim();
+        let details=null;
+        let detailsError=null;
         try{
-          const publicData=await fetchJsonWithTimeout('/api/shopee/product-public?direct=1&shop_id='+encodeURIComponent(shopId)+'&item_ids='+encodeURIComponent(itemId),{cache:'no-store'},18000);
-          publicProduct=arr(publicData?.results).find(x=>String(x?.item_id??x?.itemId??'')===itemId&&x?.ok!==false)||null;
+          details=await motorData('collectCompetitorDetails',{
+            url:watch.competitor_url,
+            expectedItemId:String(watch.competitor_item_id),
+            keyword,
+            reason:'manual-competitor-refresh'
+          },65000);
         }catch(error){
-          console.warn('[Concorrentes] validação pública de preço falhou',error);
+          detailsError=error;
+          const message=String(error?.message||error);
+          if(!/não reconhecida|not recognized|unknown action|collectCompetitorDetails/i.test(message))throw error;
         }
-        const extensionPrice=n(p?.currentPrice??p?.price);
-        const publicPrice=n(publicProduct?.price);
-        // O retorno collectProduct já confundiu cupom/valor auxiliar com preço real.
-        // Sem confirmação independente, não gravamos mais esse preço como atual.
-        const verifiedPrice=publicPrice;
-        const extensionOriginalPrice=n(p?.originalPrice??p?.original_price??p?.priceBeforeDiscount??p?.price_before_discount);
-        const publicOriginalPrice=n(publicProduct?.priceBeforeDiscount??publicProduct?.originalPrice);
-        const verifiedOriginalPrice=publicOriginalPrice??extensionOriginalPrice;
-        const verifiedSold=n(publicProduct?.historicalSold)??n(p?.sold??p?.historicalSold??p?.historical_sold);
 
-        await fetchJsonWithTimeout('/api/competitor-monitor',{
-          method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({
-            watch_id:watch.id,title:p?.title||p?.item_name||watch.competitor_title,
-            price:verifiedPrice,sold:verifiedSold,rating:p?.rating??publicProduct?.rating??null,stock:p?.stock??publicProduct?.stock??null,
-            image_url:competitorImage(p),source:publicPrice!=null?'shopee-public-item-verified':'pdp_get_pc_intercepted',confidence:publicPrice!=null?'verified':'price-unverified',
-            raw:{
-              ratingSource:p?.ratingSource||null,validationSource:p?.validationSource||null,categoryId:p?.categoryId??p?.category_id??null,
-              originalPrice:verifiedOriginalPrice,
-              monthlySold:p?.monthlySold??p?.monthly_sold??p?.sold30d??p?.sold_30d??null,
-              preferred:explicitBool(publicProduct?.preferred)??preferredFromObject(data),
-              preferredEvidence:publicProduct?.preferredEvidence||preferredEvidenceFromObject(data),
-              location:stateFromText(publicProduct?.shopLocation)||locationFromObject(data)||stateFromText(p?.searchText??p?.description)||null,
-              shopName:publicProduct?.shopName||shopIdentityFromObject(data).name||null,
-              shopUsername:publicProduct?.shopUsername||shopIdentityFromObject(data).username||null,
-              shopUrl:publicProduct?.shopUrl||shopIdentityFromObject(data).url||null,
-              priceVerification:{
-                publicPrice,extensionPrice,
-                publicOriginalPrice,extensionOriginalPrice,
-                mismatch:publicPrice!=null&&extensionPrice!=null&&Math.abs(publicPrice-extensionPrice)>.009
+        if(details){
+          const itemId=String(details?.itemId??details?.item_id??'');
+          const shopId=String(details?.shopId??details?.shop_id??'');
+          if(itemId!==String(watch.competitor_item_id)||shopId!==String(watch.competitor_shop_id))throw new Error('A extensão retornou outro anúncio.');
+          await fetchJsonWithTimeout('/api/competitor-monitor',{
+            method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({
+              watch_id:watch.id,
+              title:competitorTitle(details?.title,watch.competitor_title,row?.title),
+              price:null,
+              sold:n(details?.historicalSold),
+              rating:null,stock:null,image_url:row?.image||null,
+              source:'motor-senior-competitor-details',
+              confidence:'observed',
+              raw:{
+                monthlySold:n(details?.monthlySold),
+                preferred:explicitBool(details?.preferred),
+                preferredEvidence:details?.preferredEvidence||null,
+                location:details?.shopLocation||null,
+                shopName:details?.shopName||null,
+                shopUsername:details?.shopUsername||null,
+                shopUrl:details?.shopUrl||null,
+                ads:explicitBool(details?.ads),
+                adsEvidence:details?.adsEvidence||null,
+                diagnostics:details?.diagnostics||null
               }
-            }
-          })
-        },15000);
+            })
+          },15000);
+        }else{
+          // Compatibilidade com motores antigos que ainda expõem collectProduct.
+          const data=await motorData('collectProduct',{
+            url:watch.competitor_url,
+            reason:'manual-competitor-refresh',
+            expectedItemId:String(watch.competitor_item_id),
+            includeVisibleText:true,
+            detectLabels:['Indicado','Vendedor Indicado','Preferred Seller']
+          },45000);
+          const p=data?.product||data;
+          const itemId=String(p?.itemId??p?.item_id??''),shopId=String(p?.shopId??p?.shop_id??'');
+          if(itemId!==String(watch.competitor_item_id)||shopId!==String(watch.competitor_shop_id))throw new Error('A extensão retornou outro anúncio.');
+          const source=String(p?.ratingSource||p?.validationSource||p?.source||data?.source||'').toLowerCase();
+          const structured=/pdp_get_pc|structured|api/.test(source)||p?.ratingDebug?.pdpGetPc?.ok===true||p?.rating_debug?.pdp_get_pc?.ok===true||p?.validation?.pdpGetPc?.ok===true;
+          if(!structured)throw new Error('A coleta estruturada deste concorrente não foi confirmada.');
+
+          let publicProduct=null;
+          try{
+            const publicData=await fetchJsonWithTimeout('/api/shopee/product-public?direct=1&shop_id='+encodeURIComponent(shopId)+'&item_ids='+encodeURIComponent(itemId),{cache:'no-store'},18000);
+            publicProduct=arr(publicData?.results).find(x=>String(x?.item_id??x?.itemId??'')===itemId&&x?.ok!==false)||null;
+          }catch(error){
+            console.warn('[Concorrentes] validação pública de preço falhou',error);
+          }
+          const extensionPrice=n(p?.currentPrice??p?.price);
+          const publicPrice=n(publicProduct?.price);
+          const verifiedPrice=publicPrice;
+          const extensionOriginalPrice=n(p?.originalPrice??p?.original_price??p?.priceBeforeDiscount??p?.price_before_discount);
+          const publicOriginalPrice=n(publicProduct?.priceBeforeDiscount??publicProduct?.originalPrice);
+          const verifiedOriginalPrice=publicOriginalPrice??extensionOriginalPrice;
+          const verifiedSold=n(publicProduct?.historicalSold)??n(p?.sold??p?.historicalSold??p?.historical_sold);
+
+          await fetchJsonWithTimeout('/api/competitor-monitor',{
+            method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({
+              watch_id:watch.id,title:p?.title||p?.item_name||watch.competitor_title,
+              price:verifiedPrice,sold:verifiedSold,rating:p?.rating??publicProduct?.rating??null,stock:p?.stock??publicProduct?.stock??null,
+              image_url:competitorImage(p),source:publicPrice!=null?'shopee-public-item-verified':'pdp_get_pc_intercepted',confidence:publicPrice!=null?'verified':'price-unverified',
+              raw:{
+                ratingSource:p?.ratingSource||null,validationSource:p?.validationSource||null,categoryId:p?.categoryId??p?.category_id??null,
+                originalPrice:verifiedOriginalPrice,
+                monthlySold:p?.monthlySold??p?.monthly_sold??p?.sold30d??p?.sold_30d??null,
+                preferred:explicitBool(publicProduct?.preferred)??preferredFromObject(data),
+                preferredEvidence:publicProduct?.preferredEvidence||preferredEvidenceFromObject(data),
+                location:stateFromText(publicProduct?.shopLocation)||locationFromObject(data)||stateFromText(p?.searchText??p?.description)||null,
+                shopName:publicProduct?.shopName||shopIdentityFromObject(data).name||null,
+                shopUsername:publicProduct?.shopUsername||shopIdentityFromObject(data).username||null,
+                shopUrl:publicProduct?.shopUrl||shopIdentityFromObject(data).url||null,
+                priceVerification:{
+                  publicPrice,extensionPrice,
+                  publicOriginalPrice,extensionOriginalPrice,
+                  mismatch:publicPrice!=null&&extensionPrice!=null&&Math.abs(publicPrice-extensionPrice)>.009
+                },
+                legacyFallback:true,
+                detailsActionError:String(detailsError?.message||detailsError||'')
+              }
+            })
+          },15000);
+        }
         updated++;
       }catch(error){
         failed++;
