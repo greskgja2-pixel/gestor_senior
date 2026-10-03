@@ -147,7 +147,22 @@ async function visibilityBundles(db,watchIds){
     if(rows.length<12)rows.push(row);
   }
   const map=new Map();
-  for(const [watchId,history] of grouped)map.set(watchId,{latest:history[0]||null,history});
+  for(const [watchId,history] of grouped){
+    // Não substituir uma leitura válida anterior por uma tentativa em background
+    // bloqueada pela Shopee. Assim evitamos mostrar "não encontrado até a 10ª página"
+    // quando, na verdade, nenhuma página pôde ser lida (HTTP 403).
+    const usable=history.filter(row=>{
+      const raw=row?.raw&&typeof row.raw==='object'?row.raw:{};
+      const diagnostics=raw?.diagnostics&&typeof raw.diagnostics==='object'?raw.diagnostics:{};
+      const blocked=raw?.background===true&&(
+        /HTTP\s*403/i.test(String(diagnostics?.primary_error||''))||
+        /HTTP\s*403/i.test(String(diagnostics?.direct_error||''))||
+        /HTTP\s*403/i.test(JSON.stringify(diagnostics?.fallback_attempts||[]))
+      );
+      return !blocked;
+    });
+    map.set(watchId,{latest:usable[0]||history[0]||null,history});
+  }
   return map;
 }
 async function createChangeTask(db,shopId,watch,previous,current){
