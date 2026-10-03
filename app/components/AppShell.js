@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import {useEffect,useMemo,useRef,useState} from 'react';
 import {usePathname,useSearchParams} from 'next/navigation';
-import {fetchJsonWithTimeout,motorData} from '../lib/client-async';
+import {fetchJsonWithTimeout} from '../lib/client-async';
 
 const MENU=[
   {type:'item',label:'Dashboard',icon:'⌂',tone:'violet',href:'/'},
@@ -85,15 +85,14 @@ function AppSidebar({active,onNavigate,onCloseMobile,account}){
   const [shop,setShop]=useState({status:'checking',connected:null,paused:false,shopId:null,shopName:null,error:''});
   const [busy,setBusy]=useState(false);
   const [openTasks,setOpenTasks]=useState(0);
-  const [competitorSync,setCompetitorSync]=useState({phase:'idle',due:0,updated:0,failed:0,message:''});
-  const competitorSyncRef=useRef({running:false,lastAt:0});
 
   useEffect(()=>{
     let alive=true;
     const ready=versionValue=>{
       if(!alive)return;
+      // Detectar o Motor não inicia mais rechecagem automática de concorrentes.
+      // A atualização fica sob controle do usuário na página Concorrentes.
       setExtension(prev=>({status:'connected',version:String(versionValue||prev.version||'').trim()}));
-      autoRefreshCompetitors();
     };
     const onMessage=e=>{
       if(e.source===window&&e.data?.source==='GS_EXTENSION'&&(e.data?.type==='GS_EXTENSION_READY'||e.data?.type==='GS_EXTENSION_PONG'))ready(e.data.version||'');
@@ -113,56 +112,6 @@ function AppSidebar({active,onNavigate,onCloseMobile,account}){
     return()=>{alive=false;clearInterval(ping);clearTimeout(missing);window.removeEventListener('message',onMessage);window.removeEventListener('gs-extension-ready',onReadyEvent)};
   },[]);
 
-  async function autoRefreshCompetitors(){
-    const state=competitorSyncRef.current;
-    if(state.running||Date.now()-state.lastAt<5*60*1000)return;
-    state.running=true;state.lastAt=Date.now();
-    try{
-      const queue=await fetchJsonWithTimeout('/api/competitor-monitor?due=1',{cache:'no-store'},12000);
-      const watches=Array.isArray(queue?.watches)?queue.watches:[];
-      setCompetitorSync({phase:watches.length?'running':'idle',due:watches.length,updated:0,failed:0,message:watches.length?'Atualizando concorrentes vencidos…':'Nenhum concorrente vencido.'});
-      if(!watches.length)return;
-      let updated=0,failed=0;
-      for(const watch of watches.slice(0,6)){
-        try{
-          const data=await motorData('collectProduct',{url:watch.competitor_url,reason:'scheduled-competitor-refresh',expectedItemId:String(watch.competitor_item_id)},45000);
-          const p=data?.product||data;
-          const itemId=String(p?.itemId??p?.item_id??''),shopId=String(p?.shopId??p?.shop_id??'');
-          if(itemId!==String(watch.competitor_item_id)||shopId!==String(watch.competitor_shop_id))throw new Error('A extensão retornou outro anúncio.');
-          const source=String(p?.ratingSource||p?.validationSource||p?.source||data?.source||'').toLowerCase();
-          const structured=isStructuredProduct(p,data,source);
-          if(!structured)throw new Error('Coleta estruturada do concorrente ainda não foi confirmada; snapshot descartado.');
-          const imageUrl=bestProductImage(p);
-          await fetchJsonWithTimeout('/api/competitor-monitor',{
-            method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',
-            body:JSON.stringify({
-              watch_id:watch.id,title:p?.title||p?.item_name||watch.competitor_title,
-              price:p?.price??p?.currentPrice??null,sold:p?.sold??p?.historicalSold??null,
-              rating:p?.rating??null,stock:p?.stock??null,image_url:imageUrl,
-              source:source||'pdp_get_pc_intercepted',confidence:'structured',
-              raw:{ratingSource:p?.ratingSource||null,validationSource:p?.validationSource||null,imageCount:p?.imageCount??(Array.isArray(p?.imageUrls)?p.imageUrls.length:null),categoryId:p?.categoryId??p?.category_id??null,pdpGetPcOk:p?.ratingDebug?.pdpGetPc?.ok===true||p?.rating_debug?.pdp_get_pc?.ok===true}
-            })
-          },15000);
-          updated++;
-        }catch(error){
-          failed++;
-          console.warn('[CompetitorAutoRefresh] concorrente não atualizado',watch?.competitor_item_id,error);
-          try{await fetchJsonWithTimeout('/api/competitor-monitor',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:watch.id,action:'record_error',last_error:String(error?.message||error).slice(0,900)})},8000)}catch{}
-        }
-        setCompetitorSync({phase:'running',due:watches.length,updated,failed,message:`Atualizados ${updated} · falhas ${failed}`});
-        await new Promise(resolve=>setTimeout(resolve,1800));
-      }
-      const remaining=Math.max(0,watches.length-updated);
-      setCompetitorSync({
-        phase:failed?'warning':'success',due:watches.length,updated,failed,
-        message:failed?`${updated} atualizado(s); ${failed} aguardam nova tentativa.`:`${updated} concorrente(s) atualizado(s) automaticamente.`
-      });
-      if(remaining>0)setTimeout(()=>{competitorSyncRef.current.lastAt=0;autoRefreshCompetitors()},5*60*1000);
-    }catch(error){
-      console.warn('[CompetitorAutoRefresh] fila indisponível',error);
-      setCompetitorSync({phase:'warning',due:0,updated:0,failed:0,message:'Não foi possível consultar a fila de concorrentes.'});
-    }finally{competitorSyncRef.current.running=false}
-  }
 
   useEffect(()=>{
     let alive=true;
@@ -254,7 +203,6 @@ function AppSidebar({active,onNavigate,onCloseMobile,account}){
     <div className="gs-sidebar-status">
       <div className="gs-status-row"><i data-ok={extension.status==='connected'?'true':'false'}/><div><b>Motor Senior</b><small>{extension.status==='checking'?'Verificando extensão…':extension.status==='connected'?`Extensão conectada${extensionVersion?` · ${extensionVersion}`:''}`:'Extensão não detectada'}</small></div></div>
       <div className="gs-status-row"><i data-ok={shop.connected===true?'true':'false'}/><div><b>Loja Shopee</b><small>{shopText}</small></div></div>
-      {extension.status==='connected'&&competitorSync.message&&<div className="gs-status-row"><i data-ok={competitorSync.phase==='success'||competitorSync.phase==='idle'?'true':'false'}/><div><b>Radar de concorrentes</b><small>{competitorSync.message}</small></div></div>}
       {shop.error&&<div className="gs-status-error">{shop.error}</div>}
       <button type="button" onClick={shopAction} disabled={busy||shop.status==='checking'}>
         {busy?'Aguarde…':shop.connected?'Sair da loja':shop.paused?'Entrar com a Shopee':'Entrar com minha loja Shopee'}
