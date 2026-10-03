@@ -85,6 +85,7 @@ function AppSidebar({active,onNavigate,onCloseMobile,account}){
   const [shop,setShop]=useState({status:'checking',connected:null,paused:false,shopId:null,shopName:null,error:''});
   const [busy,setBusy]=useState(false);
   const [openTasks,setOpenTasks]=useState(0);
+  const [competitorCheck,setCompetitorCheck]=useState({phase:'idle',message:'Aguardando próxima checagem.'});
 
   useEffect(()=>{
     let alive=true;
@@ -112,6 +113,20 @@ function AppSidebar({active,onNavigate,onCloseMobile,account}){
     return()=>{alive=false;clearInterval(ping);clearTimeout(missing);window.removeEventListener('message',onMessage);window.removeEventListener('gs-extension-ready',onReadyEvent)};
   },[]);
 
+
+  useEffect(()=>{
+    let alive=true;
+    const restore=()=>{
+      try{
+        const saved=JSON.parse(sessionStorage.getItem('gs_competitor_check_status')||'null');
+        if(saved&&alive)setCompetitorCheck(saved);
+      }catch{}
+    };
+    const onStatus=e=>{if(alive)setCompetitorCheck(e?.detail||{phase:'idle',message:'Aguardando próxima checagem.'})};
+    restore();
+    window.addEventListener('gs-competitor-check-status',onStatus);
+    return()=>{alive=false;window.removeEventListener('gs-competitor-check-status',onStatus)};
+  },[]);
 
   useEffect(()=>{
     let alive=true;
@@ -203,6 +218,7 @@ function AppSidebar({active,onNavigate,onCloseMobile,account}){
     <div className="gs-sidebar-status">
       <div className="gs-status-row"><i data-ok={extension.status==='connected'?'true':'false'}/><div><b>Motor Senior</b><small>{extension.status==='checking'?'Verificando extensão…':extension.status==='connected'?`Extensão conectada${extensionVersion?` · ${extensionVersion}`:''}`:'Extensão não detectada'}</small></div></div>
       <div className="gs-status-row"><i data-ok={shop.connected===true?'true':'false'}/><div><b>Loja Shopee</b><small>{shopText}</small></div></div>
+      <div className="gs-status-row"><i data-ok={competitorCheck.phase==='error'?'false':'true'}/><div><b>Checador de concorrentes</b><small>{competitorCheck.message||'Aguardando próxima checagem.'}</small></div></div>
       {shop.error&&<div className="gs-status-error">{shop.error}</div>}
       <button type="button" onClick={shopAction} disabled={busy||shop.status==='checking'}>
         {busy?'Aguarde…':shop.connected?'Sair da loja':shop.paused?'Entrar com a Shopee':'Entrar com minha loja Shopee'}
