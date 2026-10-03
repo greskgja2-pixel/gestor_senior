@@ -539,18 +539,9 @@ function Competitors({items}){
     const phaseKey=String(first.ownerItemId);
     if(!silent)setVisibilityPhase(x=>({...x,[phaseKey]:'loading'}));
     try{
-      let data;
-      try{
-        data=await motorData('collectSearchVisibility',{
-          keyword,maxPages,ownerItemId:String(first.ownerItemId),
-          competitorItemIds:list.map(r=>String(r.competitorItemId)).filter(Boolean),
-          reason:'competitor-search-visibility'
-        },90000);
-      }catch(error){
-        const message=String(error?.message||error);
-        if(!/não reconhecida|not recognized|unknown action|collectSearchVisibility/i.test(message))throw error;
-        data=await visibilityViaMega({keyword,maxPages});
-      }
+      // Motor Sênior 0.18.6: usa diretamente o fluxo de Pesquisa Natural.
+      // Evita ações legadas que fazem o próprio Motor exibir "ação não reconhecida".
+      const data=await visibilityViaMega({keyword,maxPages});
       let updated=0;
       for(const row of list){
         const normalized=normalizeSearchVisibility(data,{ownerItemId:row.ownerItemId,competitorItemId:row.competitorItemId,maxPages});
@@ -607,78 +598,12 @@ function Competitors({items}){
     if(!row?.watch?.id)return;
     setCheckingCompetitor(row.key);
     try{
-      const watch=row.watch;
-      const keyword=String(watch?.settings?.search_keyword||row.owner||'').trim();
-      let details=null,directError='';
-      try{
-        details=await motorData('collectCompetitorDetails',{
-          url:watch.competitor_url,
-          expectedItemId:String(watch.competitor_item_id),
-          keyword
-        },65000);
-      }catch(error){
-        directError=String(error?.message||error);
-        if(!/não reconhecida|not recognized|unknown action|collectCompetitorDetails/i.test(directError))console.warn('[Concorrentes] checagem direta falhou',error);
-      }
-
-      if(details){
-        const itemId=String(details?.itemId??details?.item_id??'');
-        const shopId=String(details?.shopId??details?.shop_id??'');
-        if(itemId!==String(watch.competitor_item_id)||shopId!==String(watch.competitor_shop_id))throw new Error('A extensão retornou outro anúncio.');
-        await fetchJsonWithTimeout('/api/competitor-monitor',{
-          method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({
-            watch_id:watch.id,
-            title:competitorTitle(details?.title,watch.competitor_title,row.title),
-            price:null,
-            sold:n(details?.historicalSold),
-            rating:null,stock:null,image_url:row.image||null,
-            source:'motor-senior-competitor-details',
-            confidence:'observed',
-            raw:{
-              monthlySold:n(details?.monthlySold),
-              preferred:explicitBool(details?.preferred),
-              preferredEvidence:details?.preferredEvidence||null,
-              location:details?.shopLocation||null,
-              shopName:details?.shopName||null,
-              shopUsername:details?.shopUsername||null,
-              shopUrl:details?.shopUrl||null,
-              ads:explicitBool(details?.ads),
-              adsEvidence:details?.adsEvidence||null,
-              diagnostics:details?.diagnostics||null
-            }
-          })
-        },15000);
-      }else{
-        // Compatibilidade temporária com Motor Senior anterior.
-        const data=await motorData('collectProduct',{url:watch.competitor_url,reason:'single-competitor-check',expectedItemId:String(watch.competitor_item_id)},45000);
-        const p=data?.product||data;
-        const itemId=String(p?.itemId??p?.item_id??''),shopId=String(p?.shopId??p?.shop_id??'');
-        if(itemId!==String(watch.competitor_item_id)||shopId!==String(watch.competitor_shop_id))throw new Error('A extensão retornou outro anúncio.');
-        const shop=shopIdentityFromObject(data);
-        await fetchJsonWithTimeout('/api/competitor-monitor',{
-          method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({
-            watch_id:watch.id,title:competitorTitle(p?.title,p?.item_name,watch.competitor_title),
-            price:null,sold:n(p?.sold??p?.historicalSold??p?.historical_sold),rating:n(p?.rating),stock:n(p?.stock),image_url:competitorImage(p),
-            source:'pdp_get_pc_metadata',confidence:'structured',
-            raw:{
-              monthlySold:n(p?.monthlySold??p?.monthly_sold??p?.sold30d??p?.sold_30d),
-              preferred:preferredFromObject(data),preferredEvidence:preferredEvidenceFromObject(data),
-              location:locationFromObject(data)||null,
-              shopName:shop.name||null,shopUsername:shop.username||null,shopUrl:shop.url||null
-            }
-          })
-        },15000);
-      }
-
-      // Mantém rank e dados de busca sincronizados. No 0.14.5, o retorno também inclui is_ads.
       const result=await collectVisibilityGroup([row],{silent:true});
       await loadMonitor();
       if(result.failed){
-        setMonitor(x=>({...x,phase:'success',error:'Dados do anúncio foram checados, mas a busca de rank não respondeu completamente.'}));
-      }else if(directError&&details==null){
-        setMonitor(x=>({...x,phase:'success',error:'Use o Motor Senior 0.14.5 para a checagem direta completa.'}));
+        setMonitor(x=>({...x,phase:'error',error:'Não foi possível atualizar este concorrente pela Pesquisa Natural do Motor Sênior.'}));
+      }else{
+        setMonitor(x=>({...x,phase:'success',error:''}));
       }
     }catch(e){
       setMonitor(x=>({...x,phase:'error',error:'Falha ao checar o concorrente: '+String(e?.message||e)}));
@@ -686,142 +611,37 @@ function Competitors({items}){
   }
 
   async function recheckAll(){
-    const targets=filtered.map(r=>r.watch).filter(Boolean).slice(0,12);
-    if(!targets.length)return;
     const grouped=new Map();
-    for(const row of filtered){if(!grouped.has(String(row.ownerItemId)))grouped.set(String(row.ownerItemId),[]);grouped.get(String(row.ownerItemId)).push(row)}
+    for(const row of filtered){
+      if(!row?.watch?.id)continue;
+      if(!grouped.has(String(row.ownerItemId)))grouped.set(String(row.ownerItemId),[]);
+      grouped.get(String(row.ownerItemId)).push(row);
+    }
     const visibilityGroups=[...grouped.values()].slice(0,6);
-    const totalSteps=Math.max(1,targets.length+visibilityGroups.length);
+    if(!visibilityGroups.length)return;
+
+    const totalSteps=visibilityGroups.length;
     let done=0,updated=0,failed=0;
     setBulkPhase('loading');
-    setBulkProgress({done:0,total:totalSteps,label:'Preparando rechecagem…'});
-    for(const watch of targets){
-      setBulkProgress({done,total:totalSteps,label:`Verificando anúncio ${done+1} de ${targets.length}…`});
-      try{
-        const row=filtered.find(r=>r.watch?.id===watch.id)||null;
-        const keyword=String(watch?.settings?.search_keyword||row?.owner||'').trim();
-        let details=null;
-        let detailsError=null;
-        try{
-          details=await motorData('collectCompetitorDetails',{
-            url:watch.competitor_url,
-            expectedItemId:String(watch.competitor_item_id),
-            keyword,
-            reason:'manual-competitor-refresh'
-          },65000);
-        }catch(error){
-          detailsError=error;
-          const message=String(error?.message||error);
-          if(!/não reconhecida|not recognized|unknown action|collectCompetitorDetails/i.test(message))throw error;
-        }
+    setBulkProgress({done:0,total:totalSteps,label:'Preparando rechecagem pela Pesquisa Natural…'});
 
-        if(details){
-          const itemId=String(details?.itemId??details?.item_id??'');
-          const shopId=String(details?.shopId??details?.shop_id??'');
-          if(itemId!==String(watch.competitor_item_id)||shopId!==String(watch.competitor_shop_id))throw new Error('A extensão retornou outro anúncio.');
-          await fetchJsonWithTimeout('/api/competitor-monitor',{
-            method:'POST',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({
-              watch_id:watch.id,
-              title:competitorTitle(details?.title,watch.competitor_title,row?.title),
-              price:null,
-              sold:n(details?.historicalSold),
-              rating:null,stock:null,image_url:row?.image||null,
-              source:'motor-senior-competitor-details',
-              confidence:'observed',
-              raw:{
-                monthlySold:n(details?.monthlySold),
-                preferred:explicitBool(details?.preferred),
-                preferredEvidence:details?.preferredEvidence||null,
-                location:details?.shopLocation||null,
-                shopName:details?.shopName||null,
-                shopUsername:details?.shopUsername||null,
-                shopUrl:details?.shopUrl||null,
-                ads:explicitBool(details?.ads),
-                adsEvidence:details?.adsEvidence||null,
-                diagnostics:details?.diagnostics||null
-              }
-            })
-          },15000);
-        }else{
-          // Compatibilidade com motores antigos que ainda expõem collectProduct.
-          const data=await motorData('collectProduct',{
-            url:watch.competitor_url,
-            reason:'manual-competitor-refresh',
-            expectedItemId:String(watch.competitor_item_id),
-            includeVisibleText:true,
-            detectLabels:['Indicado','Vendedor Indicado','Preferred Seller']
-          },45000);
-          const p=data?.product||data;
-          const itemId=String(p?.itemId??p?.item_id??''),shopId=String(p?.shopId??p?.shop_id??'');
-          if(itemId!==String(watch.competitor_item_id)||shopId!==String(watch.competitor_shop_id))throw new Error('A extensão retornou outro anúncio.');
-          const source=String(p?.ratingSource||p?.validationSource||p?.source||data?.source||'').toLowerCase();
-          const structured=/pdp_get_pc|structured|api/.test(source)||p?.ratingDebug?.pdpGetPc?.ok===true||p?.rating_debug?.pdp_get_pc?.ok===true||p?.validation?.pdpGetPc?.ok===true;
-          if(!structured)throw new Error('A coleta estruturada deste concorrente não foi confirmada.');
-
-          let publicProduct=null;
-          try{
-            const publicData=await fetchJsonWithTimeout('/api/shopee/product-public?direct=1&shop_id='+encodeURIComponent(shopId)+'&item_ids='+encodeURIComponent(itemId),{cache:'no-store'},18000);
-            publicProduct=arr(publicData?.results).find(x=>String(x?.item_id??x?.itemId??'')===itemId&&x?.ok!==false)||null;
-          }catch(error){
-            console.warn('[Concorrentes] validação pública de preço falhou',error);
-          }
-          const extensionPrice=n(p?.currentPrice??p?.price);
-          const publicPrice=n(publicProduct?.price);
-          const verifiedPrice=publicPrice;
-          const extensionOriginalPrice=n(p?.originalPrice??p?.original_price??p?.priceBeforeDiscount??p?.price_before_discount);
-          const publicOriginalPrice=n(publicProduct?.priceBeforeDiscount??publicProduct?.originalPrice);
-          const verifiedOriginalPrice=publicOriginalPrice??extensionOriginalPrice;
-          const verifiedSold=n(publicProduct?.historicalSold)??n(p?.sold??p?.historicalSold??p?.historical_sold);
-
-          await fetchJsonWithTimeout('/api/competitor-monitor',{
-            method:'POST',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({
-              watch_id:watch.id,title:p?.title||p?.item_name||watch.competitor_title,
-              price:verifiedPrice,sold:verifiedSold,rating:p?.rating??publicProduct?.rating??null,stock:p?.stock??publicProduct?.stock??null,
-              image_url:competitorImage(p),source:publicPrice!=null?'shopee-public-item-verified':'pdp_get_pc_intercepted',confidence:publicPrice!=null?'verified':'price-unverified',
-              raw:{
-                ratingSource:p?.ratingSource||null,validationSource:p?.validationSource||null,categoryId:p?.categoryId??p?.category_id??null,
-                originalPrice:verifiedOriginalPrice,
-                monthlySold:p?.monthlySold??p?.monthly_sold??p?.sold30d??p?.sold_30d??null,
-                preferred:explicitBool(publicProduct?.preferred)??preferredFromObject(data),
-                preferredEvidence:publicProduct?.preferredEvidence||preferredEvidenceFromObject(data),
-                location:stateFromText(publicProduct?.shopLocation)||locationFromObject(data)||stateFromText(p?.searchText??p?.description)||null,
-                shopName:publicProduct?.shopName||shopIdentityFromObject(data).name||null,
-                shopUsername:publicProduct?.shopUsername||shopIdentityFromObject(data).username||null,
-                shopUrl:publicProduct?.shopUrl||shopIdentityFromObject(data).url||null,
-                priceVerification:{
-                  publicPrice,extensionPrice,
-                  publicOriginalPrice,extensionOriginalPrice,
-                  mismatch:publicPrice!=null&&extensionPrice!=null&&Math.abs(publicPrice-extensionPrice)>.009
-                },
-                legacyFallback:true,
-                detailsActionError:String(detailsError?.message||detailsError||'')
-              }
-            })
-          },15000);
-        }
-        updated++;
-      }catch(error){
-        failed++;
-        try{await fetchJsonWithTimeout('/api/competitor-monitor',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:watch.id,action:'record_error',last_error:String(error?.message||error).slice(0,900)})},8000)}catch{}
-      }
-      done++;
-      setBulkProgress({done,total:totalSteps,label:`${done} de ${totalSteps} etapas concluídas`});
-      if(targets.length>1)await new Promise(resolve=>setTimeout(resolve,1200));
-    }
-    let visibilityFailed=0;
     for(let i=0;i<visibilityGroups.length;i++){
-      setBulkProgress({done,total:totalSteps,label:`Medindo posição na busca ${i+1} de ${visibilityGroups.length}…`});
+      setBulkProgress({done,total:totalSteps,label:`Atualizando grupo ${i+1} de ${visibilityGroups.length}…`});
       const result=await collectVisibilityGroup(visibilityGroups[i],{silent:true});
-      visibilityFailed+=result.failed||0;
+      updated+=result.updated||0;
+      failed+=result.failed||0;
       done++;
       setBulkProgress({done,total:totalSteps,label:`${done} de ${totalSteps} etapas concluídas`});
     }
+
     await loadMonitor();
     setBulkProgress({done:totalSteps,total:totalSteps,label:'Rechecagem concluída.'});
-    setBulkPhase(failed||visibilityFailed?'error':'success');
-    if(failed||visibilityFailed)setMonitor(x=>({...x,error:`${updated} concorrente(s) atualizados; ${failed} coleta(s) de produto e ${visibilityFailed} leitura(s) de busca aguardam nova tentativa.`}));
+    setBulkPhase(failed?'error':'success');
+    if(failed){
+      setMonitor(x=>({...x,error:`${updated} concorrente(s) atualizados; ${failed} aguardam nova tentativa.`}));
+    }else{
+      setMonitor(x=>({...x,error:''}));
+    }
     setTimeout(()=>{setBulkPhase('idle');setBulkProgress({done:0,total:0,label:''})},3500);
   }
 
