@@ -93,9 +93,16 @@
 .radarComparePanel{margin:4px 0 12px;padding:13px;border:1px solid #cbddec;border-radius:10px;background:#fff;box-shadow:0 2px 8px rgba(27,58,91,.05)}
 .radarComparePanel>header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
 .radarComparePanel>header>div:first-child{display:grid;gap:3px}.radarComparePanel>header b{font-size:12px;color:#173b65}.radarComparePanel>header small{font-size:8px;color:#75879a}
-.radarCompareMetrics{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
-.radarCompareMetrics button{height:29px;padding:0 10px;border:1px solid #c9d9e9;border-radius:7px;background:#f8fbfe;color:#44698f;font-size:8px;font-weight:900;cursor:pointer}
-.radarCompareMetrics button[data-active="true"]{border-color:#126be5;background:#126be5;color:#fff}
+.radarComparePeriod{display:grid;gap:4px;color:#6f8296;font-size:8px;font-weight:800}
+.radarComparePeriod select{height:31px;min-width:145px;border:1px solid #cbd9e7;border-radius:7px;background:#fff;color:#244d76;font-size:8px;font-weight:900;padding:0 8px}
+.radarCompareMetricChecks{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.radarCompareMetricChecks label{display:flex;align-items:center;gap:6px;padding:7px 10px;border:1px solid #c9d9e9;border-radius:8px;background:#f8fbfe;color:#355c83;font-size:8px;font-weight:900;cursor:pointer}
+.radarCompareMetricChecks input{width:14px;height:14px;margin:0;accent-color:#126be5}
+.radarCompareCharts{display:grid;gap:12px}
+.radarCompareMetricBlock{padding:10px;border:1px solid #e0e8f1;border-radius:9px;background:#fbfdff}
+.radarCompareMetricTitle{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:5px}
+.radarCompareMetricTitle b{font-size:10px;color:#173b65}
+.radarCompareMetricTitle small{font-size:7px;color:#7d8ea1}
 .radarCompareLegend{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0 5px}
 .radarCompareLegend span{display:flex;align-items:center;gap:5px;max-width:260px;color:#36597d;font-size:8px;font-weight:800}
 .radarCompareLegend span i{width:16px;height:4px;border-radius:999px;background:#176fe8}
@@ -117,8 +124,9 @@
 .radarCompareSeries[data-owner="true"] polyline{stroke:#132f55;stroke-dasharray:8 6}.radarCompareSeries[data-owner="true"] circle{stroke:#132f55}
 .radarCompareEmpty{display:grid;place-items:center;min-height:170px;padding:24px;color:#75879a;font-size:10px;text-align:center;border:1px dashed #d4e0eb;border-radius:8px;background:#f9fbfd}
 .radarComparePanel>footer{margin-top:6px}.radarComparePanel>footer small{font-size:8px;color:#71859b}
-.radarCompareSelect{position:absolute;right:0;top:-5px;z-index:3;display:flex;align-items:center;gap:4px;padding:4px 7px;border:1px solid #c8dbed;border-radius:999px;background:#f7fbff;color:#376590;font-size:7px;font-weight:900;cursor:pointer;box-shadow:0 1px 3px rgba(27,58,91,.05)}
-.radarCompareSelect input{width:12px;height:12px;margin:0;accent-color:#126be5}
+.radarCompareThumbColumn{display:grid;gap:7px;justify-items:stretch}
+.radarCompareSelect{display:flex;align-items:center;justify-content:center;gap:5px;width:120px;min-height:27px;padding:4px 6px;border:1px solid #c8dbed;border-radius:7px;background:#f7fbff;color:#376590;font-size:7px;font-weight:900;cursor:pointer}
+.radarCompareSelect input{width:13px;height:13px;margin:0;accent-color:#126be5}
 
 .radarExactCard{display:grid;grid-template-columns:minmax(250px,2.12fr) minmax(155px,1.12fr) minmax(145px,1fr) minmax(205px,1.53fr) minmax(175px,1.28fr);grid-template-rows:minmax(148px,auto) auto;gap:12px;padding:12px;background:#fff;border:2px solid #d7e2ed;border-radius:9px;box-shadow:0 1px 3px rgba(27,58,91,.03);transition:border-color .2s ease,box-shadow .2s ease}
 .radarExactCard[data-signal="down"]{border-color:#20b06b;box-shadow:inset 4px 0 0 #20b06b,0 1px 3px rgba(27,58,91,.03)}
@@ -241,7 +249,7 @@ a.radarExactTitle:hover{text-decoration:underline!important}
   .radarExactToolbar{grid-template-columns:minmax(250px,4.5fr) minmax(90px,1fr) minmax(125px,1.4fr) minmax(105px,1.1fr) minmax(175px,1.9fr) 30px 30px 30px;gap:7px}
   .radarExactColumns{grid-template-columns:minmax(0,1fr) 235px}
   .radarExactCard{grid-template-columns:minmax(220px,2.12fr) minmax(145px,1.08fr) minmax(130px,1fr) minmax(180px,1.53fr) minmax(160px,1.28fr);gap:9px;padding:10px}
-  .radarExactIdentity{grid-template-columns:92px minmax(0,1fr);gap:10px}.radarExactThumb,.radarExactThumb img,.radarExactThumb .noImage{width:92px;height:92px}
+  .radarExactIdentity{grid-template-columns:92px minmax(0,1fr);gap:10px}.radarExactThumb,.radarExactThumb img,.radarExactThumb .noImage{width:92px;height:92px}.radarCompareSelect{width:92px}
   .radarExactTitle{font-size:11px!important}
   .radarExactActions{grid-template-rows:repeat(5,30px)}.radarExactActions a,.radarExactActions button{font-size:8px}
 }
@@ -256,8 +264,9 @@ a.radarExactTitle:hover{text-decoration:underline!important}
 }
 @media(max-width:760px){
   .radarExactListHead{height:auto;align-items:flex-start;flex-direction:column;padding:6px 0}.radarExactListHeadActions{width:100%;align-items:flex-start!important;flex-direction:column}.radarExactListHeadActions>span{white-space:normal;flex-wrap:wrap}
-  .radarCompareButton{width:100%}.radarComparePanel>header{flex-direction:column}.radarCompareMetrics{width:100%;justify-content:flex-start}.radarCompareMetrics button{flex:1;min-width:110px}
-  .radarCompareSelect{top:-4px;right:-4px}
+  .radarCompareButton{width:100%}.radarComparePanel>header{flex-direction:column}.radarComparePeriod{width:100%}.radarComparePeriod select{width:100%}
+  .radarCompareMetricChecks{display:grid;grid-template-columns:1fr}
+  .radarCompareSelect{width:92px}
 
   .radarExact{padding:10px}
   .radarExactToolbar{grid-template-columns:1fr}.radarExactSearch,.radarExactRefresh{grid-column:auto}
