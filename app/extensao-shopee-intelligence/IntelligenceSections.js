@@ -1,6 +1,6 @@
 'use client';
 
-import {useEffect,useMemo,useState} from 'react';
+import {useEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import Link from 'next/link';
 import styles from './intelligence-sections.module.css';
@@ -460,6 +460,7 @@ function Competitors({items}){
   const [openSearchDetails,setOpenSearchDetails]=useState('');
   const [visibilityPhase,setVisibilityPhase]=useState({});
   const [checkingCompetitor,setCheckingCompetitor]=useState('');
+  const autoRecheckRef=useRef(false);
 
   async function loadMonitor(){
     setMonitor(x=>({...x,phase:'loading',error:''}));
@@ -503,6 +504,28 @@ function Competitors({items}){
       visibility:watch?.latest_visibility||null,visibilityHistory:arr(watch?.visibility_history)
     };
   }).filter(r=>monitor.phase!=='success'||!!r.watch)),[items,watchMap,monitor.phase]);
+
+  useEffect(()=>{
+    if(autoRecheckRef.current||monitor.phase!=='success'||!rows.length)return;
+    const dueRows=rows.filter(r=>r.watch&&dueInfo(r.watch?.next_check_at).due);
+    if(!dueRows.length)return;
+
+    const runWhenMotorReady=()=>{
+      const ready=document.documentElement?.dataset?.gsExtensionBridge==='ready'
+        ||document.getElementById('gs-extension-bridge-marker')
+        ||document.querySelector('meta[name="gestor-senior-extension"]');
+      if(!ready)return false;
+      autoRecheckRef.current=true;
+      setTimeout(()=>recheckAll(),500);
+      return true;
+    };
+
+    if(runWhenMotorReady())return;
+    const onReady=()=>runWhenMotorReady();
+    window.addEventListener('gs-extension-ready',onReady,{once:true});
+    const timer=setTimeout(()=>window.removeEventListener('gs-extension-ready',onReady),8000);
+    return()=>{clearTimeout(timer);window.removeEventListener('gs-extension-ready',onReady)};
+  },[monitor.phase,rows]);
 
   async function updateWatch(watch,patch){
     if(!watch?.id)return;
