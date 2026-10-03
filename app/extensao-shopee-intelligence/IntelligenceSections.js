@@ -533,7 +533,8 @@ function Competitors({items}){
   const [checkingCompetitor,setCheckingCompetitor]=useState('');
   const [compareKeys,setCompareKeys]=useState([]);
   const [compareOpen,setCompareOpen]=useState(false);
-  const [compareMetric,setCompareMetric]=useState('sold');
+  const [compareMetrics,setCompareMetrics]=useState(['sold']);
+  const [comparePeriod,setComparePeriod]=useState('all');
   const autoRecheckRef=useRef(false);
 
   async function loadMonitor(){
@@ -786,23 +787,34 @@ function Competitors({items}){
 
   const itemMap=useMemo(()=>new Map(items.map(item=>[String(item.itemId),item])),[items]);
   const selectedCompareRows=useMemo(()=>rows.filter(r=>compareKeys.includes(r.key)),[rows,compareKeys]);
-  const compareSeries=useMemo(()=>{
-    const cutoff=period==='all'?0:Date.now()-Number(period)*86400000;
+
+  function compareSeriesFor(metric){
+    const cutoff=comparePeriod==='all'?0:Date.now()-Number(comparePeriod)*86400000;
     const out=[];
     const ownerAdded=new Set();
     for(const row of selectedCompareRows){
-      const compPoints=competitorChartPoints(row,compareMetric,cutoff);
+      const compPoints=competitorChartPoints(row,metric,cutoff);
       if(compPoints.length)out.push({key:'c:'+row.key,label:row.title,points:compPoints,owner:false});
       const ownerId=String(row.ownerItemId);
       if(!ownerAdded.has(ownerId)){
         ownerAdded.add(ownerId);
         const item=itemMap.get(ownerId);
-        const ownerPoints=ownerChartPoints(item,compareMetric,cutoff);
+        const ownerPoints=ownerChartPoints(item,metric,cutoff);
         if(ownerPoints.length)out.push({key:'o:'+ownerId,label:'Meu anúncio · '+row.owner,points:ownerPoints,owner:true});
       }
     }
     return out;
-  },[selectedCompareRows,itemMap,compareMetric,period]);
+  }
+
+  function toggleCompareMetric(metric){
+    setCompareMetrics(current=>{
+      if(current.includes(metric)){
+        if(current.length===1)return current;
+        return current.filter(x=>x!==metric);
+      }
+      return [...current,metric];
+    });
+  }
 
   function toggleCompare(row){
     setCompareKeys(current=>{
@@ -887,16 +899,36 @@ function Competitors({items}){
 
         {compareOpen&&<section className={styles.radarComparePanel}>
           <header>
-            <div><b>Comparação de evolução</b><small>Selecione até 5 concorrentes. O Gestor inclui automaticamente o seu anúncio vinculado para comparação.</small></div>
-            <div className={styles.radarCompareMetrics}>
-              <button type="button" data-active={compareMetric==='sold'?'true':'false'} onClick={()=>setCompareMetric('sold')}>Vendas acumuladas</button>
-              <button type="button" data-active={compareMetric==='period'?'true':'false'} onClick={()=>setCompareMetric('period')}>Vendas no período</button>
-              <button type="button" data-active={compareMetric==='price'?'true':'false'} onClick={()=>setCompareMetric('price')}>Preço</button>
-            </div>
+            <div><b>Comparação de evolução</b><small>Selecione até 5 concorrentes. O Gestor inclui automaticamente o seu anúncio vinculado.</small></div>
+            <label className={styles.radarComparePeriod}>Período do gráfico
+              <select value={comparePeriod} onChange={e=>setComparePeriod(e.target.value)}>
+                <option value="all">Todo histórico</option>
+                <option value="7">Últimos 7 dias</option>
+                <option value="14">Últimos 14 dias</option>
+                <option value="30">Últimos 30 dias</option>
+              </select>
+            </label>
           </header>
-          <div className={styles.radarCompareLegend}>{compareSeries.map((serie,index)=><span key={serie.key} data-series={index%8} data-owner={serie.owner?'true':'false'}><i/>{serie.label}</span>)}</div>
-          <ComparisonChart series={compareSeries} metric={compareMetric}/>
-          <footer><small>Período exibido: {period==='all'?'todo o histórico':`últimos ${period} dias`}. Se houver apenas uma coleta, o gráfico mostra um ponto; a linha cresce nas próximas rechecagens.</small></footer>
+
+          <div className={styles.radarCompareMetricChecks}>
+            <label><input type="checkbox" checked={compareMetrics.includes('sold')} onChange={()=>toggleCompareMetric('sold')}/><span>Venda acumulada</span></label>
+            <label><input type="checkbox" checked={compareMetrics.includes('period')} onChange={()=>toggleCompareMetric('period')}/><span>Vendas no período</span></label>
+            <label><input type="checkbox" checked={compareMetrics.includes('price')} onChange={()=>toggleCompareMetric('price')}/><span>Preço</span></label>
+          </div>
+
+          <div className={styles.radarCompareCharts}>
+            {compareMetrics.map(metric=>{
+              const series=compareSeriesFor(metric);
+              const title=metric==='sold'?'Venda acumulada':metric==='period'?'Vendas no período':'Preço';
+              return <section className={styles.radarCompareMetricBlock} key={metric}>
+                <div className={styles.radarCompareMetricTitle}><b>{title}</b><small>{series.length} série{series.length===1?'':'s'} com dados</small></div>
+                <div className={styles.radarCompareLegend}>{series.map((serie,index)=><span key={serie.key} data-series={index%8} data-owner={serie.owner?'true':'false'}><i/>{serie.label}</span>)}</div>
+                <ComparisonChart series={series} metric={metric}/>
+              </section>;
+            })}
+          </div>
+
+          <footer><small>O gráfico usa somente coletas reais já registradas. Anúncios com apenas uma coleta aparecem como um ponto; a linha surge conforme novas rechecagens válidas forem acumuladas.</small></footer>
         </section>}
 
         <div className={styles.radarExactList}>{filtered.map(r=>{
@@ -910,8 +942,10 @@ function Competitors({items}){
           const priceHref='/super-analise?item_id='+r.ownerItemId+'&tab=price';
           return <article className={styles.radarExactCard} data-tone={priority.tone} data-signal={signal} key={r.key}>
             <section className={styles.radarExactIdentity}>
-              <label className={styles.radarCompareSelect} title="Selecionar para comparar no gráfico"><input type="checkbox" checked={compareKeys.includes(r.key)} onChange={()=>toggleCompare(r)}/><span>Comparar</span></label>
-              <div className={styles.radarExactThumb}><CompetitorThumb src={r.image} title={r.title}/></div>
+              <div className={styles.radarCompareThumbColumn}>
+                <div className={styles.radarExactThumb}><CompetitorThumb src={r.image} title={r.title}/></div>
+                <label className={styles.radarCompareSelect} title="Selecionar para comparar no gráfico"><input type="checkbox" checked={compareKeys.includes(r.key)} onChange={()=>toggleCompare(r)}/><span>Comparar no gráfico</span></label>
+              </div>
               <div>
                 {r.link?<a className={styles.radarExactTitle} href={r.link} target="_blank" rel="noreferrer">{r.title}</a>:<b className={styles.radarExactTitle}>{r.title}</b>}
                 <div className={styles.radarExactStore}><span className={styles.radarExactStoreGlyph}><VectorIcon name="store" size={17}/></span><span>Loja:</span>{r.store?.name?(r.store?.href?<a href={r.store.href} target="_blank" rel="noreferrer">{r.store.name}<VectorIcon name="external" size={11}/></a>:<b>{r.store.name}</b>):<small>aguardando coleta</small>}</div>
