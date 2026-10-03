@@ -534,7 +534,7 @@ function Competitors({items}){
   const [compareKeys,setCompareKeys]=useState([]);
   const [compareOpen,setCompareOpen]=useState(false);
   const [compareMetrics,setCompareMetrics]=useState(['sold']);
-  const [comparePeriod,setComparePeriod]=useState('all');
+  const [comparePeriod,setComparePeriod]=useState('30');
   const autoRecheckRef=useRef(false);
 
   async function loadMonitor(){
