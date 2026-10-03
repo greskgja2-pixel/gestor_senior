@@ -271,6 +271,7 @@ export default function MarketResearch(){
   const [assistantObjective,setAssistantObjective]=useState('sales');
   const [productDetails,setProductDetails]=useState({material:'',size:'',colors:'',contents:'',audience:'',differentials:'',usage:'',notes:''});
   const [aiListing,setAiListing]=useState({title:'',description:'',loadingTitle:false,loadingDescription:false,error:''});
+  const [assistantSaveState,setAssistantSaveState]=useState({savedAt:null,message:''});
   const fileRef=useRef(null);
   const PAGE_SIZE=20;
   useEffect(()=>{
@@ -703,22 +704,55 @@ export default function MarketResearch(){
   useEffect(()=>{
     const key=researchKey(query);
     const empty={material:'',size:'',colors:'',contents:'',audience:'',differentials:'',usage:'',notes:''};
-    if(!key){setProductDetails(empty);return}
+    if(!key){setProductDetails(empty);setAssistantSaveState({savedAt:null,message:''});return}
     try{
       const map=JSON.parse(localStorage.getItem('gs_market_product_details')||'{}');
-      setProductDetails({...empty,...(map?.[key]||{})});
-    }catch{setProductDetails(empty)}
+      const drafts=JSON.parse(localStorage.getItem('gs_market_assistant_drafts')||'{}');
+      const draft=drafts?.[key]||null;
+      setProductDetails({...empty,...(draft?.productDetails||map?.[key]||{})});
+      if(draft?.assistantObjective)setAssistantObjective(draft.assistantObjective);
+      if(draft?.aiListing)setAiListing(x=>({...x,title:draft.aiListing.title||'',description:draft.aiListing.description||'',error:''}));
+      setAssistantSaveState(draft?.savedAt?{savedAt:draft.savedAt,message:'Progresso salvo'}:{savedAt:null,message:''});
+    }catch{
+      setProductDetails(empty);
+      setAssistantSaveState({savedAt:null,message:''});
+    }
   },[query]);
   function updateProductDetail(field,value){
     const next={...productDetails,[field]:value};
     setProductDetails(next);
     setAiListing(x=>({...x,title:'',description:'',error:''}));
+    setAssistantSaveState(x=>({...x,message:x.savedAt?'Alterações ainda não salvas':'Ainda não salvo'}));
     const key=researchKey(query);
     if(!key)return;
     try{
       const map=JSON.parse(localStorage.getItem('gs_market_product_details')||'{}');
       localStorage.setItem('gs_market_product_details',JSON.stringify({...map,[key]:next}));
     }catch{}
+  }
+  function saveAssistantProgress(){
+    const key=researchKey(query);
+    if(!key){setAssistantSaveState({savedAt:null,message:'Faça ou abra uma pesquisa antes de salvar.'});return}
+    const savedAt=new Date().toISOString();
+    try{
+      const drafts=JSON.parse(localStorage.getItem('gs_market_assistant_drafts')||'{}');
+      const next={
+        ...(drafts&&typeof drafts==='object'?drafts:{}),
+        [key]:{
+          query:query.trim()||assistant.theme,
+          productDetails,
+          assistantObjective,
+          aiListing:{title:aiListing.title||'',description:aiListing.description||''},
+          savedAt
+        }
+      };
+      localStorage.setItem('gs_market_assistant_drafts',JSON.stringify(next));
+      const map=JSON.parse(localStorage.getItem('gs_market_product_details')||'{}');
+      localStorage.setItem('gs_market_product_details',JSON.stringify({...map,[key]:productDetails}));
+      setAssistantSaveState({savedAt,message:'Progresso salvo com sucesso'});
+    }catch{
+      setAssistantSaveState({savedAt:null,message:'Não foi possível salvar agora.'});
+    }
   }
   function aiMarketContext(){
     return [
@@ -1170,7 +1204,15 @@ export default function MarketResearch(){
               <label className={styles.productInfoWide}><span>Diferenciais / benefícios</span><textarea value={productDetails.differentials} onChange={e=>updateProductDetail('differentials',e.target.value)} placeholder="Ex.: resistente, fácil de montar, personalizado, reutilizável..."/></label>
               <label className={styles.productInfoWide}><span>Outras informações importantes</span><textarea value={productDetails.notes} onChange={e=>updateProductDetail('notes',e.target.value)} placeholder="Prazo, cuidados, personalização, compatibilidade, limitações ou qualquer detalhe relevante."/></label>
             </div>
-            <div className={styles.productInfoActions}><button type="button" className={styles.primaryBtn} onClick={()=>{setAssistantTab('title');generateWithAI('title')}}>Criar título com I.A.</button><button type="button" className={styles.ghostBtn} onClick={()=>{setAssistantTab('description');generateWithAI('description')}}>Criar descrição AIDA com I.A.</button></div>
+            <div className={styles.productInfoActions}>
+              <button type="button" className={styles.primaryBtn} onClick={()=>{setAssistantTab('title');generateWithAI('title')}}>Criar título com I.A.</button>
+              <button type="button" className={styles.ghostBtn} onClick={()=>{setAssistantTab('description');generateWithAI('description')}}>Criar descrição AIDA com I.A.</button>
+              <button type="button" className={styles.saveProgressBtn} onClick={saveAssistantProgress}><Icon name="check"/>Salvar progresso</button>
+              <span className={styles.saveProgressStatus} role="status" aria-live="polite">
+                {assistantSaveState.message||'Salve para continuar outro dia.'}
+                {assistantSaveState.savedAt&&assistantSaveState.message==='Progresso salvo com sucesso'?<small>Salvo às {new Date(assistantSaveState.savedAt).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</small>:null}
+              </span>
+            </div>
           </section>}
 
           {assistantTab==='strategy'&&<div className={styles.strategyGrid}>
