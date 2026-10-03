@@ -454,6 +454,70 @@ function mainSignal(row){
   return'stable';
 }
 
+
+function chartPointValue(snapshot,metric,previous){
+  const raw=snapshot?.raw&&typeof snapshot.raw==='object'?snapshot.raw:{};
+  if(metric==='price')return n(snapshot?.price??raw?.price);
+  if(metric==='sold')return n(snapshot?.sold??raw?.sold);
+  if(metric==='period'){
+    const direct=n(raw?.monthlySold??raw?.monthly_sold??raw?.sold_30d);
+    if(direct!=null)return direct;
+    const now=n(snapshot?.sold),before=n(previous?.sold);
+    return now!=null&&before!=null?Math.max(0,now-before):null;
+  }
+  return null;
+}
+function ownerChartPoints(item,metric,cutoff){
+  const history=arr(item?.history).slice().reverse();
+  return history.map((report,index)=>{
+    const snap=report?.product_snapshot||{};
+    const previous=index>0?(history[index-1]?.product_snapshot||{}):null;
+    let value=null;
+    if(metric==='price')value=n(snap?.price??snap?.currentPrice);
+    else if(metric==='sold')value=n(snap?.sold??snap?.historicalSold);
+    else{
+      value=n(snap?.monthlySold??snap?.monthly_sold??snap?.sold_30d);
+      if(value==null){
+        const now=n(snap?.sold??snap?.historicalSold),before=n(previous?.sold??previous?.historicalSold);
+        value=now!=null&&before!=null?Math.max(0,now-before):null;
+      }
+    }
+    return{at:report?.analyzed_at||report?.created_at,value};
+  }).filter(p=>p.at&&p.value!=null&&(!cutoff||new Date(p.at).getTime()>=cutoff));
+}
+function competitorChartPoints(row,metric,cutoff){
+  const history=arr(row?.history).slice().reverse();
+  return history.map((snap,index)=>({
+    at:snap?.collected_at,
+    value:chartPointValue(snap,metric,index>0?history[index-1]:null)
+  })).filter(p=>p.at&&p.value!=null&&(!cutoff||new Date(p.at).getTime()>=cutoff));
+}
+function ComparisonChart({series,metric}){
+  const width=920,height=300,pad={left:58,right:20,top:24,bottom:42};
+  const all=series.flatMap(s=>s.points.map(p=>({...p,series:s}))).filter(p=>p.value!=null&&p.at);
+  if(!all.length)return <div className={styles.radarCompareEmpty}>Ainda não há histórico suficiente para esta métrica. As linhas serão preenchidas a cada nova coleta.</div>;
+  const times=all.map(p=>new Date(p.at).getTime()).filter(Number.isFinite),values=all.map(p=>Number(p.value)).filter(Number.isFinite);
+  const minT=Math.min(...times),maxT=Math.max(...times),minV=Math.min(...values),maxV=Math.max(...values);
+  const spanT=maxT-minT||1,spanV=maxV-minV||1;
+  const x=t=>pad.left+((new Date(t).getTime()-minT)/spanT)*(width-pad.left-pad.right);
+  const y=v=>height-pad.bottom-((Number(v)-minV)/spanV)*(height-pad.top-pad.bottom);
+  const ticks=[0,.25,.5,.75,1];
+  const formatValue=v=>metric==='price'?money(v):Math.round(v).toLocaleString('pt-BR');
+  return <div className={styles.radarCompareCanvas}>
+    <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Gráfico comparativo de concorrentes">
+      {ticks.map((t,i)=>{const yy=height-pad.bottom-t*(height-pad.top-pad.bottom),vv=minV+t*spanV;return <g key={'y'+i}><line x1={pad.left} x2={width-pad.right} y1={yy} y2={yy} className={styles.radarCompareGrid}/><text x={pad.left-9} y={yy+4} textAnchor="end" className={styles.radarCompareAxis}>{formatValue(vv)}</text></g>})}
+      {ticks.map((t,i)=>{const xx=pad.left+t*(width-pad.left-pad.right),tt=minT+t*spanT;return <g key={'x'+i}><line x1={xx} x2={xx} y1={pad.top} y2={height-pad.bottom} className={styles.radarCompareGrid}/><text x={xx} y={height-15} textAnchor="middle" className={styles.radarCompareAxis}>{new Date(tt).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}</text></g>})}
+      {series.map((serie,index)=>{
+        const pts=serie.points.map(p=>`${x(p.at)},${y(p.value)}`).join(' ');
+        return <g key={serie.key} className={styles.radarCompareSeries} data-series={index%8} data-owner={serie.owner?'true':'false'}>
+          {serie.points.length>1&&<polyline points={pts}/>}
+          {serie.points.map((p,j)=><circle key={j} cx={x(p.at)} cy={y(p.value)} r="4"><title>{serie.label} · {when(p.at)} · {formatValue(p.value)}</title></circle>)}
+        </g>;
+      })}
+    </svg>
+  </div>;
+}
+
 function Competitors({items}){
   const [monitor,setMonitor]=useState({phase:'loading',watches:[],error:''});
   const [query,setQuery]=useState('');
@@ -467,6 +531,9 @@ function Competitors({items}){
   const [openSearchDetails,setOpenSearchDetails]=useState('');
   const [visibilityPhase,setVisibilityPhase]=useState({});
   const [checkingCompetitor,setCheckingCompetitor]=useState('');
+  const [compareKeys,setCompareKeys]=useState([]);
+  const [compareOpen,setCompareOpen]=useState(false);
+  const [compareMetric,setCompareMetric]=useState('sold');
   const autoRecheckRef=useRef(false);
 
   async function loadMonitor(){
@@ -716,6 +783,35 @@ function Competitors({items}){
     });
   },[rows,query,status,sort]);
 
+
+  const itemMap=useMemo(()=>new Map(items.map(item=>[String(item.itemId),item])),[items]);
+  const selectedCompareRows=useMemo(()=>rows.filter(r=>compareKeys.includes(r.key)),[rows,compareKeys]);
+  const compareSeries=useMemo(()=>{
+    const cutoff=period==='all'?0:Date.now()-Number(period)*86400000;
+    const out=[];
+    const ownerAdded=new Set();
+    for(const row of selectedCompareRows){
+      const compPoints=competitorChartPoints(row,compareMetric,cutoff);
+      if(compPoints.length)out.push({key:'c:'+row.key,label:row.title,points:compPoints,owner:false});
+      const ownerId=String(row.ownerItemId);
+      if(!ownerAdded.has(ownerId)){
+        ownerAdded.add(ownerId);
+        const item=itemMap.get(ownerId);
+        const ownerPoints=ownerChartPoints(item,compareMetric,cutoff);
+        if(ownerPoints.length)out.push({key:'o:'+ownerId,label:'Meu anúncio · '+row.owner,points:ownerPoints,owner:true});
+      }
+    }
+    return out;
+  },[selectedCompareRows,itemMap,compareMetric,period]);
+
+  function toggleCompare(row){
+    setCompareKeys(current=>{
+      if(current.includes(row.key))return current.filter(k=>k!==row.key);
+      if(current.length>=5)return current;
+      return [...current,row.key];
+    });
+  }
+
   const alerts=useMemo(()=>{
     const out=[];
     for(const r of rows){
@@ -783,8 +879,25 @@ function Competitors({items}){
       <section className={styles.radarExactListArea}>
         <div className={styles.radarExactListHead}>
           <b>{filtered.length} concorrente{filtered.length===1?'':'s'} encontrado{filtered.length===1?'':'s'}</b>
-          <div><i data-tone="down"/> Queda de preço <i data-tone="up"/> Alta de preço <i data-tone="sales"/> Vendas acelerando <i data-tone="due"/> Rechecagem vencida</div>
+          <div className={styles.radarExactListHeadActions}>
+            <button type="button" className={styles.radarCompareButton} disabled={!compareKeys.length} onClick={()=>setCompareOpen(v=>!v)}>▥ Comparar no gráfico {compareKeys.length?(`(${compareKeys.length})`):''}</button>
+            <span><i data-tone="down"/> Queda de preço <i data-tone="up"/> Alta de preço <i data-tone="sales"/> Vendas acelerando <i data-tone="due"/> Rechecagem vencida</span>
+          </div>
         </div>
+
+        {compareOpen&&<section className={styles.radarComparePanel}>
+          <header>
+            <div><b>Comparação de evolução</b><small>Selecione até 5 concorrentes. O Gestor inclui automaticamente o seu anúncio vinculado para comparação.</small></div>
+            <div className={styles.radarCompareMetrics}>
+              <button type="button" data-active={compareMetric==='sold'?'true':'false'} onClick={()=>setCompareMetric('sold')}>Vendas acumuladas</button>
+              <button type="button" data-active={compareMetric==='period'?'true':'false'} onClick={()=>setCompareMetric('period')}>Vendas no período</button>
+              <button type="button" data-active={compareMetric==='price'?'true':'false'} onClick={()=>setCompareMetric('price')}>Preço</button>
+            </div>
+          </header>
+          <div className={styles.radarCompareLegend}>{compareSeries.map((serie,index)=><span key={serie.key} data-series={index%8} data-owner={serie.owner?'true':'false'}><i/>{serie.label}</span>)}</div>
+          <ComparisonChart series={compareSeries} metric={compareMetric}/>
+          <footer><small>Período exibido: {period==='all'?'todo o histórico':`últimos ${period} dias`}. Se houver apenas uma coleta, o gráfico mostra um ponto; a linha cresce nas próximas rechecagens.</small></footer>
+        </section>}
 
         <div className={styles.radarExactList}>{filtered.map(r=>{
           const priority=competitorPriority(r),signal=mainSignal(r),due=dueInfo(r.watch?.next_check_at),pricePct=n(r.change?.price_change_pct),soldDelta=n(r.change?.sold_delta),velocity=n(r.change?.sold_velocity_change_pct);
@@ -797,6 +910,7 @@ function Competitors({items}){
           const priceHref='/super-analise?item_id='+r.ownerItemId+'&tab=price';
           return <article className={styles.radarExactCard} data-tone={priority.tone} data-signal={signal} key={r.key}>
             <section className={styles.radarExactIdentity}>
+              <label className={styles.radarCompareSelect} title="Selecionar para comparar no gráfico"><input type="checkbox" checked={compareKeys.includes(r.key)} onChange={()=>toggleCompare(r)}/><span>Comparar</span></label>
               <div className={styles.radarExactThumb}><CompetitorThumb src={r.image} title={r.title}/></div>
               <div>
                 {r.link?<a className={styles.radarExactTitle} href={r.link} target="_blank" rel="noreferrer">{r.title}</a>:<b className={styles.radarExactTitle}>{r.title}</b>}
