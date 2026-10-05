@@ -41,6 +41,17 @@ const TABS=[
 const TAB_KEYS=TABS.map(([key])=>key);
 const SCORE_TERMS={title:['título','titulo'],description:['descrição','descricao'],images:['imagem'],video:['vídeo','video'],category:['categoria'],price:['preço','preco','concorr'],variations:['atributo','varia']};
 const TAB_LABEL={title:'Título',description:'Descrição',images:'Imagens',video:'Vídeo',category:'Categoria',price:'Preço',variations:'Atributos & Variações'};
+const TAB_MATCH={
+  title:['titulo','título','seo'],
+  description:['descricao','descrição','aida','copy'],
+  images:['imagem','foto','galeria','visual'],
+  video:['video','vídeo'],
+  category:['categoria'],
+  price:['preco','preço','margem','concorr'],
+  variations:['variacao','variação','variacoes','variações','atributo','estoque']
+};
+function normalizeText(v){return String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()}
+function isRelatedToTab(value,tab){const text=normalizeText(typeof value==='string'?value:JSON.stringify(value||{}));return (TAB_MATCH[tab]||[]).some(term=>text.includes(normalizeText(term)))}
 
 function StepIcon({name,size=18}){
   const common={width:size,height:size,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.9,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':'true'};
@@ -744,15 +755,15 @@ function ImagesSection({gallery,competitors,plan,onPlan,before,after,blocked,set
       <article className={styles.panel}>
         <div className={styles.panelHead}><h2>Imagens atuais do anúncio</h2><span>{gallery.length} imagens</span></div>
         <div className={styles.imageToolbar}>
-          <button type="button" onClick={()=>gallery.forEach((x,i)=>downloadImage(x.url,i))}>⇩ Baixar imagens</button>
-          <button type="button" onClick={()=>uploadRef.current?.click()}>⇧ Substituir / adicionar imagem</button>
+          <button type="button" onClick={()=>gallery.forEach((x,i)=>downloadImage(x.url,i))}>Baixar imagens</button>
+          <button type="button" onClick={()=>uploadRef.current?.click()}>Substituir / adicionar imagem</button>
           <input ref={uploadRef} hidden type="file" accept="image/jpeg,image/png" multiple onChange={e=>onUploadFiles(e.target.files||[])}/>
         </div>
         <div className={styles.imageInfo}>ⓘ Você pode baixar, editar no computador, enviar novamente e só depois salvar na Shopee.</div>
         <div className={styles.galleryEdit}>{gallery.map((x,i)=><figure key={x.source==='uploaded'?x.image_id:`${x.index}-${x.url}`}><SmartImage urls={[x.url]} alt="" onZoom={setZoomSrc}/><figcaption>Imagem {i+1}</figcaption><div className={styles.imageActions}><button onClick={()=>moveImage(i,-1)} disabled={i===0}>←</button><button onClick={()=>moveImage(i,1)} disabled={i===gallery.length-1}>→</button><button onClick={()=>removeImage(i)}>Remover</button></div></figure>)}</div>
         <div className={styles.scoreFloat}><Gauge score={before} label="Atual"/></div>
       </article>
-      <article className={styles.panel}><div className={styles.panelHead}><h2>✦ Recomendações visuais da IA</h2><span>✎ Editável</span></div>{blocked?<div className={styles.preserveBox}>As imagens atuais obtiveram nota igual ou melhor. Nenhuma alteração visual é sugerida.</div>:<textarea rows={12} value={plan} onChange={e=>onPlan(e.target.value)} placeholder="A IA não encontrou uma mudança visual necessária."/>}<div className={styles.applyLine}><button className={styles.primary} disabled={!plan||blocked}>✓ Aplicar plano de imagens</button><Gauge score={after} label={blocked?'Preservado':'Depois'}/></div></article>
+      {String(plan||'').trim()&&!blocked?<article className={styles.panel}><div className={styles.panelHead}><h2>Recomendações visuais da IA</h2><span>Editável</span></div><textarea rows={10} value={plan} onChange={e=>onPlan(e.target.value)}/><div className={styles.applyLine}><Gauge score={after} label="Depois"/></div></article>:<article className={styles.compactApprovedCard}><div className={styles.approvedIcon}><StepIcon name="check" size={22}/></div><div><h2>Imagens aprovadas</h2><p>Nenhuma mudança visual necessária foi identificada.</p></div></article>}
     </section>
     <section className={styles.competitorsVisual}><h2>Comparação visual com os concorrentes</h2><div className={styles.competitorGrid}>{competitors.map((c,i)=><article key={i}><SmartImage urls={imageCandidates(c)} alt="" onZoom={setZoomSrc}/><div><small>Concorrente {i+1}</small>{competitorUrl(c)?<a href={competitorUrl(c)} target="_blank" rel="noreferrer">{c.title||`Concorrente ${i+1}`} ↗</a>:<b>{c.title||`Concorrente ${i+1}`}</b>}<span>Preço <strong>{money(parsedSearchPrice(c))}</strong></span><span>Vendidos <strong>{n(parsedSearchSold(c))?.toLocaleString('pt-BR')||missingStatus(c)}</strong></span></div></article>)}</div></section>
   </>
@@ -788,16 +799,16 @@ function PriceSection({costVariations=[],costValue=()=>'',setVarCost=()=>{},cost
   });
   return <>
     <section className={styles.priceTopGrid}>
-      <article className={styles.panel}><div className={styles.panelHead}><h2>Preço e margem atuais</h2><span>✎ Editável</span></div><div className={styles.priceGrid}><label>Preço<input type="number" step="0.01" value={price} onChange={e=>setPrice(e.target.value)}/></label>{costVariations.length?<div><small>Custo</small><b>por variação ↓</b></div>:<label>Custo<input type="number" step="0.01" min="0" value={cost} onChange={e=>setCost(e.target.value)}/></label>}<div><small>Margem recalculada</small><b>{pct(margin)}</b></div></div><div className={styles.formula}>Conta resumida: preço de venda {money(price)} − 20% Shopee − R$ 4,50 de taxa fixa − custo {money(cost)} = margem estimada. <small>Ads é acompanhado separadamente e não reduz esta margem do produto.</small></div><div className={styles.costBox}>
+      <article className={styles.panel}><div className={styles.panelHead}><h2>Preço e margem atuais</h2><span>Editável</span></div><div className={styles.priceGrid}><label>Preço<input type="number" step="0.01" value={price} onChange={e=>setPrice(e.target.value)}/></label>{costVariations.length?<div><small>Custo</small><b>por variação ↓</b></div>:<label>Custo<input type="number" step="0.01" min="0" value={cost} onChange={e=>setCost(e.target.value)}/></label>}<div><small>Margem recalculada</small><b>{pct(margin)}</b></div></div><div className={styles.formula}>Conta resumida: preço de venda {money(price)} − 20% Shopee − R$ 4,50 de taxa fixa − custo {money(cost)} = margem estimada. <small>Ads é acompanhado separadamente e não reduz esta margem do produto.</small></div><div className={styles.costBox}>
         {costVariations.length>0&&<div className={styles.costRows}><b>Custo por variação</b>{costVariations.map(v=>{const c=n(costValue(v.id));const m=currentMargin(v.price,c);return <label key={v.id} className={styles.costRow}><span>{v.name}<small>{money(v.price)}</small></span><input type="number" step="0.01" min="0" value={costValue(v.id)} onChange={e=>setVarCost(v.id,e.target.value)} aria-label={`Custo de ${v.name}`}/><em>{m==null?'margem —':`margem ${pct(m)}`}</em></label>})}</div>}
         <div className={styles.costActions}><button type="button" className={styles.saveCost} onClick={onSaveCost} disabled={!costDirty||costSaving}>{costSaving?'Salvando custo…':'💾 Salvar custo'}</button><small>O custo fica guardado no Gestor e não é enviado à Shopee.</small></div>
         {costMsg&&<div className={styles.costMsg} role="status">{costMsg}</div>}
       </div><div className={styles.scoreFloat}><Gauge score={before} label="Atual"/></div></article>
-      <article className={styles.panel}><div className={styles.panelHead}><h2>✦ Estratégia de preço e concorrência</h2><span>✎ Editável</span></div>{blocked?<div className={styles.preserveBox}>A alteração sugerida reduziria a nota estimada. O preço atual foi preservado.</div>:<textarea rows={9} value={plan} onChange={e=>onPlan(e.target.value)} placeholder="A IA não encontrou uma mudança necessária no preço."/>}<div className={styles.applyLine}><Gauge score={after} label={blocked?'Preservado':'Depois'}/></div></article>
+      {String(plan||'').trim()&&!blocked?<article className={styles.panel}><div className={styles.panelHead}><h2>Estratégia de preço e concorrência</h2><span>Editável</span></div><textarea rows={9} value={plan} onChange={e=>onPlan(e.target.value)}/><div className={styles.applyLine}><Gauge score={after} label="Depois"/></div></article>:<article className={styles.compactApprovedCard}><div className={styles.approvedIcon}><StepIcon name="check" size={22}/></div><div><h2>Preço preservado</h2><p>A análise não encontrou uma mudança de preço com ganho estimado para esta etapa.</p></div></article>}
     </section>
 
-    <section className={styles.flashCard}>
-      <div className={styles.panelHead}><h2>⚡ Oferta Relâmpago real</h2><span>Períodos oficiais da Shopee</span></div>
+    <details className={styles.flashCard}>
+      <summary className={styles.optionalToolSummary}><span><b>Oferta Relâmpago</b><small>Ferramenta opcional — não é necessária para concluir a análise de preço.</small></span><em>Abrir ferramenta</em></summary>
       <p>Escolha os períodos oficiais devolvidos pela Shopee. A data exibida abaixo é a mesma que será revalidada imediatamente antes da criação.</p>
 
       <div className={styles.flashPeriodCard}>
@@ -840,16 +851,42 @@ function PriceSection({costVariations=[],costValue=()=>'',setVarCost=()=>{},cost
       <button type="button" className={styles.primary} onClick={createFlash} disabled={flashBusy||!selectedSlots.length}>{flashBusy?'Criando…':`⚡ Criar Ofertas Relâmpago (${selectedSlots.length})`}</button>
       <small className={styles.recommendNote}>Antes de criar, o Gestor revalida o slot e a data; depois de salvar, relê a oferta na Shopee para confirmar que o produto realmente ficou gravado.</small>
       {flashMessage&&<div className={styles.message}>{flashMessage}</div>}
-    </section>
+    </details>
 
     <section className={styles.competitorsVisual}><h2>{competitors.length} concorrentes selecionados</h2><div className={styles.competitorGrid}>{competitors.map((c,i)=><article key={i}><SmartImage urls={imageCandidates(c)} alt="" onZoom={setZoomSrc}/><div><small>Concorrente {i+1}</small>{competitorUrl(c)?<a href={competitorUrl(c)} target="_blank" rel="noreferrer">{c.title||('Concorrente '+(i+1))} ↗</a>:<b>{c.title||('Concorrente '+(i+1))}</b>}<span>Preço <strong>{money(parsedSearchPrice(c))}</strong></span><span>Vendidos <strong>{n(parsedSearchSold(c))?.toLocaleString('pt-BR')||'—'}</strong></span></div></article>)}</div></section>
   </>
 }
 
-function PlanSection({title,original,plan,onPlan,before,after,blocked}){return <section className={styles.compare}><article className={styles.panel}><div className={styles.panelHead}><h2>{title} atual</h2></div><div className={styles.textBox}>{original}</div><div className={styles.scoreFloat}><Gauge score={before} label="Atual"/></div></article><div className={styles.arrow}>→</div><article className={styles.panel}><div className={styles.panelHead}><h2>✦ Sugestão da IA</h2><span>✎ Editável</span></div>{blocked?<div className={styles.preserveBox}>A análise estimou uma nota menor. Nenhuma alteração é sugerida.</div>:<textarea rows={12} value={plan} onChange={e=>onPlan(e.target.value)} placeholder="A IA não encontrou uma alteração necessária."/>}<div className={styles.applyLine}><Gauge score={after} label={blocked?'Preservado':'Depois'}/></div></article></section>}
+function PlanSection({title,original,plan,onPlan,before,after,blocked}){
+  const hasPlan=Boolean(String(plan||'').trim())&&!blocked;
+  if(!hasPlan)return <section className={styles.approvedStage}><div className={styles.approvedIcon}><StepIcon name="check" size={24}/></div><div className={styles.approvedCopy}><h2>{title} aprovado</h2><p>{original} Nenhuma alteração adicional foi recomendada para esta etapa.</p></div><Gauge score={before} label="Atual"/></section>;
+  return <section className={styles.compare}><article className={styles.panel}><div className={styles.panelHead}><h2>{title} atual</h2></div><div className={styles.textBox}>{original}</div><div className={styles.scoreFloat}><Gauge score={before} label="Atual"/></div></article><div className={styles.arrow}>→</div><article className={styles.panel}><div className={styles.panelHead}><h2>Sugestão da IA</h2><span>Editável</span></div><textarea rows={10} value={plan} onChange={e=>onPlan(e.target.value)}/><div className={styles.applyLine}><Gauge score={after} label="Depois"/></div></article></section>
+}
 
-function VariationsSection({product,plan,onPlan,before,after,blocked}){const models=arr(product.models||product.variations);const costs=arr(product.variationCosts);const costMap=new Map(costs.map(x=>[String(x.modelId??x.model_id),n(x.cost)]));return <section className={styles.compare}><article className={styles.panel}><div className={styles.panelHead}><h2>Variações atuais</h2><span>{models.length}</span></div>{models.length?<div className={styles.variationTable}><div><b>Variação</b><b>Preço</b><b>Custo</b><b>Margem</b></div>{models.map((m,i)=>{const id=String(m.modelId??m.model_id??m.id??i),price=n(m.price??m.currentPrice),cost=n(m.cost)??costMap.get(id),margin=currentMargin(price,cost);return <div key={id}><span>{m.name||m.model_name||`Variação ${i+1}`}</span><span>{money(price)}</span><span>{money(cost)}</span><span>{pct(margin)}</span></div>})}</div>:<div className={styles.textBox}>Este anúncio não possui variações estruturadas capturadas.</div>}<div className={styles.scoreFloat}><Gauge score={before} label="Atual"/></div></article><div className={styles.arrow}>→</div><article className={styles.panel}><div className={styles.panelHead}><h2>✦ Sugestão para atributos & variações</h2></div>{blocked?<div className={styles.preserveBox}>A estrutura atual pontuou melhor. Nenhuma alteração é sugerida.</div>:<textarea rows={12} value={plan} onChange={e=>onPlan(e.target.value)} placeholder="A IA não encontrou uma alteração necessária."/>}<div className={styles.applyLine}><Gauge score={after} label={blocked?'Preservado':'Depois'}/></div></article></section>}
+function VariationsSection({product,plan,onPlan,before,after,blocked}){
+  const models=arr(product.models||product.variations),costs=arr(product.variationCosts),costMap=new Map(costs.map(x=>[String(x.modelId??x.model_id),n(x.cost)])),hasPlan=Boolean(String(plan||'').trim())&&!blocked;
+  return <section className={hasPlan?styles.compare:styles.singleStage}>
+    <article className={styles.panel}><div className={styles.panelHead}><h2>Variações atuais</h2><span>{models.length}</span></div>{models.length?<div className={styles.variationTable}><div><b>Variação</b><b>Preço</b><b>Custo</b><b>Margem</b></div>{models.map((m,i)=>{const id=String(m.modelId??m.model_id??m.id??i),price=n(m.price??m.currentPrice),cost=n(m.cost)??costMap.get(id),margin=currentMargin(price,cost);return <div key={id}><span>{m.name||m.model_name||`Variação ${i+1}`}</span><span>{money(price)}</span><span>{money(cost)}</span><span>{pct(margin)}</span></div>})}</div>:<div className={styles.textBox}>Este anúncio não possui variações estruturadas capturadas.</div>}<div className={styles.scoreFloat}><Gauge score={before} label="Atual"/></div></article>
+    {hasPlan&&<><div className={styles.arrow}>→</div><article className={styles.panel}><div className={styles.panelHead}><h2>Sugestão para atributos & variações</h2><span>Editável</span></div><textarea rows={10} value={plan} onChange={e=>onPlan(e.target.value)}/><div className={styles.applyLine}><Gauge score={after} label="Depois"/></div></article></>}
+    {!hasPlan&&<div className={styles.inlineApproved}><StepIcon name="check" size={18}/><span><b>Estrutura aprovada.</b> Nenhuma alteração de atributos ou variações foi recomendada.</span></div>}
+  </section>
+}
 
-function WhyBlock({analysis,tab}){const a=analysis?.[tab]||{};return <section className={styles.why}><h2><span>?</span> Por que a IA sugeriu essa alteração?</h2><div className={styles.whyGrid}><article><b>SEO</b><p>{a.seo||'Palavras-chave, intenção de busca e coerência com o produto.'}</p></article><article><b>AIDA</b><p>{a.aida||'Atenção, interesse, desejo e ação quando fizer sentido.'}</p></article><article><b>Concorrentes</b><p>{a.competitors||'Padrões observados nos concorrentes selecionados.'}</p></article><article><b>Clareza</b><p>{a.clarity||a.reason||'Leitura fácil e melhor compreensão da oferta.'}</p></article><article><b>Conversão</b><p>{a.conversion||'Impacto provável na decisão de compra, sem prometer vendas.'}</p></article></div></section>}
+function WhyBlock({analysis,tab}){
+  const a=analysis?.[tab]||{};
+  const cards=[
+    ['SEO',a.seo],['AIDA',a.aida],['Concorrentes',a.competitors],['Clareza',a.clarity||a.reason],['Conversão',a.conversion]
+  ].filter(([,value])=>String(value||'').trim());
+  if(!cards.length)return null;
+  return <section className={styles.why}><h2>Por que esta alteração foi sugerida?</h2><div className={styles.whyGrid}>{cards.map(([label,value])=><article key={label}><b>{label}</b><p>{value}</p></article>)}</div></section>
+}
 
-function BottomSummary({tab,before,after,analysis,blocked}){const priorities=arr(analysis?.priorities);const strengths=arr(analysis?.strengths);return <div className={styles.bottomGrid}><section><h3>◉ Velocímetro da categoria: {TAB_LABEL[tab]}</h3><div className={styles.gaugePair}><Gauge score={before} label="Atual"/><span>→</span><Gauge score={after} label={blocked?'Preservado':'Depois'}/></div><p>{blocked?'A sugestão com perda de nota foi descartada.':after!=null&&before!=null?`Impacto estimado: ${after-before>=0?'+':''}${Math.round(after-before)} pontos.`:'Sem estimativa de alteração.'}</p></section><section><h3>✓ Melhorias detectadas</h3>{priorities.length?<ul>{priorities.slice(0,5).map((x,i)=><li key={i}><b>{x.area}</b> · prioridade {x.priority}: {x.why}</li>)}</ul>:<p>Nenhuma prioridade adicional registrada.</p>}</section><section><h3>★ Pontos fortes para preservar</h3>{strengths.length?<ul>{strengths.slice(0,5).map((x,i)=><li key={i}>{x}</li>)}</ul>:<p>O Gestor preserva o que já está funcionando bem.</p>}</section></div>}
+function BottomSummary({tab,before,after,analysis,blocked}){
+  const priorities=arr(analysis?.priorities).filter(x=>isRelatedToTab(x,tab)).slice(0,3);
+  const strengths=arr(analysis?.strengths).filter(x=>isRelatedToTab(x,tab)).slice(0,3);
+  if(!priorities.length&&!strengths.length)return null;
+  return <div className={styles.bottomGridCompact}>
+    {priorities.length>0&&<section><h3>Melhorias desta etapa</h3><ul>{priorities.map((x,i)=><li key={i}>{x?.why||x?.area||String(x)}</li>)}</ul></section>}
+    {strengths.length>0&&<section><h3>Preservar nesta etapa</h3><ul>{strengths.map((x,i)=><li key={i}>{typeof x==='string'?x:(x?.why||x?.area||JSON.stringify(x))}</li>)}</ul></section>}
+  </div>
+}
