@@ -337,3 +337,74 @@
   .toolbarMsg{flex:0 0 auto;max-width:220px}
 }
 
+
+
+/* === Reanalise guiada v2: fluxo sequencial, legibilidade e estados === */
+.analysisProgress{display:grid;grid-template-columns:auto minmax(180px,320px);align-items:center;justify-content:space-between;gap:18px;margin-top:12px;padding:13px 16px;background:#fff;border:1px solid #dce6f1;border-radius:12px}
+.analysisProgress>div:first-child{display:flex;align-items:baseline;gap:10px}
+.analysisProgress b{font-size:14px;color:#17315e}
+.analysisProgress span{font-size:12px;color:#687a92}
+.progressTrack{height:8px;border-radius:999px;background:#e8eef6;overflow:hidden}
+.progressTrack i{display:block;height:100%;border-radius:inherit;background:#1769e8;transition:width .25s ease}
+
+.tabs{gap:6px;margin-top:10px;padding:7px;background:#fff;border:1px solid #dce6f1;border-radius:12px;overflow:auto}
+.tabs button{display:grid;grid-template-columns:24px auto;grid-template-rows:auto auto;column-gap:8px;align-items:center;min-width:145px;padding:9px 11px;border:1px solid transparent;border-radius:9px;color:#53627a;font-size:13px;text-align:left}
+.tabs button span{margin-right:0}
+.tabs .tabIcon{grid-row:1/3;display:grid;place-items:center;width:24px;height:24px}
+.tabs .tabLabel{font-weight:800;line-height:1.15}
+.tabs button small{font-size:10px;color:#8491a3;line-height:1.1}
+.tabs button.tabActive{color:#155fcf;border-color:#bcd5f8;background:#eef6ff;border-bottom-color:#bcd5f8}
+.tabs button.tabDone{color:#16864f;background:#f2fbf6;border-color:#cdebd9}
+.tabs button.tabDone small{color:#16864f}
+.tabs button.tabLocked{color:#9ba7b8;background:#f7f9fc;border-color:#eef2f7;cursor:not-allowed;opacity:.78}
+.tabs button.tabLocked small{color:#a4aebb}
+
+.productInfo b{font-size:14px;line-height:1.35}
+.productInfo small{font-size:11px}
+.metric small{font-size:11px}
+.metric b{font-size:13px}
+.headerActions button{font-size:12px}
+.panelHead h2,.panel>h2,.competitorsVisual h2,.competitorCards h2{font-size:15px}
+.panelHead>span{font-size:11px}
+.panel textarea{font-size:13px;line-height:1.55}
+.panel input,.panel select{font-size:12px}
+.textBox{font-size:13px;line-height:1.55}
+.muted,.competitorsVisual p{font-size:12px;line-height:1.5}
+.imageInfo,.formula{font-size:11px;line-height:1.5}
+.imageToolbar button,.applyLine button,.actionPanel button{font-size:12px}
+.galleryEdit figcaption,.imageActions button,.zoomBtn,.imageFallback{font-size:10px}
+.competitorGrid small{font-size:10px}
+.competitorGrid a,.competitorGrid b{font-size:12px}
+.variationTable>div{font-size:11px}
+.why>h2{font-size:14px}
+.whyGrid article b{font-size:11px}
+.whyGrid article p{font-size:11px;line-height:1.5}
+.bottomGrid h3{font-size:13px}
+.bottomGrid p,.bottomGrid li{font-size:11px;line-height:1.5}
+.gaugeWrap>span{font-size:10px}
+.message{font-size:12px;line-height:1.5}
+
+.approvedStage{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:16px;align-items:start;background:#fff;border:1px solid #cfe9da;border-radius:12px;padding:18px}
+.approvedIcon{display:grid;place-items:center;width:46px;height:46px;border-radius:50%;background:#edf9f2;color:#17854f}
+.approvedCopy h2{margin:1px 0 5px;color:#17315e;font-size:17px}
+.approvedCopy p{margin:0;color:#5d6e84;font-size:13px;line-height:1.5}
+.approvedCopy details{margin-top:12px}
+.approvedCopy summary{cursor:pointer;color:#2763a8;font-size:12px;font-weight:800}
+.approvedCopy textarea{display:block;width:100%;margin-top:9px;padding:11px;border:1px solid #d7e1ee;border-radius:8px;background:#fbfdff;color:#2b3d58;font:inherit;font-size:13px;line-height:1.55;resize:vertical}
+
+.stepActionHead{display:flex;flex-direction:column;gap:3px;padding-bottom:10px;border-bottom:1px solid #e5ebf3}
+.stepActionHead small{font-size:10px;font-weight:900;letter-spacing:.06em;color:#8190a4}
+.stepActionHead b{font-size:15px;color:#17315e}
+.stepActionHead span{font-size:11px;color:#6c7c91}
+.actionPanel .continueButton{margin-top:10px;background:#1769e8;color:#fff;border-color:#1769e8;font-size:13px;padding:12px}
+.actionPanel .continueButton:hover:not(:disabled){filter:brightness(.96)}
+.actionPanel .secondarySave{background:#eef6ff;border-color:#c9dcf6;color:#155fcf}
+.actionButtons{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+.actionPanel .actionButtons button{margin-top:0;padding:8px 6px;font-size:11px}
+
+@media(max-width:980px){
+  .analysisProgress{grid-template-columns:1fr;gap:9px}
+  .tabs button{min-width:132px}
+  .approvedStage{grid-template-columns:auto 1fr}
+  .approvedStage>.gaugeWrap{grid-column:1/-1;justify-self:end}
+}
