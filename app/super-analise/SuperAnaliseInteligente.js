@@ -35,12 +35,28 @@ function endOfLocalMonth(value){const d=new Date(String(value)+'T12:00:00');d.se
 function dateRangeLabel(period){if(!period?.start||!period?.end)return'Período não definido';const a=new Date(period.start+'T12:00:00'),b=new Date(period.end+'T12:00:00');return `${a.toLocaleDateString('pt-BR')} → ${b.toLocaleDateString('pt-BR')}`}
 
 const TABS=[
-  ['title','Título','T'],['description','Descrição','▤'],['images','Imagens','▧'],['video','Vídeo','▶'],
-  ['category','Categoria Shopee','◇'],['price','Preço & Concorrência','$'],['variations','Atributos & Variações','⌘']
+  ['title','Título','title'],['description','Descrição','description'],['images','Imagens','images'],['video','Vídeo','video'],
+  ['category','Categoria Shopee','category'],['price','Preço & Concorrência','price'],['variations','Atributos & Variações','variations']
 ];
+const TAB_KEYS=TABS.map(([key])=>key);
 const SCORE_TERMS={title:['título','titulo'],description:['descrição','descricao'],images:['imagem'],video:['vídeo','video'],category:['categoria'],price:['preço','preco','concorr'],variations:['atributo','varia']};
 const TAB_LABEL={title:'Título',description:'Descrição',images:'Imagens',video:'Vídeo',category:'Categoria',price:'Preço',variations:'Atributos & Variações'};
 
+function StepIcon({name,size=18}){
+  const common={width:size,height:size,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.9,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':'true'};
+  const paths={
+    title:<><path d="M4 6h16"/><path d="M9 6v12"/><path d="M15 6v12"/><path d="M7 18h10"/></>,
+    description:<><path d="M6 3h9l3 3v15H6z"/><path d="M15 3v4h4"/><path d="M9 11h6"/><path d="M9 15h6"/></>,
+    images:<><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 15-5-5L5 20"/></>,
+    video:<><rect x="3" y="5" width="14" height="14" rx="2"/><path d="m17 10 4-2v8l-4-2z"/><path d="m9 9 4 3-4 3z"/></>,
+    category:<><path d="M4 4h6v6H4z"/><path d="M14 4h6v6h-6z"/><path d="M4 14h6v6H4z"/><path d="M14 14h6v6h-6z"/></>,
+    price:<><circle cx="12" cy="12" r="9"/><path d="M16 8.5c-.8-.9-2-1.5-3.5-1.5-2 0-3.5 1-3.5 2.5s1.4 2.1 3.5 2.5 3.5 1 3.5 2.5-1.5 2.5-3.5 2.5c-1.6 0-3-.6-4-1.7"/><path d="M12 5v14"/></>,
+    variations:<><path d="M5 7h14"/><path d="M5 17h14"/><circle cx="9" cy="7" r="2"/><circle cx="15" cy="17" r="2"/></>,
+    check:<><path d="M5 12.5 9.5 17 19 7.5"/></>,
+    lock:<><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></>
+  };
+  return <svg {...common}>{paths[name]||paths.title}</svg>
+}
 function Help({text}){return <span className={styles.help} title={text}>?</span>}
 function Gauge({score,label}){const v=n(score);const p=Math.max(0,Math.min(100,v??0));return <div className={styles.gaugeWrap}><div className={styles.gauge} style={{'--g':`${p*1.8}deg`}}><b>{v==null?'—':Math.round(v)}</b><small>/100</small></div><span>{label}</span></div>}
 function dimScore(report,terms){const d=arr(report?.report?.dimensions).find(x=>terms.some(t=>String(x?.name||'').toLowerCase().includes(t)));if(!d)return null;const s=n(d.score),max=n(d.maxScore)||100;return s==null?null:Math.round(Math.max(0,Math.min(100,s/max*100)))}
@@ -113,17 +129,16 @@ function SmartImage({urls,alt='',onZoom,className=''}) {
   </div>
 }
 
-function ActionsPanel({canUndo,canRedo,dirtyCount,onUndo,onRedo,onRestore,onSave,saving,saveDisabled=false,message}) {
+function ActionsPanel({canUndo,canRedo,dirtyCount,onUndo,onRedo,onRestore,onSave,onContinue,saving,saveDisabled=false,message,tabName,isLast=false}) {
   return <aside className={styles.actionPanel}>
+    <div className={styles.stepActionHead}><small>ETAPA ATUAL</small><b>{tabName}</b><span>{dirtyCount?'Há alterações para salvar':'Pronto para concluir'}</span></div>
+    <button type="button" className={styles.continueButton} onClick={onContinue} disabled={saving}>{saving?'Salvando…':dirtyCount?'Salvar e continuar':isLast?'Concluir reanálise':'Concluir e continuar'}</button>
     <div className={styles.actionButtons}>
-      <button type="button" onClick={onUndo} disabled={!canUndo}>↶ Desfazer</button>
-      <button type="button" onClick={onRedo} disabled={!canRedo}>↷ Refazer</button>
-      <button type="button" onClick={onRestore}>⟳ Restaurar original</button>
+      <button type="button" onClick={onUndo} disabled={!canUndo}>Desfazer</button>
+      <button type="button" onClick={onRedo} disabled={!canRedo}>Refazer</button>
+      <button type="button" onClick={onRestore}>Restaurar original</button>
     </div>
-    <div className={styles.actionState}>
-      <small className={dirtyCount?styles.pending:styles.noPending}>● {dirtyCount?`${dirtyCount} alteração${dirtyCount===1?'':'ões'} não salva${dirtyCount===1?'':'s'}`:'Nenhuma alteração pendente'}</small>
-      <button type="button" className={styles.saveShopee} onClick={onSave} disabled={saveDisabled||dirtyCount===0||saving}>{saving?'Salvando…':'▣ Salvar alterações'}</button>
-    </div>
+    {dirtyCount>0&&!saveDisabled&&<button type="button" className={styles.secondarySave} onClick={onSave} disabled={saving}>Salvar sem avançar</button>}
     {message&&<div className={styles.message}>{message}</div>}
   </aside>
 }
@@ -254,6 +269,7 @@ function FlashPeriodPicker({value,onChange,onApply,onClose}) {
 export default function SuperAnaliseInteligente({report,products=[],initialTab='title',embedded=false}){
   const allowedTabs=useMemo(()=>new Set(TABS.map(([key])=>key)),[]);
   const [tab,setTab]=useState(allowedTabs.has(initialTab)?initialTab:'title');
+  const [completedTabs,setCompletedTabs]=useState([]);
   const [analysis,setAnalysis]=useState(report?.report?.ai_analysis||null);
   const [message,setMessage]=useState('');
   const [draft,setDraft]=useState({});
@@ -310,7 +326,19 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
   const overallAfter=overallSuggested==null?overallBefore:(overallBefore==null?overallSuggested:Math.max(overallBefore,overallSuggested));
   const overallDelta=overallBefore!=null&&overallAfter!=null?Math.round(overallAfter-overallBefore):null;
 
-  useEffect(()=>{if(allowedTabs.has(initialTab))setTab(initialTab)},[initialTab,allowedTabs]);
+  useEffect(()=>{
+    const storageKey=`gs-super-analysis-progress:${report?.id||report?.item_id||'unknown'}`;
+    try{
+      const saved=JSON.parse(localStorage.getItem(storageKey)||'[]');
+      const valid=arr(saved).filter(k=>allowedTabs.has(k));
+      setCompletedTabs(valid);
+      const firstPending=TAB_KEYS.find(k=>!valid.includes(k))||TAB_KEYS[TAB_KEYS.length-1];
+      setTab(firstPending);
+    }catch{
+      setCompletedTabs([]);
+      setTab('title');
+    }
+  },[report?.id,report?.item_id,allowedTabs]);
 
   useEffect(()=>{
     const a=report?.report?.ai_analysis||null;
@@ -413,20 +441,59 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
   async function saveTab(){
     const allowed=tab==='title'?['title']:tab==='description'?['description']:tab==='images'?['images']:tab==='category'?['categoryId']:tab==='price'?['price']:[];
     const changes=Object.fromEntries(Object.entries(realChanges).filter(([k])=>allowed.includes(k)));
-    if(!Object.keys(changes).length)return;
+    if(!Object.keys(changes).length)return true;
     setSaving(true);setMessage('');
     try{
       const result=await fetchJsonWithTimeout('/api/shopee/product-update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({item_id:report.item_id,changes})},30000);
       const next={draft:{...draft},gallery:gallery.map(x=>({...x})),chosenCategory:String(chosenCategory||'')};
       setBaseline(next);setHistory({past:[],future:[]});
       setMessage(`Alteração salva na Shopee com sucesso${result?.applied?.length?` (${result.applied.join(', ')})`:''}.`);
-    }catch(e){setMessage(String(e?.message||e))}finally{setSaving(false)}
+      return true;
+    }catch(e){setMessage(String(e?.message||e));return false}finally{setSaving(false)}
   }
 
   const activeBefore=before[tab]??report?.score;
   const activeAfter=n(after?.[tab]);
   const suggestionImproves=activeBefore==null||activeAfter==null||activeAfter>=activeBefore;
   const guardedAfter=suggestionImproves?activeAfter:activeBefore;
+  const activeIndex=TAB_KEYS.indexOf(tab);
+  const firstPendingIndex=Math.max(0,TAB_KEYS.findIndex(k=>!completedTabs.includes(k)));
+  const unlockedIndex=completedTabs.length===TAB_KEYS.length?TAB_KEYS.length-1:firstPendingIndex;
+  const tabSuggestion={
+    title:String(draft.suggestionTitle||'').trim(),
+    description:String(draft.suggestionDescription||'').trim(),
+    images:String(draft.imagePlan||'').trim(),
+    video:String(draft.videoPlan||'').trim(),
+    category:(!categoryAligned&&dominantCategory)?String(dominantCategory[0]||'').trim():'',
+    price:String(draft.pricePlan||'').trim(),
+    variations:String(draft.variationsPlan||'').trim()
+  };
+  const hasActiveSuggestion=Boolean(tabSuggestion[tab])&&suggestionImproves;
+  const progressCount=completedTabs.length;
+
+  function canOpenTab(key){
+    const idx=TAB_KEYS.indexOf(key);
+    return completedTabs.includes(key)||idx<=unlockedIndex;
+  }
+  function persistProgress(next){
+    setCompletedTabs(next);
+    try{localStorage.setItem(`gs-super-analysis-progress:${report?.id||report?.item_id||'unknown'}`,JSON.stringify(next))}catch{}
+  }
+  async function completeCurrentStep(){
+    if(saving)return;
+    const saved=dirtyForTab>0?await saveTab():true;
+    if(!saved)return;
+    const next=[...new Set([...completedTabs,tab])];
+    persistProgress(next);
+    const nextKey=TAB_KEYS.find(k=>!next.includes(k));
+    if(nextKey){
+      setTab(nextKey);
+      setMessage(`${TAB_LABEL[tab]||tab} concluído. Próxima etapa: ${TAB_LABEL[nextKey]||nextKey}.`);
+      requestAnimationFrame(()=>window.scrollTo({top:0,behavior:'smooth'}));
+    }else{
+      setMessage('Reanálise concluída. Todas as etapas foram revisadas.');
+    }
+  }
 
   function applySuggestion(field,value){
     if(!suggestionImproves){setMessage('A sugestão foi descartada porque a nota estimada ficaria menor que a atual. O conteúdo existente foi preservado.');return}
@@ -618,12 +685,23 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
         <div className={styles.productInfo}><b>{p.title||p.item_name||`Produto ${report.item_id}`}</b><small>ID do anúncio: {report.item_id}</small><small>Categoria: {p.category||missingStatus(p)}</small></div>
         <div className={styles.metrics}><Metric label="Preço" value={money(basePrice)}/><Metric label="Custo" value={money(baseCost)}/><Metric label="Margem estimada" value={pct(marginNow)} title={marginProof}/><Metric label="Vendas" value={n(metric(report,'sold')??p.sold)?.toLocaleString('pt-BR')||'—'}/><Metric label="Avaliação" value={n(p.rating)!=null?`${n(p.rating).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} ★`:'—'}/><Metric label="Fotos" value={countValue(p.imageCount,images,p)}/><Metric label="Vídeo" value={boolValue(p.hasVideo,p)}/><Metric label="Variações" value={countValue(p.variationCount,arr(p.models||p.variations),p)}/></div>
       </section>
-      <div className={styles.tabs}>{TABS.map(([k,label,icon])=><button key={k} className={tab===k?styles.tabActive:''} onClick={()=>setTab(k)}><span>{icon}</span>{label}</button>)}</div></>}
+      <div className={styles.analysisProgress}>
+        <div><b>Reanálise guiada</b><span>{progressCount} de {TABS.length} etapas concluídas</span></div>
+        <div className={styles.progressTrack}><i style={{width:`${Math.round(progressCount/TABS.length*100)}%`}}/></div>
+      </div>
+      <div className={styles.tabs}>{TABS.map(([k,label,icon],idx)=>{
+        const done=completedTabs.includes(k),locked=!canOpenTab(k),current=tab===k;
+        return <button key={k} className={[current?styles.tabActive:'',done?styles.tabDone:'',locked?styles.tabLocked:''].filter(Boolean).join(' ')} disabled={locked} onClick={()=>{if(canOpenTab(k))setTab(k)}} title={locked?'Conclua a etapa atual para liberar esta etapa':done?'Etapa concluída':'Etapa atual'}>
+          <span className={styles.tabIcon}><StepIcon name={done?'check':locked?'lock':icon} size={17}/></span>
+          <span className={styles.tabLabel}>{label}</span>
+          <small>{done?'Concluída':locked?'Bloqueada':current?'Atual':`Etapa ${idx+1}`}</small>
+        </button>
+      })}</div></>}
 
       <div className={styles.tabWorkspace}>
         <section className={styles.tabContent}>
-          {tab==='title'&&<TextCompare title="Título" original={draft.title||''} suggestion={suggestionImproves?draft.suggestionTitle:''} onOriginal={v=>setField('title',v)} onSuggestion={v=>setField('suggestionTitle',v)} onApply={()=>applySuggestion('title',draft.suggestionTitle)} before={activeBefore} after={guardedAfter} blocked={!suggestionImproves} allowCopy={embedded}/>}
-          {tab==='description'&&<TextCompare title="Descrição" original={draft.description||''} suggestion={suggestionImproves?draft.suggestionDescription:''} onOriginal={v=>setField('description',v)} onSuggestion={v=>setField('suggestionDescription',v)} onApply={()=>applySuggestion('description',draft.suggestionDescription)} before={activeBefore} after={guardedAfter} multiline blocked={!suggestionImproves} allowCopy={embedded}/>}
+          {tab==='title'&&<TextCompare title="Título" original={draft.title||''} suggestion={suggestionImproves?draft.suggestionTitle:''} onOriginal={v=>setField('title',v)} onSuggestion={v=>setField('suggestionTitle',v)} onApply={()=>applySuggestion('title',draft.suggestionTitle)} before={activeBefore} after={guardedAfter} blocked={!suggestionImproves} hasSuggestion={hasActiveSuggestion} allowCopy={embedded}/>}
+          {tab==='description'&&<TextCompare title="Descrição" original={draft.description||''} suggestion={suggestionImproves?draft.suggestionDescription:''} onOriginal={v=>setField('description',v)} onSuggestion={v=>setField('suggestionDescription',v)} onApply={()=>applySuggestion('description',draft.suggestionDescription)} before={activeBefore} after={guardedAfter} multiline blocked={!suggestionImproves} hasSuggestion={hasActiveSuggestion} allowCopy={embedded}/>}
 
           {tab==='images'&&<ImagesSection gallery={gallery} competitors={competitors} plan={suggestionImproves?draft.imagePlan:''} onPlan={v=>setField('imagePlan',v)} before={activeBefore} after={guardedAfter} blocked={!suggestionImproves} setZoomSrc={setZoomSrc} downloadImage={downloadImage} removeImage={removeImage} moveImage={moveImage} uploadRef={uploadRef} onUploadFiles={onUploadFiles}/>}
           {tab==='video'&&<PlanSection title="Vídeo" original={p.hasVideo?'O anúncio possui vídeo.':'O anúncio não possui vídeo.'} plan={suggestionImproves?draft.videoPlan:''} onPlan={v=>setField('videoPlan',v)} before={activeBefore} after={guardedAfter} blocked={!suggestionImproves}/>}
@@ -631,20 +709,34 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
           {tab==='price'&&<PriceSection costVariations={costVariations} costValue={costFieldValue} setVarCost={(id,v)=>setVarCosts(x=>({...x,[id]:v}))} costDirty={costDirty} costSaving={costSaving} costMsg={costMsg} onSaveCost={saveCost} price={draft.price} cost={draft.cost} setPrice={v=>setField('price',v)} setCost={v=>setField('cost',v)} margin={liveMargin} competitors={competitors} plan={suggestionImproves?draft.pricePlan:''} onPlan={v=>setField('pricePlan',v)} before={activeBefore} after={guardedAfter} blocked={!suggestionImproves} setZoomSrc={setZoomSrc} slots={slots} selectedSlots={selectedSlots} flashSelectedIds={flashSelectedIds} setFlashSelectedIds={setFlashSelectedIds} slotError={slotError} flash={flash} setFlash={setFlash} createFlash={prepareFlashCreation} flashBusy={flashBusy} flashMessage={flashMessage} flashDays={flashDays} setFlashDays={setFlashDays} flashInsight={flashInsight} reloadFlash={period=>loadFlashMeta(flashDays,period||flashPeriod)} useRecommendedSlot={useRecommendedSlot} flashPeriod={flashPeriod} setFlashPeriod={setFlashPeriod} setFlashPreset={setFlashPreset} models={effectiveFlashModels} variationDraft={flashVariationDraft} setVariationDraft={setFlashVariationDraft} applyFlashPriceToAll={applyFlashPriceToAll}/>}
           {tab==='variations'&&<VariationsSection product={p} plan={suggestionImproves?draft.variationsPlan:''} onPlan={v=>setField('variationsPlan',v)} before={activeBefore} after={guardedAfter} blocked={!suggestionImproves}/>}
           {(tab==='images'||tab==='video')&&<div className={styles.reminderStrip}><span>{tab==='images'?'Quer revisar essas imagens mais tarde?':'Quer voltar depois para adicionar ou atualizar o vídeo?'}</span><ReminderButton itemId={report.item_id} taskType={tab} priority="medium" title={tab==='images'?'Revisar imagens do anúncio':'Adicionar ou atualizar vídeo do anúncio'} description={tab==='images'?'Revisar e melhorar as imagens deste produto.':'Revisar a necessidade de adicionar ou atualizar o vídeo deste produto.'} actionUrl={'/super-analise?item_id='+report.item_id+'&tab='+tab}/></div>}
-          {!embedded&&tab!=='category'&&<><WhyBlock analysis={analysis} tab={tab}/><BottomSummary tab={tab} before={activeBefore} after={guardedAfter} analysis={analysis} blocked={!suggestionImproves}/></>}
+          {!embedded&&tab!=='category'&&hasActiveSuggestion&&<><WhyBlock analysis={analysis} tab={tab}/><BottomSummary tab={tab} before={activeBefore} after={guardedAfter} analysis={analysis} blocked={!suggestionImproves}/></>}
         </section>
-        {!(embedded&&toolbarSlot)&&<ActionsPanel canUndo={history.past.length>0} canRedo={history.future.length>0} dirtyCount={dirtyForTab} onUndo={undo} onRedo={redo} onRestore={restoreOriginal} onSave={saveTab} saving={saving} saveDisabled={!['title','description'].includes(tab)} message={message}/>}
+        {!(embedded&&toolbarSlot)&&<ActionsPanel canUndo={history.past.length>0} canRedo={history.future.length>0} dirtyCount={dirtyForTab} onUndo={undo} onRedo={redo} onRestore={restoreOriginal} onSave={saveTab} onContinue={completeCurrentStep} saving={saving} saveDisabled={!['title','description','images','category','price'].includes(tab)} message={message} tabName={TAB_LABEL[tab]||tab} isLast={activeIndex===TAB_KEYS.length-1}/>}
         {embedded&&toolbarSlot&&createPortal(<EditorToolbar tabName={TAB_LABEL[tab]||tab} canUndo={history.past.length>0} canRedo={history.future.length>0} onUndo={undo} onRedo={redo} onRestore={()=>{restoreOriginal();setVarCosts({});setCostMsg('')}} shopeeDirty={dirtyForTab} onSaveShopee={saveTab} shopeeSaving={saving} shopeeDisabled={!['title','description','images','category','price'].includes(tab)} message={message}/>,toolbarSlot)}
       </div>
     </main>
   </div>
 }
 
-function TextCompare({title,original,suggestion,onOriginal,onSuggestion,onApply,before,after,multiline=false,blocked=false,allowCopy=false}){const copy=async()=>{if(!suggestion)return;try{await navigator.clipboard.writeText(suggestion)}catch{}};return <section className={styles.compare}>
-  <article className={styles.panel}><div className={styles.panelHead}><h2>{title} atual do anúncio</h2><span>✎ Editável</span></div><textarea rows={multiline?14:6} value={original} onChange={e=>onOriginal(e.target.value)}/><div className={styles.scoreFloat}><Gauge score={before} label="Atual"/></div></article>
-  <div className={styles.arrow}>→</div>
-  <article className={styles.panel}><div className={styles.panelHead}><h2>✦ Sugestão da IA</h2><span>✎ Editável</span></div>{blocked?<div className={styles.preserveBox}>A análise estimou uma nota menor com a alteração. O Gestor recomenda preservar o conteúdo atual e não apresenta uma mudança só para preencher espaço.</div>:<textarea rows={multiline?14:6} value={suggestion} onChange={e=>onSuggestion(e.target.value)} placeholder="A IA não encontrou uma alteração necessária para esta área."/>}<div className={styles.applyLine}>{allowCopy&&<button type="button" className={styles.secondaryAction} onClick={copy} disabled={!suggestion||blocked}>Copiar sugestão</button>}<button className={styles.primary} onClick={onApply} disabled={!suggestion||blocked}>✓ Aplicar sugestão</button><Gauge score={after} label={blocked?'Preservado':'Depois'}/></div></article>
-</section>}
+function TextCompare({title,original,suggestion,onOriginal,onSuggestion,onApply,before,after,multiline=false,blocked=false,hasSuggestion=true,allowCopy=false}){
+  const copy=async()=>{if(!suggestion)return;try{await navigator.clipboard.writeText(suggestion)}catch{}};
+  if(!hasSuggestion){
+    return <section className={styles.approvedStage}>
+      <div className={styles.approvedIcon}><StepIcon name="check" size={24}/></div>
+      <div className={styles.approvedCopy}>
+        <h2>{title} aprovado</h2>
+        <p>A análise não encontrou uma alteração necessária nesta etapa. O conteúdo atual pode ser preservado.</p>
+        <details><summary>Ver {title.toLowerCase()} atual</summary><textarea rows={multiline?10:4} value={original} onChange={e=>onOriginal(e.target.value)}/></details>
+      </div>
+      <Gauge score={before} label="Atual"/>
+    </section>
+  }
+  return <section className={styles.compare}>
+    <article className={styles.panel}><div className={styles.panelHead}><h2>{title} atual do anúncio</h2><span>Editável</span></div><textarea rows={multiline?14:6} value={original} onChange={e=>onOriginal(e.target.value)}/><div className={styles.scoreFloat}><Gauge score={before} label="Atual"/></div></article>
+    <div className={styles.arrow}>→</div>
+    <article className={styles.panel}><div className={styles.panelHead}><h2>Sugestão da IA</h2><span>Editável</span></div>{blocked?<div className={styles.preserveBox}>A análise estimou uma nota menor com a alteração. O Gestor recomenda preservar o conteúdo atual.</div>:<textarea rows={multiline?14:6} value={suggestion} onChange={e=>onSuggestion(e.target.value)}/>}<div className={styles.applyLine}>{allowCopy&&<button type="button" className={styles.secondaryAction} onClick={copy} disabled={!suggestion||blocked}>Copiar sugestão</button>}<button className={styles.primary} onClick={onApply} disabled={!suggestion||blocked}>Aplicar sugestão</button><Gauge score={after} label={blocked?'Preservado':'Depois'}/></div></article>
+  </section>
+}
 
 function ImagesSection({gallery,competitors,plan,onPlan,before,after,blocked,setZoomSrc,downloadImage,removeImage,moveImage,uploadRef,onUploadFiles}){
   return <>
