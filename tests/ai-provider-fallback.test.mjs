@@ -13,7 +13,7 @@ test('Super Analise usa Gemini como primeira tentativa e Groq como fallback',()=
   assert.match(route,/analyzeWithGroq/);
   assert.match(route,/fallbackFrom='gemini'/);
   assert.match(route,/provider='groq'/);
-  assert.match(route,/qwen\/qwen3\.6-27b/);
+  assert.match(route,/qwen\/qwen3\.8-27b/);
   assert.match(route,/api\.groq\.com\/openai\/v1\/chat\/completions/);
 });
 
@@ -28,4 +28,14 @@ test('interface oculta provedores e usa apenas IA para o usuario',()=>{
   assert.match(auto,/A análise de I\.A\. não concluiu/i);
   assert.match(auto,/Tentar novamente/);
   assert.doesNotMatch(auto,/Primeiro tentamos Gemini|Groq assume|Gemini indisponível/);
+});
+
+
+test('reanálise não revela provedores e reaproveita a rodada já criada no retry',()=>{
+  const reanalysis=read('app/super-analise/ReanalysisRunner.js');
+  assert.match(reanalysis,/Gerando a nova Super Análise com I\.A\./);
+  assert.match(reanalysis,/if\(createdId\)/);
+  assert.match(reanalysis,/await finishAi\(createdId\)/);
+  assert.doesNotMatch(reanalysis,/Gemini\/Groq/);
+  assert.doesNotMatch(reanalysis,/Gemini falhou|Groq também falhou/);
 });
