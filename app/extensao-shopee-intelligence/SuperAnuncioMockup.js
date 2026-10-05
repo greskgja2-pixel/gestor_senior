@@ -22,6 +22,12 @@ const competitorPrice=c=>{if(n(c?.price)!=null)return n(c.price);const m=String(
 const competitorSold=c=>{if(n(c?.sold)!=null)return n(c.sold);const m=String(c?.searchText||'').match(/([0-9]+(?:[.,][0-9]+)?)\s*(mil)?\+?\s*Vendido/i);if(!m)return null;const base=Number(m[1].replace(',','.'));return Number.isFinite(base)?Math.round(base*(m[2]?1000:1)):null};
 const imageCandidates=obj=>{const fields=[obj?.imageUrl,obj?.image_url,obj?.thumbnail,obj?.thumbnailUrl,obj?.cover,...arr(obj?.imageUrls),...arr(obj?.image_urls),...arr(obj?.images),...arr(obj?.image?.image_url_list)];const clean=[...new Set(fields.map(v=>typeof v==='string'?v:(v?.url||v?.image_url||v?.src||'')).map(v=>String(v||'').trim()).filter(Boolean).map(v=>/^https?:\/\//i.test(v)?v:(/^[A-Za-z0-9_-]{16,}$/.test(v)?`https://down-br.img.susercontent.com/file/${v}`:'')).filter(Boolean))].filter(u=>!/\.svg(?:\?|$)/i.test(u)&&!/productdetailspage/i.test(u));const score=u=>{let s=0;if(/down-br\.img\.susercontent\.com\/file\//i.test(u))s+=3;if(/\/br-11134207-/i.test(u))s+=8;if(/_tn(?:\?|$)/i.test(u))s-=5;if(/_cover(?:\?|$)/i.test(u))s-=6;return s};return clean.map((u,i)=>({u,i,s:score(u)})).sort((a,b)=>b.s-a.s||a.i-b.i).map(x=>x.u)};
 const productTaskRequests=new Map();
+function taskHref(task){
+  const type=String(task?.task_type||'').toLowerCase();
+  const itemId=String(task?.item_id??task?.itemId??'').trim();
+  if(type==='reanalysis'&&itemId)return `/super-analise?item_id=${encodeURIComponent(itemId)}&mode=reanalysis&task_id=${encodeURIComponent(task?.id||'')}`;
+  return task?.action_url||'';
+}
 async function fetchProductTasksOnce(itemId,{force=false}={}){
   const key=String(itemId||'');
   if(!key)return{tasks:[]};
@@ -566,7 +572,7 @@ function NextActionsCard({state,itemId,onAction,onReload}){
     {!failed&&!loading&&rows.length?<div className={styles.nextActionsList}>{rows.slice(0,6).map(t=><article key={t.id} data-priority={t.priority}>
       <i/>
       <div><div className={styles.nextActionMeta}><span>{typeLabel[t.task_type]||'Tarefa'}</span><em>{priorityLabel[t.priority]||'Média'}</em></div><b>{t.title}</b><p>{t.description||'Tarefa pendente.'}</p><small>Prazo: {dueText(t.due_at)}</small></div>
-      <div className={styles.nextActionButtons}>{t.action_url&&<Link href={t.action_url}>Resolver agora</Link>}<button type="button" onClick={()=>onAction?.(t.id,'snooze',24)}>Amanhã</button><button type="button" onClick={()=>onAction?.(t.id,'done')}>Concluir</button></div>
+      <div className={styles.nextActionButtons}>{taskHref(t)&&<Link href={taskHref(t)}>Resolver agora</Link>}<button type="button" onClick={()=>onAction?.(t.id,'snooze',24)}>Amanhã</button><button type="button" onClick={()=>onAction?.(t.id,'done')}>Concluir</button></div>
     </article>)}</div>:null}
   </section>;
 }
@@ -677,10 +683,29 @@ function CompetitorsPanel({competitors,collectedAt,onZoom}){
   </section>;
 }
 
+function HistoryMiniChart({title,values=[],format=v=>String(v),tone='blue'}){
+  const clean=values.map((v,i)=>({v:n(v),i})).filter(x=>x.v!=null);
+  if(clean.length<2)return <article className={styles.historyChartCard}><div><b>{title}</b><small>São necessárias pelo menos 2 rodadas.</small></div><div className={styles.historyChartEmpty}>Sem histórico suficiente</div></article>;
+  const vals=clean.map(x=>x.v),min=Math.min(...vals),max=Math.max(...vals),span=max-min||1;
+  const points=clean.map((x,idx)=>`${clean.length===1?50:(idx/(clean.length-1))*100},${82-((x.v-min)/span)*64}`).join(' ');
+  const first=clean[0].v,last=clean[clean.length-1].v;
+  return <article className={styles.historyChartCard} data-tone={tone}><div><b>{title}</b><small>{format(first)} → {format(last)}</small></div><svg viewBox="0 0 100 90" preserveAspectRatio="none" aria-label={title}><path d="M0 82H100"/><polyline points={points}/></svg></article>;
+}
 function HistoryPanel({history=[]}){
+  const chronological=[...history].reverse();
+  const sold=chronological.map(r=>n(metric(r,'sold')??r.product_snapshot?.sold));
+  const periodSold=sold.map((value,i)=>i===0||value==null||sold[i-1]==null?null:Math.max(0,value-sold[i-1]));
+  const prices=chronological.map(r=>n(metric(r,'price')??r.product_snapshot?.price));
+  const scores=chronological.map(r=>n(r.score));
   return <section className={styles.panel}>
-    <div className={styles.panelHead}><PanelTitle icon="clock" title="Histórico completo de análises" subtitle="Todas as rodadas preservadas para comparação."/><span>{history.length} rodada{history.length===1?'':'s'}</span></div>
-    <div className={styles.history}>{history.map((r,i)=><article key={r.id||i}><div><b>{when(r.analyzed_at)}</b><small>Relatório {r.id||'—'}</small></div><Gauge score={r.score} label={i===0?'Atual':`Rodada ${history.length-i}`}/><span>{money(metric(r,'price')??r.product_snapshot?.price)}</span></article>)}</div>
+    <div className={styles.panelHead}><PanelTitle icon="clock" title="Histórico completo de análises" subtitle="Todas as rodadas preservadas para comparação, com evolução das principais métricas."/><span>{history.length} rodada{history.length===1?'':'s'}</span></div>
+    <div className={styles.historyCharts}>
+      <HistoryMiniChart title="Nota da Super Análise" values={scores} format={v=>Math.round(v)+'/100'} tone="blue"/>
+      <HistoryMiniChart title="Vendas acumuladas" values={sold} format={v=>Math.round(v).toLocaleString('pt-BR')} tone="green"/>
+      <HistoryMiniChart title="Vendas desde a análise anterior" values={periodSold} format={v=>Math.round(v).toLocaleString('pt-BR')} tone="purple"/>
+      <HistoryMiniChart title="Preço" values={prices} format={money} tone="orange"/>
+    </div>
+    <div className={styles.history}>{history.map((r,i)=><article key={r.id||i}><div><b>{when(r.analyzed_at)}</b><small>Relatório {r.id||'—'} · {r.source==='gestor-reanalysis'?'Reanálise':'Análise'}</small></div><Gauge score={r.score} label={i===0?'Atual':`Rodada ${history.length-i}`}/><span>{money(metric(r,'price')??r.product_snapshot?.price)}</span></article>)}</div>
   </section>;
 }
 

@@ -74,3 +74,22 @@ body{background:var(--gs-shell-frame)!important;background-image:none!important;
 
 
 .gs-motor-activity{position:fixed;top:14px;left:calc(50% + 116px);transform:translateX(-50%);z-index:1200;display:flex;align-items:center;gap:10px;min-width:280px;max-width:min(560px,calc(100vw - 36px));padding:10px 12px;background:rgba(255,255,255,.96);border:1px solid #dbe5ef;border-radius:14px;box-shadow:0 10px 28px rgba(25,53,80,.16);backdrop-filter:blur(10px);color:#29435d}.gs-motor-activity-icon{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;flex:0 0 auto;background:#edf5ff;color:#1769e8;font-weight:900}.gs-motor-activity-icon i{width:15px;height:15px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:gsMotorSpin .8s linear infinite}.gs-motor-activity>div{min-width:0;display:grid;gap:2px}.gs-motor-activity b{font-size:12px;line-height:1.2}.gs-motor-activity small{font-size:11px;line-height:1.3;color:#677d91;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.gs-motor-activity-time{margin-left:auto;font-size:10px;font-weight:900;color:#7790a6;background:#f2f6fa;padding:4px 6px;border-radius:999px}.gs-motor-activity[data-phase=success]{border-color:#cfe8dc}.gs-motor-activity[data-phase=success] .gs-motor-activity-icon{background:#eaf7f0;color:#27835c}.gs-motor-activity[data-phase=error],.gs-motor-activity[data-phase=timeout]{border-color:#f2d4d8}.gs-motor-activity[data-phase=error] .gs-motor-activity-icon,.gs-motor-activity[data-phase=timeout] .gs-motor-activity-icon{background:#fff0f2;color:#c34152}@keyframes gsMotorSpin{to{transform:rotate(360deg)}}@media(max-width:900px){.gs-motor-activity{top:8px;left:50%;max-width:calc(100vw - 20px);min-width:0;width:min(430px,calc(100vw - 20px));padding:9px 10px}.gs-motor-activity small{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}.gs-motor-activity-time{align-self:center}}
+
+/* Legibilidade mínima do Gestor em zoom 100% */
+.gs-app-main{font-size:14px}
+.gs-app-main p{font-size:13px!important;line-height:1.5}
+.gs-app-main small{font-size:12px!important;line-height:1.4}
+.gs-app-main label{font-size:12px!important}
+.gs-app-main button,.gs-app-main a{font-size:12px}
+.gs-app-main input,.gs-app-main select,.gs-app-main textarea{font-size:13px!important}
+.gs-app-main table{font-size:12px!important}
+.gs-app-main th,.gs-app-main td{font-size:12px!important}
+.gs-sidebar nav a{font-size:13px}
+.gs-sidebar-status small{font-size:11px!important}
+@media(min-width:1500px){
+  .gs-app-main{font-size:15px}
+  .gs-app-main p{font-size:14px!important}
+  .gs-app-main small{font-size:12px!important}
+  .gs-app-main button,.gs-app-main a{font-size:13px}
+  .gs-app-main input,.gs-app-main select,.gs-app-main textarea{font-size:14px!important}
+}

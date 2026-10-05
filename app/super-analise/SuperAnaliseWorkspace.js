@@ -2,6 +2,7 @@ import {supabaseAdmin} from '../../lib/supabase';
 import SuperAnaliseInteligente from './SuperAnaliseInteligente';
 import WebAuditFlow from './WebAuditFlow';
 import AutoGeminiAnalysis from './AutoGeminiAnalysis';
+import ReanalysisRunner from './ReanalysisRunner';
 import ProductsDashboard from '../produtos/ProductsDashboard';
 
 export default async function SuperAnaliseWorkspace({shopId,params,store}){
@@ -10,6 +11,8 @@ export default async function SuperAnaliseWorkspace({shopId,params,store}){
   const startItem=String(params?.start_item_id||'').trim();
   const startUrl=String(params?.start_url||'').trim();
   const requestedTab=String(params?.tab||'').trim();
+  const reanalysisMode=String(params?.mode||'').trim()==='reanalysis';
+  const taskId=String(params?.task_id||'').trim();
 
   // A lista da loja é a tela inicial da Super Análise. O fluxo/etapas só aparecem
   // depois que o usuário escolhe um anúncio e inicia uma nova Super Análise.
@@ -28,6 +31,7 @@ export default async function SuperAnaliseWorkspace({shopId,params,store}){
     ||(reports||[]).find(r=>requestedItem&&String(r.item_id)===requestedItem)||null;
   const products=[],seen=new Set();
   for(const r of reports||[]){const id=String(r.item_id);if(seen.has(id))continue;seen.add(id);products.push({itemId:id,reportId:r.id,title:r.product_snapshot?.title||r.product_snapshot?.item_name||`Produto ${id}`,score:r.score,analyzedAt:r.analyzed_at,imageUrl:r.product_snapshot?.imageUrl||r.product_snapshot?.image_url||r.product_snapshot?.imageUrls?.[0]||null});}
+  if(reanalysisMode&&selected)return <ReanalysisRunner report={selected} shopId={shopId} taskId={taskId}/>;
   const needsGemini=Boolean(selected?.id&&!selected?.report?.ai_analysis);
   return <>{needsGemini&&<AutoGeminiAnalysis reportId={selected.id} itemId={selected.item_id}/>}<SuperAnaliseInteligente report={selected} products={products} shopName="" initialTab={requestedTab}/></>;
 }
