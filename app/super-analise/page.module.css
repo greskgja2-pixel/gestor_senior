@@ -445,3 +445,120 @@
   .bottomGridCompact{grid-template-columns:1fr}
   .optionalToolSummary{align-items:flex-start}
 }
+
+
+/* === Reanalise guiada v2 - etapa 3: refinamento final e mobile === */
+.analysisComplete{display:flex;align-items:flex-start;gap:11px;margin-top:10px;padding:13px 15px;border:1px solid #c9ead7;border-radius:11px;background:#f2fbf6}
+.analysisComplete>span{display:grid;place-items:center;width:34px;height:34px;flex:0 0 auto;border-radius:50%;background:#dcf4e5;color:#13804d}
+.analysisComplete b{display:block;color:#176341;font-size:14px}
+.analysisComplete p{margin:3px 0 0;color:#587064;font-size:12px;line-height:1.45}
+
+.scoreChip>small{font-size:10px!important;margin-top:2px}
+.scoreChip>em{font-size:10px!important}
+.header p{font-size:12px}
+.headerActions>span,.headerActions>button{font-size:12px}
+.actionPanel small{font-size:11px!important}
+.actionPanel button{font-size:12px!important}
+.preserveBox{font-size:12px;line-height:1.5}
+.categoryCompetitors a,.categoryCompetitors>div>div>b{font-size:11px}
+.categoryCompetitors>div>div>small,.categoryCompetitors>div>span small{font-size:10px}
+.categoryCompetitors>div>span b{font-size:11px}
+.dominantStrip{font-size:11px}
+.okChip,.warnChip{font-size:10px!important}
+.categoryConclusion h2{font-size:14px}
+.categoryConclusion p{font-size:12px}
+.goodConclusion b{font-size:12px}
+.goodConclusion button{font-size:12px}
+.flashCard>p{font-size:12px}
+.flashGrid label,.flashGrid>div{font-size:11px}
+.flashGrid input,.flashGrid select{font-size:12px}
+.slotHint{font-size:11px}
+.flashCard>.primary{font-size:12px}
+.competitorGrid span{font-size:10px}
+.competitorGrid strong{font-size:12px}
+.imageToolbar button{font-size:12px}
+.galleryEdit figcaption{font-size:11px}
+.imageActions button{font-size:11px;padding:5px 7px}
+.zoomBtn{font-size:10px;padding:5px 8px}
+.imageFallback{font-size:11px}
+.priceGrid label,.priceGrid small{font-size:11px}
+.formula{font-size:11px}
+.variationTable>div{font-size:12px}
+
+@media(max-width:980px){
+  .main{padding:12px 12px 96px}
+  .header{gap:10px;align-items:stretch;flex-direction:column}
+  .header h1{font-size:22px}
+  .headerActions{width:100%;justify-content:flex-start;overflow:auto;padding-bottom:2px}
+  .productBar{grid-template-columns:62px minmax(0,1fr);padding:11px}
+  .productBar>img,.noImage{width:58px;height:58px}
+  .productInfo b{font-size:14px}
+  .productInfo small{font-size:11px}
+  .metrics{grid-column:1/-1;grid-template-columns:repeat(4,minmax(0,1fr));border-top:1px solid #edf1f6;padding-top:7px}
+  .metric{border-left:0;border-right:1px solid #edf1f6;padding:7px 8px}
+  .metric:nth-child(4n){border-right:0}
+  .metric small{font-size:10px}
+  .metric b{font-size:12px}
+  .analysisProgress{padding:12px}
+  .tabs{scroll-snap-type:x proximity;padding:7px 8px}
+  .tabs button{scroll-snap-align:start;min-width:140px}
+  .compare{grid-template-columns:1fr}
+  .arrow{height:30px;transform:rotate(90deg)}
+  .panel{min-height:0}
+  .imageTopGrid,.priceTopGrid,.categoryCompare{grid-template-columns:1fr}
+  .competitorGrid{grid-template-columns:1fr}
+  .competitorGrid>article{grid-template-columns:92px minmax(0,1fr)}
+  .competitorGrid>article>.zoomWrap{width:92px}
+  .galleryEdit{grid-template-columns:repeat(3,minmax(0,1fr));padding-bottom:10px}
+  .scoreFloat{position:static;display:flex;justify-content:flex-end;margin-top:12px}
+  .approvedStage{grid-template-columns:auto minmax(0,1fr);padding:15px}
+  .approvedStage>.gaugeWrap{grid-column:1/-1;justify-self:end}
+  .actionPanel{position:sticky;bottom:8px;z-index:30;margin-top:10px;box-shadow:0 10px 30px rgba(25,48,82,.14)}
+  .stepActionHead{display:none}
+  .actionPanel .continueButton{width:100%;font-size:14px!important;padding:13px}
+  .actionButtons{display:grid;grid-template-columns:repeat(3,1fr);width:100%}
+  .actionPanel .actionButtons button{width:100%;font-size:11px!important}
+  .bottomGridCompact{grid-template-columns:1fr}
+}
+
+@media(max-width:640px){
+  .main{padding:10px 10px 104px}
+  .header h1{font-size:20px}
+  .titleRow{display:grid;grid-template-columns:1fr}
+  .scoreChip{justify-self:start;border-radius:10px}
+  .productBar{grid-template-columns:54px minmax(0,1fr)}
+  .productBar>img,.noImage{width:50px;height:50px}
+  .metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .metric:nth-child(2n){border-right:0}
+  .metric:nth-child(4n){border-right:0}
+  .analysisProgress>div:first-child{display:flex;flex-direction:column;gap:2px;align-items:flex-start}
+  .analysisProgress b{font-size:13px}
+  .analysisProgress span{font-size:11px}
+  .tabs button{min-width:128px;padding:8px 9px;font-size:12px}
+  .tabs button small{font-size:9px}
+  .galleryEdit{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .imageToolbar{display:grid;grid-template-columns:1fr}
+  .imageToolbar button{width:100%}
+  .competitorGrid>article{grid-template-columns:78px minmax(0,1fr)}
+  .competitorGrid>article>.zoomWrap{width:78px}
+  .categoryCompetitors>div{grid-template-columns:48px minmax(0,1fr);align-items:start}
+  .categoryCompetitors>div>span{grid-column:2}
+  .priceGrid{grid-template-columns:1fr}
+  .approvedStage{grid-template-columns:1fr}
+  .approvedIcon{width:40px;height:40px}
+  .approvedStage>.gaugeWrap{grid-column:auto;justify-self:start}
+  .optionalToolSummary{display:grid;grid-template-columns:1fr}
+  .optionalToolSummary em{justify-self:start}
+  .actionButtons{grid-template-columns:1fr 1fr}
+  .actionButtons button:last-child{grid-column:1/-1}
+  .actionPanel{padding:10px}
+  .actionPanel .continueButton{font-size:13px!important}
+}
+
+@media(max-width:420px){
+  .metrics{grid-template-columns:1fr 1fr}
+  .tabs button{min-width:122px}
+  .galleryEdit{grid-template-columns:1fr 1fr}
+  .competitorGrid>article{grid-template-columns:70px minmax(0,1fr)}
+  .competitorGrid>article>.zoomWrap{width:70px}
+}
