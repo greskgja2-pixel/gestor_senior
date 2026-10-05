@@ -700,6 +700,7 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
         <div><b>Reanálise guiada</b><span>{progressCount} de {TABS.length} etapas concluídas</span></div>
         <div className={styles.progressTrack}><i style={{width:`${Math.round(progressCount/TABS.length*100)}%`}}/></div>
       </div>
+      {progressCount===TABS.length&&<div className={styles.analysisComplete}><span><StepIcon name="check" size={20}/></span><div><b>Reanálise concluída</b><p>Todas as etapas foram revisadas. Você ainda pode abrir as etapas concluídas para consultar ou ajustar o anúncio.</p></div></div>}
       <div className={styles.tabs}>{TABS.map(([k,label,icon],idx)=>{
         const done=completedTabs.includes(k),locked=!canOpenTab(k),current=tab===k;
         return <button key={k} className={[current?styles.tabActive:'',done?styles.tabDone:'',locked?styles.tabLocked:''].filter(Boolean).join(' ')} disabled={locked} onClick={()=>{if(canOpenTab(k))setTab(k)}} title={locked?'Conclua a etapa atual para liberar esta etapa':done?'Etapa concluída':'Etapa atual'}>
