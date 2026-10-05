@@ -65,9 +65,23 @@ export default function ReanalysisRunner({report,shopId,taskId=''}) {
     }catch{return null}
   }
 
+  async function finishAi(reportId){
+    setPhase('ai');setMessage('Gerando a nova Super Análise com I.A. e comparando com a rodada anterior…');
+    await fetchJsonWithTimeout('/api/ai/super-analysis',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({report_id:reportId})},65000);
+    if(taskId){
+      try{await fetchJsonWithTimeout('/api/tasks',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:taskId,action:'done'})},12000)}catch{}
+    }
+    setPhase('done');setMessage('Reanálise concluída. Abrindo o Super Anúncio com o novo histórico…');
+    setTimeout(()=>router.replace(`/extensao-shopee-intelligence?section=super-anuncio&item_id=${encodeURIComponent(itemId)}&tab=history&reanalyzed=1`),700);
+  }
+
   async function run(){
     setError('');
     try{
+      if(createdId){
+        await finishAi(createdId);
+        return;
+      }
       setPhase('product');setMessage('Atualizando preço, vendas, avaliações, estoque e demais dados atuais do anúncio…');
       let freshOwn=null;
       try{
@@ -112,20 +126,12 @@ export default function ReanalysisRunner({report,shopId,taskId=''}) {
       if(!reportId)throw new Error('A nova rodada foi criada sem identificador de relatório.');
       setCreatedId(reportId);
 
-      setPhase('ai');setMessage('Gerando a nova Super Análise com Gemini/Groq e comparando com a rodada anterior…');
-      await fetchJsonWithTimeout('/api/ai/super-analysis',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({report_id:reportId})},65000);
-
-      if(taskId){
-        try{await fetchJsonWithTimeout('/api/tasks',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:taskId,action:'done'})},12000)}catch{}
-      }
-
-      setPhase('done');setMessage('Reanálise concluída. Abrindo o Super Anúncio com o novo histórico…');
-      setTimeout(()=>router.replace(`/extensao-shopee-intelligence?section=super-anuncio&item_id=${encodeURIComponent(itemId)}&tab=history&reanalyzed=1`),700);
+      await finishAi(reportId);
     }catch(e){
       console.error('[Reanálise] falhou',e);
       setPhase('error');
       const kind=classifyAsyncError(e);
-      setError(kind==='timeout'?'A reanálise demorou mais que o esperado. Tente novamente.':String(e?.message||e));
+      setError(kind==='timeout'?'A reanálise demorou mais que o esperado. Tente novamente.':'A etapa de I.A. não pôde ser concluída agora. Tente novamente em instantes.');
       setMessage('');
     }
   }
@@ -137,7 +143,7 @@ export default function ReanalysisRunner({report,shopId,taskId=''}) {
     <section className={styles.product}>{image?<img src={image} alt=""/>:<div className={styles.noImage}/>}<div><b>{title}</b><span>ID {itemId}</span><small>Última análise: {report?.analyzed_at?new Date(report.analyzed_at).toLocaleString('pt-BR'):'—'}</small></div></section>
     <section className={styles.steps}>{steps.map(([label,status],i)=><Step key={label} index={i+1} label={label} status={status}/>)}</section>
     {message&&<div className={styles.status}><span className={styles.spinner}/><div><b>{phase==='done'?'Concluído':'Reanálise em andamento'}</b><p>{message}</p></div></div>}
-    {error&&<div className={styles.error}><div><b>Não foi possível concluir a reanálise</b><p>{error}</p>{createdId&&<small>A nova rodada foi criada, mas a etapa seguinte falhou. Relatório: {createdId}</small>}</div><button type="button" onClick={run}>Tentar novamente</button></div>}
+    {error&&<div className={styles.error}><div><b>Não foi possível concluir a reanálise</b><p>{error}</p>{createdId&&<small>A nova rodada já foi preservada no histórico. Ao tentar novamente, somente a etapa de I.A. será refeita; não será criada outra rodada.</small>}</div><button type="button" onClick={run}>Tentar novamente</button></div>}
     <aside>Este fluxo usa a conexão da loja no próprio Gestor e os concorrentes já vinculados. Ele não exige um novo login no Motor Sênior.</aside>
   </div>;
 }
