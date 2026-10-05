@@ -185,7 +185,8 @@ export async function POST(request){
   }
 
   const geminiModel=process.env.GEMINI_MODEL||'gemini-3.6-flash';
-  const groqModel=process.env.GROQ_MODEL||'qwen/qwen3.6-27b';
+  const configuredGroqModel=String(process.env.GROQ_MODEL||'').trim();
+  const groqModel=!configuredGroqModel||configuredGroqModel==='qwen/qwen3.6-27b'?'qwen/qwen3.8-27b':configuredGroqModel;
   let analysis=null,provider=null,model=null,fallbackFrom=null,fallbackReason=null;
 
   if(geminiKey){
@@ -203,8 +204,7 @@ export async function POST(request){
       provider='groq';model=groqModel;
     }catch(error){
       const groqReason=String(error?.message||error);
-      const prefix=fallbackReason?`Gemini falhou: ${fallbackReason} | `:'';
-      return NextResponse.json({error:`${prefix}Groq também falhou: ${groqReason}`,providersTried:[geminiKey?'gemini':null,'groq'].filter(Boolean)},{status:502});
+      return NextResponse.json({error:'A I.A. está temporariamente indisponível. Tente novamente em instantes.',detail:{primary:fallbackReason||null,fallback:groqReason},providersTried:[geminiKey?'primary':null,'fallback'].filter(Boolean)},{status:502});
     }
   }
 
