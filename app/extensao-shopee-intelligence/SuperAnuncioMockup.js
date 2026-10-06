@@ -119,6 +119,8 @@ function Icon({name,className=''}) {
     case 'trash': return <svg {...common}><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg>;
     case 'arrowLeft': return <svg {...common}><path d="m15 18-6-6 6-6"/><path d="M9 12h11"/></svg>;
     case 'external': return <svg {...common}><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 13v7H4V6h7"/></svg>;
+    case 'settings': return <svg {...common}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21h-4v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H3v-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3h4v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1v4H21a1.7 1.7 0 0 0-1.6 1z"/></svg>;
+    case 'monitor': return <svg {...common}><path d="M3 12h4l2-5 4 10 2-5h6"/><path d="M4 20h16"/></svg>;
     case 'more': return <svg {...common}><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>;
     default: return <svg {...common}><circle cx="12" cy="12" r="8"/></svg>;
   }
@@ -160,6 +162,153 @@ function DecisionChain({steps,verdict,onRegisterCost}){
   return <section className={styles.chain} data-tone={verdict.tone} aria-label="Leitura do anúncio: custo, preço, margem, vendas e ROAS">
     <div className={styles.chainSteps}>{steps.map((s,i)=><Fragment key={s.label}>{i>0&&<span className={styles.chainArrow} aria-hidden="true">→</span>}<div className={styles.chainStep} data-tone={s.tone||''}><small>{s.label}</small><b>{s.value}</b>{s.note&&<em>{s.note}</em>}</div></Fragment>)}</div>
     <div className={styles.chainVerdict}><span className={styles.chainTag}>Leitura automática · estimativa</span><p>{verdict.text}</p>{verdict.needCost&&<button type="button" onClick={onRegisterCost}>Cadastrar custo</button>}</div>
+  </section>;
+}
+
+const MONITOR_METRICS=[
+  ['sales_period','Vendas do período','cart',v=>n(v)==null?'—':Math.round(n(v)).toLocaleString('pt-BR')],
+  ['ads_spend','Gasto com Ads','megaphone',money],
+  ['views','Visualizações','chart',v=>n(v)==null?'—':Math.round(n(v)).toLocaleString('pt-BR')],
+  ['ads_roas','ROAS','bars',num],
+  ['ads_gmv','GMV Ads','coins',money],
+  ['price','Preço','tag',money],
+  ['stock','Estoque','grid',v=>n(v)==null?'—':Math.round(n(v)).toLocaleString('pt-BR')],
+  ['review_count','Avaliações','star',v=>n(v)==null?'—':Math.round(n(v)).toLocaleString('pt-BR')]
+];
+const DEFAULT_MONITOR_PREFS={sales_period:true,ads_spend:true,views:false,ads_roas:false,ads_gmv:false,price:false,stock:false,review_count:false};
+
+function monitorChartPoints(rows,key){
+  const clean=rows.map((r,i)=>({i,v:n(r?.[key])})).filter(x=>x.v!=null);
+  if(clean.length<2)return'';
+  const vals=clean.map(x=>x.v),min=Math.min(...vals),max=Math.max(...vals),span=max-min||1;
+  return clean.map((x,idx)=>`${clean.length===1?50:(idx/(clean.length-1))*100},${82-((x.v-min)/span)*64}`).join(' ');
+}
+function monitorPeriodLabel(row){
+  if(!row?.period_start||!row?.period_end)return'Período não informado';
+  const a=new Date(row.period_start),b=new Date(row.period_end);
+  const fmt=d=>Number.isNaN(d.getTime())?'—':d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
+  return `${fmt(a)} → ${fmt(b)}`;
+}
+function competitorDelta(watch){
+  const rows=arr(watch?.snapshots);
+  const latest=rows[0],previous=rows[1];
+  const a=n(latest?.sold),b=n(previous?.sold);
+  return a!=null&&b!=null?Math.max(0,a-b):null;
+}
+
+function MonitoringPanel({itemId}){
+  const [state,setState]=useState({phase:'loading',data:null,error:''});
+  const [syncing,setSyncing]=useState(false);
+  const [settingsOpen,setSettingsOpen]=useState(false);
+  const [prefs,setPrefs]=useState(DEFAULT_MONITOR_PREFS);
+
+  useEffect(()=>{
+    try{
+      const saved=JSON.parse(localStorage.getItem('gs-monitor-metrics')||'{}');
+      setPrefs({...DEFAULT_MONITOR_PREFS,...saved});
+    }catch{setPrefs(DEFAULT_MONITOR_PREFS)}
+  },[]);
+
+  function updatePref(key){
+    setPrefs(prev=>{
+      const next={...prev,[key]:!prev[key]};
+      try{localStorage.setItem('gs-monitor-metrics',JSON.stringify(next))}catch{}
+      return next;
+    });
+  }
+
+  async function load({autoSync=true}={}){
+    setState(s=>({...s,phase:s.data?'refreshing':'loading',error:''}));
+    try{
+      const data=await fetchJsonWithTimeout('/api/product-monitor?item_id='+encodeURIComponent(itemId),{cache:'no-store'},20000);
+      setState({phase:'success',data,error:''});
+      const due=data?.watch?.next_check_at&&new Date(data.watch.next_check_at).getTime()<=Date.now();
+      if(autoSync&&due)await sync(false);
+    }catch(error){
+      setState(s=>({phase:'error',data:s.data,error:String(error?.message||error)}));
+    }
+  }
+
+  async function sync(force=true){
+    if(syncing)return;
+    setSyncing(true);
+    try{
+      await fetchJsonWithTimeout('/api/product-monitor',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({item_id:Number(itemId),force})},65000);
+      await load({autoSync:false});
+    }catch(error){
+      setState(s=>({...s,phase:'error',error:String(error?.message||error)}));
+    }finally{setSyncing(false)}
+  }
+
+  useEffect(()=>{if(itemId)load();/* eslint-disable-next-line react-hooks/exhaustive-deps */},[itemId]);
+
+  const data=state.data||{},rows=[...arr(data.snapshots)].reverse(),latest=arr(data.snapshots)[0]||null;
+  const selected=MONITOR_METRICS.filter(([key])=>prefs[key]);
+  const comps=arr(data.competitors),ownSales=n(latest?.sales_period);
+  const compRows=comps.map((w,i)=>({label:w.competitor_title||`Concorrente ${i+1}`,sales:competitorDelta(w)}));
+  const maxCompare=Math.max(1,ownSales||0,...compRows.map(x=>x.sales||0));
+
+  return <section className={styles.monitorPage}>
+    <div className={styles.monitorTop}>
+      <div><span className={styles.monitorBadge}><Icon name="monitor"/></span><div><h2>Monitoramento</h2><p>Acompanhamento automático a cada 3 dias, sem usar I.A.</p></div></div>
+      <div className={styles.monitorTopActions}>
+        <button type="button" onClick={()=>sync(true)} disabled={syncing}>↻ {syncing?'Atualizando…':'Atualizar agora'}</button>
+        <button type="button" className={styles.monitorSettingsBtn} onClick={()=>setSettingsOpen(v=>!v)}><Icon name="settings"/> Configurações</button>
+      </div>
+    </div>
+
+    {settingsOpen&&<div className={styles.monitorSettings}>
+      <div><b>Métricas exibidas</b><small>O Gestor continua salvando os dados disponíveis; aqui você escolhe apenas o que aparece.</small></div>
+      <div className={styles.monitorChecks}>{MONITOR_METRICS.map(([key,label])=><label key={key}><input type="checkbox" checked={!!prefs[key]} onChange={()=>updatePref(key)}/><span>{label}</span></label>)}</div>
+    </div>}
+
+    <div className={styles.monitorStatus}>
+      <span><b>Última coleta</b>{latest?when(latest.collected_at):'Aguardando primeira coleta'}</span>
+      <span><b>Próxima coleta</b>{when(data?.watch?.next_check_at)}</span>
+      <span><b>Frequência</b>A cada 3 dias</span>
+    </div>
+
+    {state.phase==='error'&&<div className={styles.monitorError}>Não foi possível atualizar o monitoramento agora. {state.error}<button type="button" onClick={()=>load({autoSync:false})}>Tentar novamente</button></div>}
+    {state.phase==='loading'&&!latest&&<div className={styles.monitorLoading}>Carregando histórico de monitoramento…</div>}
+
+    <details className={styles.monitorCard} open>
+      <summary><span><Icon name="chart"/></span><div><b>Desempenho por período</b><small>Gráficos são a visão principal do acompanhamento.</small></div><i>⌄</i></summary>
+      <div className={styles.monitorCardBody}>
+        <div className={styles.monitorCharts}>
+          {selected.map(([key,label,icon,format])=>{
+            const pts=monitorChartPoints(rows,key),value=latest?.[key];
+            return <article key={key} className={styles.monitorChart}>
+              <div><span><Icon name={icon}/></span><div><small>{label}</small><b>{format(value)}</b><em>{latest?monitorPeriodLabel(latest):'Sem coleta'}</em></div></div>
+              {pts?<svg viewBox="0 0 100 90" preserveAspectRatio="none" aria-label={label}><path d="M0 82H100"/><polyline points={pts}/></svg>:<div className={styles.monitorChartEmpty}>O gráfico aparecerá após pelo menos 2 coletas.</div>}
+            </article>;
+          })}
+        </div>
+      </div>
+    </details>
+
+    <details className={styles.monitorCard} open>
+      <summary><span><Icon name="users"/></span><div><b>Você x concorrentes</b><small>Vendas registradas desde a coleta anterior de cada anúncio.</small></div><i>⌄</i></summary>
+      <div className={styles.monitorCardBody}>
+        <div className={styles.compareBars}>
+          <div><div><b>Seu anúncio</b><span>{ownSales==null?'—':`+${Math.round(ownSales)} vendas`}</span></div><i><u style={{width:`${((ownSales||0)/maxCompare)*100}%`}}/></i></div>
+          {compRows.map((x,i)=><div key={i}><div><b>{x.label}</b><span>{x.sales==null?'Aguardando nova coleta':`+${Math.round(x.sales)} vendas`}</span></div><i><u style={{width:`${((x.sales||0)/maxCompare)*100}%`}}/></i></div>)}
+        </div>
+      </div>
+    </details>
+
+    <details className={styles.monitorCard}>
+      <summary><span><Icon name="file"/></span><div><b>Tabela detalhada</b><small>Dados das coletas, fechados por padrão para manter a tela limpa.</small></div><i>⌄</i></summary>
+      <div className={styles.monitorCardBody}>
+        <div className={styles.monitorTableWrap}><table><thead><tr><th>Período</th>{selected.map(([,label])=><th key={label}>{label}</th>)}</tr></thead><tbody>{arr(data.snapshots).map(r=><tr key={r.id}><td>{monitorPeriodLabel(r)}</td>{selected.map(([key,, ,format])=><td key={key}>{format(r[key])}</td>)}</tr>)}</tbody></table></div>
+      </div>
+    </details>
+
+    <details className={styles.monitorCard}>
+      <summary><span><Icon name="clock"/></span><div><b>Histórico de coletas</b><small>Área de auditoria: quando cada acompanhamento foi salvo.</small></div><i>⌄</i></summary>
+      <div className={styles.monitorCardBody}>
+        <div className={styles.monitorHistory}>{arr(data.snapshots).map(r=><div key={r.id}><span>✓</span><div><b>{when(r.collected_at)}</b><small>{monitorPeriodLabel(r)} · {n(r.sales_period)==null?'vendas não coletadas':`${Math.round(n(r.sales_period))} venda(s)`} · Ads {money(r.ads_spend)}</small></div></div>)}</div>
+      </div>
+    </details>
   </section>;
 }
 
