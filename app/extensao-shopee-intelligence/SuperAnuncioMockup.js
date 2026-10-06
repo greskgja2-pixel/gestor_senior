@@ -565,6 +565,7 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
     ['Custo por venda',dataText(metric(r,'cpa')??liveCampaign?.costPerOrder??(n(metric(r,'sales'))?n(metric(r,'spend'))/n(metric(r,'sales')):null),money,adsContext)]
   ];
   const areaMeta={
+    monitoring:{label:'Monitoramento',icon:'monitor',description:'Acompanhamento automático de vendas, Ads e concorrentes a cada 3 dias.',subs:[]},
     content:{label:'Conteúdo',icon:'file',description:'Título e descrição do anúncio.',subs:[['title','Título'],['description','Descrição']]},
     media:{label:'Mídia',icon:'image',description:'Imagens e vídeo do anúncio.',subs:[['images','Imagens'],['video','Vídeo']]},
     category:{label:'Categoria',icon:'tag',description:'Categoria, atributos e variações.',subs:[['category','Categoria do produto'],['variations','Atributos & variações']]},
@@ -600,17 +601,19 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
       </section>
 
       <nav className={styles.detailTabs} aria-label="Áreas do Super Anúncio">
-        {Object.entries(areaMeta).map(([key,meta])=><button key={key} type="button" data-active={detailTab===key?'true':'false'} data-done={isOptimized(key)?'true':'false'} onClick={()=>{setDetailTab(key);setEditorTab(defaultEditorForGroup(key))}}>
+        {Object.entries(areaMeta).map(([key,meta])=><button key={key} type="button" data-active={detailTab===key?'true':'false'} data-done={key==='monitoring'?'false':isOptimized(key)?'true':'false'} onClick={()=>{setDetailTab(key);if(key!=='monitoring')setEditorTab(defaultEditorForGroup(key))}}>
           <Icon name={meta.icon}/><span>{meta.label}</span>{isOptimized(key)&&<b>✓</b>}
         </button>)}
       </nav>
 
-      <section className={styles.detailAreaIntro}>
+      {detailTab==='monitoring'&&<MonitoringPanel itemId={item.itemId}/>}
+
+      {detailTab!=='monitoring'&&<section className={styles.detailAreaIntro}>
         <div><span><Icon name={activeArea.icon}/></span><div><h2>{activeArea.label}</h2><p>{activeArea.description}</p></div></div>
         <div className={styles.detailSubtabs}>
           {activeArea.subs.map(([key,label])=><button key={key} type="button" data-active={editorTab===key?'true':'false'} onClick={()=>setEditorTab(key)}>{label}</button>)}
         </div>
-      </section>
+      </section>}
 
       {detailTab==='financial'&&<section className={styles.financeOverview}>
         <div className={styles.financeHeading}><div><h2>Visão financeira</h2><p>Dados comerciais reunidos em um único lugar.</p></div><span>{offerStatus}</span></div>
@@ -623,7 +626,7 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
         {(liveAds.phase==='error'||liveAds.phase==='timeout')&&<div className={styles.dataError}>{liveAds.error}<button type="button" onClick={()=>loadLiveAds(item.itemId)}>Tentar novamente</button></div>}
       </section>}
 
-      <section className={styles.detailEditor}>
+      {detailTab!=='monitoring'&&<section className={styles.detailEditor}>
         <div className={styles.detailActionsBar}>
           <div className={styles.detailActionsTitle}><b>Ações</b><small>{activeArea.label}</small></div>
           <button type="button" onClick={()=>setShowList(true)}><Icon name="arrowLeft"/> Voltar</button>
@@ -633,9 +636,9 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
         <div className={styles.detailEditorBody}>
           <SuperAnaliseInteligente key={`${r.id}-${editorTab}`} report={r} products={[]} initialTab={editorTab} embedded/>
         </div>
-      </section>
+      </section>}
 
-      <section className={styles.secondaryPanels} aria-label="Informações adicionais">
+      {detailTab!=='monitoring'&&<section className={styles.secondaryPanels} aria-label="Informações adicionais">
         <details>
           <summary><span><Icon name="bars"/></span><div><b>Resumo</b><small>Principais insights deste anúncio.</small></div><i>⌄</i></summary>
           <div className={styles.accordionBody}>
@@ -663,9 +666,9 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
           <summary><span><Icon name="file"/></span><div><b>Checklist</b><small>Itens que ainda podem ser otimizados.</small></div><i>⌄</i></summary>
           <div className={styles.accordionBody}><NextActionsCard state={productTasks} itemId={item.itemId} onAction={resolveProductTask} onReload={()=>loadProductTasks(item.itemId,{force:true})}/></div>
         </details>
-      </section>
+      </section>}
 
-      <section className={styles.manageZone}><span>Gerenciar análise deste anúncio</span><button type="button" className={styles.deleteBtn} onClick={deleteAnalysis} disabled={deleting}><Icon name="trash"/>{deleting?'Excluindo…':'Excluir análises'}</button></section>
+      {detailTab!=='monitoring'&&<section className={styles.manageZone}><span>Gerenciar análise deste anúncio</span><button type="button" className={styles.deleteBtn} onClick={deleteAnalysis} disabled={deleting}><Icon name="trash"/>{deleting?'Excluindo…':'Excluir análises'}</button></section>}
     </main>
   </div>;
 }
