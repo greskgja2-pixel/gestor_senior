@@ -694,7 +694,7 @@
 .detailScores span{display:block;margin-top:3px;color:#708199;font-size:8px;font-weight:700}
 .detailScores>i{font-style:normal;color:#8da1ba;text-align:center;font-size:18px}
 
-.detailTabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:12px;padding:7px;border:1px solid #dce6f1;border-radius:13px;background:#fff}
+.detailTabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-top:12px;padding:7px;border:1px solid #dce6f1;border-radius:13px;background:#fff}
 .detailTabs button{height:48px;display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid transparent;border-radius:9px;background:transparent;color:#63768f;font-size:10px;font-weight:800;cursor:pointer;white-space:nowrap}
 .detailTabs button svg{width:16px;height:16px}
 .detailTabs button[data-active="true"]{background:#eaf3ff;border-color:#c5dcfb;color:#1764c8}
@@ -822,3 +822,98 @@
 .historyChartEmpty{height:112px;display:grid;place-items:center;color:#8290a2;font-size:11px}
 @media(max-width:1200px){.historyCharts{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:680px){.historyCharts{grid-template-columns:1fr}}
+
+
+/* Monitoramento automático — 06/10/2026 */
+.monitorPage{margin-top:12px;display:grid;gap:10px}
+.monitorTop{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 17px;border:1px solid #dce7f3;border-radius:15px;background:linear-gradient(135deg,#f8fbff 0%,#fff 58%,#f2f8ff 100%);box-shadow:0 8px 24px rgba(39,76,118,.05)}
+.monitorTop>div:first-child{display:flex;align-items:center;gap:11px}
+.monitorBadge{width:42px;height:42px;display:grid;place-items:center;border-radius:12px;background:#1769e8;color:#fff;box-shadow:0 7px 18px rgba(23,105,232,.2)}
+.monitorBadge svg{width:21px;height:21px}
+.monitorTop h2{margin:0;color:#173967;font-size:17px;letter-spacing:-.01em}
+.monitorTop p{margin:3px 0 0;color:#71839a;font-size:9px}
+.monitorTopActions{display:flex;align-items:center;gap:7px}
+.monitorTopActions button{height:38px;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:0 12px;border:1px solid #d4e1ef;border-radius:9px;background:#fff;color:#285b94;font-size:9px;font-weight:850;cursor:pointer}
+.monitorTopActions button:disabled{opacity:.55;cursor:wait}
+.monitorTopActions button svg{width:15px;height:15px}
+.monitorSettingsBtn{background:#173b70!important;border-color:#173b70!important;color:#fff!important}
+
+.monitorSettings{display:grid;grid-template-columns:minmax(200px,.75fr) minmax(0,1.5fr);gap:14px;padding:14px 15px;border:1px solid #cbdcf0;border-radius:13px;background:#f7fbff}
+.monitorSettings b{display:block;color:#173967;font-size:11px}
+.monitorSettings small{display:block;margin-top:4px;color:#75869b;font-size:8px;line-height:1.45}
+.monitorChecks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+.monitorChecks label{min-height:36px;display:flex;align-items:center;gap:7px;padding:8px 9px;border:1px solid #dce6f1;border-radius:9px;background:#fff;color:#46617e;font-size:8px;font-weight:800;cursor:pointer}
+.monitorChecks input{accent-color:#1769e8}
+
+.monitorStatus{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.monitorStatus>span{padding:11px 13px;border:1px solid #e0e8f1;border-radius:11px;background:#fff;color:#687c94;font-size:9px}
+.monitorStatus b{display:block;margin-bottom:3px;color:#203f69;font-size:8px;text-transform:uppercase;letter-spacing:.03em}
+.monitorError,.monitorLoading{padding:11px 12px;border-radius:10px;font-size:9px}
+.monitorError{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid #f0caca;background:#fff5f5;color:#a34444}
+.monitorError button{border:1px solid #e6b7b7;border-radius:7px;background:#fff;color:#a34444;padding:6px 9px;font-size:8px;font-weight:800;cursor:pointer}
+.monitorLoading{border:1px dashed #d7e2ee;background:#fbfdff;color:#72859d}
+
+.monitorCard{border:1px solid #dce6f1;border-radius:13px;background:#fff;overflow:hidden}
+.monitorCard>summary{display:grid;grid-template-columns:36px minmax(0,1fr) 20px;gap:10px;align-items:center;padding:13px 14px;cursor:pointer;list-style:none}
+.monitorCard>summary::-webkit-details-marker{display:none}
+.monitorCard>summary>span{width:36px;height:36px;display:grid;place-items:center;border-radius:10px;background:#edf5ff;color:#1764c8}
+.monitorCard>summary svg{width:17px;height:17px}
+.monitorCard>summary b{display:block;color:#203f69;font-size:11px}
+.monitorCard>summary small{display:block;margin-top:2px;color:#77889d;font-size:8px}
+.monitorCard>summary>i{font-style:normal;color:#71839a;font-size:17px;transition:transform .2s}
+.monitorCard[open]>summary>i{transform:rotate(180deg)}
+.monitorCardBody{padding:0 14px 14px}
+
+.monitorCharts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.monitorChart{min-width:0;padding:13px;border:1px solid #e0e8f2;border-radius:12px;background:#fbfdff}
+.monitorChart>div:first-child{display:flex;align-items:center;gap:9px}
+.monitorChart>div:first-child>span{width:34px;height:34px;display:grid;place-items:center;border-radius:9px;background:#eaf3ff;color:#1769e8}
+.monitorChart>div:first-child>span svg{width:17px;height:17px}
+.monitorChart small{display:block;color:#71839a;font-size:8px;font-weight:800}
+.monitorChart b{display:block;margin-top:2px;color:#173967;font-size:24px;line-height:1.05}
+.monitorChart em{display:block;margin-top:3px;color:#8390a1;font-size:7px;font-style:normal}
+.monitorChart svg{display:block;width:100%;height:145px;margin-top:10px;overflow:visible}
+.monitorChart svg path{fill:none;stroke:#e4ebf3;stroke-width:1}
+.monitorChart svg polyline{fill:none;stroke:#1769e8;stroke-width:3;vector-effect:non-scaling-stroke;stroke-linecap:round;stroke-linejoin:round}
+.monitorChartEmpty{height:145px;display:grid;place-items:center;margin-top:10px;border-radius:9px;background:#f5f8fb;color:#8795a6;font-size:9px;text-align:center;padding:12px}
+
+.compareBars{display:grid;gap:9px}
+.compareBars>div{display:grid;grid-template-columns:minmax(180px,.45fr) minmax(0,1fr);align-items:center;gap:12px;padding:9px 10px;border:1px solid #e5ecf4;border-radius:10px;background:#fbfdff}
+.compareBars>div>div{display:flex;align-items:center;justify-content:space-between;gap:9px}
+.compareBars b{color:#24446e;font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.compareBars span{color:#58738f;font-size:8px;font-weight:800;white-space:nowrap}
+.compareBars i{height:9px;display:block;border-radius:999px;background:#e9eef5;overflow:hidden}
+.compareBars u{display:block;height:100%;min-width:2px;border-radius:999px;background:#1769e8;text-decoration:none}
+
+.monitorTableWrap{overflow:auto;border:1px solid #e3ebf3;border-radius:10px}
+.monitorTableWrap table{width:100%;border-collapse:collapse;min-width:620px}
+.monitorTableWrap th,.monitorTableWrap td{padding:9px 10px;border-bottom:1px solid #edf1f5;text-align:left;font-size:8px;color:#526c88;white-space:nowrap}
+.monitorTableWrap th{background:#f6f9fc;color:#294d78;font-weight:900}
+.monitorHistory{display:grid;gap:7px}
+.monitorHistory>div{display:grid;grid-template-columns:28px 1fr;gap:9px;align-items:center;padding:9px 10px;border:1px solid #e5ecf4;border-radius:9px;background:#fbfdff}
+.monitorHistory>div>span{width:24px;height:24px;display:grid;place-items:center;border-radius:50%;background:#e5f6ed;color:#138653;font-size:9px;font-weight:900}
+.monitorHistory b{display:block;color:#284b76;font-size:9px}
+.monitorHistory small{display:block;margin-top:2px;color:#75869a;font-size:8px}
+
+@media(max-width:900px){
+  .monitorChecks{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .monitorSettings{grid-template-columns:1fr}
+}
+@media(max-width:680px){
+  .monitorTop{align-items:flex-start;flex-direction:column;padding:14px}
+  .monitorTopActions{width:100%;display:grid;grid-template-columns:1fr 1fr}
+  .monitorTopActions button{width:100%;height:44px;font-size:11px}
+  .monitorStatus{grid-template-columns:1fr}
+  .monitorCharts{grid-template-columns:1fr}
+  .monitorChart b{font-size:28px}
+  .monitorChart svg,.monitorChartEmpty{height:170px}
+  .compareBars>div{grid-template-columns:1fr;gap:7px}
+  .monitorCard>summary{padding:12px}
+  .monitorCard>summary b{font-size:12px}
+  .monitorCard>summary small{font-size:9px}
+}
+@media(max-width:430px){
+  .monitorChecks{grid-template-columns:1fr}
+  .monitorTopActions{grid-template-columns:1fr}
+  .monitorTop h2{font-size:16px}
+}
