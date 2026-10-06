@@ -4,5 +4,11 @@
     "deploymentEnabled": {
       "dev": false
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/product-monitor",
+      "schedule": "0 11 * * *"
+    }
+  ]
 }
