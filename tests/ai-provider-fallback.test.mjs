@@ -17,8 +17,8 @@ test('Super Analise usa Gemini como primeira tentativa e Groq como fallback',()=
   assert.match(route,/api\.groq\.com\/openai\/v1\/chat\/completions/);
 });
 
-test('fallback Groq preserva analise visual em lotes de no maximo cinco imagens',()=>{
-  assert.match(route,/for\(let i=0;i<visualEntries\.length;i\+=5\)/);
+test('fallback Groq preserva analise visual em lotes de no maximo tres imagens',()=>{
+  assert.match(route,/for\(let i=0;i<visualEntries\.length;i\+=3\)/);
   assert.match(route,/response_format:\{type:'json_object'\}/);
   assert.match(route,/data:image\/jpeg|data:\$\{mime\};base64/);
 });
@@ -36,6 +36,8 @@ test('reanálise não revela provedores e reaproveita a rodada já criada no ret
   assert.match(reanalysis,/Gerando a nova Super Análise com I\.A\./);
   assert.match(reanalysis,/if\(createdId\)/);
   assert.match(reanalysis,/await finishAi\(createdId\)/);
+  assert.match(reanalysis,/Pular análise das imagens/);
+  assert.match(reanalysis,/skip_images:skipImages/);
   assert.doesNotMatch(reanalysis,/Gemini\/Groq/);
   assert.doesNotMatch(reanalysis,/Gemini falhou|Groq também falhou/);
 });
