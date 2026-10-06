@@ -144,7 +144,7 @@ async function analyzeWithGroq({key,model,row,visualEntries}){
   if(!key)throw providerError('groq','GROQ_API_KEY não está configurada.',503);
   const visualSummaries=[];
   const chunks=[];
-  for(let i=0;i<visualEntries.length;i+=5)chunks.push(visualEntries.slice(i,i+5));
+  for(let i=0;i<visualEntries.length;i+=3)chunks.push(visualEntries.slice(i,i+3));
 
   for(let i=0;i<chunks.length;i++){
     const content=[{type:'text',text:`Analise visualmente este lote ${i+1}/${chunks.length} de imagens de anúncios da Shopee Brasil. Compare somente o que é visível. Observe legibilidade em miniatura, hierarquia, clareza do produto, excesso de texto, benefícios, prova visual, consistência, diferenciação e possíveis pontos fortes. Retorne JSON com a chave "observacoes" contendo uma síntese objetiva por rótulo de imagem. Não invente características do produto.`}];
