@@ -161,6 +161,7 @@ async function analyzeWithGroq({key,model,row,visualEntries}){
 export async function POST(request){
   let body={};try{body=await request.json();}catch{return NextResponse.json({error:'JSON inválido.'},{status:400})}
   const reportId=String(body?.report_id||'').trim();if(!reportId)return NextResponse.json({error:'report_id obrigatório.'},{status:400});
+  const skipImages=body?.skip_images===true;
 
   const geminiKey=process.env.GEMINI_API_KEY||process.env.GOOGLE_GEMINI_API_KEY||process.env.GOOGLE_API_KEY;
   const groqKey=process.env.GROQ_API_KEY;
@@ -174,14 +175,17 @@ export async function POST(request){
   const p=safeObject(row.product_snapshot),comps=safeArray(row.competitors).slice(0,3);
   if(comps.length<1)return NextResponse.json({error:'A Super Análise precisa de pelo menos 1 concorrente coletado.'},{status:400});
 
-  const parts=[{text:promptFor(row)}];
+  const imageSkipNote=skipImages?'\n\nMODO SEM ANÁLISE VISUAL: o usuário optou por pular a análise das imagens. Não avalie qualidade visual, composição, legibilidade, hierarquia ou diferenciação das imagens. Em images.suggestion informe que a análise visual foi pulada nesta rodada e não invente conclusões visuais.':'';
+  const parts=[{text:`${promptFor(row)}${imageSkipNote}`}];
   const visualEntries=[];
   let visualImages=0;
-  visualImages+=await appendImageGroup(parts,'IMAGENS DO ANÚNCIO DO USUÁRIO — compare estas imagens com os concorrentes selecionados.',safeArray(p.imageUrls||p.image?.image_url_list),visualEntries);
-  for(let i=0;i<comps.length;i++){
-    const c=comps[i]||{};
-    const urls=safeArray(c.imageUrls||c.images||c.image?.image_url_list);
-    visualImages+=await appendImageGroup(parts,`IMAGENS DO CONCORRENTE ${i+1} — título: ${String(c.title||'não informado')} — vendidos: ${String(c.sold??'não informado')} — preço: ${String(c.price??'não informado')}`,urls.slice(0,2),visualEntries);
+  if(!skipImages){
+    visualImages+=await appendImageGroup(parts,'IMAGENS DO ANÚNCIO DO USUÁRIO — compare estas imagens com os concorrentes selecionados.',safeArray(p.imageUrls||p.image?.image_url_list),visualEntries);
+    for(let i=0;i<comps.length;i++){
+      const c=comps[i]||{};
+      const urls=safeArray(c.imageUrls||c.images||c.image?.image_url_list);
+      visualImages+=await appendImageGroup(parts,`IMAGENS DO CONCORRENTE ${i+1} — título: ${String(c.title||'não informado')} — vendidos: ${String(c.sold??'não informado')} — preço: ${String(c.price??'não informado')}`,urls.slice(0,2),visualEntries);
+    }
   }
 
   const geminiModel=process.env.GEMINI_MODEL||'gemini-3.6-flash';
@@ -211,7 +215,7 @@ export async function POST(request){
   if(!analysis)return NextResponse.json({error:fallbackReason||'Nenhum provedor conseguiu concluir a análise.'},{status:502});
   analysis=normalizedAnalysis(row,analysis);
 
-  const newReport={...safeObject(row.report),ai_analysis:analysis,ai_provider:provider,ai_model:model,ai_analyzed_at:new Date().toISOString(),visual_images_sent:visualImages,ai_fallback_from:fallbackFrom||null,ai_fallback_reason:fallbackReason||null};
+  const newReport={...safeObject(row.report),ai_analysis:analysis,ai_provider:provider,ai_model:model,ai_analyzed_at:new Date().toISOString(),visual_images_sent:visualImages,ai_images_skipped:skipImages,ai_fallback_from:fallbackFrom||null,ai_fallback_reason:fallbackReason||null};
   const newSuggestions={...safeObject(row.suggestions),title:analysis?.title?.suggestion||row.suggestions?.title||null,description:analysis?.description?.suggestion||row.suggestions?.description||null,ai:analysis};
   const {error:updateError}=await db.from('extension_analysis_reports').update({report:newReport,suggestions:newSuggestions}).eq('shop_id',shop.shop_id).eq('id',reportId);
   if(updateError)return NextResponse.json({error:updateError.message},{status:500});
