@@ -49,7 +49,7 @@ export default function ReanalysisRunner({report,shopId,taskId=''}) {
   const product=report?.product_snapshot||{};
   const title=product?.title||product?.item_name||`Produto ${itemId}`;
   const image=product?.imageUrl||product?.image_url||arr(product?.imageUrls)[0]||null;
-  const phaseIndex={preparing:1,product:1,competitors:2,saving:3,ai:4,done:5,error:0}[phase]||1;
+  const phaseIndex=phase==='error'&&createdId?4:({preparing:1,product:1,competitors:2,saving:3,ai:4,done:5,error:0}[phase]||1);
   const steps=useMemo(()=>[
     ['Atualizar anúncio',phaseIndex>1?'done':phaseIndex===1?'active':'wait'],
     ['Atualizar concorrentes',phaseIndex>2?'done':phaseIndex===2?'active':'wait'],
@@ -67,7 +67,13 @@ export default function ReanalysisRunner({report,shopId,taskId=''}) {
 
   async function finishAi(reportId,{skipImages=false}={}){
     setPhase('ai');setMessage(skipImages?'Gerando a nova Super Análise sem análise visual das imagens…':'Gerando a nova Super Análise com I.A. e comparando com a rodada anterior…');
-    await fetchJsonWithTimeout('/api/ai/super-analysis',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({report_id:reportId,skip_images:skipImages})},65000);
+    try{
+      await fetchJsonWithTimeout('/api/ai/super-analysis',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({report_id:reportId,skip_images:skipImages})},58000);
+    }catch(error){
+      if(skipImages)throw error;
+      setMessage('A análise visual não respondeu. Tentando concluir a reanálise com os dados do anúncio e dos concorrentes…');
+      await fetchJsonWithTimeout('/api/ai/super-analysis',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({report_id:reportId,skip_images:true})},58000);
+    }
     if(taskId){
       try{await fetchJsonWithTimeout('/api/tasks',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:taskId,action:'done'})},12000)}catch{}
     }
@@ -119,7 +125,9 @@ export default function ReanalysisRunner({report,shopId,taskId=''}) {
         metrics:{...(report?.metrics||{}),
           price:n(productSnapshot?.price??productSnapshot?.currentPrice)??report?.metrics?.price,
           sold:n(productSnapshot?.historicalSold??productSnapshot?.sold)??report?.metrics?.sold
-        }
+        },
+        frequency_days:10,
+        next_reanalysis_at:new Date(Date.now()+10*86400000).toISOString()
       };
       const saved=await fetchJsonWithTimeout('/api/extension-intelligence/reports',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)},30000);
       const reportId=String(saved?.report?.id||'');

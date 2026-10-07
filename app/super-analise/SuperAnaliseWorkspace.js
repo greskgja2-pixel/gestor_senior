@@ -13,12 +13,13 @@ export default async function SuperAnaliseWorkspace({shopId,params,store}){
   const requestedTab=String(params?.tab||'').trim();
   const reanalysisMode=String(params?.mode||'').trim()==='reanalysis';
   const taskId=String(params?.task_id||'').trim();
+  const insight=String(params?.insight||'').trim();
 
   // A lista da loja é a tela inicial da Super Análise. O fluxo/etapas só aparecem
   // depois que o usuário escolhe um anúncio e inicia uma nova Super Análise.
   if(!requestedReport&&!requestedItem){
     if(startUrl||startItem)return <WebAuditFlow initialUrl={startUrl}/>;
-    return <ProductsDashboard embedded superAnalysisLanding items={store.items} source={store.source} syncedAt={store.syncedAt} shopId={shopId} loadError={store.loadError}/>;
+    return <ProductsDashboard embedded superAnalysisLanding insight={insight} items={store.items} source={store.source} syncedAt={store.syncedAt} shopId={shopId} loadError={store.loadError}/>;
   }
 
   const db=supabaseAdmin();
