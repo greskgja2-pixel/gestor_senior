@@ -362,7 +362,7 @@
 .productInfo b{font-size:14px;line-height:1.35}
 .productInfo small{font-size:11px}
 .metric small{font-size:11px}
-.metric b{font-size:13px}
+.metric b{font-size:13px;color:#1b2a41}
 .headerActions button{font-size:12px}
 .panelHead h2,.panel>h2,.competitorsVisual h2,.competitorCards h2{font-size:15px}
 .panelHead>span{font-size:11px}

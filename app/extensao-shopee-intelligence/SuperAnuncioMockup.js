@@ -7,6 +7,7 @@ import styles from './super-anuncio-mockup.module.css';
 import ReminderButton from '../components/ReminderButton';
 import SuperAnaliseInteligente from '../super-analise/SuperAnaliseInteligente';
 import {fetchJsonWithTimeout,classifyAsyncError} from '../lib/client-async';
+import {shopeeMarginCalc} from '../../lib/business-metrics';
 
 const n=v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v))?null:Number(v);
 const arr=v=>Array.isArray(v)?v:[];
@@ -517,7 +518,9 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
   const r=item.latest||{},prev=item.previous||{},p=r.product_snapshot||{},f=r.finance_snapshot||{},ai=r.report?.ai_analysis||{};
   const price=n(metric(r,'price')??p.price??p.currentPrice);
   const cost=n(f.productCost??p.referenceCost);
-  const margin=n(f.marginPct);
+  // Margem sempre pela mesma conta da Super Análise (20% + R$ 4,50); o marginPct salvo no snapshot pode estar
+  // desatualizado (ex.: rodada de 25/09 com taxa fixa de R$ 4,00) e só serve de reserva se faltar preço/custo.
+  const margin=n(shopeeMarginCalc(price,cost)?.marginPct)??n(f.marginPct);
   const sold=n(metric(r,'sold')??p.sold);
   const rating=n(p.rating??metric(r,'rating'));
   const reviews=n(p.reviewCount??p.ratingCount??metric(r,'reviewCount'));
@@ -534,7 +537,7 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
   const liveCampaign=liveAds.campaign;
   const adsContext=historicalAds||liveCampaign||(liveAds.phase==='error'||liveAds.phase==='timeout'?{collectionError:liveAds.error}:liveAds.phase==='empty'?{collectionStatus:'success'}:null);
   const pickAds=(historyKey,liveKey=historyKey)=>metric(r,historyKey)??liveCampaign?.[liveKey]??null;
-  const ads=[['ROAS atual',dataText(pickAds('roas'),num,adsContext)],['ROAS alvo',dataText(pickAds('targetRoas'),num,adsContext)],['Gasto Ads',dataText(pickAds('spend'),money,adsContext)],['GMV',dataText(pickAds('gmv'),money,adsContext)],['Custo por venda',dataText(metric(r,'cpa')??liveCampaign?.costPerOrder??(n(metric(r,'sales'))?n(metric(r,'spend'))/n(metric(r,'sales')):null),money,adsContext)],['CTR',dataText(pickAds('ctr'),pct,adsContext)]];
+  const ads=[['ROAS atual',dataText(pickAds('roas'),num,adsContext)],['ROAS alvo',dataText(pickAds('targetRoas'),num,adsContext)],['Gasto Ads',dataText(pickAds('spend'),money,adsContext)],['GMV Ads',dataText(pickAds('gmv'),money,adsContext)],['Custo por venda',dataText(metric(r,'cpa')??liveCampaign?.costPerOrder??(n(metric(r,'sales'))?n(metric(r,'spend'))/n(metric(r,'sales')):null),money,adsContext)],['CTR',dataText(pickAds('ctr'),pct,adsContext)]];
   const roasNow=n(pickAds('roas')),roasTarget=n(pickAds('targetRoas'));
   const verdict=chainVerdict({cost,margin,roas:roasNow});
   const chainSteps=[
@@ -561,7 +564,7 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
     ['ROAS atual',dataText(pickAds('roas'),num,adsContext)],
     ['ROAS alvo',dataText(pickAds('targetRoas'),num,adsContext)],
     ['Vendas',dataText(sold,v=>Number(v).toLocaleString('pt-BR'),p)],
-    ['GMV',dataText(pickAds('gmv'),money,adsContext)],
+    ['GMV Ads',dataText(pickAds('gmv'),money,adsContext)],
     ['Custo por venda',dataText(metric(r,'cpa')??liveCampaign?.costPerOrder??(n(metric(r,'sales'))?n(metric(r,'spend'))/n(metric(r,'sales')):null),money,adsContext)]
   ];
   const areaMeta={
@@ -835,9 +838,10 @@ function CompetitorsPanel({competitors,collectedAt,onZoom}){
   </section>;
 }
 
-function HistoryMiniChart({title,values=[],format=v=>String(v),tone='blue'}){
+function HistoryMiniChart({title,values=[],format=v=>String(v),tone='blue',minPoints=2}){
   const clean=values.map((v,i)=>({v:n(v),i})).filter(x=>x.v!=null);
-  if(clean.length<2)return <article className={styles.historyChartCard}><div><b>{title}</b><small>São necessárias pelo menos 2 rodadas.</small></div><div className={styles.historyChartEmpty}>Sem histórico suficiente</div></article>;
+  // minPoints: o gráfico de "Vendas desde a análise anterior" usa diferenças entre rodadas; com 2 rodadas só há 1 ponto.
+  if(clean.length<2)return <article className={styles.historyChartCard}><div><b>{title}</b><small>{minPoints>2?`São necessárias pelo menos ${minPoints} rodadas.`:'São necessárias pelo menos 2 rodadas.'}</small></div><div className={styles.historyChartEmpty}>Sem histórico suficiente</div></article>;
   const vals=clean.map(x=>x.v),min=Math.min(...vals),max=Math.max(...vals),span=max-min||1;
   const points=clean.map((x,idx)=>`${clean.length===1?50:(idx/(clean.length-1))*100},${82-((x.v-min)/span)*64}`).join(' ');
   const first=clean[0].v,last=clean[clean.length-1].v;
@@ -854,7 +858,7 @@ function HistoryPanel({history=[]}){
     <div className={styles.historyCharts}>
       <HistoryMiniChart title="Nota da Super Análise" values={scores} format={v=>Math.round(v)+'/100'} tone="blue"/>
       <HistoryMiniChart title="Vendas acumuladas" values={sold} format={v=>Math.round(v).toLocaleString('pt-BR')} tone="green"/>
-      <HistoryMiniChart title="Vendas desde a análise anterior" values={periodSold} format={v=>Math.round(v).toLocaleString('pt-BR')} tone="purple"/>
+      <HistoryMiniChart title="Vendas desde a análise anterior" values={periodSold} format={v=>Math.round(v).toLocaleString('pt-BR')} tone="purple" minPoints={3}/>
       <HistoryMiniChart title="Preço" values={prices} format={money} tone="orange"/>
     </div>
     <div className={styles.history}>{history.map((r,i)=><article key={r.id||i}><div><b>{when(r.analyzed_at)}</b><small>Relatório {r.id||'—'} · {r.source==='gestor-reanalysis'?'Reanálise':'Análise'}</small></div><Gauge score={r.score} label={i===0?'Atual':`Rodada ${history.length-i}`}/><span>{money(metric(r,'price')??r.product_snapshot?.price)}</span></article>)}</div>
