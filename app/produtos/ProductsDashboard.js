@@ -138,7 +138,13 @@ function ProductEditorModal({item,onClose,onSaved}){
   </div>
 }
 
-export default function ProductsDashboard({items=[],source='cache',syncedAt=null,shopId=null,loadError=null,embedded=false,superAnalysisLanding=false}){
+const INSIGHT_COPY={
+  'top-sales':['Mais vendidos nos últimos 7 dias','Anúncios com vendas reais no período, ordenados da maior para a menor quantidade.'],
+  'lost-sales':['Anúncios que perderam vendas','Comparação dos últimos 7 dias com os 7 dias anteriores.'],
+  'zero-sales':['Anúncios sem vendas nos últimos 7 dias','Anúncios ativos sem vendas registradas no período.']
+};
+
+export default function ProductsDashboard({items=[],source='cache',syncedAt=null,shopId=null,loadError=null,embedded=false,superAnalysisLanding=false,insight=''}){
   const router=useRouter();
   const [rows,setRows]=useState(items);
   const [query,setQuery]=useState('');
@@ -177,13 +183,18 @@ export default function ProductsDashboard({items=[],source='cache',syncedAt=null
 
   const filtered=useMemo(()=>{
     const q=query.trim().toLowerCase();
-    const list=rows.filter(x=>{
+    let insightRows=rows;
+    if(insight==='top-sales')insightRows=rows.filter(x=>Number(x.salesCurrent7d)>0).sort((a,b)=>Number(b.salesCurrent7d)-Number(a.salesCurrent7d));
+    if(insight==='lost-sales')insightRows=rows.filter(x=>Number(x.salesPrevious7d)>0&&Number(x.salesCurrent7d)<Number(x.salesPrevious7d)).sort((a,b)=>(Number(b.salesPrevious7d)-Number(b.salesCurrent7d))-(Number(a.salesPrevious7d)-Number(a.salesCurrent7d)));
+    if(insight==='zero-sales')insightRows=rows.filter(x=>x.salesCurrent7d!=null&&['NORMAL','LIVE','ACTIVE'].includes(String(x.status||'').toUpperCase())&&Number(x.salesCurrent7d)===0);
+    const list=insightRows.filter(x=>{
       const matchesQuery=!q||String(x.title||'').toLowerCase().includes(q)||String(x.itemId||'').includes(q)||String(x.status||'').toLowerCase().includes(q);
       const matchesStatus=statusFilter==='all'||String(x.status||'').toUpperCase()===statusFilter;
       return matchesQuery&&matchesStatus;
     });
+    if(INSIGHT_COPY[insight]&&!query&&statusFilter==='all'&&sortKey==='title'&&sortDir==='asc')return list;
     return [...list].sort((a,b)=>compareRows(a,b,sortKey,sortDir));
-  },[rows,query,statusFilter,sortKey,sortDir,offers,fees]);
+  },[rows,query,statusFilter,sortKey,sortDir,offers,fees,insight]);
 
   const totalPages=Math.max(1,Math.ceil(filtered.length/pageSize)),currentPage=Math.min(page,totalPages),start=(currentPage-1)*pageSize,visible=filtered.slice(start,start+pageSize);
   useEffect(()=>{setPage(1);},[query,statusFilter,pageSize,sortKey,sortDir]);
@@ -312,6 +323,7 @@ export default function ProductsDashboard({items=[],source='cache',syncedAt=null
     <main className={embedded?styles.embeddedPage:shell.page}>
       {!embedded&&<header className={shell.top}><div className={shell.brand}><div className={shell.logo}>▱</div><div><h1>Produtos</h1><p>Escolha o anúncio que seguirá para a Super Análise guiada</p></div></div></header>}
       {embedded&&superAnalysisLanding&&<header className={styles.superAnalysisLandingHeader}><div><span>✦</span><div><h1>Super Análise</h1><p>Fluxo guiado no Gestor; o Motor Sênior apenas coleta e executa tarefas na Shopee.</p></div></div></header>}
+      {INSIGHT_COPY[insight]&&<section className={styles.insightBanner}><div><b>{INSIGHT_COPY[insight][0]}</b><span>{INSIGHT_COPY[insight][1]}</span></div><a href="/super-analise">Limpar filtro</a></section>}
 
       <section className={styles.funnelInfoBanner}>
         <span>i</span>
@@ -355,7 +367,7 @@ export default function ProductsDashboard({items=[],source='cache',syncedAt=null
         </tr></thead><tbody>{visible.map(item=>{
           const offer=offerFor(item),full=decimal(offer?.full_price??item.fullPrice??item.price),final=finalPriceFor(item),margin=marginFor(item),fStatus=funnelStatus(item);
           return <tr key={item.itemId}>
-            <td><div className={styles.product}><div className={styles.thumb}>{item.image?<img src={item.image} alt=""/>:<span>▱</span>}</div><div className={styles.productInfo}><b title={item.title}>{item.title}</b><small>ID {item.itemId}{item.hasModel?' · com variações':''}</small></div></div></td>
+            <td><div className={styles.product}><div className={styles.thumb}>{item.image?<img src={item.image} alt=""/>:<span>▱</span>}</div><div className={styles.productInfo}><b title={item.title}>{item.title}</b><small>ID {item.itemId}{item.hasModel?' · com variações':''}</small>{INSIGHT_COPY[insight]&&<small>7 dias: {item.salesCurrent7d??'—'} · 7 anteriores: {item.salesPrevious7d??'—'}</small>}</div></div></td>
             {columns.status&&<td><span className={`${styles.status} ${String(item.status).toUpperCase()==='NORMAL'?styles.statusOk:styles.statusWarn}`}>{statusLabel(item.status)}</span></td>}
             {columns.price&&<td><div className={styles.priceCell}><span><small>Cheio</small><b>{money(full)}</b></span><span data-offer={offer?'true':'false'}><small>Oferta</small><b>{offer?money(final):'—'}</b>{offer&&<em>{offer.discount_name}</em>}</span></div></td>}
             {columns.cost&&<td>{item.hasModel?<button className={styles.inlineEditButton} type="button" onClick={()=>setEditorItem(item)}><b>{item.variationCostCount?item.variationCostMin===item.variationCostMax?money(item.variationCostMin):`${money(item.variationCostMin)}–${money(item.variationCostMax)}`:'Cadastrar'}</b><small>Editar variações</small></button>:<div className={styles.inlineEditor}><input inputMode="decimal" value={draftValue(item,'cost')} onChange={e=>setDraftValue(item,'cost',decimalInput(e.target.value))} placeholder="R$ 0,00"/><button type="button" onClick={()=>saveSimple(item,'cost')} disabled={savingCell===item.itemId+':cost'}>{savingCell===item.itemId+':cost'?'…':'✓'}</button></div>}</td>}
