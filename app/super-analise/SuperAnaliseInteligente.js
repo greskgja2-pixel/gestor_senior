@@ -470,6 +470,14 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
   const activeIndex=TAB_KEYS.indexOf(tab);
   const firstPendingIndex=Math.max(0,TAB_KEYS.findIndex(k=>!completedTabs.includes(k)));
   const unlockedIndex=completedTabs.length===TAB_KEYS.length?TAB_KEYS.length-1:firstPendingIndex;
+  const compCategoryRows=competitors.map((c,i)=>({c,i,label:competitorCategory(c),id:competitorCategoryId(c)}));
+  const categoryCounts=compCategoryRows.reduce((m,x)=>{if(!x.label)return m;const k=String(x.label).trim();m.set(k,(m.get(k)||0)+1);return m},new Map());
+  const dominantCategory=[...categoryCounts.entries()].sort((a,b)=>b[1]-a[1])[0]||null;
+  const dominantRow=dominantCategory?compCategoryRows.find(x=>String(x.label).trim()===dominantCategory[0]):null;
+  const currentCategory=String(p.category||'').trim();
+  const categoryLeaf=value=>String(value||'').split(/>|\/|→/).map(x=>x.trim()).filter(Boolean).pop()?.toLowerCase()||'';
+  const categoryAligned=Boolean(dominantCategory&&currentCategory&&categoryLeaf(dominantCategory[0])===categoryLeaf(currentCategory));
+
   const tabSuggestion={
     title:String(draft.suggestionTitle||'').trim(),
     description:String(draft.suggestionDescription||'').trim(),
@@ -530,14 +538,6 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
   function removeImage(i){if(gallery.length<=1){setMessage('O anúncio precisa manter pelo menos uma imagem.');return}mutate(()=>setGallery(g=>g.filter((_,idx)=>idx!==i)))}
   function moveImage(i,dir){const j=i+dir;if(j<0||j>=gallery.length)return;mutate(()=>setGallery(g=>{const next=[...g];[next[i],next[j]]=[next[j],next[i]];return next}))}
   async function downloadImage(url,i){try{const r=await fetch(url);const b=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`imagem-${i+1}.jpg`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}catch{window.open(url,'_blank','noopener,noreferrer')}}
-
-  const compCategoryRows=competitors.map((c,i)=>({c,i,label:competitorCategory(c),id:competitorCategoryId(c)}));
-  const categoryCounts=compCategoryRows.reduce((m,x)=>{if(!x.label)return m;const k=String(x.label).trim();m.set(k,(m.get(k)||0)+1);return m},new Map());
-  const dominantCategory=[...categoryCounts.entries()].sort((a,b)=>b[1]-a[1])[0]||null;
-  const dominantRow=dominantCategory?compCategoryRows.find(x=>String(x.label).trim()===dominantCategory[0]):null;
-  const currentCategory=String(p.category||'').trim();
-  const categoryLeaf=value=>String(value||'').split(/>|\/|→/).map(x=>x.trim()).filter(Boolean).pop()?.toLowerCase()||'';
-  const categoryAligned=Boolean(dominantCategory&&currentCategory&&categoryLeaf(dominantCategory[0])===categoryLeaf(currentCategory));
 
   const liveVarMargins=costVariations.map(v=>currentMargin(v.price,n(costFieldValue(v.id)))).filter(x=>x!=null);
   const liveMargin=costVariations.length?(liveVarMargins.length===costVariations.length?Math.min(...liveVarMargins):null):currentMargin(draft.price,draft.cost);
