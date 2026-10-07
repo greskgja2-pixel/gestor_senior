@@ -1,7 +1,7 @@
 import {redirect} from 'next/navigation';
 import {getActiveShop} from '../../lib/shop';
 import {supabaseAdmin} from '../../lib/supabase';
-import SuperAnuncioMockup from './SuperAnuncioMockup';
+import SuperAnuncioClientOnly from './SuperAnuncioClientOnly';
 import IntelligenceSections from './IntelligenceSections';
 
 export const dynamic='force-dynamic';
@@ -28,5 +28,5 @@ export default async function ExtensionIntelligencePage({searchParams}){
   const initialSection=String(params?.section||'super-anuncio').trim();
   const sectionTab={concorrentes:'competitors','shopee-ads':'ads',reanalises:'history'}[initialSection]||String(params?.tab||'overview').trim();
   if(initialSection!=='super-anuncio')return <IntelligenceSections items={items} section={initialSection}/>;
-  return <SuperAnuncioMockup items={items} shopName={shop.shop_name||''} initialItemId={initialItemId} initialTab={sectionTab} initialSection={initialSection}/>;
+  return <SuperAnuncioClientOnly items={items} shopName={shop.shop_name||''} initialItemId={initialItemId} initialTab={sectionTab} initialSection={initialSection}/>;
 }
