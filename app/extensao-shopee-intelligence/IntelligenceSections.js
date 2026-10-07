@@ -1066,7 +1066,17 @@ function Ads(){
 }
 
 function Reanalises({items}){
-  const rows=items.map(item=>{const s=item.schedule||{};const next=s.next_run_at||item.latest?.next_reanalysis_at;const ts=next?new Date(next).getTime():null;return{...item,next,due:Number.isFinite(ts)&&ts<=Date.now(),title:item.latest?.product_snapshot?.title||item.latest?.product_snapshot?.item_name||s.title||`Produto ${item.itemId}`}}).sort((a,b)=>(b.due?1:0)-(a.due?1:0)||new Date(a.next||8640000000000000)-new Date(b.next||8640000000000000));
+  const rows=items.map(item=>{
+    const s=item.schedule||{},analyzedTs=new Date(item.latest?.analyzed_at||0).getTime();
+    let next=s.next_run_at||item.latest?.next_reanalysis_at;
+    let nextTs=next?new Date(next).getTime():null;
+    if(Number.isFinite(analyzedTs)&&(!Number.isFinite(nextTs)||nextTs<=analyzedTs)){
+      const frequency=Math.min(90,Math.max(1,Number(s.frequency_days||10)||10));
+      nextTs=analyzedTs+frequency*86400000;
+      next=new Date(nextTs).toISOString();
+    }
+    return{...item,next,due:Number.isFinite(nextTs)&&nextTs<=Date.now(),title:item.latest?.product_snapshot?.title||item.latest?.product_snapshot?.item_name||s.title||`Produto ${item.itemId}`};
+  }).sort((a,b)=>(b.due?1:0)-(a.due?1:0)||new Date(a.next||8640000000000000)-new Date(b.next||8640000000000000));
   if(!rows.length)return <Empty text="Nenhum anúncio possui histórico de análise ainda."/>;
   return <section className={styles.panel}><div className={styles.tableWrap}><table><thead><tr><th>Anúncio</th><th>Última análise</th><th>Próxima reanálise</th><th>Status</th><th>Ação</th></tr></thead><tbody>{rows.map(r=><tr key={r.itemId}><td><b>{r.title}</b><small>Produto {r.itemId}</small></td><td>{when(r.latest?.analyzed_at)}</td><td>{when(r.next)}</td><td><span className={r.due?styles.due:styles.live}>{r.due?'Vencida':'Agendada'}</span></td><td><div className={styles.rowActions}><Link className={styles.linkButton} href={`/super-analise?item_id=${r.itemId}&mode=reanalysis`}>{r.due?'Reanalisar agora':'Abrir análise'}</Link><ReminderButton itemId={r.itemId} taskType="reanalysis" priority={r.due?'urgent':'medium'} title="Refazer Super Análise" description={`Refazer a Super Análise de ${r.title}.`} actionUrl={`/super-analise?item_id=${r.itemId}&mode=reanalysis`} label="🔔"/></div></td></tr>)}</tbody></table></div></section>
 }
