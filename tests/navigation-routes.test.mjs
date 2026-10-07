@@ -456,6 +456,32 @@ test('Reanalisar cria uma nova rodada de Super Análise sem apagar o histórico 
   assert.match(products,/router\.push\(`\/super-analise\?\$\{q\.toString\(\)\}`\)/);
 });
 
+test('atalhos de monitoramento preservam o insight e filtram com vendas reais de 14 dias',()=>{
+  const redirect=read('app/produtos/page.js');
+  const page=read('app/super-analise/page.js');
+  const workspace=read('app/super-analise/SuperAnaliseWorkspace.js');
+  const products=read('app/produtos/ProductsDashboard.js');
+  assert.match(redirect,/INSIGHTS=new Set\(\['top-sales','lost-sales','zero-sales'\]\)/);
+  assert.match(redirect,/\/super-analise\?insight=/);
+  assert.match(page,/getOrders\(shop,\{days:14\}\)/);
+  assert.match(page,/salesCurrent7d/);
+  assert.match(page,/salesPrevious7d/);
+  assert.match(workspace,/insight=\{insight\}/);
+  assert.match(products,/insight==='lost-sales'/);
+  assert.match(products,/salesPrevious7d/);
+  assert.match(products,/7 dias:/);
+});
+
+test('reanálise renova agendamento e corrige datas anteriores à análise',()=>{
+  const runner=read('app/super-analise/ReanalysisRunner.js');
+  const reportsApi=read('app/api/extension-intelligence/reports/route.js');
+  const sections=read('app/extensao-shopee-intelligence/IntelligenceSections.js');
+  assert.match(runner,/next_reanalysis_at:new Date\(Date\.now\(\)\+10\*86400000\)/);
+  assert.match(reportsApi,/nextAt\.getTime\(\) <= analyzedAt\.getTime\(\)/);
+  assert.match(sections,/nextTs<=analyzedTs/);
+  assert.match(sections,/s\.frequency_days\|\|10/);
+});
+
 
 test('Integração v13 usa descontos do Motor com fallback oficial',()=>{
   const funnel=read('app/funil/page.js');
