@@ -41,3 +41,12 @@ test('reanálise não revela provedores e reaproveita a rodada já criada no ret
   assert.doesNotMatch(reanalysis,/Gemini\/Groq/);
   assert.doesNotMatch(reanalysis,/Gemini falhou|Groq também falhou/);
 });
+
+test('reanálise reduz o custo visual e conclui sem imagens quando a primeira chamada falha',()=>{
+  const reanalysis=read('app/super-analise/ReanalysisRunner.js');
+  assert.match(reanalysis,/if\(skipImages\)throw error/);
+  assert.match(reanalysis,/skip_images:true/);
+  assert.match(route,/Promise\.all\(groups\.map/);
+  assert.match(route,/AbortSignal\.timeout\(4000\)/);
+  assert.match(route,/AbortSignal\.timeout\(42000\)/);
+});
