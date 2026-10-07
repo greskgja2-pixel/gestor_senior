@@ -13,7 +13,7 @@ const cleanJson=text=>String(text||'').trim().replace(/^```(?:json)?\s*/i,'').re
 async function imagePart(url){
   try{
     if(!/^https?:\/\//i.test(String(url||'')))return null;
-    const r=await fetch(url,{cache:'no-store',signal:AbortSignal.timeout(9000)});
+    const r=await fetch(url,{cache:'no-store',signal:AbortSignal.timeout(4000)});
     if(!r.ok)return null;
     const type=(r.headers.get('content-type')||'image/jpeg').split(';')[0];
     if(!type.startsWith('image/'))return null;
@@ -87,9 +87,10 @@ async function appendImageGroup(parts,label,urls,visualEntries){
   const list=safeArray(urls).filter(Boolean).slice(0,3);
   if(!list.length)return 0;
   parts.push({text:`\n${label}\n`});
+  const loaded=await Promise.all(list.map(imagePart));
   let count=0;
-  for(let i=0;i<list.length;i++){
-    const part=await imagePart(list[i]);
+  for(let i=0;i<loaded.length;i++){
+    const part=loaded[i];
     if(part){
       parts.push(part);
       visualEntries.push({label:`${label} — imagem ${i+1}`,inlineData:part.inlineData});
@@ -111,7 +112,7 @@ async function analyzeWithGemini({key,model,parts}){
   const endpoint=`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
   let response;
   try{
-    response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body:JSON.stringify({contents:[{role:'user',parts}],generationConfig:{responseMimeType:'application/json'}}),signal:AbortSignal.timeout(52000)});
+    response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body:JSON.stringify({contents:[{role:'user',parts}],generationConfig:{responseMimeType:'application/json'}}),signal:AbortSignal.timeout(42000)});
   }catch(e){throw providerError('gemini',`Falha chamando Gemini: ${String(e?.message||e)}`);}
   let raw={};try{raw=await response.json();}catch{}
   if(!response.ok)throw providerError('gemini',raw?.error?.message||`Gemini HTTP ${response.status}`,response.status);
@@ -122,7 +123,7 @@ async function analyzeWithGemini({key,model,parts}){
 async function groqChat({key,model,messages,maxTokens=3500}){
   let response;
   try{
-    response=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model,messages,temperature:0.2,max_completion_tokens:maxTokens,response_format:{type:'json_object'},stream:false}),signal:AbortSignal.timeout(22000)});
+    response=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model,messages,temperature:0.2,max_completion_tokens:maxTokens,response_format:{type:'json_object'},stream:false}),signal:AbortSignal.timeout(14000)});
   }catch(e){throw providerError('groq',`Falha chamando Groq: ${String(e?.message||e)}`);}
   let raw={};try{raw=await response.json();}catch{}
   if(!response.ok)throw providerError('groq',raw?.error?.message||`Groq HTTP ${response.status}`,response.status);
@@ -180,12 +181,13 @@ export async function POST(request){
   const visualEntries=[];
   let visualImages=0;
   if(!skipImages){
-    visualImages+=await appendImageGroup(parts,'IMAGENS DO ANÚNCIO DO USUÁRIO — compare estas imagens com os concorrentes selecionados.',safeArray(p.imageUrls||p.image?.image_url_list),visualEntries);
+    const groups=[['IMAGENS DO ANÚNCIO DO USUÁRIO — compare estas imagens com os concorrentes selecionados.',safeArray(p.imageUrls||p.image?.image_url_list)]];
     for(let i=0;i<comps.length;i++){
       const c=comps[i]||{};
-      const urls=safeArray(c.imageUrls||c.images||c.image?.image_url_list);
-      visualImages+=await appendImageGroup(parts,`IMAGENS DO CONCORRENTE ${i+1} — título: ${String(c.title||'não informado')} — vendidos: ${String(c.sold??'não informado')} — preço: ${String(c.price??'não informado')}`,urls.slice(0,2),visualEntries);
+      groups.push([`IMAGENS DO CONCORRENTE ${i+1} — título: ${String(c.title||'não informado')} — vendidos: ${String(c.sold??'não informado')} — preço: ${String(c.price??'não informado')}`,safeArray(c.imageUrls||c.images||c.image?.image_url_list).slice(0,2)]);
     }
+    const loaded=await Promise.all(groups.map(async([label,urls])=>{const groupParts=[],entries=[];const count=await appendImageGroup(groupParts,label,urls,entries);return{groupParts,entries,count}}));
+    for(const group of loaded){parts.push(...group.groupParts);visualEntries.push(...group.entries);visualImages+=group.count;}
   }
 
   const geminiModel=process.env.GEMINI_MODEL||'gemini-3.6-flash';
