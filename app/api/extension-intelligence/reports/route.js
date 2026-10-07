@@ -31,12 +31,14 @@ export async function POST(request) {
   const db = supabaseAdmin();
   try {
     if (!(await itemBelongsToShop(db, shop.shop_id, itemId))) return NextResponse.json({ error: "O item informado não pertence à loja conectada." }, { status: 403 });
-    const scoreRaw = body?.score ?? body?.report?.score, score = Number.isFinite(Number(scoreRaw)) ? Math.max(0, Math.min(100, Math.round(Number(scoreRaw)))) : null, analyzedAt = body?.analyzed_at ? new Date(body.analyzed_at) : new Date(), nextAt = body?.next_reanalysis_at ? new Date(body.next_reanalysis_at) : null;
+    const scoreRaw = body?.score ?? body?.report?.score, score = Number.isFinite(Number(scoreRaw)) ? Math.max(0, Math.min(100, Math.round(Number(scoreRaw)))) : null, analyzedAt = body?.analyzed_at ? new Date(body.analyzed_at) : new Date(), frequencyDays = Math.min(90, Math.max(1, Number(body?.frequency_days || 10) || 10));
+    let nextAt = body?.next_reanalysis_at ? new Date(body.next_reanalysis_at) : null;
     if (Number.isNaN(analyzedAt.getTime()) || (nextAt && Number.isNaN(nextAt.getTime()))) return NextResponse.json({ error: "Data de análise/reanálise inválida." }, { status: 400 });
+    if (nextAt && nextAt.getTime() <= analyzedAt.getTime()) nextAt = new Date(analyzedAt.getTime() + frequencyDays * 86400000);
     const row = { shop_id: shop.shop_id, item_id: itemId, analyzed_at: analyzedAt.toISOString(), next_reanalysis_at: nextAt ? nextAt.toISOString() : null, extension_version: safeText(body?.extension_version, 40), source: safeText(body?.source, 60) || "chrome-extension", objective: safeText(body?.objective, 120), situation: safeText(body?.situation, 120), bottleneck: safeText(body?.bottleneck, 180), score, product_snapshot: safeObject(body?.product_snapshot ?? body?.product), ads_snapshot: safeObject(body?.ads_snapshot ?? body?.ads), finance_snapshot: safeObject(body?.finance_snapshot ?? body?.finance), competitors: safeArray(body?.competitors).slice(0, 20), report: safeObject(body?.report), suggestions: safeObject(body?.suggestions), metrics: safeObject(body?.metrics) };
     const { data: inserted, error } = await db.from("extension_analysis_reports").insert(row).select("id,item_id,analyzed_at,next_reanalysis_at,score").single(); if (error) throw new Error(error.message);
     if (nextAt) {
-      const frequencyDays = Math.min(90, Math.max(1, Number(body?.frequency_days || 10) || 10)), mode = body?.mode === "automatic" ? "automatic" : "approve", product = row.product_snapshot || {};
+      const mode = body?.mode === "automatic" ? "automatic" : "approve", product = row.product_snapshot || {};
       const { error: scheduleError } = await db.from("extension_analysis_schedules").upsert({ shop_id: shop.shop_id, item_id: itemId, title: safeText(product.title ?? product.item_name, 300), product_url: safeText(product.url, 1000), enabled: true, frequency_days: frequencyDays, mode, next_run_at: nextAt.toISOString(), last_run_at: row.analyzed_at, last_report_id: inserted.id, settings: safeObject(body?.schedule_settings), updated_at: new Date().toISOString() }, { onConflict: "shop_id,item_id" });
       if (scheduleError) throw new Error(scheduleError.message);
     }
