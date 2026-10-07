@@ -30,13 +30,15 @@ function capturedCategory(c){
   const m=text.match(/CategoriaShopee(.+?)(?:Estoque|País de Origem|Envio de|Descrição do produto)/i);
   return m?.[1]?.trim()?.slice(0,180)||null;
 }
+// Number(null) === 0: valor ausente (null/''/undefined) nunca pode virar zero (regra de honestidade de dados).
+const numberOrNull=v=>v===null||v===undefined||v===''||typeof v==='boolean'||!Number.isFinite(Number(v))?null:Number(v);
 function capturedPrice(c){
-  const direct=Number(c?.price);if(Number.isFinite(direct)&&direct>0)return direct;
+  const direct=numberOrNull(c?.price);if(direct!=null&&direct>0)return direct;
   const m=String(c?.searchText||'').match(/R\$\s*\n?\s*([0-9.]+,[0-9]{2})/i);
   return m?Number(m[1].replace(/\./g,'').replace(',','.')):null;
 }
 function capturedSold(c){
-  const direct=Number(c?.sold);if(Number.isFinite(direct)&&direct>=0)return direct;
+  const direct=numberOrNull(c?.sold);if(direct!=null&&direct>=0)return direct;
   const m=String(c?.searchText||'').match(/([0-9]+(?:[.,][0-9]+)?)\s*(mil)?\+?\s*Vendido/i);
   if(!m)return null;const base=Number(m[1].replace(',','.'));return Number.isFinite(base)?Math.round(base*(m[2]?1000:1)):null;
 }

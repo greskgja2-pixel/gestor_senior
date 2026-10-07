@@ -4,9 +4,22 @@ import {useEffect,useMemo,useState} from 'react';
 import {useRouter} from 'next/navigation';
 import styles from './reanalysis-runner.module.css';
 import {fetchJsonWithTimeout,classifyAsyncError} from '../lib/client-async';
+import {shopeeMarginCalc} from '../../lib/business-metrics';
 
 const arr=v=>Array.isArray(v)?v:[];
 const n=v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v))?null:Number(v);
+
+// A nova rodada recalcula lucro/margem com o preço atualizado e a conta vigente do Gestor, em vez de copiar o
+// finance_snapshot da rodada anterior (que ficava desatualizado: margem 42,9% vs 41,1% na mesma tela).
+// Sem preço ou custo, mantém o snapshot anterior como está (nunca inventa valor).
+function refreshFinance(previous,product){
+  const base={...(previous||{})};
+  const calc=shopeeMarginCalc(product?.price??product?.currentPrice,base.productCost??product?.referenceCost);
+  if(!calc)return base;
+  const next={...base,productCost:calc.cost,profit:calc.profit,marginPct:calc.marginPct};
+  if('breakEvenRoas' in base)next.breakEvenRoas=calc.marginPct>0?100/calc.marginPct:null;
+  return next;
+}
 
 function Step({index,current,label,status}){
   const done=status==='done',active=status==='active';
@@ -109,6 +122,13 @@ export default function ReanalysisRunner({report,shopId,taskId=''}) {
       if(!competitors.length)throw new Error('A análise anterior não possui concorrentes vinculados para uma nova rodada confiável.');
 
       setPhase('saving');setMessage('Criando uma nova rodada no histórico deste anúncio…');
+      const financeSnapshot=refreshFinance(report?.finance_snapshot,productSnapshot);
+      const previousMetrics=report?.metrics||{};
+      // Só atualiza métricas de margem que a rodada anterior já tinha (não cria campos novos).
+      const refreshedMargin={
+        ...('marginPct' in previousMetrics&&financeSnapshot.marginPct!=null?{marginPct:financeSnapshot.marginPct}:{}),
+        ...('marginR' in previousMetrics&&financeSnapshot.profit!=null?{marginR:financeSnapshot.profit}:{})
+      };
       const body={
         item_id:Number(itemId),
         source:'gestor-reanalysis',
@@ -118,13 +138,14 @@ export default function ReanalysisRunner({report,shopId,taskId=''}) {
         score:report?.score,
         product_snapshot:productSnapshot,
         ads_snapshot:report?.ads_snapshot||{},
-        finance_snapshot:report?.finance_snapshot||{},
+        finance_snapshot:financeSnapshot,
         competitors,
         report:{...(report?.report||{}),reanalysis_of:report?.id||null,reanalysis_started_at:new Date().toISOString()},
         suggestions:{},
         metrics:{...(report?.metrics||{}),
           price:n(productSnapshot?.price??productSnapshot?.currentPrice)??report?.metrics?.price,
-          sold:n(productSnapshot?.historicalSold??productSnapshot?.sold)??report?.metrics?.sold
+          sold:n(productSnapshot?.historicalSold??productSnapshot?.sold)??report?.metrics?.sold,
+          ...refreshedMargin
         },
         frequency_days:10,
         next_reanalysis_at:new Date(Date.now()+10*86400000).toISOString()

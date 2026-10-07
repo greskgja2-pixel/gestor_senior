@@ -7,6 +7,7 @@ import {createPortal} from 'react-dom';
 import styles from './page.module.css';
 import {fetchJsonWithTimeout,classifyAsyncError} from '../lib/client-async';
 import ReminderButton from '../components/ReminderButton';
+import {shopeeMarginCalc} from '../../lib/business-metrics';
 
 const n=v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v))?null:Number(v);
 const decimal=v=>{if(v===null||v===undefined||v==='')return null;const raw=String(v).trim().replace(/\s/g,'');const normalized=raw.includes(',')?raw.replace(/\./g,'').replace(',','.'):raw;const value=Number(normalized);return Number.isFinite(value)?value:null};
@@ -41,6 +42,8 @@ const TABS=[
 const TAB_KEYS=TABS.map(([key])=>key);
 const SCORE_TERMS={title:['título','titulo'],description:['descrição','descricao'],images:['imagem'],video:['vídeo','video'],category:['categoria'],price:['preço','preco','concorr'],variations:['atributo','varia']};
 const TAB_LABEL={title:'Título',description:'Descrição',images:'Imagens',video:'Vídeo',category:'Categoria',price:'Preço',variations:'Atributos & Variações'};
+// Concordância de gênero/número no aviso de etapa concluída ("Descrição concluída", "Imagens concluídas"...).
+const stepDoneWord=key=>({description:'concluída',images:'concluídas',category:'concluída',variations:'concluídos'}[key]||'concluído');
 const TAB_MATCH={
   title:['titulo','título','seo'],
   description:['descricao','descrição','aida','copy'],
@@ -72,7 +75,6 @@ function Help({text}){return <span className={styles.help} title={text}>?</span>
 function Gauge({score,label}){const v=n(score);const p=Math.max(0,Math.min(100,v??0));return <div className={styles.gaugeWrap}><div className={styles.gauge} style={{'--g':`${p*1.8}deg`}}><b>{v==null?'—':Math.round(v)}</b><small>/100</small></div><span>{label}</span></div>}
 function dimScore(report,terms){const d=arr(report?.report?.dimensions).find(x=>terms.some(t=>String(x?.name||'').toLowerCase().includes(t)));if(!d)return null;const s=n(d.score),max=n(d.maxScore)||100;return s==null?null:Math.round(Math.max(0,Math.min(100,s/max*100)))}
 function scoreMap(report){return Object.fromEntries(Object.entries(SCORE_TERMS).map(([k,t])=>[k,dimScore(report,t)]))}
-function shopeeMarginCalc(price,cost){const p=n(price),c=n(cost);if(p==null||p<=0||c==null)return null;const commissionRate=.20,fixedFee=4.5,commission=p*commissionRate,profit=p-c-commission-fixedFee;return{price:p,cost:c,commissionRate,fixedFee,commission,profit,marginPct:(profit/p)*100}}
 function currentMargin(price,cost){return shopeeMarginCalc(price,cost)?.marginPct??null}
 function Metric({label,value,title}){return <div className={styles.metric} title={title||''}><small>{label}</small><b>{value}</b></div>}
 function competitorUrl(c){return c?.url||c?.productUrl||c?.product_url||(c?.shopId&&c?.itemId?`https://shopee.com.br/product/${c.shopId}/${c.itemId}`:c?.shop_id&&c?.item_id?`https://shopee.com.br/product/${c.shop_id}/${c.item_id}`:null)}
@@ -332,6 +334,9 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
   });
   const costFieldValue=id=>varCosts[id]!==undefined?varCosts[id]:(costVariations.find(x=>x.id===id)?.cost??'');
   const marginProof=marginCalc?`Preço ${money(marginCalc.price)} − 20% Shopee (${money(marginCalc.commission)}) − taxa fixa ${money(marginCalc.fixedFee)} − custo ${money(marginCalc.cost)} = lucro ${money(marginCalc.profit)} · margem ${pct(marginCalc.marginPct)}`:'Margem indisponível: preço ou custo não capturado.';
+  // Sem imagens analisadas pela I.A. (pulada por falha/timeout ou nenhuma imagem pôde ser enviada): nunca exibir
+  // "Imagens aprovadas" — regra de honestidade de dados do CLAUDE.md.
+  const visualSkipped=report?.report?.ai_images_skipped===true||n(report?.report?.visual_images_sent)===0;
   const overallBefore=n(report?.score);
   const overallSuggested=n(analysis?.afterScore);
   const overallAfter=overallSuggested==null?overallBefore:(overallBefore==null?overallSuggested:Math.max(overallBefore,overallSuggested));
@@ -343,13 +348,18 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
       const saved=JSON.parse(localStorage.getItem(storageKey)||'[]');
       const valid=arr(saved).filter(k=>allowedTabs.has(k));
       setCompletedTabs(valid);
-      const firstPending=TAB_KEYS.find(k=>!valid.includes(k))||TAB_KEYS[TAB_KEYS.length-1];
-      setTab(firstPending);
+      // No editor embutido (Super Anúncio) a aba é a que o usuário escolheu (initialTab). Só o fluxo guiado da
+      // Super Análise salta para a primeira etapa pendente; antes, o editor embutido ignorava Descrição/Mídia/
+      // Financeiro e ficava sempre preso na etapa pendente (Título).
+      if(!embedded){
+        const firstPending=TAB_KEYS.find(k=>!valid.includes(k))||TAB_KEYS[TAB_KEYS.length-1];
+        setTab(firstPending);
+      }
     }catch{
       setCompletedTabs([]);
-      setTab('title');
+      if(!embedded)setTab('title');
     }
-  },[report?.id,report?.item_id,allowedTabs]);
+  },[report?.id,report?.item_id,allowedTabs,embedded]);
 
   useEffect(()=>{
     const a=report?.report?.ai_analysis||null;
@@ -507,7 +517,7 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
     const nextKey=TAB_KEYS.find(k=>!next.includes(k));
     if(nextKey){
       setTab(nextKey);
-      setMessage(`${TAB_LABEL[tab]||tab} concluído. Próxima etapa: ${TAB_LABEL[nextKey]||nextKey}.`);
+      setMessage(`${TAB_LABEL[tab]||tab} ${stepDoneWord(tab)}. Próxima etapa: ${TAB_LABEL[nextKey]||nextKey}.`);
       requestAnimationFrame(()=>window.scrollTo({top:0,behavior:'smooth'}));
     }else{
       setMessage('Reanálise concluída. Todas as etapas foram revisadas.');
@@ -715,7 +725,7 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
           {tab==='title'&&<TextCompare title="Título" original={draft.title||''} suggestion={suggestionImproves?draft.suggestionTitle:''} onOriginal={v=>setField('title',v)} onSuggestion={v=>setField('suggestionTitle',v)} onApply={()=>applySuggestion('title',draft.suggestionTitle)} before={activeBefore} after={guardedAfter} blocked={!suggestionImproves} hasSuggestion={hasActiveSuggestion} allowCopy={embedded}/>}
           {tab==='description'&&<TextCompare title="Descrição" original={draft.description||''} suggestion={suggestionImproves?draft.suggestionDescription:''} onOriginal={v=>setField('description',v)} onSuggestion={v=>setField('suggestionDescription',v)} onApply={()=>applySuggestion('description',draft.suggestionDescription)} before={activeBefore} after={guardedAfter} multiline blocked={!suggestionImproves} hasSuggestion={hasActiveSuggestion} allowCopy={embedded}/>}
 
-          {tab==='images'&&<ImagesSection gallery={gallery} competitors={competitors} plan={suggestionImproves?draft.imagePlan:''} onPlan={v=>setField('imagePlan',v)} before={activeBefore} after={guardedAfter} blocked={!suggestionImproves} setZoomSrc={setZoomSrc} downloadImage={downloadImage} removeImage={removeImage} moveImage={moveImage} uploadRef={uploadRef} onUploadFiles={onUploadFiles}/>}
+          {tab==='images'&&<ImagesSection gallery={gallery} competitors={competitors} plan={suggestionImproves?draft.imagePlan:''} onPlan={v=>setField('imagePlan',v)} before={activeBefore} after={guardedAfter} blocked={!suggestionImproves} setZoomSrc={setZoomSrc} downloadImage={downloadImage} removeImage={removeImage} moveImage={moveImage} uploadRef={uploadRef} onUploadFiles={onUploadFiles} visualSkipped={visualSkipped}/>}
           {tab==='video'&&<PlanSection title="Vídeo" original={p.hasVideo?'O anúncio possui vídeo.':'O anúncio não possui vídeo.'} plan={suggestionImproves?draft.videoPlan:''} onPlan={v=>setField('videoPlan',v)} before={activeBefore} after={guardedAfter} blocked={!suggestionImproves}/>}
           {tab==='category'&&<CategoryComparison current={currentCategory||'—'} competitors={compCategoryRows} dominant={dominantCategory} aligned={categoryAligned} onApply={()=>{if(dominantRow?.id)mutate(()=>setChosenCategory(String(dominantRow.id)));else setMessage('A categoria predominante foi identificada, mas o ID oficial não foi coletado. Nenhuma alteração será enviada sem um ID real da Shopee.')}} selected={chosenCategory} setZoomSrc={setZoomSrc}/>}
           {tab==='price'&&<PriceSection costVariations={costVariations} costValue={costFieldValue} setVarCost={(id,v)=>setVarCosts(x=>({...x,[id]:v}))} costDirty={costDirty} costSaving={costSaving} costMsg={costMsg} onSaveCost={saveCost} price={draft.price} cost={draft.cost} setPrice={v=>setField('price',v)} setCost={v=>setField('cost',v)} margin={liveMargin} competitors={competitors} plan={suggestionImproves?draft.pricePlan:''} onPlan={v=>setField('pricePlan',v)} before={activeBefore} after={guardedAfter} blocked={!suggestionImproves} setZoomSrc={setZoomSrc} slots={slots} selectedSlots={selectedSlots} flashSelectedIds={flashSelectedIds} setFlashSelectedIds={setFlashSelectedIds} slotError={slotError} flash={flash} setFlash={setFlash} createFlash={prepareFlashCreation} flashBusy={flashBusy} flashMessage={flashMessage} flashDays={flashDays} setFlashDays={setFlashDays} flashInsight={flashInsight} reloadFlash={period=>loadFlashMeta(flashDays,period||flashPeriod)} useRecommendedSlot={useRecommendedSlot} flashPeriod={flashPeriod} setFlashPeriod={setFlashPeriod} setFlashPreset={setFlashPreset} models={effectiveFlashModels} variationDraft={flashVariationDraft} setVariationDraft={setFlashVariationDraft} applyFlashPriceToAll={applyFlashPriceToAll}/>}
@@ -736,7 +746,7 @@ function TextCompare({title,original,suggestion,onOriginal,onSuggestion,onApply,
     return <section className={styles.approvedStage}>
       <div className={styles.approvedIcon}><StepIcon name="check" size={24}/></div>
       <div className={styles.approvedCopy}>
-        <h2>{title} aprovado</h2>
+        <h2>{title} {title==='Descrição'?'aprovada':'aprovado'}</h2>
         <p>A análise não encontrou uma alteração necessária nesta etapa. O conteúdo atual pode ser preservado.</p>
         <details><summary>Ver {title.toLowerCase()} atual</summary><textarea rows={multiline?10:4} value={original} onChange={e=>onOriginal(e.target.value)}/></details>
       </div>
@@ -750,7 +760,7 @@ function TextCompare({title,original,suggestion,onOriginal,onSuggestion,onApply,
   </section>
 }
 
-function ImagesSection({gallery,competitors,plan,onPlan,before,after,blocked,setZoomSrc,downloadImage,removeImage,moveImage,uploadRef,onUploadFiles}){
+function ImagesSection({gallery,competitors,plan,onPlan,before,after,blocked,setZoomSrc,downloadImage,removeImage,moveImage,uploadRef,onUploadFiles,visualSkipped=false}){
   return <>
     <section className={styles.imageTopGrid}>
       <article className={styles.panel}>
@@ -764,7 +774,7 @@ function ImagesSection({gallery,competitors,plan,onPlan,before,after,blocked,set
         <div className={styles.galleryEdit}>{gallery.map((x,i)=><figure key={x.source==='uploaded'?x.image_id:`${x.index}-${x.url}`}><SmartImage urls={[x.url]} alt="" onZoom={setZoomSrc}/><figcaption>Imagem {i+1}</figcaption><div className={styles.imageActions}><button onClick={()=>moveImage(i,-1)} disabled={i===0}>←</button><button onClick={()=>moveImage(i,1)} disabled={i===gallery.length-1}>→</button><button onClick={()=>removeImage(i)}>Remover</button></div></figure>)}</div>
         <div className={styles.scoreFloat}><Gauge score={before} label="Atual"/></div>
       </article>
-      {String(plan||'').trim()&&!blocked?<article className={styles.panel}><div className={styles.panelHead}><h2>Recomendações visuais da IA</h2><span>Editável</span></div><textarea rows={10} value={plan} onChange={e=>onPlan(e.target.value)}/><div className={styles.applyLine}><Gauge score={after} label="Depois"/></div></article>:<article className={styles.compactApprovedCard}><div className={styles.approvedIcon}><StepIcon name="check" size={22}/></div><div><h2>Imagens aprovadas</h2><p>Nenhuma mudança visual necessária foi identificada.</p></div></article>}
+      {visualSkipped?<article className={styles.panel}><div className={styles.panelHead}><h2>Análise visual não realizada</h2></div><div className={styles.preserveBox}>Nesta rodada a I.A. não analisou as imagens (a análise visual não respondeu e foi pulada), então o Gestor não afirma que elas estão aprovadas. Refaça a reanálise para incluir a análise visual.</div></article>:String(plan||'').trim()&&!blocked?<article className={styles.panel}><div className={styles.panelHead}><h2>Recomendações visuais da IA</h2><span>Editável</span></div><textarea rows={10} value={plan} onChange={e=>onPlan(e.target.value)}/><div className={styles.applyLine}><Gauge score={after} label="Depois"/></div></article>:<article className={styles.compactApprovedCard}><div className={styles.approvedIcon}><StepIcon name="check" size={22}/></div><div><h2>Imagens aprovadas</h2><p>Nenhuma mudança visual necessária foi identificada.</p></div></article>}
     </section>
     <section className={styles.competitorsVisual}><h2>Comparação visual com os concorrentes</h2><div className={styles.competitorGrid}>{competitors.map((c,i)=><article key={i}><SmartImage urls={imageCandidates(c)} alt="" onZoom={setZoomSrc}/><div><small>Concorrente {i+1}</small>{competitorUrl(c)?<a href={competitorUrl(c)} target="_blank" rel="noreferrer">{c.title||`Concorrente ${i+1}`} ↗</a>:<b>{c.title||`Concorrente ${i+1}`}</b>}<span>Preço <strong>{money(parsedSearchPrice(c))}</strong></span><span>Vendidos <strong>{n(parsedSearchSold(c))?.toLocaleString('pt-BR')||missingStatus(c)}</strong></span></div></article>)}</div></section>
   </>

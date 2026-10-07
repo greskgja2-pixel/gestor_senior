@@ -662,3 +662,27 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 - O recolhimento usa `data-collapsed` + CSS, evitando desmontar o conteúdo e preservando estados internos.
 - Histórico passa a permanecer como quarto card, mesmo recolhido; o antigo botão de histórico no rodapé da pesquisa foi removido.
 - Assistente mantém seu controle próprio de mostrar/ocultar.
+
+### 2026-10-07 — Claude — Teste do fluxo de reanálise (Super Anúncio / Super Análise) e correções
+**Como foi testado:** produção no navegador (Kit Festa K-Pop, item 58205112334): Reanálises → "Reanalisar agora" → 4 etapas → histórico; depois Super Análise guiada (7 etapas) e abas do Super Anúncio. Nada foi aplicado na Shopee (só "preservar"); o custo foi editado na tela para testar o recálculo e restaurado sem salvar.
+**Branch:** `claude/reanalise-fluxo-fixes`. **Arquivos:** `lib/business-metrics.js`, `app/super-analise/{SuperAnaliseInteligente,ReanalysisRunner}.js`, `app/super-analise/page.module.css`, `app/extensao-shopee-intelligence/SuperAnuncioMockup.js`, `app/api/ai/super-analysis/route.js`, `tests/reanalysis-flow-fixes.test.mjs` (novo, no `prebuild`).
+
+**Falhas encontradas e causa-raiz:**
+1. Super Anúncio: abas Descrição/Mídia/Financeiro mudavam o cabeçalho mas o editor abaixo ficava sempre em "Título aprovado". Causa: o `useEffect` de progresso de `SuperAnaliseInteligente` fazia `setTab(primeira etapa pendente)` também no modo `embedded`, anulando `initialTab`. Agora só o fluxo não embutido salta para a etapa pendente.
+2. "Imagens aprovadas — nenhuma mudança visual necessária" aparecia mesmo quando a análise visual falhou (502) e a reanálise caiu para `skip_images:true`. Agora, com `report.ai_images_skipped===true` ou `visual_images_sent===0`, a tela diz "Análise visual não realizada".
+3. A IA afirmava que concorrentes tinham "0 vendas" (cards mostravam 262 e 833). Causa: `capturedSold` usava `Number(c.sold)`, e `Number(null)===0`. Agora usa `numberOrNull`. **Lição:** nunca `Number(x)` direto em campo que pode ser null.
+4. Margem 42,9% (Super Anúncio/texto da IA) × 41,1% (Super Análise). Causa: a reanálise copiava o `finance_snapshot` da rodada anterior (25/09, taxa fixa R$ 4,00) e o Super Anúncio lia `f.marginPct`. Agora há uma única `shopeeMarginCalc` em `lib/business-metrics.js` (20% + R$ 4,50) usada pelas três telas, e a reanálise recalcula lucro/margem com o preço atualizado.
+5. Cartão de métricas da Super Análise ilegível: fundo `#fff` com texto herdado quase branco do tema escuro. `.metric b` agora tem cor explícita.
+6. Rótulo "GMV" no Financeiro era o GMV de Ads (0 com ROAS 0), ao lado de "Vendas 43": renomeado para "GMV Ads".
+7. Gênero/número: "Descrição aprovado/concluído", "Imagens concluído", "Categoria concluído".
+8. Histórico: "Vendas desde a análise anterior" dizia "pelo menos 2 rodadas" tendo 2 (precisa de 3, pois usa diferenças).
+
+**Não alterado (decisão/pendência):**
+- `POST /api/ai/super-analysis` deu 502 na 1ª tentativa (com imagens) e a 2ª (sem imagens) funcionou: investigar logs/timeout do provedor visual. A nota da reanálise pode ter saído sem análise visual.
+- Etapa Preço: a IA devolveu "Preservar o preço atual" com nota 60→90 ("Depois"); o texto manda preservar mas a nota projeta +30. Considerar tratar sugestão "preservar" como sem sugestão.
+- `shopeeMarginCalc` usa taxa fixa única de R$ 4,50; a tela Produtos/Funil usa faixas por preço (<R$8, 80–99,99, 100–199,99, 200+). Para anúncios ≥ R$ 80 as margens podem divergir entre telas.
+- Erros de hidratação do React #425/#422 no console (provável texto/data diferente entre servidor e cliente); não localizados sem build de desenvolvimento.
+- `tests/competitor-radar-layout.test.mjs` teste 6 ("coleta de posição e ads continua integrada ao Motor Senior") já falhava na `main`; não está no `prebuild`.
+- "Avaliável para o futuro" (erro de digitação) vem do texto gerado pela IA, não do código.
+
+**Validação:** `npm run prebuild` 133/133; suíte completa 144/145 (a falha é a pré-existente acima); os testes novos falham no código antigo e passam no novo; sintaxe JSX com `tsc`. **`next build` NÃO foi rodado** (npm 403 no sandbox) — o build real fica com o GitHub Actions/Vercel. Não verificado em produção após o deploy.
