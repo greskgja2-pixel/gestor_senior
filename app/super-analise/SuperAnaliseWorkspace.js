@@ -1,5 +1,5 @@
 import {supabaseAdmin} from '../../lib/supabase';
-import SuperAnaliseInteligente from './SuperAnaliseInteligente';
+import SuperAnaliseClientOnly from './SuperAnaliseClientOnly';
 import WebAuditFlow from './WebAuditFlow';
 import AutoGeminiAnalysis from './AutoGeminiAnalysis';
 import ReanalysisRunner from './ReanalysisRunner';
@@ -33,5 +33,5 @@ export default async function SuperAnaliseWorkspace({shopId,params,store}){
   for(const r of reports||[]){const id=String(r.item_id);if(seen.has(id))continue;seen.add(id);products.push({itemId:id,reportId:r.id,title:r.product_snapshot?.title||r.product_snapshot?.item_name||`Produto ${id}`,score:r.score,analyzedAt:r.analyzed_at,imageUrl:r.product_snapshot?.imageUrl||r.product_snapshot?.image_url||r.product_snapshot?.imageUrls?.[0]||null});}
   if(reanalysisMode&&selected)return <ReanalysisRunner report={selected} shopId={shopId} taskId={taskId}/>;
   const needsGemini=Boolean(selected?.id&&!selected?.report?.ai_analysis);
-  return <>{needsGemini&&<AutoGeminiAnalysis reportId={selected.id} itemId={selected.item_id}/>}<SuperAnaliseInteligente report={selected} products={products} shopName="" initialTab={requestedTab}/></>;
+  return <>{needsGemini&&<AutoGeminiAnalysis reportId={selected.id} itemId={selected.item_id}/>}<SuperAnaliseClientOnly report={selected} products={products} shopName="" initialTab={requestedTab}/></>;
 }
