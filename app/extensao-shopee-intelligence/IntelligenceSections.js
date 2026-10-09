@@ -249,6 +249,12 @@ function VectorIcon({name,size=15,className=''}) {
   if(name==='trash')return <svg {...common}><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 14H6L5 6"/><path d="M10 11v5M14 11v5"/></svg>;
   if(name==='history')return <svg {...common}><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>;
   if(name==='store')return <svg {...common}><path d="M4 10v10h16V10"/><path d="M3 10 5 4h14l2 6"/><path d="M8 20v-6h8v6"/><path d="M3 10c0 2 3 2 3 0 0 2 3 2 3 0 0 2 3 2 3 0 0 2 3 2 3 0 0 2 3 2 3 0"/></svg>;
+  if(name==='bell')return <svg {...common}><path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9Z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>;
+  if(name==='users')return <svg {...common}><circle cx="9" cy="8" r="3.4"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.8a3.4 3.4 0 0 1 0 6.4"/><path d="M18 14.2a6.5 6.5 0 0 1 3.5 5.8"/></svg>;
+  if(name==='trend-down')return <svg {...common}><path d="M3 7l6 6 4-4 8 8"/><path d="M15 17h6v-6"/></svg>;
+  if(name==='trend-up')return <svg {...common}><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>;
+  if(name==='clock')return <svg {...common}><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/></svg>;
+  if(name==='bolt')return <svg {...common}><path d="M13 2 4 14h7l-1 8 9-12h-7Z"/></svg>;
   if(name==='chart')return <svg {...common}><path d="M4 19V9"/><path d="M10 19V5"/><path d="M16 19v-8"/><path d="M22 19V3"/></svg>;
   return <svg {...common}><circle cx="12" cy="12" r="9"/></svg>;
 }
@@ -864,6 +870,9 @@ function Competitors({items}){
   if(monitor.phase==='loading'&&!rows.length)return <Empty text="Carregando Radar de concorrentes…"/>;
   if(!rows.length&&monitor.phase!=='error')return <Empty text="Nenhum concorrente monitorado. Faça uma Super Análise e selecione de 1 a 3 concorrentes."/>;
   return <div className={styles.radarExact}>
+    <header className={styles.radarExactHero}>
+      <div><h2>Concorrentes</h2><p>Acompanhe preço, vendas e posição na busca dos concorrentes ligados aos seus anúncios.</p></div>
+    </header>
     <section className={styles.radarExactToolbar}>
       <label className={styles.radarExactSearch}><span><VectorIcon name="search" size={17}/></span><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar concorrente, anúncio ou ID..."/></label>
       <label><small>Status</small><select value={status} onChange={e=>setStatus(e.target.value)}><option value="all">Todos</option><option value="down">Queda de preço</option><option value="up">Alta de preço</option><option value="accelerating">Vendas acelerando</option><option value="due">Rechecagem vencida</option><option value="nodata">Sem dados</option></select></label>
@@ -871,16 +880,16 @@ function Competitors({items}){
       <label><small>Período</small><select value={period} onChange={e=>setPeriod(e.target.value)}><option value="7">Últimos 7 dias</option><option value="14">Últimos 14 dias</option><option value="30">Últimos 30 dias</option><option value="all">Todo histórico</option></select></label>
       <button type="button" className={styles.radarExactRefresh} onClick={recheckAll} disabled={bulkPhase==='loading'}><VectorIcon name="refresh" size={15}/>{bulkPhase==='loading'?'Rechecando…':'Atualizar / Rechecar agora'}</button>
       <button type="button" className={styles.radarExactIcon} aria-label="Ajuda">?</button>
-      <button type="button" className={styles.radarExactIcon} aria-label="Notificações">♟</button>
+      <button type="button" className={styles.radarExactIcon} aria-label="Notificações"><VectorIcon name="bell" size={17}/></button>
       <span className={styles.radarExactAvatar}>GS</span>
     </section>
 
     <section className={styles.radarExactKpis}>
-      <article data-tone="down"><span>↓</span><div><b>{counts.down}</b><strong>com queda de preço</strong><small>{counts.total?((counts.down/counts.total)*100).toFixed(1).replace('.',','):'0'}% do total</small></div></article>
-      <article data-tone="up"><span>↑</span><div><b>{counts.up}</b><strong>com alta de preço</strong><small>{counts.total?((counts.up/counts.total)*100).toFixed(1).replace('.',','):'0'}% do total</small></div></article>
-      <article data-tone="sales"><span>▥</span><div><b>{counts.accelerating}</b><strong>com vendas acelerando</strong><small>{counts.total?((counts.accelerating/counts.total)*100).toFixed(1).replace('.',','):'0'}% do total</small></div></article>
-      <article data-tone="due"><span>◷</span><div><b>{counts.due}</b><strong>rechecagens vencidas</strong><small>{counts.total?((counts.due/counts.total)*100).toFixed(1).replace('.',','):'0'}% do total</small></div></article>
-      <article data-tone="total"><span>♟</span><div><b>{counts.total}</b><strong>concorrentes monitorados</strong><small>100% do total</small></div></article>
+      <article data-tone="down"><span><VectorIcon name="trend-down" size={22}/></span><div><b>{counts.down}</b><strong>com queda de preço</strong><small>{counts.total?((counts.down/counts.total)*100).toFixed(1).replace('.',','):'0'}% do total</small></div></article>
+      <article data-tone="up"><span><VectorIcon name="trend-up" size={22}/></span><div><b>{counts.up}</b><strong>com alta de preço</strong><small>{counts.total?((counts.up/counts.total)*100).toFixed(1).replace('.',','):'0'}% do total</small></div></article>
+      <article data-tone="sales"><span><VectorIcon name="bolt" size={22}/></span><div><b>{counts.accelerating}</b><strong>com vendas acelerando</strong><small>{counts.total?((counts.accelerating/counts.total)*100).toFixed(1).replace('.',','):'0'}% do total</small></div></article>
+      <article data-tone="due"><span><VectorIcon name="clock" size={22}/></span><div><b>{counts.due}</b><strong>rechecagens vencidas</strong><small>{counts.total?((counts.due/counts.total)*100).toFixed(1).replace('.',','):'0'}% do total</small></div></article>
+      <article data-tone="total"><span><VectorIcon name="users" size={22}/></span><div><b>{counts.total}</b><strong>concorrentes monitorados</strong><small>100% do total</small></div></article>
     </section>
 
     {bulkPhase==='loading'&&<section className={styles.radarExactProgress}>
@@ -898,7 +907,7 @@ function Competitors({items}){
         <div className={styles.radarExactListHead}>
           <b>{filtered.length} concorrente{filtered.length===1?'':'s'} encontrado{filtered.length===1?'':'s'}</b>
           <div className={styles.radarExactListHeadActions}>
-            <button type="button" className={styles.radarCompareButton} disabled={!compareKeys.length} onClick={()=>setCompareOpen(v=>!v)}>▥ Comparar no gráfico {compareKeys.length?(`(${compareKeys.length})`):''}</button>
+            <button type="button" className={styles.radarCompareButton} disabled={!compareKeys.length} onClick={()=>setCompareOpen(v=>!v)}><VectorIcon name="chart" size={14}/> Comparar no gráfico {compareKeys.length?(`(${compareKeys.length})`):''}</button>
             <span><i data-tone="down"/> Queda de preço <i data-tone="up"/> Alta de preço <i data-tone="sales"/> Vendas acelerando <i data-tone="due"/> Rechecagem vencida</span>
           </div>
         </div>
@@ -950,7 +959,7 @@ function Competitors({items}){
             <section className={styles.radarExactIdentity}>
               <div className={styles.radarCompareThumbColumn}>
                 <div className={styles.radarExactThumb}><CompetitorThumb src={r.image} title={r.title}/></div>
-                <label className={styles.radarCompareSelect} title="Selecionar para comparar no gráfico"><input type="checkbox" checked={compareKeys.includes(r.key)} onChange={()=>toggleCompare(r)}/><span>Comparar no gráfico</span></label>
+                <label className={styles.radarCompareSelect} title="Selecionar para comparar no gráfico"><input type="checkbox" checked={compareKeys.includes(r.key)} onChange={()=>toggleCompare(r)}/><span>Comparar</span></label>
               </div>
               <div>
                 {r.link?<a className={styles.radarExactTitle} href={r.link} target="_blank" rel="noreferrer">{r.title}</a>:<b className={styles.radarExactTitle}>{r.title}</b>}
@@ -1011,9 +1020,9 @@ function Competitors({items}){
       </section>
 
       <aside className={styles.radarExactAside}>
-        <section className={styles.radarExactSideCard}><header><b>🔔 Alertas do radar competitivo</b><span>{alerts.length}</span></header><div className={styles.radarExactAlerts}>{alerts.length?alerts.slice(0,5).map(a=><article key={a.key}>{a.image?<img src={a.image} alt=""/>:<i>!</i>}<b>{a.text}</b><small>{a.at?relativeTime(a.at):'agora'}</small></article>):<p>Nenhuma mudança importante detectada.</p>}</div></section>
-        <section className={styles.radarExactSideCard}><header><b>ⓘ Distribuição dos concorrentes</b></header><div className={styles.radarExactDistribution}><div className={styles.radarExactDonut} style={{background:donut}}><span><b>{rows.length}</b><small>total</small></span></div><div>{[['down','com queda de preço',distribution.down],['up','com alta de preço',distribution.up],['sales','com vendas acelerando',distribution.accelerating],['due','rechecagem vencida',distribution.due],['stable','estáveis',distribution.stable]].map(([tone,label,value])=><p key={tone}><i data-tone={tone}/><span>{value} {label} ({rows.length?(value/rows.length*100).toFixed(1).replace('.',','):'0'}%)</span></p>)}</div></div></section>
-        <section className={styles.radarExactSideCard}><header><b>💡 Dicas e insights</b></header><div className={styles.radarExactInsight}><i>1</i><p>{counts.down>0?<><b>{counts.down} concorrente{counts.down===1?' reduziu':'s reduziram'} o preço.</b><span>Atenção a impactos na sua posição de busca.</span></>:<><b>Nenhum sinal urgente agora.</b><span>Continue acompanhando as próximas coletas.</span></>}</p></div></section>
+        <section className={styles.radarExactSideCard}><header><b><VectorIcon name="bell" size={15}/> Alertas do radar competitivo</b><span>{alerts.length}</span></header><div className={styles.radarExactAlerts}>{alerts.length?alerts.slice(0,5).map(a=><article key={a.key}>{a.image?<img src={a.image} alt=""/>:<i>!</i>}<b>{a.text}</b><small>{a.at?relativeTime(a.at):'agora'}</small></article>):<p>Nenhuma mudança importante detectada.</p>}</div></section>
+        <section className={styles.radarExactSideCard}><header><b><VectorIcon name="chart" size={15}/> Distribuição dos concorrentes</b></header><div className={styles.radarExactDistribution}><div className={styles.radarExactDonut} style={{background:donut}}><span><b>{rows.length}</b><small>total</small></span></div><div>{[['down','com queda de preço',distribution.down],['up','com alta de preço',distribution.up],['sales','com vendas acelerando',distribution.accelerating],['due','rechecagem vencida',distribution.due],['stable','estáveis',distribution.stable]].map(([tone,label,value])=><p key={tone}><i data-tone={tone}/><span>{value} {label} ({rows.length?(value/rows.length*100).toFixed(1).replace('.',','):'0'}%)</span></p>)}</div></div></section>
+        <section className={styles.radarExactSideCard}><header><b><VectorIcon name="bolt" size={15}/> Dicas e insights</b></header><div className={styles.radarExactInsight}><i>1</i><p>{counts.down>0?<><b>{counts.down} concorrente{counts.down===1?' reduziu':'s reduziram'} o preço.</b><span>Atenção a impactos na sua posição de busca.</span></>:<><b>Nenhum sinal urgente agora.</b><span>Continue acompanhando as próximas coletas.</span></>}</p></div></section>
       </aside>
     </div>
   </div>;

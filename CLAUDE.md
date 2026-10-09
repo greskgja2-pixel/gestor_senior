@@ -662,3 +662,11 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 - O recolhimento usa `data-collapsed` + CSS, evitando desmontar o conteúdo e preservando estados internos.
 - Histórico passa a permanecer como quarto card, mesmo recolhido; o antigo botão de histórico no rodapé da pesquisa foi removido.
 - Assistente mantém seu controle próprio de mostrar/ocultar.
+
+
+### 2026-10-09 — ChatGPT — Redesign visual da página Concorrentes (branch feature/concorrentes-redesign-20261009)
+- Arquivos: `app/extensao-shopee-intelligence/IntelligenceSections.js`, `app/extensao-shopee-intelligence/intelligence-sections.module.css`, `CLAUDE.md`.
+- Comparados os anexos com a main (base `2f0ca8d`); alteração visual de ícones, cabeçalho, rótulo Comparar, KPIs, cartões responsivos e coluna lateral, preservando handlers e lógica existente.
+- Validação preliminar: revisão textual de diferenças, marcadores `GS_RADAR_EXACT_MOCKUP_2026_09_24` e regra `radarExactVisibility>div` preservados.
+- Pendente nesta etapa: executar `node --test tests/competitor-radar-layout.test.mjs`, `npm run build` e QA visual/funcional em desktop, tablet e celular no preview Vercel. O teste legado de `collectSearchVisibility` já era conhecido como falho antes do redesign.
+- Sem alterações de API ou coleta. Nenhum token, cookie, SPC_CDS ou dado pessoal registrado.
