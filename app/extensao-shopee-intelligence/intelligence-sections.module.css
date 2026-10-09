@@ -276,3 +276,269 @@ a.radarExactTitle:hover{text-decoration:underline!important}
   .radarExactVisibility{border:1px solid #e3eaf2}.radarExactAside{grid-template-columns:1fr}
   .radarExactDetailGrid,.radarExactSearchDetails{grid-template-columns:1fr}
 }
+
+/* ==========================================================================
+   Radar de Concorrentes — redesign visual v2 (somente estilo; lógica intacta)
+   Fontes legíveis (>=11px), hierarquia clara, cards em duas linhas.
+   ========================================================================== */
+.radarExact{--rx-ink:#0f2744;--rx-text:#25405f;--rx-muted:#64788f;--rx-faint:#8a9bb0;--rx-line:#e2e9f2;--rx-surface:#fff;--rx-brand:#1169e8;--rx-brand-soft:#eaf2ff;--rx-green:#12a066;--rx-green-soft:#e6f7ef;--rx-red:#e5484d;--rx-red-soft:#fdecee;--rx-blue:#2f6fe4;--rx-blue-soft:#eaf1ff;--rx-amber:#e98a0c;--rx-amber-soft:#fff3df;--rx-shadow:0 1px 2px rgba(15,39,68,.05),0 6px 18px rgba(15,39,68,.05);
+  max-width:1560px;margin:0 auto;padding:26px 28px 56px;font-size:13px;color:var(--rx-text);
+  background:radial-gradient(1100px 340px at 8% -90px,#dfeaff 0,rgba(223,234,255,0) 72%),#f2f6fb}
+
+.radarExact .radarExactHero{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin:0 0 18px}
+.radarExact .radarExactHero h2{margin:0;font-size:26px;line-height:1.1;font-weight:850;letter-spacing:-.025em;color:var(--rx-ink)}
+.radarExact .radarExactHero p{margin:6px 0 0;max-width:640px;font-size:13.5px;line-height:1.45;color:var(--rx-muted)}
+
+/* Barra de filtros */
+.radarExact .radarExactToolbar{grid-template-columns:minmax(240px,1fr) 140px 190px 160px auto 38px 38px 38px;gap:12px;align-items:end;margin-bottom:16px;padding:14px;background:var(--rx-surface);border:1px solid var(--rx-line);border-radius:16px;box-shadow:var(--rx-shadow)}
+.radarExact .radarExactToolbar>label>small{font-size:11px;font-weight:750;letter-spacing:.02em;text-transform:uppercase;color:var(--rx-muted)}
+.radarExact .radarExactToolbar select,.radarExact .radarExactSearch,.radarExact .radarExactRefresh{height:44px;border:1px solid #d5e0ec;border-radius:11px;background:#f8fbfe;transition:border-color .15s,box-shadow .15s,background .15s}
+.radarExact .radarExactToolbar select{padding:0 12px;font-size:13px;font-weight:650;color:var(--rx-ink);cursor:pointer}
+.radarExact .radarExactToolbar select:hover,.radarExact .radarExactSearch:hover{border-color:#b5c9de}
+.radarExact .radarExactToolbar select:focus,.radarExact .radarExactSearch:focus-within{border-color:var(--rx-brand);background:#fff;box-shadow:0 0 0 4px rgba(17,105,232,.12)}
+.radarExact .radarExactSearch{gap:10px;padding:0 14px}
+.radarExact .radarExactSearch>span{display:grid;place-items:center;color:#6e87a3}
+.radarExact .radarExactSearch input{font-size:14px;color:var(--rx-ink)}
+.radarExact .radarExactSearch input::placeholder{color:#8fa2b8}
+.radarExact .radarExactRefresh{gap:8px;padding:0 20px;border:0;background:linear-gradient(180deg,#2a7cf0,#1169e8);font-size:13.5px;font-weight:750;white-space:nowrap;box-shadow:0 6px 14px rgba(17,105,232,.28)}
+.radarExact .radarExactRefresh:hover:not(:disabled){filter:brightness(1.06);transform:translateY(-1px)}
+.radarExact .radarExactIcon,.radarExact .radarExactAvatar{width:38px;height:38px;align-self:center}
+.radarExact .radarExactIcon{display:grid;place-items:center;border:1px solid var(--rx-line);background:#fff;color:#35557a;font-size:15px;font-weight:800;transition:background .15s,border-color .15s}
+.radarExact .radarExactIcon:hover{background:var(--rx-brand-soft);border-color:#b8d0f5}
+.radarExact .radarExactAvatar{background:linear-gradient(135deg,#3b2fc0,#1e1670);font-size:12px;font-weight:800;letter-spacing:.03em}
+
+/* KPIs */
+.radarExact .radarExactKpis{gap:14px;margin-bottom:18px}
+.radarExact .radarExactKpis article{position:relative;height:auto;min-height:98px;gap:14px;padding:16px 18px;overflow:hidden;border:1px solid var(--rx-line);border-radius:16px;box-shadow:var(--rx-shadow);transition:transform .18s,box-shadow .18s}
+.radarExact .radarExactKpis article:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(15,39,68,.05),0 12px 26px rgba(15,39,68,.09)}
+.radarExact .radarExactKpis article:before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:#c4d0de}
+.radarExact .radarExactKpis article>span{width:50px;height:50px;border-radius:14px}
+.radarExact .radarExactKpis article b{font-size:32px;line-height:1;font-weight:850;letter-spacing:-.03em;color:var(--rx-ink)}
+.radarExact .radarExactKpis article strong{margin-top:6px;font-size:13px;font-weight:700;line-height:1.25;color:var(--rx-text)}
+.radarExact .radarExactKpis article small{margin-top:3px;font-size:11.5px;color:var(--rx-faint)}
+.radarExact .radarExactKpis article[data-tone="down"]:before{background:var(--rx-green)}
+.radarExact .radarExactKpis article[data-tone="up"]:before{background:var(--rx-red)}
+.radarExact .radarExactKpis article[data-tone="sales"]:before{background:var(--rx-blue)}
+.radarExact .radarExactKpis article[data-tone="due"]:before{background:var(--rx-amber)}
+.radarExact .radarExactKpis article[data-tone="down"]>span{background:var(--rx-green-soft);color:var(--rx-green)}
+.radarExact .radarExactKpis article[data-tone="up"]>span{background:var(--rx-red-soft);color:var(--rx-red)}
+.radarExact .radarExactKpis article[data-tone="sales"]>span{background:var(--rx-blue-soft);color:var(--rx-blue)}
+.radarExact .radarExactKpis article[data-tone="due"]>span{background:var(--rx-amber-soft);color:var(--rx-amber)}
+.radarExact .radarExactKpis article[data-tone="total"]>span{background:#eceff6;color:#51658a}
+.radarExact .radarExactKpis article[data-tone="down"],.radarExact .radarExactKpis article[data-tone="up"],.radarExact .radarExactKpis article[data-tone="sales"],.radarExact .radarExactKpis article[data-tone="due"]{border-color:var(--rx-line)}
+
+/* Progresso da rechecagem */
+.radarExact .radarExactProgress{min-height:84px;padding:16px 20px;border-radius:16px;box-shadow:var(--rx-shadow)}
+.radarExact .radarExactProgressCopy b{font-size:15px}.radarExact .radarExactProgressCopy span{font-size:12.5px}
+.radarExact .radarExactProgress>strong{font-size:16px}.radarExact .radarExactProgress>small{font-size:12px}
+
+/* Colunas e cabeçalho da lista */
+.radarExact .radarExactColumns{grid-template-columns:minmax(0,1fr) 320px;gap:18px}
+.radarExact .radarExactListHead{height:auto;min-height:40px;margin-bottom:10px;flex-wrap:wrap}
+.radarExact .radarExactListHead>b{font-size:16px;font-weight:800;letter-spacing:-.01em;color:var(--rx-ink)}
+.radarExact .radarExactListHead>div{font-size:12px;color:var(--rx-muted)}
+.radarExact .radarExactListHeadActions{gap:16px!important;font-size:12px}
+.radarExact .radarExactListHeadActions>span{gap:6px;font-size:12px;font-weight:600;color:var(--rx-muted)}
+.radarExact .radarExactListHead i,.radarExact .radarExactDistribution i{width:9px;height:9px}
+.radarExact .radarExactListHeadActions>span i:not(:first-child){margin-left:8px}
+.radarExact .radarCompareButton{display:inline-flex;align-items:center;gap:7px;height:38px;padding:0 16px;border:1px solid #b9d0f3;border-radius:10px;background:#fff;font-size:13px;font-weight:750;color:var(--rx-brand);box-shadow:0 1px 2px rgba(15,39,68,.04);transition:background .15s,border-color .15s}
+.radarExact .radarCompareButton:hover:not(:disabled){background:var(--rx-brand-soft);border-color:#8db6ee}
+.radarExact .radarCompareButton:disabled{opacity:.5}
+.radarExact .radarExactList{gap:14px}
+
+/* Painel de comparação (gráfico) */
+.radarExact .radarComparePanel{margin:0 0 16px;padding:20px;border:1px solid var(--rx-line);border-radius:16px;box-shadow:var(--rx-shadow)}
+.radarExact .radarComparePanel>header b{font-size:16px;font-weight:800;color:var(--rx-ink)}
+.radarExact .radarComparePanel>header small{font-size:12.5px;color:var(--rx-muted)}
+.radarExact .radarComparePeriod{font-size:11px;font-weight:750;letter-spacing:.02em;text-transform:uppercase;color:var(--rx-muted)}
+.radarExact .radarComparePeriod select{height:38px;min-width:170px;padding:0 10px;border:1px solid #d5e0ec;border-radius:10px;background:#f8fbfe;font-size:13px;font-weight:650;text-transform:none;letter-spacing:0;color:var(--rx-ink)}
+.radarExact .radarCompareMetricChecks{gap:10px;margin:16px 0}
+.radarExact .radarCompareMetricChecks label{gap:8px;padding:9px 14px;border:1px solid #d5e0ec;border-radius:999px;background:#f8fbfe;font-size:13px;font-weight:700;color:var(--rx-text);transition:all .15s}
+.radarExact .radarCompareMetricChecks label:has(input:checked){border-color:var(--rx-brand);background:var(--rx-brand-soft);color:var(--rx-brand)}
+.radarExact .radarCompareMetricChecks input{width:16px;height:16px}
+.radarExact .radarCompareMetricBlock{padding:16px;border:1px solid var(--rx-line);border-radius:14px;background:#fbfdff}
+.radarExact .radarCompareMetricTitle b{font-size:14px;font-weight:800;color:var(--rx-ink)}
+.radarExact .radarCompareMetricTitle small{font-size:12px;color:var(--rx-faint)}
+.radarExact .radarCompareLegend{gap:8px 18px;margin:10px 0 12px}
+.radarExact .radarCompareLegend span{max-width:340px;font-size:12px;font-weight:600;line-height:1.35;color:var(--rx-text)}
+.radarExact .radarCompareLegend span i{flex:0 0 18px;width:18px;height:4px}
+.radarExact .radarCompareCanvas{border:1px solid var(--rx-line);border-radius:12px;background:#fff}
+.radarExact .radarCompareAxis{font-size:11.5px;fill:#6f8298}
+.radarExact .radarCompareGrid{stroke:#e9eff6;stroke-dasharray:3 5}
+.radarExact .radarCompareSeries polyline{stroke-width:2.6}
+.radarExact .radarCompareSeries circle{stroke-width:2.6}
+.radarExact .radarCompareEmpty{font-size:13px;line-height:1.5;color:var(--rx-muted)}
+.radarExact .radarComparePanel>footer{margin-top:12px}.radarExact .radarComparePanel>footer small{font-size:12px;line-height:1.5;color:var(--rx-muted)}
+
+/* Card do concorrente: linha 1 = identidade + métricas; linha 2 = ações */
+.radarExact .radarExactCard{grid-template-columns:minmax(300px,1.9fr) minmax(190px,1fr) minmax(160px,.85fr) minmax(250px,1.25fr);grid-template-rows:auto auto;gap:0 22px;padding:20px 22px 18px;border:1px solid var(--rx-line);border-left:5px solid #cfdae7;border-radius:16px;background:var(--rx-surface);box-shadow:var(--rx-shadow);transition:transform .18s,box-shadow .18s,border-color .18s}
+.radarExact .radarExactCard:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(15,39,68,.05),0 14px 30px rgba(15,39,68,.09)}
+.radarExact .radarExactCard[data-signal="down"]{border-color:var(--rx-line);border-left-color:var(--rx-green);box-shadow:var(--rx-shadow)}
+.radarExact .radarExactCard[data-signal="up"]{border-color:var(--rx-line);border-left-color:var(--rx-red);box-shadow:var(--rx-shadow)}
+.radarExact .radarExactCard[data-signal="accelerating"]{border-color:var(--rx-line);border-left-color:var(--rx-blue);box-shadow:var(--rx-shadow)}
+.radarExact .radarExactCard[data-signal="due"]{border-color:var(--rx-line);border-left-color:var(--rx-amber);box-shadow:var(--rx-shadow)}
+.radarExact .radarExactCard[data-signal="stable"]{border-color:var(--rx-line);border-left-color:#cfdae7}
+.radarExact .radarExactCard:hover{box-shadow:0 2px 4px rgba(15,39,68,.05),0 14px 30px rgba(15,39,68,.09)}
+
+.radarExact .radarExactIdentity{grid-column:1;grid-row:1;grid-template-columns:116px minmax(0,1fr);gap:16px}
+.radarExact .radarExactThumb{width:116px;height:116px;border:1px solid var(--rx-line);border-radius:12px;overflow:hidden}
+.radarExact .radarExactThumb img,.radarExact .radarExactThumb .noImage{width:116px;height:116px;border-radius:0}
+.radarExact .radarExactThumb .noImage{display:grid;place-items:center;font-size:30px;color:#a5b6c8}
+.radarExact .radarExactZoomButton{right:6px;bottom:6px;width:30px;height:30px;border-radius:9px}
+.radarExact .radarCompareThumbColumn{gap:10px}
+.radarExact .radarCompareSelect{width:116px;min-height:32px;gap:7px;padding:5px 8px;border:1px solid #d5e0ec;border-radius:9px;background:#f8fbfe;font-size:11px;font-weight:700;line-height:1.2;color:var(--rx-text);transition:all .15s}
+.radarExact .radarCompareSelect:hover{border-color:#9fc0ee;background:var(--rx-brand-soft)}
+.radarExact .radarCompareSelect:has(input:checked){border-color:var(--rx-brand);background:var(--rx-brand-soft);color:var(--rx-brand)}
+.radarExact .radarCompareSelect input{width:15px;height:15px}
+.radarExact .radarExactIdentity>div:last-child{padding-top:0}
+.radarExact .radarExactTitle{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;font-size:15px!important;line-height:1.35!important;font-weight:750!important;color:var(--rx-brand)!important}
+.radarExact .radarExactIdentity span{margin-top:10px;font-size:12px;color:var(--rx-faint)}
+.radarExact .radarExactIdentity a:not(.radarExactTitle){margin-top:3px;font-size:12.5px;font-weight:650;line-height:1.35;color:#2c5fa8}
+.radarExact .radarExactIdentity a:not(.radarExactTitle):hover{color:var(--rx-brand);text-decoration:underline}
+.radarExact .radarExactIdentity em{margin-top:10px;padding:5px 12px;border-radius:999px;background:#eef3fb;font-size:11.5px;font-weight:700;color:#4a6a92}
+.radarExact .radarExactStore{gap:8px;margin-top:9px;font-size:12px}
+.radarExact .radarExactStoreGlyph{width:28px;height:28px;flex:0 0 28px;border-radius:8px}
+.radarExact .radarExactStore>span:not(.radarExactStoreGlyph){font-size:12px!important;color:var(--rx-faint)!important}
+.radarExact .radarExactStore a{font-size:12.5px!important;font-weight:700!important;color:#2c5fa8!important}
+.radarExact .radarExactStore b{font-size:12.5px}.radarExact .radarExactStore small{font-size:12px}
+
+/* Preço */
+.radarExact .radarExactPrice,.radarExact .radarExactSales{grid-row:1;padding:0 0 0 22px;border-left:1px solid var(--rx-line)}
+.radarExact .radarExactPrice{grid-column:2}.radarExact .radarExactSales{grid-column:3;position:relative}
+.radarExact .radarExactPrice>small,.radarExact .radarExactSales>small{font-size:11px;font-weight:750;letter-spacing:.04em;text-transform:uppercase;color:var(--rx-faint)}
+.radarExact .radarExactPrice>div:first-of-type{flex-wrap:wrap;gap:6px 10px;margin-top:8px}
+.radarExact .radarExactPrice>div>b,.radarExact .radarExactSalesTop>b{font-size:26px;font-weight:850;letter-spacing:-.03em;color:var(--rx-ink)}
+.radarExact .radarExactPrice>div>b:first-child:not(:last-of-type){font-size:15px;font-weight:600;letter-spacing:0;text-decoration:line-through;color:var(--rx-faint)}
+.radarExact .radarExactPrice .radarExactOffer{font-size:26px;color:var(--rx-green)}
+.radarExact .radarExactPrice mark,.radarExact .radarExactSales mark{padding:4px 10px;font-size:12px;font-weight:800}
+.radarExact .radarExactPrice mark[data-tone="down"],.radarExact .radarExactSales mark[data-tone="down"]{background:var(--rx-green-soft);color:#0e8a57}
+.radarExact .radarExactPrice mark[data-tone="up"],.radarExact .radarExactSales mark[data-tone="up"]{background:var(--rx-red-soft);color:#d23b41}
+.radarExact .radarExactPrice>span{margin-top:6px;font-size:12px;line-height:1.4;color:var(--rx-muted)}
+.radarExact .radarExactMeta{gap:6px!important;margin-top:14px!important;padding:10px 12px;border-radius:10px;background:#f6f9fd}
+.radarExact .radarExactMeta>span{grid-template-columns:86px 1fr!important}
+.radarExact .radarExactMeta small{font-size:11.5px!important;color:var(--rx-muted)!important}
+.radarExact .radarExactMeta b{font-size:12.5px!important;font-weight:700!important}
+.radarExact .radarExactMeta b[data-bool="yes"]{color:#0e8a57!important}
+.radarExact .radarExactMeta b[data-bool="unknown"]{color:#a46d10!important}
+.radarExact .radarExactPrice p{margin:8px 0 0;font-size:12px;line-height:1.4;color:var(--rx-muted)}
+.radarExact .radarExactPrice p+p{margin-top:2px}
+/* "Histórico" já existe na coluna de vendas; evita botão duplicado no preço */
+.radarExact .radarExactHistoryChip{display:none}
+
+/* Vendas */
+.radarExact .radarExactSalesTop{margin-top:8px}
+.radarExact .radarExactSalesTop>b{font-size:34px}
+.radarExact .radarExactSales30{margin-top:12px;padding:8px 12px;border-radius:10px;background:#f6f9fd}
+.radarExact .radarExactSales30 small{font-size:11.5px;color:var(--rx-muted)}
+.radarExact .radarExactSales30 b{font-size:15px;font-weight:800;color:var(--rx-ink)}
+.radarExact .radarExactSales mark{margin-top:12px}
+.radarExact .radarExactSales>span{margin-top:8px;font-size:12px;line-height:1.4;color:var(--rx-muted)}
+.radarExact .radarExactSales>button{position:static;width:auto;height:34px;margin-top:14px;padding:0 14px;gap:7px;border:1px solid #d5e0ec;border-radius:9px;background:#fff;font-size:12.5px;font-weight:700;color:var(--rx-text);transition:all .15s}
+.radarExact .radarExactSales>button:hover{background:var(--rx-brand-soft);border-color:#a9c6ef;color:var(--rx-brand)}
+
+/* Visibilidade na busca */
+.radarExact .radarExactVisibility{grid-column:4;grid-row:1;align-self:start;padding:14px 16px;border:1px solid var(--rx-line);border-radius:12px;background:#f8fbfe}
+.radarExact .radarExactVisibility h4{gap:7px;margin:0 0 8px;font-size:13px;font-weight:800;color:var(--rx-ink)}
+.radarExact .radarExactVisibility>div{align-items:start;gap:12px;min-height:36px;padding:8px 0;border-top:1px solid #e6edf5}
+.radarExact .radarExactVisibility span{font-size:12px;color:var(--rx-muted)}
+.radarExact .radarExactVisibility b{font-size:12.5px;font-weight:750;line-height:1.35;color:var(--rx-ink)}
+.radarExact .radarExactVisibility b[data-ads="detected"]{padding:4px 10px;background:var(--rx-green-soft);color:#0e8a57}
+.radarExact .radarExactVisibility b[data-ads="not_detected"]{padding:4px 10px;background:#eceff4;color:#587089}
+.radarExact .radarExactVisibility>button{height:36px;margin-top:8px;border:1px solid #b9d0f3;border-radius:9px;background:#fff;font-size:12.5px;font-weight:750;color:var(--rx-brand);transition:all .15s}
+.radarExact .radarExactVisibility>button:hover{background:var(--rx-brand-soft);border-color:#8db6ee}
+
+/* Ações em linha */
+.radarExact .radarExactActions{grid-column:1/-1;grid-row:2;display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:18px;padding-top:16px;border-top:1px solid var(--rx-line)}
+.radarExact .radarExactActions a,.radarExact .radarExactActions button{flex:0 0 auto;height:38px;padding:0 15px;gap:8px;border:1px solid #d5e0ec;border-radius:10px;background:#fff;font-size:13px;font-weight:700;color:var(--rx-text);cursor:pointer;transition:all .15s}
+.radarExact .radarExactActions a:hover,.radarExact .radarExactActions button:hover:not(:disabled){border-color:#9fc0ee;background:var(--rx-brand-soft);color:var(--rx-brand)}
+.radarExact .radarExactActions a:first-of-type{color:var(--rx-text)}
+.radarExact .radarExactActions .radarExactCheck{border:0;background:linear-gradient(180deg,#2a7cf0,#1169e8);color:#fff;box-shadow:0 4px 10px rgba(17,105,232,.25)}
+.radarExact .radarExactActions .radarExactCheck:hover:not(:disabled){background:linear-gradient(180deg,#2a7cf0,#0b5fd6);color:#fff}
+.radarExact .radarExactActions .radarExactDelete{margin-left:auto;border-color:#f0c4c8;background:#fff;color:#cf3f47}
+.radarExact .radarExactActions .radarExactDelete:hover{border-color:#e48d94;background:var(--rx-red-soft);color:#b82f38}
+.radarExact .radarExactActions button:disabled{opacity:.55;cursor:not-allowed}
+
+/* Detalhes expandidos */
+.radarExact .radarExactDetails{grid-column:1/-1;grid-row:3;margin-top:16px;padding:16px;border:1px solid var(--rx-line);border-radius:12px;background:#f8fbfe}
+.radarExact .radarExactDetailGrid,.radarExact .radarExactSearchDetails{gap:12px}
+.radarExact .radarExactDetailGrid label,.radarExact .radarExactDetailGrid>div,.radarExact .radarExactSearchDetails>div{gap:6px;padding:12px;border:1px solid var(--rx-line);border-radius:10px}
+.radarExact .radarExactDetailGrid label,.radarExact .radarExactDetailGrid small,.radarExact .radarExactSearchDetails small{font-size:11.5px;font-weight:650;color:var(--rx-muted)}
+.radarExact .radarExactDetailGrid b,.radarExact .radarExactSearchDetails b{font-size:14px;font-weight:800;color:var(--rx-ink)}
+.radarExact .radarExactDetailGrid select{height:36px;padding:0 8px;font-size:13px;border-radius:8px}
+.radarExact .radarExactSearchDetails button{font-size:13px;font-weight:750;border-radius:10px}
+
+/* Coluna lateral */
+.radarExact .radarExactAside{gap:14px;top:14px}
+.radarExact .radarExactSideCard{padding:18px;border:1px solid var(--rx-line);border-radius:16px;box-shadow:var(--rx-shadow)}
+.radarExact .radarExactSideCard>header{gap:10px}
+.radarExact .radarExactSideCard>header b{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:800;color:var(--rx-ink)}
+.radarExact .radarExactSideCard>header b svg{color:var(--rx-brand)}
+.radarExact .radarExactSideCard>header span{width:24px;height:24px;font-size:11.5px;font-weight:800}
+.radarExact .radarExactAlerts{margin-top:10px}
+.radarExact .radarExactAlerts article{grid-template-columns:42px minmax(0,1fr) auto;gap:10px;padding:10px 0}
+.radarExact .radarExactAlerts img,.radarExact .radarExactAlerts i{width:42px;height:42px;border-radius:10px}
+.radarExact .radarExactAlerts b{font-size:12.5px;font-weight:650;line-height:1.4;color:var(--rx-text)}
+.radarExact .radarExactAlerts small{font-size:11.5px}
+.radarExact .radarExactAlerts p{margin:6px 0 0;padding:14px;border-radius:10px;background:#f6f9fd;font-size:13px;line-height:1.5;color:var(--rx-muted)}
+.radarExact .radarExactDistribution{grid-template-columns:1fr;justify-items:center;gap:16px;margin-top:14px}
+.radarExact .radarExactDonut{width:132px;height:132px}
+.radarExact .radarExactDonut:after{inset:20px}
+.radarExact .radarExactDonut b{font-size:28px;font-weight:850;letter-spacing:-.03em;color:var(--rx-ink)}
+.radarExact .radarExactDonut small{font-size:11.5px;color:var(--rx-muted)}
+.radarExact .radarExactDistribution>div:last-child{width:100%}
+.radarExact .radarExactDistribution p{gap:9px;margin:0;padding:7px 0;border-top:1px solid #edf1f6;font-size:12.5px;line-height:1.35;color:var(--rx-text)}
+.radarExact .radarExactDistribution p:first-child{border-top:0}
+.radarExact .radarExactInsight{grid-template-columns:28px 1fr;gap:12px;margin-top:12px;padding:14px;border-radius:12px;background:var(--rx-brand-soft)}
+.radarExact .radarExactInsight>i{width:26px;height:26px;font-size:12px;font-weight:800}
+.radarExact .radarExactInsight b{font-size:13.5px;font-weight:800;line-height:1.35;color:var(--rx-ink)}
+.radarExact .radarExactInsight span{margin-top:4px;font-size:12.5px;line-height:1.45;color:var(--rx-muted)}
+
+/* Responsivo (mesma especificidade, declarado depois dos blocos base acima) */
+@media(max-width:1500px){
+  .radarExact{padding:22px 20px 48px}
+  .radarExact .radarExactColumns{grid-template-columns:minmax(0,1fr) 290px;gap:16px}
+  .radarExact .radarExactCard{grid-template-columns:minmax(260px,1.7fr) minmax(170px,1fr) minmax(140px,.8fr) minmax(220px,1.15fr);gap:0 18px;padding:18px}
+  .radarExact .radarExactIdentity{grid-template-columns:96px minmax(0,1fr);gap:14px}
+  .radarExact .radarExactThumb,.radarExact .radarExactThumb img,.radarExact .radarExactThumb .noImage{width:96px;height:96px}
+  .radarExact .radarCompareSelect{width:96px}
+  .radarExact .radarExactTitle{font-size:14px!important}
+  .radarExact .radarExactPrice,.radarExact .radarExactSales{padding-left:18px}
+  .radarExact .radarExactPrice>div>b,.radarExact .radarExactPrice .radarExactOffer{font-size:23px}.radarExact .radarExactSalesTop>b{font-size:30px}
+}
+@media(max-width:1280px){
+  .radarExact .radarExactToolbar{grid-template-columns:minmax(200px,1fr) 130px 170px 140px auto 38px 38px 38px}
+  .radarExact .radarExactKpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .radarExact .radarExactColumns{grid-template-columns:1fr}
+  .radarExact .radarExactAside{position:static;grid-template-columns:repeat(3,minmax(0,1fr))}
+  .radarExact .radarExactCard{grid-template-columns:minmax(260px,1.5fr) 1fr 1fr}
+  .radarExact .radarExactVisibility{grid-column:1/-1;grid-row:2;margin-top:16px}
+  .radarExact .radarExactActions{grid-row:3}
+  .radarExact .radarExactDetails{grid-row:4}
+}
+@media(max-width:900px){
+  .radarExact .radarExactToolbar{grid-template-columns:1fr 1fr}
+  .radarExact .radarExactSearch,.radarExact .radarExactRefresh{grid-column:1/-1}
+  .radarExact .radarExactIcon,.radarExact .radarExactAvatar{display:none}
+  .radarExact .radarExactAside{grid-template-columns:1fr}
+  .radarExact .radarExactCard{grid-template-columns:1fr 1fr}
+  .radarExact .radarExactIdentity{grid-column:1/-1;grid-row:1}
+  .radarExact .radarExactPrice,.radarExact .radarExactSales{grid-row:2;margin-top:16px;padding-top:16px;border-left:0;border-top:1px solid var(--rx-line);padding-left:0}
+  .radarExact .radarExactPrice{grid-column:1}.radarExact .radarExactSales{grid-column:2}
+  .radarExact .radarExactVisibility{grid-row:3}.radarExact .radarExactActions{grid-row:4}.radarExact .radarExactDetails{grid-row:5}
+}
+@media(max-width:640px){
+  .radarExact{padding:16px 12px 40px}
+  .radarExact .radarExactHero h2{font-size:22px}
+  .radarExact .radarExactToolbar{grid-template-columns:1fr}
+  .radarExact .radarExactKpis{grid-template-columns:1fr 1fr;gap:10px}.radarExact .radarExactKpis article:last-child{grid-column:1/-1}
+  .radarExact .radarExactKpis article{padding:12px 14px}.radarExact .radarExactKpis article b{font-size:26px}.radarExact .radarExactKpis article>span{width:40px;height:40px}
+  .radarExact .radarExactCard{grid-template-columns:1fr;padding:16px}
+  .radarExact .radarExactPrice,.radarExact .radarExactSales{grid-column:1}.radarExact .radarExactSales{grid-row:3}
+  .radarExact .radarExactVisibility{grid-row:4}.radarExact .radarExactActions{grid-row:5}.radarExact .radarExactDetails{grid-row:6}
+  .radarExact .radarExactActions .radarExactDelete{margin-left:0}
+  .radarExact .radarExactActions a,.radarExact .radarExactActions button{flex:1 1 100%;justify-content:center}
+  .radarExact .radarExactDetailGrid,.radarExact .radarExactSearchDetails{grid-template-columns:1fr}
+}
+.radarExact .radarExactMeta>span{grid-template-columns:78px 1fr!important}
+.radarExact .radarExactMeta b{white-space:nowrap}
+.radarExact .radarCompareSelect{justify-content:flex-start;padding-left:10px}
