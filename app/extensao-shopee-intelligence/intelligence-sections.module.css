@@ -542,3 +542,29 @@ a.radarExactTitle:hover{text-decoration:underline!important}
 .radarExact .radarExactMeta>span{grid-template-columns:78px 1fr!important}
 .radarExact .radarExactMeta b{white-space:nowrap}
 .radarExact .radarCompareSelect{justify-content:flex-start;padding-left:10px}
+/* Redesign compacto - Concorrentes */
+.radarExactCard{grid-template-columns:minmax(220px,2.5fr) minmax(125px,1.1fr) minmax(115px,1fr) 88px!important;grid-template-rows:auto auto!important;align-items:center;overflow:visible;position:relative;gap:12px!important}
+.radarExactCard .radarExactIdentity,.radarExactCard .radarExactPrice,.radarExactCard .radarExactSales{min-width:0}
+.radarExactCard .radarExactDetails{grid-column:1/-1}
+.radarCompactTools{grid-column:4;display:flex;justify-content:flex-end;align-items:center;gap:7px;align-self:start;position:relative;z-index:2}
+.radarCompactIcon{height:34px;min-width:34px;display:grid;place-items:center;cursor:pointer;border:1px solid #d7e2ee;border-radius:9px;background:#fff;color:#275780;font-size:18px;font-weight:800}
+.radarCompactIcon:hover,.radarCompactIcon[aria-expanded="true"]{background:#edf5ff;border-color:#84b7fb}
+.radarCompactPopover,.radarCompactMenu{position:absolute;right:0;top:calc(100% + 7px);width:min(360px,calc(100vw - 42px));padding:14px;border:1px solid #dbe5f1;border-radius:12px;background:#fff;box-shadow:0 12px 36px #17243a29;z-index:50;max-height:min(70vh,540px);overflow:auto}
+.radarCompactPopover header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;font-size:13px}
+.radarCompactPopover header button{border:0;background:transparent;cursor:pointer;font-size:20px}
+.radarCompactPopover dl{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0}
+.radarCompactPopover dl>div{min-width:0}
+.radarCompactPopover dt{font-size:11px;color:#667b91}
+.radarCompactPopover dd{margin:4px 0 0;font-size:12px;font-weight:700;overflow-wrap:anywhere}
+.radarCompactPopover>button{margin-top:14px;border:0;background:#edf5ff;color:#125ab6;padding:8px 10px;border-radius:7px;cursor:pointer}
+.radarCompactMenu{width:min(264px,calc(100vw - 42px));padding:6px;display:grid;gap:2px}
+.radarCompactMenu a,.radarCompactMenu button{min-height:37px;display:flex;align-items:center;gap:10px;padding:9px 10px;border:0;border-radius:7px;background:#fff;color:#214262;font-size:12px;font-weight:650;text-align:left;text-decoration:none;cursor:pointer}
+.radarCompactMenu a:hover,.radarCompactMenu button:hover{background:#edf5ff}
+.radarCompactMenu button:disabled{opacity:.5;cursor:not-allowed}
+.radarCompactMenu .radarCompactDanger{color:#bc3442;border-top:1px solid #e5eaf0;border-radius:0}
+.radarExactAside{position:static!important;align-self:start;min-width:0}
+.radarExactSideCard{min-width:0;overflow:hidden}
+.radarExactDistribution{max-width:100%;min-width:0}
+@media(max-width:1250px){.radarExactCard{grid-template-columns:minmax(200px,2fr) minmax(120px,1fr) minmax(100px,1fr) 88px!important}}
+@media(max-width:850px){.radarExactCard{grid-template-columns:minmax(0,1fr) minmax(105px,.5fr) 88px!important}.radarExactCard .radarExactSales{grid-column:2}.radarCompactTools{grid-column:3}}
+@media(max-width:600px){.radarExactCard{grid-template-columns:minmax(0,1fr) 76px!important;gap:10px!important}.radarExactCard .radarExactIdentity{grid-column:1/-1}.radarExactCard .radarExactPrice{grid-column:1}.radarExactCard .radarExactSales{grid-column:1}.radarCompactTools{grid-column:2;grid-row:2;flex-wrap:wrap}.radarCompactPopover dl{grid-template-columns:1fr 1fr}}

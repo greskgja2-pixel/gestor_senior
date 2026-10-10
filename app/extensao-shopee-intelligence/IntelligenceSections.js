@@ -537,6 +537,8 @@ function Competitors({items}){
   const [sort,setSort]=useState('priority');
   const [period,setPeriod]=useState('7');
   const [openHistory,setOpenHistory]=useState('');
+  const [openRadarInfo,setOpenRadarInfo]=useState('');
+  const [openRadarActions,setOpenRadarActions]=useState('');
   const [openMenu,setOpenMenu]=useState('');
   const [bulkPhase,setBulkPhase]=useState('idle');
   const [bulkProgress,setBulkProgress]=useState({done:0,total:0,label:''});
@@ -972,9 +974,7 @@ function Competitors({items}){
               <small>Preço normal / oferta</small>
               <div><b>{money(normalPrice)}</b>{offerPrice!=null&&<b className={styles.radarExactOffer}>{money(offerPrice)}</b>}{pricePct!=null&&Math.abs(pricePct)>=.1&&<mark data-tone={pricePct<0?'down':'up'}>{pricePct<0?'↓':'↑'} {pricePct>0?'+':''}{pricePct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</mark>}</div>
               {r.priceFallback?<span>Preço anterior confiável · aguardando rechecagem atual</span>:previousPrice!=null&&<span>Preço na coleta anterior: {money(previousPrice)}</span>}
-              <div className={styles.radarExactMeta}><span><small>Indicado</small><b data-bool={r.preferred===true?'yes':r.preferred===false?'no':'unknown'}>{yesNo(r.preferred)}</b></span><span><small>Localização</small><b>{r.location||'Não coletado'}</b></span></div>
               <button type="button" className={styles.radarExactHistoryChip} onClick={()=>setOpenHistory(openHistory===r.key?'':r.key)}><VectorIcon name="history" size={12}/> Histórico</button>
-              <p>Última coleta: {when(r.collected)}</p><p>Rechecagem: {due.label}</p>
             </section>
 
             <section className={styles.radarExactSales}>
@@ -985,20 +985,32 @@ function Competitors({items}){
               <button type="button" onClick={()=>setOpenHistory(openHistory===r.key?'':r.key)}><VectorIcon name="history" size={13}/> Histórico <span>{openHistory===r.key?'⌃':'⌄'}</span></button>
             </section>
 
-            <section className={styles.radarExactVisibility}>
-              <h4><VectorIcon name="search" size={13}/> Visibilidade na busca</h4>
-              <div><span>Rank</span><b>{searchPositionLabel(r.visibility?.competitor_position,r.visibility?.competitor_page,r.visibility?.competitor_found,r.visibility?.max_pages||3,r.visibility?.items_per_page||60)}</b></div>
-              <div><span>Ads</span><b data-ads={r.visibility?.competitor_ads_status&&r.visibility.competitor_ads_status!=='unknown'?r.visibility.competitor_ads_status:(r.adsFallback===true?'detected':r.adsFallback===false?'not_detected':'unknown')}>{r.visibility?.competitor_ads_status==='detected'?'Ads ativo nesta busca':r.visibility?.competitor_ads_status==='not_detected'?'Não':r.adsFallback===true?'Ads ativo nesta busca':r.adsFallback===false?'Não':'Não confirmado'}</b></div>
-              <div><span>Meu anúncio</span><b>{searchPositionLabel(r.visibility?.owner_position,r.visibility?.owner_page,r.visibility?.owner_found,r.visibility?.max_pages||3,r.visibility?.items_per_page||60)}</b></div>
-              <button type="button" onClick={()=>setOpenSearchDetails(openSearchDetails===r.key?'':r.key)}>Ver análise da busca →</button>
-            </section>
-
-            <section className={styles.radarExactActions}>
-              <button type="button" className={styles.radarExactCheck} disabled={checkingCompetitor===r.key} onClick={()=>checkCompetitor(r)}><VectorIcon name="search" size={14}/>{checkingCompetitor===r.key?'Checando…':'Checar dados'}</button>
-              <Link href={priceHref}><VectorIcon name="edit" size={14}/>Editar preço do meu anúncio</Link>
-              <Link href={ownerHref}><VectorIcon name="external" size={14}/>Ir para meu anúncio</Link>
-              {r.link?<a href={r.link} target="_blank" rel="noreferrer"><VectorIcon name="external" size={14}/>Abrir anúncio</a>:<button type="button" disabled><VectorIcon name="external" size={14}/>Abrir anúncio</button>}
-              <button type="button" className={styles.radarExactDelete} onClick={()=>removeWatch(r)}><VectorIcon name="trash" size={14}/>Excluir concorrente</button>
+            <section className={styles.radarCompactTools}>
+              <button type="button" aria-label="Informações do concorrente" aria-expanded={openRadarInfo===r.key} title="Informações" className={styles.radarCompactIcon} onClick={()=>{setOpenRadarInfo(openRadarInfo===r.key?'':r.key);setOpenRadarActions('');}}>ⓘ</button>
+              <button type="button" aria-label="Ações do concorrente" aria-expanded={openRadarActions===r.key} title="Ações" className={styles.radarCompactIcon} onClick={()=>{setOpenRadarActions(openRadarActions===r.key?'':r.key);setOpenRadarInfo('');}}>···</button>
+              {openRadarInfo===r.key&&<div className={styles.radarCompactPopover} role="dialog" aria-label="Detalhes do concorrente">
+                <header><b>Detalhes do concorrente</b><button type="button" onClick={()=>setOpenRadarInfo('')} aria-label="Fechar">×</button></header>
+                <dl>
+                  <div><dt>Indicado</dt><dd>{yesNo(r.preferred)}</dd></div>
+                  <div><dt>Localização</dt><dd>{r.location||'Não coletado'}</dd></div>
+                  <div><dt>Última coleta</dt><dd>{when(r.collected)}</dd></div>
+                  <div><dt>Rechecagem</dt><dd>{due.label}</dd></div>
+                  <div><dt>Preço normal</dt><dd>{money(normalPrice)}</dd></div>
+                  <div><dt>Preço de oferta</dt><dd>{offerPrice!=null?money(offerPrice):'Não disponível'}</dd></div>
+                  <div><dt>Rank na busca</dt><dd>{searchPositionLabel(r.visibility?.competitor_position,r.visibility?.competitor_page,r.visibility?.competitor_found,r.visibility?.max_pages||3,r.visibility?.items_per_page||60)}</dd></div>
+                  <div><dt>Meu anúncio</dt><dd>{searchPositionLabel(r.visibility?.owner_position,r.visibility?.owner_page,r.visibility?.owner_found,r.visibility?.max_pages||3,r.visibility?.items_per_page||60)}</dd></div>
+                  <div><dt>Ads</dt><dd>{r.visibility?.competitor_ads_status==='detected'?'Ads ativo nesta busca':r.visibility?.competitor_ads_status==='not_detected'?'Não':r.adsFallback===true?'Ads ativo nesta busca':r.adsFallback===false?'Não':'Não confirmado'}</dd></div>
+                </dl>
+                <button type="button" onClick={()=>{setOpenRadarInfo('');setOpenSearchDetails(openSearchDetails===r.key?'':r.key);}}>Ver análise da busca →</button>
+              </div>}
+              {openRadarActions===r.key&&<div className={styles.radarCompactMenu} role="menu">
+                <button type="button" disabled={checkingCompetitor===r.key} onClick={()=>{setOpenRadarActions('');checkCompetitor(r);}}><VectorIcon name="search" size={14}/>{checkingCompetitor===r.key?'Checando…':'Checar dados'}</button>
+                <Link href={priceHref}><VectorIcon name="edit" size={14}/>Editar preço do meu anúncio</Link>
+                <Link href={ownerHref}><VectorIcon name="external" size={14}/>Ir para meu anúncio</Link>
+                {r.link?<a href={r.link} target="_blank" rel="noreferrer"><VectorIcon name="external" size={14}/>Abrir anúncio</a>:<button type="button" disabled>Abrir anúncio indisponível</button>}
+                <button type="button" onClick={()=>{setOpenRadarActions('');setOpenHistory(openHistory===r.key?'':r.key);}}><VectorIcon name="history" size={14}/>Histórico e rechecagem</button>
+                <button type="button" className={styles.radarCompactDanger} onClick={()=>{setOpenRadarActions('');removeWatch(r);}}><VectorIcon name="trash" size={14}/>Excluir concorrente</button>
+              </div>}
             </section>
 
             {(openHistory===r.key||openSearchDetails===r.key)&&<section className={styles.radarExactDetails}>
