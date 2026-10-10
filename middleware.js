@@ -31,6 +31,8 @@ async function validAccountToken(token){
 export async function middleware(request){
   const path=request.nextUrl.pathname;
   if(PUBLIC.has(path))return NextResponse.next();
+  // Rota pública SOMENTE nas prévias, sem sessão e sem conexão com dados reais.
+  if(path==='/demo-concorrentes'&&process.env.VERCEL_ENV==='preview')return NextResponse.next();
   if(await validAccountToken(request.cookies.get('gs_account_session')?.value))return NextResponse.next();
   if(path.startsWith('/api/'))return NextResponse.json({error:'Faça login para acessar o Gestor Sênior.'},{status:401});
   const login=new URL('/login',request.url);
