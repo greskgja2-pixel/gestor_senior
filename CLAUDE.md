@@ -670,3 +670,12 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 - Validação preliminar: revisão textual de diferenças, marcadores `GS_RADAR_EXACT_MOCKUP_2026_09_24` e regra `radarExactVisibility>div` preservados.
 - Pendente nesta etapa: executar `node --test tests/competitor-radar-layout.test.mjs`, `npm run build` e QA visual/funcional em desktop, tablet e celular no preview Vercel. O teste legado de `collectSearchVisibility` já era conhecido como falho antes do redesign.
 - Sem alterações de API ou coleta. Nenhum token, cookie, SPC_CDS ou dado pessoal registrado.
+
+
+### 2026-10-12 — ChatGPT — Precificação Inteligente (branch feature/precificacao-inteligente-20261012)
+- Nova rota /precificacao com tabela configurável, paginação, filtros, redimensionamento de colunas, custos, embalagem, preço e estoque; menu por produto com Preço Automático, lucro em R$ ou %, simulação de ROAS de equilíbrio e ROAS para a meta.
+- Configurações recolhíveis, modo Editar em Lote (checkbox apenas quando ativo), histórico e CSV. Integrações em /api/pricing-costs, /api/pricing-history, /api/pricing-models, /api/pricing-promotions, /api/pricing-stock, /api/pricing-alerts. Histórico permanente por gs_pricing_history em Supabase.
+- Consulta Ads de 7 dias via /api/shopee/ads, com dados indisponíveis claramente indicados. ROAS e lucro após Ads são estimativas baseadas nas métricas atribuídas; taxas Shopee devem ser conferidas manualmente.
+- Preços promocionais e datas de campanha têm leitura e simulação, mas gravação permanece desativada até validar endpoint seguro. Desativar e excluir produto também não executam gravação. Estoque sem variações usa endpoint existente com confirmação explícita.
+- Rota pública /precificacao-demo contém exclusivamente dados fictícios, sem consultas à loja. Middleware continua protegendo /precificacao e APIs com sessão.
+- Verificação: Vercel Preview da branch reportou READY (commit 5648eab811a7b4ac0cb5218625614ed35fa9ce44). Não houve teste autenticado de ponta a ponta com uma loja real; pós-merge deve-se verificar página, conectividade Shopee, gravações e responsividade. Não armazenar informações sensíveis neste arquivo.
