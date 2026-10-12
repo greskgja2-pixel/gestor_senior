@@ -28,7 +28,8 @@ export async function GET(){
       price_min:prices.length?Math.min(...prices):null,
       price_max:prices.length?Math.max(...prices):null,
       stock_total:stocks.every(v=>v!=null)?stocks.reduce((a,b)=>a+b,0):null,
-      model_count:models.length
+      model_count:models.length,
+      models:models.map(m=>({model_id:String(m.model_id),model_name:String(m.model_name||'Variação'),price:modelPrice(m),original_price:valid(m.price_info?.[0]?.original_price),stock:modelStock(m)}))
      };
     }catch(error){console.warn('[pricing-products] variações indisponíveis para item',x.item_id,String(error?.message||error));}
    }));
