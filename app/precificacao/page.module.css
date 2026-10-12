@@ -64,3 +64,10 @@
 .actionCard button:disabled{opacity:.48;cursor:not-allowed;background:#f0f2f5}
 
 .currencyInput{display:flex;align-items:center;gap:5px;min-width:0;width:100%}.currencyInput>span{font-size:12px;font-weight:700;color:inherit;white-space:nowrap}.currencyInput input{min-width:0;width:100%}
+
+.groupRow td{padding:0!important;background:#f0f5f8;border-top:2px solid #dce4ea}
+.groupToggle{display:flex;align-items:center;flex-wrap:wrap;gap:10px;text-align:left;width:100%;padding:13px 16px;border:0;background:transparent;color:#234058;cursor:pointer;font-size:13px}
+.groupToggle>span{font-size:20px;color:#eb6d37}.groupToggle strong{font-weight:750}.groupToggle small{color:#77899a}
+.variantRow td:first-child{padding-left:22px}
+.variantRow td{background:rgba(239,245,248,.2)}
+@media(max-width:680px){.groupToggle{padding:12px 9px;gap:7px}.groupToggle small{width:100%;padding-left:21px}}
