@@ -299,7 +299,7 @@ function MotorActivityCard(){
   </div>;
 }
 
-const PUBLIC_PAGES=['/login','/cadastro','/apresentacao','/privacidade','/termos','/docs/tecnica','/status'];
+const PUBLIC_PAGES=['/precificacao-demo','/login','/cadastro','/apresentacao','/privacidade','/termos','/docs/tecnica','/status'];
 
 export default function AppShell({children}){
   const pathname=usePathname();
