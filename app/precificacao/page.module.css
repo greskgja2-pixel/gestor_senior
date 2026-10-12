@@ -48,3 +48,15 @@
 .settingsTools button:disabled{opacity:.5;cursor:not-allowed}
 .settingsTools .fileLabel{font-size:13px}
 @media(max-width:700px){.mainToolbar{align-items:stretch}.mainToolbar>input{width:100%;flex-basis:100%}.toolbarActions{justify-content:flex-start}.toolbarActions button{font-size:12px}}
+
+.autoGoal{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.autoGoal label{display:grid;gap:6px;font-size:13px}
+.autoGoal input,.autoGoal select,.modal select{width:100%;padding:10px;border:1px solid #d5dce4;border-radius:8px;background:var(--gs-surface,#fff);color:inherit}
+.autoResult{display:grid;gap:10px;border:1px solid #f0c9b1;border-radius:12px;padding:15px;background:rgba(245,113,45,.06)}
+.autoResult>small{color:var(--gs-muted,#777)}
+.autoResult>strong{font-size:clamp(27px,3vw,36px);color:#e56d36}
+.autoRoas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.autoRoas>div{padding:12px;border:1px solid #dde3eb;border-radius:9px;display:grid;gap:5px}
+.autoRoas small{font-size:12px;color:var(--gs-muted,#777)}
+.autoRoas strong{font-size:20px}
+@media(max-width:520px){.autoGoal,.autoRoas{grid-template-columns:1fr}}
