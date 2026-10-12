@@ -71,3 +71,18 @@
 .variantRow td:first-child{padding-left:22px}
 .variantRow td{background:rgba(239,245,248,.2)}
 @media(max-width:680px){.groupToggle{padding:12px 9px;gap:7px}.groupToggle small{width:100%;padding-left:21px}}
+
+.priceEditor{width:min(790px,100%);max-height:88vh;overflow-y:auto;gap:16px}
+.priceCampaign{display:grid;gap:9px;padding:14px;border:1px solid #e0e5ec;border-radius:10px}
+.priceCampaign label{display:grid;gap:7px}.priceCampaign select{padding:10px;border:1px solid #d7dfe9;border-radius:8px;color:inherit;background:var(--gs-surface,#fff);width:100%}
+.priceBulk{display:flex;align-items:end;flex-wrap:wrap;gap:12px;padding:12px;background:rgba(120,132,150,.08);border-radius:10px}
+.priceBulk label{flex:1;min-width:170px}.priceBulk button,.priceFooter button{padding:10px 14px;border:1px solid #f47b54;border-radius:8px;background:transparent;color:#ef693d;cursor:pointer}
+.priceBulk button:disabled,.priceFooter button:disabled{opacity:.5;cursor:not-allowed}
+.priceVariantList{border:1px solid #dee4ed;border-radius:10px;overflow-y:auto;max-height:360px}
+.priceVariantHeader,.priceVariantRow{display:grid;grid-template-columns:minmax(130px,2fr) minmax(105px,1fr) minmax(135px,1.1fr);gap:12px;align-items:center;padding:12px}
+.priceVariantHeader{background:rgba(130,140,150,.09);font-size:12px}
+.priceVariantRow{border-top:1px solid #e8ecf1;font-size:13px}
+.priceVariantRow div{display:grid;gap:4px;min-width:0}.priceVariantRow small{color:#7b8a9b}
+.priceVariantRow input{width:100%;min-width:0;padding:9px;border:1px solid #d7dfe9;border-radius:8px;color:inherit;background:transparent}
+.priceFooter{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:10px}
+@media(max-width:620px){.priceVariantHeader,.priceVariantRow{grid-template-columns:minmax(100px,1.4fr) minmax(85px,1fr);gap:8px;padding:9px}.priceVariantHeader strong:nth-child(2){display:none}.priceVariantRow>span{display:none}.priceVariantRow input{font-size:14px}}
