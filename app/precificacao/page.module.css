@@ -62,3 +62,5 @@
 @media(max-width:520px){.autoGoal,.autoRoas{grid-template-columns:1fr}}
 
 .actionCard button:disabled{opacity:.48;cursor:not-allowed;background:#f0f2f5}
+
+.currencyInput{display:flex;align-items:center;gap:5px;min-width:0;width:100%}.currencyInput>span{font-size:12px;font-weight:700;color:inherit;white-space:nowrap}.currencyInput input{min-width:0;width:100%}
