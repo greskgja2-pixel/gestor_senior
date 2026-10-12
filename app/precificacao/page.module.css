@@ -60,3 +60,5 @@
 .autoRoas small{font-size:12px;color:var(--gs-muted,#777)}
 .autoRoas strong{font-size:20px}
 @media(max-width:520px){.autoGoal,.autoRoas{grid-template-columns:1fr}}
+
+.actionCard button:disabled{opacity:.48;cursor:not-allowed;background:#f0f2f5}
