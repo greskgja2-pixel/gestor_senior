@@ -10,6 +10,7 @@ const MENU=[
   {type:'item',label:'Insights da Loja',icon:'✦',tone:'orange',href:'/insights'},
   {type:'item',label:'Análise de Funil',icon:'▽',tone:'cyan',href:'/funil'},
   {type:'item',label:'Promoções',icon:'⚡',tone:'amber',href:'/promocoes'},
+  {type:'item',label:'Precificação Inteligente',icon:'＄',tone:'green',href:'/precificacao'},
   {type:'item',label:'Messenger',icon:'✉',tone:'green',href:'/messenger'},
   {type:'item',label:'Super Análise',icon:'▤',tone:'indigo',href:'/super-analise'},
   {type:'item',label:'Pesquisa de Produtos',icon:'⌕',tone:'green',href:'/pesquisa-produtos'},
@@ -55,6 +56,7 @@ function routeState(pathname,section){
   if(pathname.startsWith('/insights'))return{label:'Insights da Loja'};
   if(pathname.startsWith('/funil'))return{label:'Análise de Funil'};
   if(pathname.startsWith('/promocoes'))return{label:'Promoções'};
+  if(pathname.startsWith('/precificacao'))return{label:'Precificação Inteligente'};
   if(pathname.startsWith('/messenger'))return{label:'Messenger'};
   if(pathname.startsWith('/produtos'))return{label:'Super Análise',group:'products'};
   if(pathname.startsWith('/pesquisa-produtos'))return{label:'Pesquisa de Produtos'};
@@ -297,7 +299,7 @@ function MotorActivityCard(){
   </div>;
 }
 
-const PUBLIC_PAGES=['/login','/cadastro','/apresentacao','/privacidade','/termos','/docs/tecnica','/status'];
+const PUBLIC_PAGES=['/precificacao-demo','/login','/cadastro','/apresentacao','/privacidade','/termos','/docs/tecnica','/status'];
 
 export default function AppShell({children}){
   const pathname=usePathname();
