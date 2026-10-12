@@ -23,3 +23,10 @@
 .actionCard p{white-space:nowrap;text-overflow:ellipsis;overflow:hidden;font-size:13px;margin:2px 0 10px;color:var(--gs-muted,#777)}
 .actionCard>a,.actionCard>button{display:block;padding:13px;border:1px solid #e0e4eb;border-radius:9px;text-align:left;background:transparent;color:inherit;text-decoration:none;font-size:14px;cursor:pointer}
 .actionCard>a:hover,.actionCard>button:hover{background:#ee704b12}
+
+.bulk select{min-width:150px;padding:7px;border:1px solid #dce2ea;border-radius:7px;background:var(--gs-surface,#fff);color:inherit}
+.fileLabel{cursor:pointer;padding:8px 11px;border:1px solid #dce2ea;border-radius:8px}
+.fileLabel input{display:none}
+.history{display:grid;gap:8px;padding:14px;border:1px solid #dce2ea;border-radius:10px;margin:12px 0;background:var(--gs-surface,#fff);max-height:260px;overflow:auto;font-size:13px}
+.history>div{padding:7px;border-top:1px solid #e5e9ef}
+.history small{opacity:.7}
