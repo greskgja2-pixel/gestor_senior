@@ -14,15 +14,20 @@ function normalize(x){
  return {id:String(x.item_id),name:x.item_name||x.name||('Produto '+x.item_id),stock:num(stock),original:val,offer:val,cost:null,pack:null,promo:null,profit:null,roas:null,raw:x};
 }
 function read(k,fallback){try{const x=JSON.parse(localStorage.getItem('gs_pricing_'+k));return x??fallback}catch{return fallback}}
-export default function Precificacao(){
+export default function Precificacao({demo=false}){
  const [rows,setRows]=useState([]),[loading,setLoading]=useState(true),[error,setError]=useState('');
  const [query,setQuery]=useState(''),[sort,setSort]=useState('name'),[desc,setDesc]=useState(false);
  const [columns,setColumns]=useState(C.map(c=>c[0])),[widths,setWidths]=useState(defaults),[perPage,setPerPage]=useState(25),[page,setPage]=useState(1),[showCols,setShowCols]=useState(false);
  const [drafts,setDrafts]=useState({}),[notice,setNotice]=useState('');const drag=useRef(null);
  useEffect(()=>{setColumns(read('columns',C.map(c=>c[0])));setWidths(read('widths',defaults));setPerPage(read('perPage',25));},[]);
  useEffect(()=>{try{localStorage.setItem('gs_pricing_columns',JSON.stringify(columns));localStorage.setItem('gs_pricing_widths',JSON.stringify(widths));localStorage.setItem('gs_pricing_perPage',JSON.stringify(perPage))}catch{}},[columns,widths,perPage]);
- async function load(){setLoading(true);setError('');try{const r=await fetch('/api/shopee/products',{cache:'no-store'});const j=await r.json();if(!r.ok)throw Error(j.error||'Falha ao carregar produtos');setRows((j.items||[]).filter(x=>x?.item_id!=null).map(normalize))}catch(e){setError(String(e.message||e))}finally{setLoading(false)}}
- useEffect(()=>{load()},[]);
+ async function load(){if(demo)return;setLoading(true);setError('');try{const r=await fetch('/api/shopee/products',{cache:'no-store'});const j=await r.json();if(!r.ok)throw Error(j.error||'Falha ao carregar produtos');setRows((j.items||[]).filter(x=>x?.item_id!=null).map(normalize))}catch(e){setError(String(e.message||e))}finally{setLoading(false)}}
+ useEffect(()=>{if(demo){setRows([
+{id:'TESTE-001',name:'Kit para Colorir Infantil — 30 desenhos A4',stock:85,original:49.90,offer:42.90,cost:null,pack:null,promo:null},
+{id:'TESTE-002',name:'Tags Saída Maternidade Ursinho Azul — Kit 6 unidades',stock:156,original:19.90,offer:17.90,cost:null,pack:null,promo:null},
+{id:'TESTE-003',name:'Kit Festa Personalizado Completo',stock:42,original:79.90,offer:69.90,cost:null,pack:null,promo:null},
+...Array.from({length:42},(_,i)=>({id:'TESTE-'+String(i+4).padStart(3,'0'),name:'Produto demonstrativo '+(i+4),stock:20+i,original:29.90+i,offer:24.90+i,cost:null,pack:null,promo:null}))
+]);setLoading(false)}else load()},[demo]);
  useEffect(()=>{const onMove=e=>{if(!drag.current)return;setWidths(s=>({...s,[drag.current.key]:Math.max(90,Math.min(600,drag.current.width+e.clientX-drag.current.x))}))};const onUp=()=>{drag.current=null;document.body.style.cursor=''};window.addEventListener('pointermove',onMove);window.addEventListener('pointerup',onUp);return()=>{window.removeEventListener('pointermove',onMove);window.removeEventListener('pointerup',onUp)}},[]);
  const filtered=useMemo(()=>rows.filter(x=>x.name.toLocaleLowerCase('pt-BR').includes(query.toLocaleLowerCase('pt-BR'))||x.id.includes(query)).sort((a,b)=>{const v=k=>drafts[k+'_'+sort]??(rows.find(r=>r.id===k)?.[sort]);const aa=v(a.id),bb=v(b.id);const d=aa==null?1:bb==null?-1:typeof aa==='string'&&typeof bb==='string'?aa.localeCompare(bb,'pt-BR',{numeric:true}):Number(aa)-Number(bb);return desc?-d:d}),[rows,query,sort,desc,drafts]);
  const pages=Math.max(1,Math.ceil(filtered.length/perPage));const current=Math.min(page,pages),shown=filtered.slice((current-1)*perPage,current*perPage);
@@ -35,9 +40,9 @@ export default function Precificacao(){
  if(key==='promo')return <span className={styles.muted}>Não integrado</span>;
  if(key==='profit'||key==='roas')return <span className={styles.muted} title="Aguardando custos e taxas confirmados">Sem dados</span>;
  return '—'};
- return <main className={styles.page}><header className={styles.header}><div><small>GESTOR SÊNIOR / PRODUTOS</small><h1>💰 Precificação Inteligente</h1><p>Preços, estoque e rentabilidade dos seus produtos.</p></div><button onClick={load} disabled={loading}>{loading?'Carregando…':'↻ Atualizar lista'}</button></header>
+ return <main className={styles.page}><header className={styles.header}><div><small>GESTOR SÊNIOR / PRODUTOS</small><h1>💰 Precificação Inteligente {demo?'— Demonstração':''}</h1><p>Preços, estoque e rentabilidade dos seus produtos.</p></div><button onClick={load} disabled={loading}>{loading?'Carregando…':'↻ Atualizar lista'}</button></header>
  <section className={styles.summary}><article><small>Produtos encontrados</small><strong>{loading?'—':rows.length}</strong></article><article><small>Estoque conhecido</small><strong>{loading?'—':rows.filter(r=>r.stock!=null).length}</strong><small>produtos com estoque coletado</small></article><article><small>Margem média</small><strong>Sem dados</strong><small>Exige custos e taxas</small></article></section>
- <div className={styles.notice}>Versão inicial de visualização e simulação. <b>Editar um campo não altera a Shopee nesta etapa.</b> Os comandos de gravação serão habilitados após validação da integração de preço, estoque e promoção.</div>
+ <div className={styles.notice}>{demo?'Demonstração pública com produtos fictícios. Nenhum dado da sua loja é acessado. ':''}Versão inicial de visualização e simulação. <b>Editar um campo não altera a Shopee nesta etapa.</b> Os comandos de gravação serão habilitados após validação da integração de preço, estoque e promoção.</div>
  <section className={styles.panel}><div className={styles.toolbar}><input placeholder="Buscar produto por nome ou ID…" value={query} onChange={e=>{setQuery(e.target.value);setPage(1)}}/><div className={styles.cols}><button aria-expanded={showCols} onClick={()=>setShowCols(!showCols)}>⚙ Selecionar colunas</button>{showCols&&<div className={styles.dropdown}>{C.map(([k,label])=><label key={k}><input type="checkbox" checked={columns.includes(k)} disabled={k==='name'} onChange={e=>setColumns(s=>e.target.checked?[...s,k]:s.filter(v=>v!==k))}/>{label}</label>)}<button onClick={()=>{setColumns(C.map(c=>c[0]));setWidths(defaults)}}>Restaurar padrão</button></div>}</div></div>
  {notice&&<div className={styles.notice} role="status">{notice}<button onClick={()=>setNotice('')}>Fechar</button></div>}
  {error&&<p role="alert">Erro: {error} <button onClick={load}>Tentar novamente</button></p>}
