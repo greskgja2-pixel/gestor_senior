@@ -93,3 +93,13 @@
 .profitValue{color:#168044;font-weight:700}
 
 .simulatedValue{display:block;font-size:12px;font-weight:650;color:#26719c;margin-top:4px;white-space:nowrap}
+
+.dangerButton{color:#b42318!important;border-color:#efb1ab!important}
+.dangerPanel{display:grid;gap:11px;padding:14px;border:1px solid #eab3b0;border-radius:10px;background:rgba(215,48,40,.035)}
+.dangerPanel p{white-space:normal;overflow:visible;font-size:13px;color:inherit;margin:0}
+.dangerPanel label{display:grid;gap:7px;font-size:13px}
+.dangerPanel input{width:100%;padding:10px;border:1px solid #c9d2dd;border-radius:8px;background:var(--gs-surface,#fff);color:inherit}
+.dangerControls{display:flex;gap:8px;flex-wrap:wrap}
+.dangerControls button{padding:10px 12px;border-radius:8px;border:1px solid #d8e0e8;background:transparent;color:inherit;cursor:pointer}
+.dangerControls .dangerConfirm{background:#b42318;color:#fff;border-color:#b42318}
+.dangerControls button:disabled{opacity:.48;cursor:not-allowed}
