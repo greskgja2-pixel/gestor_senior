@@ -74,7 +74,7 @@ export default function Precificacao({demo=false}){
  for(const [min,max,rate,fixed] of tiers){
   if(!Number.isFinite(rate)||!Number.isFinite(fixed??0)||rate<0||(fixed??0)<0)continue;
   const fixedPart=fixed??0;
-  const denominator=1-(rate+tax)/100-(fixed==null?.5:0)-1/roasPlan-(hasGoal?0:globalTarget);
+  const denominator=1-(rate+tax)/100-(fixed===null ? 0.5 : 0)-1/roasPlan-(hasGoal?0:globalTarget);
   if(denominator<=0)continue;
   const numerator=cost+pack+fixedPart+(hasGoal?goalMoney:0);
   const candidate=Math.max(min,Math.ceil((numerator/denominator-1e-9)*100)/100);
