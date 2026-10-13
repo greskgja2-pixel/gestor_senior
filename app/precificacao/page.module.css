@@ -86,3 +86,8 @@
 .priceVariantRow input{width:100%;min-width:0;padding:9px;border:1px solid #d7dfe9;border-radius:8px;color:inherit;background:transparent}
 .priceFooter{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:10px}
 @media(max-width:620px){.priceVariantHeader,.priceVariantRow{grid-template-columns:minmax(100px,1.4fr) minmax(85px,1fr);gap:8px;padding:9px}.priceVariantHeader strong:nth-child(2){display:none}.priceVariantRow>span{display:none}.priceVariantRow input{font-size:14px}}
+
+.productThumb{width:38px;height:38px;flex:0 0 38px;object-fit:cover;border-radius:7px;border:1px solid #e2e8ef;background:#f4f6f8}
+.productInfo{display:flex;flex-direction:column;gap:4px;min-width:0}
+.lossValue{color:#c62828;font-weight:750}
+.profitValue{color:#168044;font-weight:700}
