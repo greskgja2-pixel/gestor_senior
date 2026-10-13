@@ -13,7 +13,7 @@ export async function GET(){
  if(!shop)return NextResponse.json({error:'Loja não conectada'},{status:401});
  try{
   const {items,source,syncedAt}=await getProducts(shop);
-  const enriched=(items||[]).map(x=>({...x}));
+  const enriched=(items||[]).map(x=>({...x,shop_id:x.shop_id||shop.shop_id}));
   const pending=enriched.map((x,i)=>({x,i})).filter(({x})=>x?.has_model&&(x?.price_info?.[0]?.current_price==null||x?.stock_info_v2?.summary_info?.total_available_stock==null));
   for(let i=0;i<pending.length;i+=6){
    await Promise.all(pending.slice(i,i+6).map(async ({x,i:index})=>{
