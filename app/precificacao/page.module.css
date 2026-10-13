@@ -91,3 +91,5 @@
 .productInfo{display:flex;flex-direction:column;gap:4px;min-width:0}
 .lossValue{color:#c62828;font-weight:750}
 .profitValue{color:#168044;font-weight:700}
+
+.simulatedValue{display:block;font-size:12px;font-weight:650;color:#26719c;margin-top:4px;white-space:nowrap}
