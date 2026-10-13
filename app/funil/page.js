@@ -726,10 +726,11 @@ export default function FunilPage(){
   const [context,setContext]=useState({});
   const [state,setState]=useState({loading:true,error:'',seller:null,ads:null});
   const load=async(selectedPeriod=period)=>{
+
     setState(s=>({...s,loading:true,error:''}));
     const meta=periodMeta(selectedPeriod);
     const [sellerR,adsR]=await Promise.allSettled([
-      motorData('sellerFunnel',{period:selectedPeriod},60000),
+      (async()=>{const first=await motorData('sellerFunnel',{period:selectedPeriod},60000);const errorList=arr(first?.errors);const allNotReady=errorList.length>0&&errorList.every(x=>/data isn.t ready|not ready|not_ready|not.ready/i.test(String(x?.error||x?.message||'')));const hasMetrics=deriveStoreFunnel(first).coverage.stageCount>0;if(!allNotReady||hasMetrics)return first;await new Promise(resolve=>setTimeout(resolve,1800));return motorData('sellerFunnel',{period:selectedPeriod},60000)})(),
       getJson('/api/shopee/ads?days='+meta.days)
     ]);
     const seller=sellerR.status==='fulfilled'?sellerR.value:null;
@@ -737,6 +738,7 @@ export default function FunilPage(){
     const errors=[];
     if(sellerR.status==='rejected')errors.push('Funil completo: '+String(sellerR.reason?.message||sellerR.reason));
     if(adsR.status==='rejected')errors.push('Shopee Ads: '+String(adsR.reason?.message||adsR.reason));
+    if(seller&&deriveStoreFunnel(seller).coverage.stageCount===0&&arr(seller?.errors).some(x=>/data isn.t ready|not ready|not_ready/i.test(String(x?.error||x?.message||''))))errors.push('A Shopee ainda não disponibilizou os relatórios gerenciais desse período. Abra Informações Gerenciais no Seller Center, aguarde o carregamento e use Atualizar agora.');
     if(seller&&seller?.period?.type&&seller.period.type!==selectedPeriod)errors.push('O Motor Sênior respondeu '+periodMeta(seller.period.type).label+' em vez de '+periodMeta(selectedPeriod).label+'. Atualize a extensão para v0.17.4+ para usar o histórico mapeado.');
     try{
       // A Super Análise é a fonte de elegibilidade do Funil. O Motor apenas
@@ -899,6 +901,6 @@ export default function FunilPage(){
       {!model.campaigns.length?<div className={styles.empty}>Sem campanhas disponíveis.</div>:<div className={styles.adsList}>{model.campaigns.slice(0,12).map((c,i)=><div key={i}><b>{c.name}</b><span>{int(c.impressions)} impressões · {int(c.clicks)} cliques · {int(c.orders)} pedidos</span><small>CTR {pct(c.ctr)} · clique→pedido {pct(c.cvr)}</small></div>)}</div>}
     </section>}
 
-    <section className={styles.sourceNote}><strong>Fonte e confiabilidade</strong><p>O funil completo usa os endpoints estruturados de “Informações Gerenciais” lidos pela extensão dentro da sessão normal do Seller Center. Nenhum cookie ou token é enviado ao Gestor. Quando uma métrica não existe na resposta, ela aparece como “—”. Não encontramos uma etapa explícita de “início de checkout”; por isso o fluxo usa Carrinho → Pedido criado → Pago → Confirmado.</p>{model.errors.length>0&&<small>{model.errors.map(x=>x.source+': '+x.error).join(' · ')}</small>}</section>
+    <section className={styles.sourceNote}><strong>Fonte e confiabilidade</strong><p>Os indicadores vêm de Informações Gerenciais da Shopee, coletados pelo Motor Sênior com a sessão do Seller Center. Etapas sem números disponíveis permanecem como “—”, sem estimativas artificiais. O fluxo utiliza Carrinho → Pedido → Pago → Confirmado.</p>{model.errors.length>0&&<details><summary>Detalhes técnicos da coleta ({model.errors.length})</summary><small>{model.errors.map(x=>x.source+': '+x.error).join(' · ').slice(0,2500)}</small></details>}</section>
   </div>
 }
