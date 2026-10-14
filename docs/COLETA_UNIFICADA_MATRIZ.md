@@ -16,8 +16,8 @@ Este PR implementa apenas o contrato de evidências da coleta pública:
 | --- | --- | --- | --- |
 | Pesquisa de Produtos / Radar de Oportunidades | `motorData('marketplaceSearch')` e histórico local | Extrator/contrato comum; captura natural já no Motor 0.18.6 | Piloto estático |
 | Concorrentes / checagem em segundo plano | `/api/competitor-background-check` com busca pública e fallback PDP | Normalizador comum; procedência no snapshot; não inferir Ads de `ads_id` | Piloto estático |
-| Super Análise / WebAuditFlow | `collectProduct` pelo Motor, validação pública adicional | Adaptador de produto e qualidade de evidência | Planejado |
-| Super Anúncio | `extension_analysis_reports`, snapshots de concorrentes | Leitura de procedência, gráficos sem alterar históricos existentes | Planejado |
+| Super Análise / WebAuditFlow | `collectProduct` pelo Motor, validação pública adicional | Merge com procedência e verificação de item_id na API pública, sem eliminar fallback | Piloto estático |
+| Super Anúncio e Reanálise | `extension_analysis_reports`, snapshots e concorrentes | Mantém histórico, diferencia valor observado de herdado e omite pontos sem coleta nova | Piloto estático |
 | Produtos | API oficial da Shopee + `products_cache` | Preservar fonte oficial; enriquecimento público opcional | Planejado |
 | Funil da Loja | `sellerFunnel` / MyData, 7 e 30 dias | Manter indicadores oficiais por período; não usar vendas estimadas | Planejado |
 | Shopee Ads | APIs de Seller Ads | Manter métricas reais de Ads; padronizar somente erros e procedência | Planejado |
@@ -40,3 +40,9 @@ Este PR implementa apenas o contrato de evidências da coleta pública:
 - `/api/competitor-background-check` ainda faz tentativa HTTP de busca pública no servidor, que pode receber 403; este PR melhora a interpretação, não remove esse bloqueio.
 - Testes do pacote são determinísticos/sintéticos. Build de prévia não confirma sessão Shopee, qualidade real de coleta nem Android.
 - Não há modificação em banco de dados, CSS, fluxos de reanálise, custos, anúncios ou Ads.
+
+## Avanço 2 — Super Análise e Reanálise
+- Novo `app/lib/product-evidence.js` com merge por campo, rejeição de IDs divergentes, zero legítimo, estoque/preço Open API e proveniência.
+- Super Análise valida apenas resposta pública com `item_id` igual ao anúncio selecionado e limita a espera dessa API a 15 segundos. Resposta pública indisponível não bloqueia o Motor.
+- Reanálise mantém valores e contexto antigos, mas assinala-os como históricos até que sejam observados de novo. Gráfico evita adicionar pontos de preço/vendas quando a coleta recente não confirmou a métrica.
+- Fonte pública do servidor pode sofrer bloqueios. O preview não simula conexão autenticada da extensão nem confirma dados de Shopee ao vivo.

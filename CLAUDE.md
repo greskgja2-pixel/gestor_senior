@@ -690,3 +690,10 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 - Build de preview na Vercel passou até o commit `35213b6`, com suíte nova incluída. Rodadas após esse commit e validação real de Shopee/Android ainda devem ser conferidas antes de merge.
 - Limitação crítica: o Motor Sênior v0.18.6, que já usa captura natural, é distribuído fora do repositório; este trabalho **não mudou a extensão instalada**, não corrigiu HTTP 403 da busca feita no servidor e não migrou todas as telas.
 - Não alterar a produção sem verificar HEAD atual e prévia verde. Revalidar Pesquisa de Produtos, Concorrentes e fluxos de reanálise com Motor conectado antes de promover as etapas seguintes.
+
+### 2026-10-13 — ChatGPT — Avanço 2 da Coleta Unificada: Super Análise e Reanálise
+- Introduzido `app/lib/product-evidence.js`: mesclagem por campo de resultados do Motor, Open API e vitrine pública, com zero válido e IDs verificados, e marcação explícita de campo herdado da rodada anterior.
+- O fluxo `WebAuditFlow` usa `fetchJsonWithTimeout` para validar o produto público sem bloquear a análise quando indisponível; só aceita item_id correspondente. Mensagens, custos e seleção de concorrentes preservados.
+- Reanálise usa o mesmo contrato para produto e concorrentes; métricas de preço/vendas recém-coletadas não assumem automaticamente números antigos. A leitura do gráfico de histórico evita registrar valores herdados como novos pontos, mantendo compatibilidade com análises antigas sem marcador.
+- Novos testes em `tests/product-evidence.test.mjs` incluídos em prebuild. **Sem novos endpoints de autenticação, sem mudança de schema, sem alteração no pacote do Motor Sênior.**
+- A implementação segue somente na PR #99, sem merge; build de preview final e teste real no Chrome/Quetta são pré-requisitos antes da produção.

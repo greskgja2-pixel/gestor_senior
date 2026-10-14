@@ -6,6 +6,7 @@ import Link from 'next/link';
 import styles from './intelligence-sections.module.css';
 import ReminderButton from '../components/ReminderButton';
 import {fetchJsonWithTimeout,motorRequest,motorData,classifyAsyncError} from '../lib/client-async';
+import {observedValue} from '../lib/product-evidence';
 
 const n=v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v))?null:Number(v);
 const arr=v=>Array.isArray(v)?v:[];
@@ -485,12 +486,12 @@ function ownerChartPoints(item,metric,cutoff){
     const snap=report?.product_snapshot||{};
     const previous=index>0?(history[index-1]?.product_snapshot||{}):null;
     let value=null;
-    if(metric==='price')value=n(snap?.price??snap?.currentPrice);
-    else if(metric==='sold')value=n(snap?.sold??snap?.historicalSold);
+    if(metric==='price')value=observedValue(snap,'price');
+    else if(metric==='sold')value=observedValue(snap,'sold');
     else{
       value=n(snap?.monthlySold??snap?.monthly_sold??snap?.sold_30d);
       if(value==null){
-        const now=n(snap?.sold??snap?.historicalSold),before=n(previous?.sold??previous?.historicalSold);
+        const now=observedValue(snap,'sold'),before=observedValue(previous,'sold');
         value=now!=null&&before!=null?Math.max(0,now-before):null;
       }
     }
