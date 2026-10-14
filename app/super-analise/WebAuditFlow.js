@@ -15,6 +15,8 @@ const idFromUrl=value=>{try{const raw=String(value||'');const m=raw.match(/\/pro
 async function validatePublicProduct(targetUrl,product){
   const ids=idFromUrl(targetUrl);
   const current=mergeObservedProduct({},product,{source:'motor-senior-collectProduct',expectedItemId:ids?.itemId||null,expectedShopId:ids?.shopId||null,collectedAt:new Date().toISOString()});
+  // Se a extensão devolveu outro item, parar: não analisar o produto errado.
+  if(current.collectionEvidence?.rejectedSources?.length)throw new Error('O Motor Sênior retornou outro anúncio ou não confirmou o item do link. Coleta descartada.');
   if(!ids?.itemId)return current;
   try{
     const json=await fetchJsonWithTimeout(`/api/shopee/product-public?shop_id=${encodeURIComponent(ids.shopId)}&item_ids=${encodeURIComponent(ids.itemId)}`,{cache:'no-store'},15000);

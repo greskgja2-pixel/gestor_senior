@@ -55,6 +55,7 @@ test('Super Análise usa merge compartilhado e verifica correspondência de ID',
   assert.match(audit,/mergeObservedProduct/);
   assert.match(audit,/String\(x\.itemId\?\?x\.item_id\)/);
   assert.match(audit,/fetchJsonWithTimeout/);
+  assert.match(audit,/rejectedSources\?\.length/);
   assert.match(audit,/motorData\('collectProduct'/);
 });
 test('reanálise não apaga custos nem concorrentes e diferencia dados atualizados',()=>{
