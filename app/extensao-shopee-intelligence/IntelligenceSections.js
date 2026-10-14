@@ -6,6 +6,8 @@ import Link from 'next/link';
 import styles from './intelligence-sections.module.css';
 import ReminderButton from '../components/ReminderButton';
 import {fetchJsonWithTimeout,motorRequest,motorData,classifyAsyncError} from '../lib/client-async';
+import {observedValue} from '../lib/product-evidence';
+import {extractMarketplaceRows,marketplaceItemEvidence} from '../lib/marketplace-evidence';
 
 const n=v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v))?null:Number(v);
 const arr=v=>Array.isArray(v)?v:[];
@@ -446,6 +448,49 @@ async function visibilityViaMega({keyword,maxPages}){
     pages:Math.max(1,Math.min(5,n(maxPages)??3))
   },75000);
 }
+function isMotorBridgeReady(){
+  if(typeof document==='undefined')return false;
+  return Boolean(document.querySelector('meta[name="gestor-senior-extension"]')||
+    document.documentElement?.dataset?.gsExtensionBridge==='ready'||
+    document.getElementById('gs-extension-bridge-marker'));
+}
+async function collectNaturalCompetitorGroup(list,keyword,maxPages){
+  // A busca natural do Motor v0.18.6 evita fazer requests artificiais a APIs de pesquisa.
+  if(!isMotorBridgeReady()||!keyword)return[];
+  try{
+    const response=await visibilityViaMega({keyword,maxPages});
+    const root=response?.data||response||{};
+    if(root?.mode==='diagnostic-only'||root?.diagnostics?.mode==='diagnostic-only')return[];
+    const candidates=extractMarketplaceRows(response);
+    if(!candidates.length)return[];
+    const searchedAt=root?.collected_at||root?.searched_at||new Date().toISOString();
+    const results=[];
+    for(const row of list){
+      const target=String(row.competitorItemId||'');
+      const raw=candidates.find(item=>{
+        const b=item?.item_basic||item?.item||item||{};
+        return String(b.itemid??b.item_id??item?.itemid??item?.itemId??item?.item_id??'')===target;
+      });
+      if(!raw)continue;
+      const visibility=normalizeSearchVisibility(response,{
+        ownerItemId:String(row.ownerItemId),competitorItemId:target,maxPages:Math.min(5,maxPages)
+      });
+      const observed=marketplaceItemEvidence(raw,{source:'motor-natural-search',collectedAt:searchedAt});
+      results.push({
+        watch_id:row.watch.id,keyword:visibility.keyword||keyword,searched_at:searchedAt,
+        max_pages:Math.min(5,maxPages),items_per_page:visibility.itemsPerPage||60,
+        competitor:{...visibility.competitor,found:true},owner:visibility.owner,
+        ads:visibility.ads,market:{...(visibility.market||{}),provenance:observed?.provenance||null},
+        found_by:'motor-natural-search',
+        diagnostics:{method:'motor-natural-search',itemsCaptured:candidates.length,pagesRequested:Math.min(5,maxPages)}
+      });
+    }
+    return results;
+  }catch(error){
+    console.warn('[Radar] Motor indisponível na pesquisa; usando fallback',String(error?.message||error));
+    return[];
+  }
+}
 
 function competitorPriority(row){
   const due=dueInfo(row.watch?.next_check_at).due;
@@ -485,12 +530,12 @@ function ownerChartPoints(item,metric,cutoff){
     const snap=report?.product_snapshot||{};
     const previous=index>0?(history[index-1]?.product_snapshot||{}):null;
     let value=null;
-    if(metric==='price')value=n(snap?.price??snap?.currentPrice);
-    else if(metric==='sold')value=n(snap?.sold??snap?.historicalSold);
+    if(metric==='price')value=observedValue(snap,'price');
+    else if(metric==='sold')value=observedValue(snap,'sold');
     else{
       value=n(snap?.monthlySold??snap?.monthly_sold??snap?.sold_30d);
       if(value==null){
-        const now=n(snap?.sold??snap?.historicalSold),before=n(previous?.sold??previous?.historicalSold);
+        const now=observedValue(snap,'sold'),before=observedValue(previous,'sold');
         value=now!=null&&before!=null?Math.max(0,now-before):null;
       }
     }
@@ -620,18 +665,37 @@ function Competitors({items}){
     const phaseKey=String(first.ownerItemId);
     if(!silent)setVisibilityPhase(x=>({...x,[phaseKey]:'loading'}));
     try{
-      const data=await fetchJsonWithTimeout('/api/competitor-background-check',{
-        method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',
-        body:JSON.stringify({
-          watch_ids:list.map(r=>r.watch.id),
-          owner_item_id:String(first.ownerItemId),
-          keyword,max_pages:maxPages
-        })
-      },60000);
+      // Motor primeiro: se houver resultados parciais válidos, mantê-los mesmo com 403 no fallback.
+      const motorResults=await collectNaturalCompetitorGroup(list,keyword,maxPages);
+      const motorIds=new Set(motorResults.map(x=>String(x.watch_id)));
+      const unresolved=list.filter(r=>!motorIds.has(String(r.watch.id)));
+      let serverResults=[],fallbackError=null;
+      if(unresolved.length){
+        try{
+          const server=await fetchJsonWithTimeout('/api/competitor-background-check',{
+            method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',
+            body:JSON.stringify({
+              watch_ids:unresolved.map(r=>r.watch.id),
+              owner_item_id:String(first.ownerItemId),
+              keyword,max_pages:maxPages
+            })
+          },60000);
+          serverResults=arr(server?.results);
+        }catch(error){
+          fallbackError=String(error?.message||error);
+          console.warn('[Radar] servidor não respondeu; Motor preservado',fallbackError);
+        }
+      }
+      const data={results:[...motorResults,...serverResults]};
       let updated=0,failed=0;
       for(const row of list){
         const normalized=arr(data?.results).find(x=>String(x?.watch_id)===String(row.watch.id));
         if(!normalized){failed++;continue}
+        const source=normalized.found_by==='motor-natural-search'?'motor-natural-search':'server-background-search';
+        const attempts=arr(normalized?.diagnostics?.primary_attempts);
+        // HTTP 403 sem observação válida não equivale a "anúncio ausente".
+        if(source==='server-background-search'&&!normalized.competitor?.found&&
+          normalized?.diagnostics?.primary_error&&!attempts.some(a=>a.ok===true)){failed++;continue}
         await fetchJsonWithTimeout('/api/competitor-visibility',{
           method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({
@@ -640,7 +704,7 @@ function Competitors({items}){
             competitor_found:normalized.competitor?.found===true,competitor_position:normalized.competitor?.position,competitor_page:normalized.competitor?.page,
             owner_found:normalized.owner?.found===true,owner_position:normalized.owner?.position,owner_page:normalized.owner?.page,
             competitor_ads_status:normalized.ads?.status||'unknown',competitor_ads_evidence:normalized.ads?.evidence||null,
-            source:'server-background-search',confidence:normalized.found_by==='direct-item'?'direct':'observed',
+            source,confidence:normalized.found_by==='direct-item'?'direct':'observed',
             raw:{
               found_by:normalized.found_by||null,
               search_order:'relevance',
@@ -660,7 +724,7 @@ function Competitors({items}){
               title:competitorTitle(market.title,row.title,row.watch?.competitor_title),
               price:n(market.price),sold:n(market.sold),rating:n(market.rating),
               image_url:row.image||null,
-              source:'server-background-search',confidence:normalized.found_by==='direct-item'?'direct':'observed',
+              source,confidence:normalized.found_by==='direct-item'?'direct':'observed',
               raw:{
                 originalPrice:n(market.originalPrice),
                 monthlySold:n(market.monthlySold),
@@ -673,6 +737,7 @@ function Competitors({items}){
                 searchPage:normalized.competitor?.page??null,
                 keyword:normalized.keyword||keyword,
                 foundBy:normalized.found_by||null,
+                fieldProvenance:market.provenance||null,
                 background:true
               }
             })
@@ -681,7 +746,7 @@ function Competitors({items}){
         updated++;
       }
       if(!silent)setVisibilityPhase(x=>({...x,[phaseKey]:failed?'error':'success'}));
-      return{updated,failed,total:list.length,found:n(data?.found)??0};
+      return{updated,failed,total:list.length,found:arr(data?.results).filter(x=>x?.competitor?.found===true).length,fallbackError};
     }catch(error){
       if(!silent)setVisibilityPhase(x=>({...x,[phaseKey]:'error',error:String(error?.message||error)}));
       return{updated:0,failed:list.length,error,total:list.length};

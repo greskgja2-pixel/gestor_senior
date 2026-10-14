@@ -2,6 +2,7 @@
 
 import {useEffect,useMemo,useRef,useState} from 'react';
 import {motorData} from '../lib/client-async';
+import {extractMarketplaceRows,marketplaceItemEvidence} from '../lib/marketplace-evidence';
 import styles from './pesquisa-produtos.module.css';
 
 const n=v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v))?null:Number(v);
@@ -30,12 +31,13 @@ function stateFrom(value){
   return found||raw;
 }
 function normalizeOne(row,index){
+  const observed=marketplaceItemEvidence(row,{source:'motor-natural-search'});
   const b=row?.item_basic||row?.item||row?.product||row||{};
   const rating=b?.item_rating||row?.item_rating||{};
   const price=priceFromShopee(b?.price??b?.price_min??b?.price_min_before_discount??row?.price);
   const original=priceFromShopee(b?.price_before_discount??b?.original_price??row?.original_price);
   const sold=n(b?.historical_sold??b?.sold??row?.sold??row?.historicalSold);
-  const monthlySold=n(b?.monthly_sold??b?.sold_30d??row?.monthlySold??row?.monthly_sold);
+  const monthlySold=observed?.monthlySold??null; // estimativa mensal nunca vira período real
   const title=String(b?.name??b?.item_name??row?.title??row?.name??'Produto sem título').trim();
   const itemId=String(b?.itemid??b?.item_id??row?.itemid??row?.itemId??row?.item_id??'').trim();
   const shopId=String(b?.shopid??b?.shop_id??row?.shopid??row?.shopId??row?.shop_id??'').trim();
@@ -48,21 +50,13 @@ function normalizeOne(row,index){
   const monthlyRevenue=price!=null&&monthlySold!=null?price*monthlySold:null;
   const preferred=Boolean(b?.is_preferred_shop||b?.is_preferred_seller||row?.preferred||/vendedor\s+indicado|\bindicado\b/i.test(String(row?.searchText||'')));
   const url=itemId&&shopId?`https://shopee.com.br/product/${shopId}/${itemId}`:null;
-  return {key:itemId||shopId||String(index),index,title,itemId,shopId,image,price,original,discount,sold,monthlySold,rating:ratingValue,reviews,location,revenue,monthlyRevenue,preferred,url,raw:row};
+  return {key:itemId||shopId||String(index),index,title,itemId,shopId,image,price,original,discount,sold,monthlySold,rating:ratingValue,reviews,location,revenue,monthlyRevenue,preferred,url,provenance:observed?.provenance??null,estimatedMonthlySold:observed?.estimatedMonthlySold??null,raw:row};
 }
 function extractRows(payload){
-  const root=payload?.data??payload;
-  const candidates=[
-    root?.items,root?.results,root?.products,root?.search_items,root?.searchItems,
-    root?.data?.items,root?.data?.results,root?.data?.products,
-    root?.discovery?.items,root?.discovery?.results
-  ];
-  for(const rows of candidates)if(Array.isArray(rows)&&rows.length)return rows;
-  if(Array.isArray(root))return root;
-  const discovered=root?.discovery?.candidates;
-  if(discovered&&typeof discovered==='object')return Object.values(discovered);
-  return [];
+  // Uma só regra de leitura para pesquisa e radar competitivo.
+  return extractMarketplaceRows(payload);
 }
+
 function opportunityScore(r,bench){
   let s=50;
   if(r.monthlySold!=null&&bench.monthlyMedian>0)s+=Math.min(22,(r.monthlySold/bench.monthlyMedian-1)*14);

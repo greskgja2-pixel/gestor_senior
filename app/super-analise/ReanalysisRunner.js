@@ -4,6 +4,7 @@ import {useEffect,useMemo,useState} from 'react';
 import {useRouter} from 'next/navigation';
 import styles from './reanalysis-runner.module.css';
 import {fetchJsonWithTimeout,classifyAsyncError} from '../lib/client-async';
+import {mergeObservedProduct,beginProductReanalysis,observedValue} from '../lib/product-evidence';
 
 const arr=v=>Array.isArray(v)?v:[];
 const n=v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v))?null:Number(v);
@@ -13,30 +14,14 @@ function Step({index,current,label,status}){
   return <div className={`${styles.step} ${done?styles.done:''} ${active?styles.active:''}`}><span>{done?'✓':index}</span><div><b>{label}</b><small>{done?'Concluído':active?'Em andamento':'Aguardando'}</small></div></div>;
 }
 
-function mergeProduct(previous,fresh){
-  const next={...previous,...fresh};
-  next.itemId=fresh?.itemId??fresh?.item_id??previous?.itemId??previous?.item_id;
-  next.item_id=fresh?.item_id??fresh?.itemId??previous?.item_id??previous?.itemId;
-  next.price=fresh?.price??fresh?.currentPrice??previous?.price;
-  next.sold=fresh?.historicalSold??fresh?.sold??previous?.sold;
-  next.rating=fresh?.rating??previous?.rating;
-  next.reviewCount=fresh?.reviewCount??previous?.reviewCount;
-  next.stock=fresh?.stock??previous?.stock;
-  if(fresh?.imageUrl&&!next.imageUrl)next.imageUrl=fresh.imageUrl;
-  if(arr(fresh?.imageUrls).length)next.imageUrls=fresh.imageUrls;
-  return next;
+function mergeProduct(previous,fresh,{source='shopee-public-api',itemId=null,shopId=null}={}){
+  return mergeObservedProduct(previous,fresh,{source,expectedItemId:itemId,expectedShopId:shopId,collectedAt:new Date().toISOString()});
 }
-function mergeCompetitor(previous,fresh){
-  if(!fresh)return previous;
-  return {...previous,...fresh,
-    price:fresh?.price??previous?.price,
-    sold:fresh?.historicalSold??fresh?.sold??previous?.sold,
-    monthlySold:fresh?.monthlySold??fresh?.monthly_sold??previous?.monthlySold,
-    rating:fresh?.rating??previous?.rating,
-    reviewCount:fresh?.reviewCount??previous?.reviewCount,
-    stock:fresh?.stock??previous?.stock,
-    collectedAt:new Date().toISOString()
-  };
+function mergeCompetitor(previous,fresh,itemId,shopId){
+  if(!fresh)return beginProductReanalysis(previous);
+  return mergeObservedProduct(beginProductReanalysis(previous),fresh,{
+    source:'shopee-public-api',expectedItemId:itemId,expectedShopId:shopId,collectedAt:new Date().toISOString()
+  });
 }
 
 export default function ReanalysisRunner({report,shopId,taskId=''}) {
@@ -61,7 +46,7 @@ export default function ReanalysisRunner({report,shopId,taskId=''}) {
     if(!targetShopId||!targetItemId)return null;
     try{
       const data=await fetchJsonWithTimeout(`/api/shopee/product-public?shop_id=${encodeURIComponent(targetShopId)}&item_ids=${encodeURIComponent(targetItemId)}&direct=1`,{cache:'no-store'},30000);
-      return arr(data?.results).find(x=>x?.ok)||null;
+      return arr(data?.results).find(x=>x?.ok&&String(x.itemId??x.item_id)===String(targetItemId))||null;
     }catch{return null}
   }
 
@@ -95,7 +80,9 @@ export default function ReanalysisRunner({report,shopId,taskId=''}) {
         freshOwn=arr(products?.items).find(x=>String(x?.item_id??x?.itemId)===itemId)||null;
       }catch{}
       const publicOwn=await publicItem(shopId,itemId);
-      const productSnapshot=mergeProduct(product,{...(freshOwn||{}),...(publicOwn||{})});
+      let productSnapshot=beginProductReanalysis(product);
+      productSnapshot=mergeProduct(productSnapshot,freshOwn,{source:'shopee-open-api',itemId,shopId});
+      productSnapshot=mergeProduct(productSnapshot,publicOwn,{source:'shopee-public-api',itemId,shopId});
 
       setPhase('competitors');setMessage('Atualizando os concorrentes já vinculados à análise anterior…');
       const previousCompetitors=arr(report?.competitors).slice(0,3);
@@ -104,7 +91,7 @@ export default function ReanalysisRunner({report,shopId,taskId=''}) {
         const compShop=String(comp?.shopId??comp?.shop_id??'');
         const compItem=String(comp?.itemId??comp?.item_id??comp?.id??'');
         const fresh=await publicItem(compShop,compItem);
-        competitors.push(mergeCompetitor(comp,fresh));
+        competitors.push(mergeCompetitor(comp,fresh,compItem,compShop));
       }
       if(!competitors.length)throw new Error('A análise anterior não possui concorrentes vinculados para uma nova rodada confiável.');
 
@@ -123,8 +110,8 @@ export default function ReanalysisRunner({report,shopId,taskId=''}) {
         report:{...(report?.report||{}),reanalysis_of:report?.id||null,reanalysis_started_at:new Date().toISOString()},
         suggestions:{},
         metrics:{...(report?.metrics||{}),
-          price:n(productSnapshot?.price??productSnapshot?.currentPrice)??report?.metrics?.price,
-          sold:n(productSnapshot?.historicalSold??productSnapshot?.sold)??report?.metrics?.sold
+          price:observedValue(productSnapshot,'price'),
+          sold:observedValue(productSnapshot,'sold')
         },
         frequency_days:10,
         next_reanalysis_at:new Date(Date.now()+10*86400000).toISOString()

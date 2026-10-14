@@ -2,7 +2,8 @@
 
 import {useEffect,useMemo,useRef,useState} from 'react';
 import styles from './web-audit.module.css';
-import {motorData,classifyAsyncError} from '../lib/client-async';
+import {motorData,classifyAsyncError,fetchJsonWithTimeout} from '../lib/client-async';
+import {mergeObservedProduct} from '../lib/product-evidence';
 
 const n=v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v))?null:Number(v);
 const money=v=>n(v)==null?'—':n(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
@@ -10,21 +11,19 @@ const pct=v=>n(v)==null?'—':`${n(v).toLocaleString('pt-BR',{maximumFractionDig
 const ratingText=v=>n(v)==null?'—':n(v).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1});
 const ratingDraft=v=>n(v)==null?'':n(v).toFixed(1);
 const safe=v=>v===null||v===undefined?'':v;
-const idFromUrl=value=>{try{const m=String(value||'').match(/\/product\/(\d+)\/(\d+)/);return m?{shopId:m[1],itemId:m[2]}:null}catch{return null}};
+const idFromUrl=value=>{try{const raw=String(value||'');const m=raw.match(/\/product\/(\d+)\/(\d+)/)||raw.match(/-i\.(\d+)\.(\d+)/);return m?{shopId:m[1],itemId:m[2]}:null}catch{return null}};
 async function validatePublicProduct(targetUrl,product){
-  const ids=idFromUrl(targetUrl); if(!ids?.itemId)return product;
+  const ids=idFromUrl(targetUrl);
+  const current=mergeObservedProduct({},product,{source:'motor-senior-collectProduct',expectedItemId:ids?.itemId||null,expectedShopId:ids?.shopId||null,collectedAt:new Date().toISOString()});
+  // Se a extensão devolveu outro item, parar: não analisar o produto errado.
+  if(current.collectionEvidence?.rejectedSources?.length)throw new Error('O Motor Sênior retornou outro anúncio ou não confirmou o item do link. Coleta descartada.');
+  if(!ids?.itemId)return current;
   try{
-    const res=await fetch(`/api/shopee/product-public?shop_id=${encodeURIComponent(ids.shopId)}&item_ids=${encodeURIComponent(ids.itemId)}`,{cache:'no-store'});
-    const json=await res.json(); const real=json?.results?.find(x=>x?.ok);
-    if(!res.ok||!real)return product;
-    return {...product,
-      price:real.price??product?.price,
-      sold:real.historicalSold??product?.sold,
-      rating:real.rating??product?.rating,
-      reviewCount:real.reviewCount??product?.reviewCount,
-      stock:real.stock??product?.stock,
-      validationSource:'shopee_public_api'};
-  }catch(e){console.warn('[Super Análise] validação pública indisponível',e);return product;}
+    const json=await fetchJsonWithTimeout(`/api/shopee/product-public?shop_id=${encodeURIComponent(ids.shopId)}&item_ids=${encodeURIComponent(ids.itemId)}`,{cache:'no-store'},15000);
+    const real=(json?.results||[]).find(x=>x?.ok&&String(x.itemId??x.item_id)===ids.itemId);
+    if(!real)return current; // Nunca confundir anúncios com IDs diferentes.
+    return mergeObservedProduct(current,real,{source:'shopee-public-api',expectedItemId:ids.itemId,expectedShopId:ids.shopId,collectedAt:new Date().toISOString()});
+  }catch(e){console.warn('[Super Análise] validação pública indisponível',e);return current;}
 }
 
 function Help({children}){return <span className={styles.help} title={children}>?</span>}
@@ -229,7 +228,7 @@ export default function WebAuditFlow({initialUrl=''}){
       {step===1&&<section className={styles.card}><div className={styles.cardHead}><div><span className={styles.num}>1</span><h2>Carregar anúncio</h2></div><Help>Quando você vem de Produtos, o anúncio já chega selecionado. O Motor Senior faz a coleta em segundo plano.</Help></div><p>Se você entrou diretamente nesta página, cole o link do anúncio.</p><div className={styles.row}><input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://shopee.com.br/..."/><button className={styles.primary} disabled={loading||!url.trim()} onClick={()=>loadProduct()}>{loading?'Coletando…':'Carregar anúncio'}</button></div></section>}
 
       {step===2&&<>
-        <section className={styles.productCard}>{p?.imageUrl?<img src={p.imageUrl} alt=""/>:<div className={styles.noImg}/>}<div>{url?<a className={styles.productTitleLink} href={url} target="_blank" rel="noreferrer">{p?.title||'Anúncio selecionado'} ↗</a>:<b>{p?.title||'Anúncio selecionado'}</b>}<small>ID {p?.itemId||'—'} · {p?.category||'Categoria não capturada'}</small></div><div className={styles.metrics}><span><small>Preço cheio</small><b>{money(p?.marketingDiscount?.full_price??p?.price)}</b></span>{p?.marketingDiscount?.offer_price!=null&&<span><small>Oferta ativa</small><b>{money(p.marketingDiscount.offer_price)}{p?.marketingDiscount?.offer_price_max&&p.marketingDiscount.offer_price_max!==p.marketingDiscount.offer_price?'–'+money(p.marketingDiscount.offer_price_max):''}</b></span>}<span><small>Vendidos</small><b>{p?.sold||'—'}</b></span><span><small>Avaliação</small><b>{ratingText(p?.rating)} ★</b></span><span><small>Avaliações</small><b>{p?.reviewCount||'—'}</b></span><span><small>Variações</small><b>{p?.variationCount??models.length}</b></span></div></section>
+        <section className={styles.productCard}>{p?.imageUrl?<img src={p.imageUrl} alt=""/>:<div className={styles.noImg}/>}<div>{url?<a className={styles.productTitleLink} href={url} target="_blank" rel="noreferrer">{p?.title||'Anúncio selecionado'} ↗</a>:<b>{p?.title||'Anúncio selecionado'}</b>}<small>ID {p?.itemId||'—'} · {p?.category||'Categoria não capturada'}</small></div><div className={styles.metrics}><span><small>Preço cheio</small><b>{money(p?.marketingDiscount?.full_price??p?.price)}</b></span>{p?.marketingDiscount?.offer_price!=null&&<span><small>Oferta ativa</small><b>{money(p.marketingDiscount.offer_price)}{p?.marketingDiscount?.offer_price_max&&p.marketingDiscount.offer_price_max!==p.marketingDiscount.offer_price?'–'+money(p.marketingDiscount.offer_price_max):''}</b></span>}<span><small>Vendidos</small><b>{n(p?.sold)!=null?n(p.sold).toLocaleString('pt-BR'):'—'}</b></span><span><small>Avaliação</small><b>{ratingText(p?.rating)} ★</b></span><span><small>Avaliações</small><b>{n(p?.reviewCount)!=null?n(p.reviewCount).toLocaleString('pt-BR'):'—'}</b></span><span><small>Variações</small><b>{p?.variationCount??models.length}</b></span></div></section>
 
         <section className={styles.card}><div className={styles.cardHead}><div><span className={styles.num}>2</span><h2>Conferência rápida do anúncio</h2></div><Help>Os dados são automáticos, mas o lápis permanece disponível para corrigir uma captura incorreta antes da análise.</Help></div><div className={styles.editGrid}><EditableField id="edit-price" label="Preço atual R$" value={productDraft.price} onChange={v=>setProductDraft(d=>({...d,price:v}))}/><EditableField id="edit-sold" label="Vendidos" value={productDraft.sold} onChange={v=>setProductDraft(d=>({...d,sold:v}))} step="1"/><EditableField id="edit-rating" label="Avaliação" value={productDraft.rating} onChange={v=>setProductDraft(d=>({...d,rating:v}))}/><EditableField id="edit-reviews" label="Qtd. avaliações" value={productDraft.reviewCount} onChange={v=>setProductDraft(d=>({...d,reviewCount:v}))} step="1"/></div></section>
 

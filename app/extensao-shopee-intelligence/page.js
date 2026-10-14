@@ -3,6 +3,7 @@ import {getActiveShop} from '../../lib/shop';
 import {supabaseAdmin} from '../../lib/supabase';
 import SuperAnuncioClientOnly from './SuperAnuncioClientOnly';
 import IntelligenceSections from './IntelligenceSections';
+import PreviewGuestPanel from '../components/PreviewGuestPanel';
 
 export const dynamic='force-dynamic';
 
@@ -13,6 +14,7 @@ export default async function ExtensionIntelligencePage({searchParams}){
     redirect(`/super-analise${qs.toString()?`?${qs.toString()}`:''}`);
   }
   const shop=await getActiveShop();
+  if(!shop&&process.env.VERCEL_ENV==='preview')return <PreviewGuestPanel section={String(params?.section||'Super Anúncio')}/>;
   if(!shop)return <main style={{padding:40,fontFamily:'system-ui'}}>Nenhuma loja Shopee conectada.</main>;
   const db=supabaseAdmin();
   const [{data:reports,error},{data:schedules,error:scheduleError}]=await Promise.all([

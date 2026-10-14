@@ -4,6 +4,7 @@ import {getOrders} from '../../lib/orders';
 import {supabaseAdmin} from '../../lib/supabase';
 import {grossMargin} from '../../lib/business-metrics';
 import SuperAnaliseWorkspace from './SuperAnaliseWorkspace';
+import PreviewGuestPanel from '../components/PreviewGuestPanel';
 
 export const dynamic='force-dynamic';
 
@@ -77,6 +78,7 @@ async function loadStoreProducts(shop){
 export default async function SuperAnalisePage({searchParams}){
   const params=await Promise.resolve(searchParams||{});
   const shop=await getActiveShop();
+  if(!shop&&process.env.VERCEL_ENV==='preview')return <PreviewGuestPanel section="Super Análise"/>;
   if(!shop)return <main style={{padding:40,fontFamily:'system-ui'}}>Nenhuma loja Shopee conectada.</main>;
   const store=await loadStoreProducts(shop);
   return <SuperAnaliseWorkspace shopId={shop.shop_id} params={params} store={store}/>;
