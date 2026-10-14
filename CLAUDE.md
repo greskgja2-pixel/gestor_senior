@@ -679,3 +679,14 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 - Preços promocionais e datas de campanha têm leitura e simulação, mas gravação permanece desativada até validar endpoint seguro. Desativar e excluir produto também não executam gravação. Estoque sem variações usa endpoint existente com confirmação explícita.
 - Rota pública /precificacao-demo contém exclusivamente dados fictícios, sem consultas à loja. Middleware continua protegendo /precificacao e APIs com sessão.
 - Verificação: Vercel Preview da branch reportou READY (commit 5648eab811a7b4ac0cb5218625614ed35fa9ce44). Não houve teste autenticado de ponta a ponta com uma loja real; pós-merge deve-se verificar página, conectividade Shopee, gravações e responsividade. Não armazenar informações sensíveis neste arquivo.
+
+
+### 2026-10-13 — ChatGPT — Piloto da camada de evidências de coleta pública (branch feature/collector-evidence-pilot-20261013)
+- Referência conceitual: engenharia reversa estática da Avant Pro SHP 7.7.29, principalmente interceptação de busca natural, normalização e fallback. **Nenhum código do Avant Pro foi copiado**.
+- Criado `app/lib/marketplace-evidence.js`: extração/normalização compartilhada de anúncios públicos, com procedência de campo. Vendas/mês marcadas como estimativa não aparecem como vendas reais.
+- Pesquisa de Produtos passa a usar o extrator comum; seus históricos permanecem compatíveis e nenhum dado foi removido.
+- `/api/competitor-background-check` passa a usar o mesmo normalizador e a exigir evidência explícita de Ads, não aceitando `ads_id` ou selo Indicado sozinhos. `IntelligenceSections` registra procedência no JSON de novas coletas.
+- Adicionados `tests/marketplace-evidence.test.mjs` e prebuild atualizado para rodá-los. Matriz de integração: `docs/COLETA_UNIFICADA_MATRIZ.md`.
+- Build de preview na Vercel passou até o commit `35213b6`, com suíte nova incluída. Rodadas após esse commit e validação real de Shopee/Android ainda devem ser conferidas antes de merge.
+- Limitação crítica: o Motor Sênior v0.18.6, que já usa captura natural, é distribuído fora do repositório; este trabalho **não mudou a extensão instalada**, não corrigiu HTTP 403 da busca feita no servidor e não migrou todas as telas.
+- Não alterar a produção sem verificar HEAD atual e prévia verde. Revalidar Pesquisa de Produtos, Concorrentes e fluxos de reanálise com Motor conectado antes de promover as etapas seguintes.
