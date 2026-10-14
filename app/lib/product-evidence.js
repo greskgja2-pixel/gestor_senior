@@ -72,6 +72,9 @@ export function mergeObservedProduct(previous={},fresh,{source='unknown',expecte
     if (value !== null) {
       next[key]=value;
       fields[key]={kind:'observed',source,collectedAt};
+    } else if (metric(before,key) === null && !present(next[key])) {
+      // Contrato de ausência explícito: nunca deixar "undefined" virar zero.
+      next[key]=null;
     }
   }
   const title = text(first(fresh.title,fresh.item_name,fresh.name));
