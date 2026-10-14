@@ -73,7 +73,8 @@ function marketFromDirect(info,watch){
     sold:finite(info.historicalSold),monthlySold:null,rating:finite(info.rating),
     preferred:info.preferred===true?true:(info.preferred===false?false:null),
     location:info.shopLocation||null,
-    shopName:info.shopName||null,shopUsername:info.shopUsername||null,shopUrl:info.shopUrl||null
+    shopName:info.shopName||null,shopUsername:info.shopUsername||null,shopUrl:info.shopUrl||null,
+    provenance:{source:'public-item-direct',collectedAt:null}
   };
 }
 
@@ -123,7 +124,8 @@ export async function POST(request){
     const market=match?{
       title:match.title,price:match.price,originalPrice:match.originalPrice,sold:match.sold,monthlySold:match.monthlySold,
       rating:match.rating,preferred:match.preferred,location:match.location,
-      shopName:direct?.shopName||null,shopUsername:direct?.shopUsername||null,shopUrl:direct?.shopUrl||null
+      shopName:direct?.shopName||null,shopUsername:direct?.shopUsername||null,shopUrl:direct?.shopUrl||null,
+      provenance:match.provenance||null
     }:marketFromDirect(direct,watch);
 
     const ownerMatch=primary?.all?.find(x=>String(x.itemId)===String(watch.owner_item_id))||null;
