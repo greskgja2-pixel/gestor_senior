@@ -12,6 +12,7 @@ test('merge de produto preserva dados anteriores e zero real; marca procedência
   assert.equal(merged.stock,0);
   assert.equal(merged.rating,null);
   assert.equal(merged.collectionEvidence.fields.stock.kind,'observed');
+  assert.equal(observedValue(mergeObservedProduct(beginProductReanalysis({itemId:'42',historicalSold:33,sold:20}),{itemId:'42',historicalSold:0},{expectedItemId:'42',source:'public'}),'sold'),0);
   assert.equal(merged.collectionEvidence.fields.price.source,'shopee-public-api');
   assert.equal(observedValue(merged,'sold'),0);
 });

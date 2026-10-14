@@ -11,7 +11,7 @@ const pct=v=>n(v)==null?'—':`${n(v).toLocaleString('pt-BR',{maximumFractionDig
 const ratingText=v=>n(v)==null?'—':n(v).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1});
 const ratingDraft=v=>n(v)==null?'':n(v).toFixed(1);
 const safe=v=>v===null||v===undefined?'':v;
-const idFromUrl=value=>{try{const m=String(value||'').match(/\/product\/(\d+)\/(\d+)/);return m?{shopId:m[1],itemId:m[2]}:null}catch{return null}};
+const idFromUrl=value=>{try{const raw=String(value||'');const m=raw.match(/\/product\/(\d+)\/(\d+)/)||raw.match(/-i\.(\d+)\.(\d+)/);return m?{shopId:m[1],itemId:m[2]}:null}catch{return null}};
 async function validatePublicProduct(targetUrl,product){
   const ids=idFromUrl(targetUrl);
   const current=mergeObservedProduct({},product,{source:'motor-senior-collectProduct',expectedItemId:ids?.itemId||null,expectedShopId:ids?.shopId||null,collectedAt:new Date().toISOString()});

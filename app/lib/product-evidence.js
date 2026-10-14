@@ -17,7 +17,7 @@ const metric = (product, key) => {
   const count = Array.isArray(ratingCounts) ? ratingCounts[0] : ratingCounts;
   const from = {
     price: first(product.price, product.currentPrice, priceInfo?.current_price),
-    sold: first(product.historicalSold, product.sold),
+    sold: first(product.sold, product.historicalSold),
     rating: first(product.rating, product.rating_star, ratingInfo?.rating_star),
     reviewCount: first(product.reviewCount, product.review_count, count),
     stock: first(product.stock, product.availableStock, product.stock_info_v2?.summary_info?.total_available_stock),
