@@ -2,6 +2,7 @@ import {NextResponse} from 'next/server';
 import {getActiveShop} from '../../../lib/shop';
 import {supabaseAdmin} from '../../../lib/supabase';
 import {getPublicItemInfo} from '../../../lib/shopee-public';
+import {marketplaceItemEvidence} from '../../lib/marketplace-evidence';
 
 export const dynamic='force-dynamic';
 export const runtime='nodejs';
@@ -12,34 +13,11 @@ const text=(v,max=500)=>v==null?'':String(v).trim().slice(0,max);
 const norm=v=>text(v,1000).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9\s-]/g,' ').replace(/\s+/g,' ').trim();
 const STOP=new Set(['para','com','sem','de','da','do','das','dos','em','no','na','nos','nas','e','ou','a','o','as','os','um','uma','kit','produto','novo','nova','original','pronta','pronto','mais','super','tipo','modelo','unidade','unidades','cm','mm','kg','ml']);
 const compactQuery=value=>norm(value).split(' ').filter(x=>x.length>=3&&!STOP.has(x)&&!/^\d+$/.test(x)).slice(0,8).join(' ');
-const price=v=>{const x=finite(v);return x==null?null:(x>10000?x/100000:x)};
-const pageFrom=(position,perPage=60)=>position?Math.floor((position-1)/perPage)+1:null;
 
 function unwrap(raw){
-  const b=raw?.item_basic||raw?.item||raw||{};
-  const itemId=String(b?.itemid??b?.item_id??raw?.itemid??raw?.item_id??'');
-  const shopId=String(b?.shopid??b?.shop_id??raw?.shopid??raw?.shop_id??'');
-  if(!itemId)return null;
-  const rating=finite(b?.item_rating?.rating_star??b?.rating_star??raw?.rating);
-  const preferredKeys=['is_preferred_plus_seller','is_preferred_shop','is_preferred_seller'];
-  const preferredPresent=preferredKeys.some(k=>Object.prototype.hasOwnProperty.call(b,k));
-  const preferred=preferredPresent?preferredKeys.some(k=>b?.[k]===true||b?.[k]===1||b?.[k]==='1'):null;
-  const adsDetected=Boolean(
-    finite(raw?.ads_id??raw?.adsid??b?.ads_id??b?.adsid)!=null||
-    raw?.is_ads===true||raw?.is_ad===true||b?.is_ads===true||b?.is_ad===true
-  );
-  return{
-    itemId,shopId,
-    title:text(b?.name??b?.item_name??raw?.title,500)||null,
-    price:price(b?.price??b?.price_min??raw?.price),
-    originalPrice:price(b?.price_before_discount??b?.original_price??raw?.originalPrice),
-    sold:finite(b?.historical_sold??b?.sold??raw?.sold),
-    monthlySold:finite(b?.monthly_sold??b?.sold_30d??raw?.monthlySold),
-    rating,
-    preferred,
-    location:text(b?.shop_location??b?.location??b?.shop_location_name??raw?.location,200)||null,
-    ads:{status:adsDetected?'detected':'unknown',evidence:adsDetected?'search-item ads flag/id':null}
-  };
+  // O mesmo contrato da Pesquisa de Produtos: dados objetivos + procedência.
+  // O selo Indicado e ads_id isolado não comprovam patrocínio.
+  return marketplaceItemEvidence(raw,{source:'server-background-search'});
 }
 
 async function searchPage(keyword,offset,limit=60){
