@@ -703,3 +703,11 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 - Busca natural uma vez por grupo, compara `item_id` exato; sem captura válida, mantém fallback do servidor. Somente concorrentes não capturados acionam a rota de fallback.
 - Snapshots distinguem `motor-natural-search` de `server-background-search`. HTTP 403 sem dados não é contado como coleta bem-sucedida.
 - Mudança somente na branch da PR #99. Exige teste real com a extensão antes do merge.
+
+### 2026-10-13 — ChatGPT — Prévia sem login (somente demonstração)
+- Escopo: PR #99 e branch `feature/collector-evidence-pilot-20261013`, nunca a `main` ou produção.
+- `middleware.js` permite HTTP GET **somente de quatro rotas de interface** em `VERCEL_ENV=preview`; mantém autenticação HMAC para sessão e **todas as APIs privadas**, incluindo Shopee e Supabase, e bloqueia demais rotas protegidas.
+- `app/components/PreviewGuestPanel.js` apresenta um modo demonstração sem dados reais nas rotas Dashboard, Super Análise e área de inteligência quando não existe sessão de loja. Pesquisa de Produtos abre sua UI sem acesso a APIs protegidas; recursos de gravação não ficam liberados.
+- A página `/login` redireciona convidados de prévia para a visão geral. Com sessão válida o Gestor continua funcionando normalmente.
+- Testes `tests/preview-guest-login.test.mjs` no prebuild; comprovar que Vercel Preview apresenta painel sem login e `/api/tasks` retorna 401 sem sessão.
+- Não publicar bypass de login em produção; não dar acesso anônimo a produtos, custos, Ads, históricos nem ações.

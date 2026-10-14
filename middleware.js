@@ -1,6 +1,12 @@
 import {NextResponse} from 'next/server';
 
 const PUBLIC=new Set(['/precificacao-demo','/login','/cadastro','/apresentacao','/privacidade','/termos','/docs/tecnica','/status','/api/auth/login','/api/auth/register','/api/auth/logout','/api/shopee/callback','/api/cron/flash-sale','/api/extension/latest']);
+// Apenas a branch de experimento na Vercel Preview permite visualizar a UI sem login.
+// As APIs, POST/PATCH/DELETE, dados do Seller Center e qualquer outra rota permanecem fechadas.
+const PREVIEW_BRANCH='feature/collector-evidence-pilot-20261013';
+const PREVIEW_GUEST=process.env.VERCEL_ENV==='preview'&&
+  (!process.env.VERCEL_GIT_COMMIT_REF||process.env.VERCEL_GIT_COMMIT_REF===PREVIEW_BRANCH);
+const PREVIEW_PAGES=new Set(['/','/pesquisa-produtos','/extensao-shopee-intelligence','/super-analise']);
 const MAX_AGE=7*24*60*60*1000;
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const encoder=new TextEncoder();
@@ -30,8 +36,13 @@ async function validAccountToken(token){
 
 export async function middleware(request){
   const path=request.nextUrl.pathname;
-  if(PUBLIC.has(path))return NextResponse.next();
+  if(PUBLIC.has(path)&&!(PREVIEW_GUEST&&path==='/login'))return NextResponse.next();
   if(await validAccountToken(request.cookies.get('gs_account_session')?.value))return NextResponse.next();
+  if(PREVIEW_GUEST&&request.method==='GET'){
+    if(path==='/login')return NextResponse.redirect(new URL('/',request.url));
+    if(PREVIEW_PAGES.has(path))return NextResponse.next();
+  }
+  // Nunca permitir que visualização anônima chame uma API privada.
   if(path.startsWith('/api/'))return NextResponse.json({error:'Faça login para acessar o Gestor Sênior.'},{status:401});
   const login=new URL('/login',request.url);
   if(path!=='/')login.searchParams.set('next',path);
