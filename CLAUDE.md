@@ -697,3 +697,9 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 - Reanálise usa o mesmo contrato para produto e concorrentes; métricas de preço/vendas recém-coletadas não assumem automaticamente números antigos. A leitura do gráfico de histórico evita registrar valores herdados como novos pontos, mantendo compatibilidade com análises antigas sem marcador.
 - Novos testes em `tests/product-evidence.test.mjs` incluídos em prebuild. **Sem novos endpoints de autenticação, sem mudança de schema, sem alteração no pacote do Motor Sênior.**
 - A implementação segue somente na PR #99, sem merge; build de preview final e teste real no Chrome/Quetta são pré-requisitos antes da produção.
+
+### 2026-10-13 — ChatGPT — Avanço 3: Motor primeiro na coleta de concorrentes
+- Integrada `marketplaceSearch` do Motor v0.18.6 no fluxo do Radar de Concorrentes quando a ponte está disponível.
+- Busca natural uma vez por grupo, compara `item_id` exato; sem captura válida, mantém fallback do servidor. Somente concorrentes não capturados acionam a rota de fallback.
+- Snapshots distinguem `motor-natural-search` de `server-background-search`. HTTP 403 sem dados não é contado como coleta bem-sucedida.
+- Mudança somente na branch da PR #99. Exige teste real com a extensão antes do merge.

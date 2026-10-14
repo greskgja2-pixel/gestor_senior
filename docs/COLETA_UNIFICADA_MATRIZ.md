@@ -46,3 +46,9 @@ Este PR implementa apenas o contrato de evidências da coleta pública:
 - Super Análise valida apenas resposta pública com `item_id` igual ao anúncio selecionado e limita a espera dessa API a 15 segundos. Resposta pública indisponível não bloqueia o Motor.
 - Reanálise mantém valores e contexto antigos, mas assinala-os como históricos até que sejam observados de novo. Gráfico evita adicionar pontos de preço/vendas quando a coleta recente não confirmou a métrica.
 - Fonte pública do servidor pode sofrer bloqueios. O preview não simula conexão autenticada da extensão nem confirma dados de Shopee ao vivo.
+
+## Avanço 3 — Motor primeiro no Radar
+- Em navegadores com a ponte instalada, `collectVisibilityGroup` tenta `marketplaceSearch` (captura natural na extensão) uma vez por grupo de concorrentes.
+- Somente confirma concorrente se o `item_id` da busca for idêntico ao vinculado. Até cinco páginas naturais; itens restantes continuam no fallback de servidor até dez páginas.
+- Se o servidor devolver HTTP 403, preserva os resultados encontrados no Motor. Fontes gravadas separadamente em novos snapshots.
+- **Prévia apenas:** testar Chrome desktop e Quetta/Android, funcionamento em segundo plano, cobertura e comportamento de limite da Shopee antes de publicar.

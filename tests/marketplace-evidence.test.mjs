@@ -60,3 +60,15 @@ test('buscas vazias e discovery antigo continuam sem inventar resultados',()=>{
   assert.deepEqual(extractMarketplaceRows({discovery:{candidates:{x:{itemid:1}}}}),[{itemid:1}]);
   assert.equal(marketplaceItemEvidence({title:'sem identificação'}),null);
 });
+
+test('radar usa Motor de busca natural e tenta servidor apenas para concorrentes restantes',()=>{
+  const radar=fs.readFileSync(new URL('../app/extensao-shopee-intelligence/IntelligenceSections.js',import.meta.url),'utf8');
+  assert.match(radar,/collectNaturalCompetitorGroup\(list,keyword,maxPages\)/);
+  assert.match(radar,/motorData\('marketplaceSearch'/);
+  assert.match(radar,/extractMarketplaceRows\(response\)/);
+  assert.match(radar,/marketplaceItemEvidence\(raw/);
+  assert.match(radar,/if\(!raw\)continue/);
+  assert.match(radar,/watch_ids:unresolved\.map\(r=>r\.watch\.id\)/);
+  assert.match(radar,/fallbackError/);
+  assert.match(radar,/source==='server-background-search'/);
+});
