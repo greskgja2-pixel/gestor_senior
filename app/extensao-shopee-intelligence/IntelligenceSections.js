@@ -673,6 +673,7 @@ function Competitors({items}){
                 searchPage:normalized.competitor?.page??null,
                 keyword:normalized.keyword||keyword,
                 foundBy:normalized.found_by||null,
+                fieldProvenance:market.provenance||null,
                 background:true
               }
             })
