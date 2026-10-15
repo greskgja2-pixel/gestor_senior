@@ -740,3 +740,11 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 - Instalar a v0.20.1 da extensão e rodar "Executar diagnóstico agora" (Saúde do Sistema) ou "Salvar diagnóstico da coleta" (Funil) com sessão real do Seller Center, nos períodos Hoje/7/30 dias, para os 3 itens de referência. Como agora tenho acesso de leitura ao Supabase do projeto (`shopeeos`, tabela `gs_system_health_reports`), consigo ler o relatório fresco diretamente, sem precisar que o usuário exporte nada — só preciso que a coleta seja executada após o deploy da v0.20.1.
 - Se o relatório fresco mostrar `rankingsPagesFailed=0` mas os 2 produtos ainda ausentes de `products[]`, a hipótese de timeout/concorrência cai e o próximo suspeito é a própria resposta do `product-rankings` da Shopee não listar produtos sem nenhuma atividade no período — o que só se confirma com a captura real.
 - Teto de 100 produtos (20 páginas) no ranking segue sem correção: não é a causa aqui (catálogo de 30), mas uma loja maior perderia produtos de baixa venda silenciosamente; fica registrado para não ser esquecido.
+
+
+### 2026-10-15 — ChatGPT — Gestor Pro: rastreamento das 35 tarefas
+- Criada a página de acompanhamento `/gestor-pro`, com filtros, resumos, status por tarefa e progresso. Nenhuma tarefa técnica considerada concluída.
+- Registro técnico compartilhado em `docs/GESTOR_PRO_DIARIO.md`; lista versionada em `app/gestor-pro/tasks.js`.
+- Extensão Gestor Pro deve nascer isolada do Motor Sênior. Quarto erro na mesma tarefa: interromper e preparar prompt para Claude com evidências, sem segredos.
+- Preservar Enciclopédia e aprendizados da Avantpro; não misturar métricas estimadas com números reais.
+- Validar build e rotas antes de merge; minimizar deploys. Sem coleta real nesta sessão.
