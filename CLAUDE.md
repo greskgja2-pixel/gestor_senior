@@ -706,6 +706,7 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 - `mergeRecollectedFunnelProduct` em `app/lib/funnel-product-diagnostics.js` aceita apenas período informado igual ao pedido, preserva o snapshot antigo se menos completo, diferencia item não devolvido de resposta sem métricas e respeita zeros reais. Não mistura campos de snapshots distintos.
 - Testes de recoleta individual em `tests/funnel-product-diagnostics.test.mjs`. O Motor pode continuar sem trazer um anúncio enquanto não for corrigida sua coleta; o botão expõe isso claramente.
 
+
 ### 2026-10-15 — Claude — Investigação de causa raiz do Funil por Produto + Motor Sênior v0.20.1 (branch `fix/funil-coleta-resiliente`)
 **Pedido:** investigar por que alguns anúncios (ex.: item `58205112334` e `22293145756`) aparecem com todas as métricas do Funil por Produto como "não coletadas", mesmo com Super Análise recente, enquanto outro (`22194033253`) coletou parcialmente em "Hoje".
 
