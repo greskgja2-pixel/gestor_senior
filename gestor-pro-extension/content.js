@@ -34,7 +34,7 @@
   function render(){
     for(const a of document.querySelectorAll('a[href*="-i."]')){
       const href=a.getAttribute('href')||'';
-      const m=href.match(/-i\\.(\\d+)\\.(\\d+)/);if(!m)continue;
+      const m=href.match(/-i\.(\d+)\.(\d+)/);if(!m)continue;
       const rec=records.get(m[1]+':'+m[2]);if(!rec)continue;
       let host=a.closest('[data-sqe="item"]')||a.parentElement;
       if(!host||host.querySelector('[data-gestor-pro-t01]'))continue;

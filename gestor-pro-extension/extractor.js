@@ -3,7 +3,7 @@ const GP_TIME_MIN = Date.UTC(2015,0,1)/1000;
 const GP_TIME_MAX = Date.UTC(2100,0,1)/1000;
 function normalizeTimestamp(input) {
   if (input === null || input === undefined || input === '') return null;
-  const raw = typeof input === 'string' && /^\\d+$/.test(input) ? Number(input) : input;
+  const raw = typeof input === 'string' && /^\d+$/.test(input) ? Number(input) : input;
   if (typeof raw === 'number' && Number.isFinite(raw)) {
     const seconds=raw>1e12?raw/1000:raw;
     return seconds>=GP_TIME_MIN && seconds<=GP_TIME_MAX?Math.floor(seconds):null;

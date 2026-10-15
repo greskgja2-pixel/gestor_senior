@@ -2,7 +2,7 @@
 (() => {
   if (window.__gestorProSearchObserver) return;
   window.__gestorProSearchObserver = true;
-  const isSearch = url => /\\/api\\/v[234]\\/search\\/|\\/api\\/v[234]\\/search_items|\\/api\\/v[234]\\/search\\/search_items|\\/api\\/v[234]\\/recommend/.test(String(url || ''));
+  const isSearch = url => /\/api\/v[234]\/search\/|\/api\/v[234]\/search_items|\/api\/v[234]\/search\/search_items|\/api\/v[234]\/recommend/.test(String(url || ''));
   const emit = (url, data) => {
     try {
       if (!isSearch(url)) return;
