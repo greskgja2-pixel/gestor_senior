@@ -688,3 +688,12 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 - O agregado do funil não soma ausências como zero: soma somente quando todos os produtos possuem o campo, com fallback do agregado `keyMetrics` quando existente. Zero declarado continua zero real. Vinculação reconhece `id`, `item_id` e `itemId`.
 - Mensagem esclarece se o Motor reportou relatório “não pronto” ou devolveu resposta sem métricas. Preço e concorrentes são da Super Análise, separados do funil.
 - Validação automatizada: `tests/funnel-data-quality.test.mjs` cobre ausências, zero, campos parciais, cobertura do agregado e novos controles; confirmar resultado no CI. Pendente: teste com sessão real do Seller Center e Motor Sênior nos períodos de 7 e 30 dias, porque frontend não gera dados que extensão não entregou.
+
+
+### 2026-10-14 — ChatGPT — rastreamento de métricas ausentes no Funil (v0.20.0 observado)
+- Feedback em produção: primeira carga de 30 dias sem métricas; após "Tentar novamente" e "Testar Hoje", o período Hoje mostrou métricas do anúncio One Piece, mas outros dois anúncios analisados permaneceram sem dados. **O sucesso de Hoje não confirma histórico de 7/30 dias.**
+- Mudanças: `app/lib/funnel-product-diagnostics.js` normaliza IDs e separa anúncio ausente do payload, anúncio retornado sem métricas, parcial e completo; zero declarado continua coleta válida.
+- `app/funil/page.js`: uma retentativa automática do MESMO período somente quando nenhuma linha recebeu impressões ou visitas (ou quando a Shopee marcou o relatório como not ready); mantém resposta com melhor cobertura e evita renderização atrasada de período antigo. Não substitui 30 dias por Hoje.
+- Aviso "Métricas não coletadas" mostra painel técnico com IDs cobertos e campos faltantes; botão explícito "Salvar diagnóstico da coleta" grava evidências sanitizadas no sistema de Saúde do Sistema (`gs_system_health_reports`), sem valores de preço, venda, cookies, tokens nem payload bruto. Assim o diagnóstico pode ser consultado por um agente autorizado e cruzado com o Motor.
+- Pendência: Motor Sênior v0.20.0 em ZIP não está disponível no repositório; para corrigir coleta no Seller Center é preciso analisar a versão instalada. O último relatório salvo no banco antes deste patch era de 02/10, então não se pode afirmar causa raiz da falta dos dois itens.
+- Testes em `tests/funnel-product-diagnostics.test.mjs`; validar CI e deploy.
