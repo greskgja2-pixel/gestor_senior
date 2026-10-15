@@ -59,6 +59,21 @@ test('usa agregado oficial quando o total dos produtos falta',()=>{
   assert.equal(result.totals.impressions,25);
   assert.equal(result.totals.clicks,3);
 });
+test('erro do Motor {source,error} vira texto legível, não [object Object]',()=>{
+  const result=deriveStoreFunnel({products:[{}],errors:[{source:'product-rankings-page-3',error:'product-rankings-page-3 excedeu 9s'}]});
+  assert.equal(result.evidence.sellerErrors[0],'product-rankings-page-3: product-rankings-page-3 excedeu 9s');
+  assert.doesNotMatch(result.evidence.sellerErrors[0],/\[object Object\]/);
+});
+test('evidência expõe quantos produtos a Shopee prometeu vs. quantos chegaram e quantas páginas do ranking falharam',()=>{
+  const result=deriveStoreFunnel({
+    products:[{id:'1'},{id:'2'}],
+    totalProducts:30,
+    errors:[{source:'product-rankings-page-3',error:'timeout'},{source:'key-metrics',error:'falhou'}]
+  });
+  assert.equal(result.evidence.productsExpected,30);
+  assert.equal(result.evidence.productCount,2);
+  assert.equal(result.evidence.rankingsPagesFailed,1);
+});
 test('a tela permite retentativa e não mascara fontes',()=>{
   assert.match(ui,/Métricas não coletadas ou incompletas/);
   assert.match(ui,/Tentar novamente/);
