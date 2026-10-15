@@ -3789,3 +3789,13 @@ Não misturar silenciosamente valores de fontes diferentes. Ausência continua `
 6. Como lidar com faturamento estimado quando há mudanças históricas de preço/variação?
 
 **Atenção:** este adendo preserva os mapeamentos anteriores; não converte achados estáticos/visuais em validação operacional.
+
+
+### Captura real Gestor Pro — 15/10/2026 — busca 'tag saída maternidade'
+- Evidência: exportação `Gestor-Pro-Mapeamento-2026-10-15.json`, enviada pelo usuário; captura 2026-10-15T22:36:55.778Z; 6 respostas observadas; 60 produtos distintos.
+- Endpoint de dados úteis: `https://shopee.com.br/api/v4/search/search_items`; caminho `$.items[N].item_data`.
+- Cobertura na amostra: 60/60 para `ctime`, `itemid`, `shopid`, `liked_count` e `item_rating` (estrutura com `rating_star` e `rating_count`). Exemplo: `$.items[0].item_data.ctime=1784740080`, `itemid=56764564936`, `shopid=354846842`; `ctime` como Unix segundos corresponde a 22/07/2026 UTC. `liked_count=115`, `rating_star=4.868421052631579`, `rating_count=[38,0,0,2,1,35]`.
+- `ctime` é forte candidato para data de criação; o significado exato (primeira publicação versus outra data) ainda deve ser validado por anúncio independente. NÃO marcar T01 como concluída; falta mostrar dados na pesquisa, integração e validação.
+- A captura ocorreu com a Shopee exibindo resultados normalmente, mas os cartões de overlay Gestor Pro não apareceram no print. Provável incompatibilidade dos seletores de links. Ajuste experimental v0.1.1 preparado para testar, ainda não validado ao vivo.
+- Outros endpoints observados na mesma navegação: `/api/v4/itemcard/set/elements`, `/api/v4/recommend/recommend`, `/api/v4/search/curated_search`, `/api/v4/search/search_filter_config`, `/api/v4/search/search_user`; presença não comprova dados úteis de produto.
+- Registrar campos confirmados na resposta como **capturados**, não confundir confirmação da existência do campo com validação completa do significado semântico. Campos de vendas, preço, origem, mídia etc. não apareceram neste JSON exportado, possivelmente por limitação da whitelist do mapeador; não concluir ausência na resposta original.
