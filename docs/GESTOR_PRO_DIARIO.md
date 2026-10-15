@@ -50,3 +50,10 @@ Data inicial: 2026-10-15
 - Problemas observados: painéis grandes com valores JSON brutos, layout afetado, uma diferença entre correspondências e painéis, e alguns produtos sem painel. Código da função locateCard/insertAdjacentElement precisa de refinamento.
 - Status T01 permanece investigando; nenhuma integração ao Gestor Sênior, nenhuma prova definitiva de semântica ctime. Rodada visual v0.1.2 confirmou avanço, sem concluir tarefa.
 - Próximo passo: painel compacto com data convertida e idade (indicada como derivada), seletor estável por itemid/shopid e diagnóstico de omissões. Manter Motor Sênior isolado.
+
+## 2026-10-15 — ChatGPT — Mapeador v0.1.3 e correção local v0.1.4
+- Evidência: prints da busca 'tag saída maternidade' e JSON exportado pela v0.1.3: 60 produtos, 7 eventos e campos ctime, item_rating, itemid, liked_count, shopid. Diagnóstico visual: 60 coletados, 63 links, 61 correspondências, 60 painéis.
+- Acerto: exibição legível de data derivada de ctime, idade, nota, avaliações e curtidas; coleta preservada.
+- Erro: painéis inseridos antes de imagens em parte da grade e um painel indevido na área de lojas relacionadas. Ainda sem confirmação semântica independente do ctime e sem integração ao Motor Sênior.
+- Correção v0.1.4: seleção da raiz do cartão por geometria e inclusão do painel ao final do cartão; exclusão da seção acima do cabeçalho da pesquisa; campo sem nota distinguido de nota zero. Scripts passaram node --check; ZIP para teste local, não publicado no GitHub nem validado ao vivo.
+- Próximo passo: usuário instalar v0.1.4 e enviar print das primeiras duas linhas, validar posição e cobertura. T01 não concluída; manter 35 tarefas e Motor Sênior isolado.
