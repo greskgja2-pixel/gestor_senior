@@ -136,3 +136,17 @@
 .storeStageSummary span{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 9px;border:1px solid #e3eaf1;background:#fff;border-radius:9px}.storeStageSummary span[data-worst=true]{border-color:#ffcbd2;background:#fff3f5}.storeStageSummary small{font-size:9px;color:#72879a}.storeStageSummary b{font-size:11px;color:#27445f}.storeStageSummary span[data-worst=true] b{color:#dc334a}
 @media(max-width:1100px){.storeFunnelBody{grid-template-columns:1fr}.storeFunnelRight{grid-template-columns:1fr 1fr}.storeStageSummary{min-width:0}}
 @media(max-width:720px){.storeFunnelCard{padding:12px;border-left-width:4px}.storeFunnelHeader{display:grid;grid-template-columns:1fr auto}.storeFunnelHeader>div:first-child{grid-column:1/-1}.storeFunnelRight{grid-template-columns:1fr}.storeMiniStage{grid-template-columns:minmax(0,1fr) 64px 45px}.storeMiniBar{height:33px;font-size:10px}.storeMiniStage strong{font-size:14px}.storeMiniStage small{font-size:9px}.storeStageSummary>div{grid-template-columns:1fr}.storeFunnelHeader h2{font-size:16px}}
+
+/* 2026-10-14: ausência de dados ≠ tráfego pequeno */
+.productFunnelCard[data-priority=missing]{border-left-color:#d49a3c}
+.productStatus[data-priority=missing]{background:#fff6e7;color:#855d24}
+.productDiagnosis[data-tone=missing]{background:#fffaf1;border-color:#f1ddbe}
+.actionCard[data-priority=missing]{border-left-color:#d49a3c}
+.flag[data-priority=missing]{background:#fff6e7;color:#855d24}
+.collectionNotice{display:flex;gap:16px;align-items:center;justify-content:space-between;padding:13px 15px;margin-top:12px;border:1px solid #edd7b2;background:#fffaf1;border-radius:12px}
+.collectionNotice strong{font-size:13px;color:#775326}
+.collectionNotice p{font-size:12px;line-height:1.5;color:#735f42;margin:5px 0 0}
+.collectionActions{display:flex;gap:8px;flex-wrap:wrap;flex:0 0 auto}
+.collectionActions button,.collectionActions a{border:1px solid #d6c3a5;border-radius:9px;padding:9px 12px;font-size:12px;font-weight:800;text-decoration:none;background:#fff;color:#775326;cursor:pointer}
+.collectionActions button:first-child{background:#1769e8;border-color:#1769e8;color:#fff}
+@media(max-width:850px){.collectionNotice{align-items:stretch;flex-direction:column}.collectionActions{flex:1 1 auto}.collectionActions button,.collectionActions a{flex:1 1 auto;text-align:center}}

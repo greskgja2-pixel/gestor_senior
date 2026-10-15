@@ -679,3 +679,12 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 - Preços promocionais e datas de campanha têm leitura e simulação, mas gravação permanece desativada até validar endpoint seguro. Desativar e excluir produto também não executam gravação. Estoque sem variações usa endpoint existente com confirmação explícita.
 - Rota pública /precificacao-demo contém exclusivamente dados fictícios, sem consultas à loja. Middleware continua protegendo /precificacao e APIs com sessão.
 - Verificação: Vercel Preview da branch reportou READY (commit 5648eab811a7b4ac0cb5218625614ed35fa9ce44). Não houve teste autenticado de ponta a ponta com uma loja real; pós-merge deve-se verificar página, conectividade Shopee, gravações e responsividade. Não armazenar informações sensíveis neste arquivo.
+
+
+### 2026-10-14 — ChatGPT — Funil: ausência de coleta não é pouco tráfego
+- Arquivos: `app/funil/page.js`, `app/lib/funnel-health.js`, `app/funil/funil.module.css`, `tests/funnel-data-quality.test.mjs`.
+- Causa: `(impressions??0)<100||(uv??0)<10` confundia `null` com tráfego baixo, gerando o rótulo “POUCOS DADOS” mesmo quando nenhuma métrica fora coletada.
+- Corrigido: estados “DADOS NÃO COLETADOS”, “COLETA PARCIAL” e “POUCOS DADOS” separados; card orienta recarregar o período, testar “Hoje” e consultar Saúde do Sistema. Taxas todas indisponíveis não levam a diagnóstico “SAUDÁVEL”.
+- O agregado do funil não soma ausências como zero: soma somente quando todos os produtos possuem o campo, com fallback do agregado `keyMetrics` quando existente. Zero declarado continua zero real. Vinculação reconhece `id`, `item_id` e `itemId`.
+- Mensagem esclarece se o Motor reportou relatório “não pronto” ou devolveu resposta sem métricas. Preço e concorrentes são da Super Análise, separados do funil.
+- Validação automatizada: `tests/funnel-data-quality.test.mjs` cobre ausências, zero, campos parciais, cobertura do agregado e novos controles; confirmar resultado no CI. Pendente: teste com sessão real do Seller Center e Motor Sênior nos períodos de 7 e 30 dias, porque frontend não gera dados que extensão não entregou.

@@ -5,10 +5,13 @@ const arr=v=>Array.isArray(v)?v:[];
 export function deriveStoreFunnel(seller){
   const s=seller||{},k=s.keyMetrics||{},rt=s.realtime?.key_metrics||{},overview=s.productOverview||{};
   const products=arr(s.products);
-  const productImpressions=products.length?products.reduce((a,p)=>a+(num(p.product_card_impressions)||0),0):null;
-  const productClicks=products.length?products.reduce((a,p)=>a+(num(p.product_card_clicks)||0),0):null;
+  // Não transformar campo ausente em zero nem apresentar subtotal como total da loja.
+  const completeProductTotal=field=>products.length&&products.every(p=>num(p?.[field])!=null)
+    ?products.reduce((sum,p)=>sum+num(p[field]),0):null;
+  const productImpressions=completeProductTotal('product_card_impressions');
+  const productClicks=completeProductTotal('product_card_clicks');
   const totals={
-    impressions:productImpressions,
+    impressions:productImpressions??val(k.product_impressions),
     clicks:productClicks??val(k.product_clicks),
     visitors:val(k.shop_uv)??val(overview.uv)??num(rt.uv),
     carts:val(overview.atc_uv),
