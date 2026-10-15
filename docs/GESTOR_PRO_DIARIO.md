@@ -19,3 +19,11 @@ Data inicial: 2026-10-15
 - **Acertos:** arquitetura Next.js nativa localizada; política de não regressão e deploy mínimo respeitada no planejamento.
 - **Limitações:** sem validação de dados Shopee nem extensão Gestor Pro criada nesta etapa. A rota precisa de teste de build e smoke test após publicação.
 - **Próxima tarefa:** T01 (data de criação do anúncio), começando por confirmação de campo e procedência.
+
+## 2026-10-15 — ChatGPT — Enciclopédia consolidada para Gestor Pro
+- Mantidas exatamente 35 tarefas; nenhuma tarefa foi marcada concluída.
+- Adendo sobre engenharia reversa estática Avantpro v7.7.29, evidência visual SHBUSCA, fluxo do vídeo, campos confirmados anteriormente, cálculos, lacunas e riscos.
+- Acerto: conhecimento separado por níveis de confiança, sem copiar backend ou código proprietário.
+- Falhas: nenhuma falha de implementação investigada; não houve coleta real nesta sessão.
+- Próximo: T01, identificar origem real da data de criação do anúncio.
+- Publicação: somente documentação na branch do painel Gestor Pro, sem merge para main nesta sessão.

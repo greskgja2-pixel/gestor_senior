@@ -748,3 +748,8 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 - Extensão Gestor Pro deve nascer isolada do Motor Sênior. Quarto erro na mesma tarefa: interromper e preparar prompt para Claude com evidências, sem segredos.
 - Preservar Enciclopédia e aprendizados da Avantpro; não misturar métricas estimadas com números reais.
 - Validar build e rotas antes de merge; minimizar deploys. Sem coleta real nesta sessão.
+
+### 2026-10-15 — ChatGPT — Aprendizados Avantpro documentados para Gestor Pro
+- Adendo técnico na Enciclopédia em docs/ENCICLOPEDIA_SHOPEE_GESTOR_SENIOR.md com conclusões estáticas e visuais separadas de fatos validados.
+- Exatamente 35 tarefas, nenhuma implementada/validada neste adendo. Diário também atualizado em docs/GESTOR_PRO_DIARIO.md.
+- Próxima tarefa T01; manter isolamento do Motor Sênior e produzir prompt para Claude ao quarto erro na mesma tarefa.

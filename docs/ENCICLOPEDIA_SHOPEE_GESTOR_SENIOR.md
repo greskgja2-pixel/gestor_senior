@@ -3715,3 +3715,77 @@ normalized
 ```
 
 Não misturar silenciosamente valores de fontes diferentes. Ausência continua `null`, nunca zero inventado.
+
+---
+## Adendo de conhecimento — 15/10/2026 — Avantpro v7.7.29 e Gestor Pro
+
+**Escopo:** referência técnica para as **35 tarefas aprovadas** T01–T35, sem criar tarefas adicionais. Não constitui comprovação de funcionamento atual do Gestor Pro.
+
+### Qualidade das evidências
+- **Estático:** engenharia reversa da extensão Avantpro SHP v7.7.29; não houve execução ao vivo durante essa engenharia reversa.
+- **Visual:** print do painel SHBUSCA e transcrição do vídeo demonstrativo; comprovam apresentação, mas não a fonte nem as fórmulas internas.
+- **Confirmado previamente:** endpoints/campos já documentados por experimentos no Marketplace e Seller Center.
+- **Pendente:** hipóteses que precisam de captura e comparação real antes de implementação definitiva.
+
+### Arquitetura e rotas observadas [estático]
+- Extensão Manifest V3 e interceptação Fetch/XHR de respostas durante navegação. Empregar mecanismos próprios no Gestor Pro com contrato de mensagens estável, sem copiar código proprietário.
+- Interceptor de /pdp/get_pc, /item/get_ratings, recommend/recommend_v2 e rcmd_items.
+- Fallback GET para /api/v4/pdp/get_pc observado; usá-lo apenas após verificar o comportamento da captura natural e eventuais falhas de requisições artificiais.
+- Alternativas de detalhes da loja observadas: /api/v4/product/get_shop_info, /api/v2/shop/get_shop_detail e /api/v4/shop/get_shop_detail; confirmar existência e formatos atuais antes de uso.
+- Cache de busca por palavra-chave em localStorage, TTL observado de **40 minutos** e até **1.000 itens**; cache de avaliações em sessionStorage. Parâmetros observados, não necessariamente os ideais para o Gestor Pro. Registrar idade, invalidação e procedência.
+- Backend proprietário aparenta manter snapshots e históricos de preço, avaliações e posição de busca. Gestor Pro deve usar snapshots próprios e nunca depender desse backend.
+- Recursos de referência presentes na análise: filtros e ordenação da busca, controle de visibilidade, top 20 palavras dos títulos, planilha de lucratividade, exportação XLSX de reviews, tendências, grupos Hype, boost/ACOS/CPC de Ads, seguidores e geradores de IA. Registrar como conhecimento; não ampliar o escopo de 35 tarefas sem autorização.
+
+### Procedência do dado e normalização [confirmado previamente]
+- /api/v4/pdp/get_pc: título, IDs item/loja, preço/faixa, modelos, categorias, atributos, descrição, imagens do vendedor, indicação de vídeo, avaliações agregadas, vendas exibidas, loja e envio/pré-venda.
+- /api/v2/item/get_ratings: nota, comentários, imagens/vídeos de reviews, modelo, tags, likes, resposta da loja e resumo por estrelas. Paginar amostras, incluindo notas 1–3, para objeções.
+- Busca pública natural: teste já documentado na Enciclopédia apresentou cobertura 3/3 para preço, vendas, vendas 30d, localização, nota e reviews. Preferir interceptação da resposta natural, antes de criar sondas artificiais sujeitas a 403.
+- Manter origens search_natural → search_parsed → normalized; PDP e reviews devem ser enriquecimentos explícitos, não substituições silenciosas.
+- Dados brutos separados de normalizados; salvar timestamp, endpoint, método, parâmetros sanitizados, item_id, shop_id, versão do parser, source e confidence. Campo ausente = null/indisponível, não zero.
+- Localização: seller_location_raw, seller_state, seller_city se disponível, location_source e location_confidence.
+- Mídia estruturada do vendedor é diferente da mídia de avaliações; DOM genérico de page.images/page.videos também inclui elementos da interface.
+- Selo Indicado é distintivo de vendedor, não prova de Ads nem de Loja Oficial. ads_id isoladamente não comprova anúncio patrocinado.
+
+### Painel SHBUSCA visto no print [visual]
+- Abaixo de cada cartão dos resultados de busca aparece um painel SHBUSCA, com marcador PATROCINADO em alguns produtos; **mecanismo do marcador não verificado**.
+- Data 'Criado em', dias de idade, vendas dos últimos 30 dias, média histórica em vendas/mês e vendas/dia.
+- Percentual 'vendido nos últimos 30 dias' acompanhado de seta/ícone: **denominador, fórmula e significado da tendência não confirmados**. Não classificar automaticamente como crescimento, participação ou conversão.
+- Indicador de qualidade 'Baixa' ou 'Média', contagem de fotos e presença de vídeo; verificar algoritmo de qualidade e fonte das fotos.
+- Nota média, contagem de avaliações, curtidas, localização do vendedor, desconto percentual, faturamento estimado de 30 dias, botão Copiar métricas.
+- Exemplo do print: 29/03/2026, 65 dias, 660 vendas 30d, média 403/mês e 14/dia, indicador 77%, 7 fotos, vídeo, estrelas 4,8 (256), 423 curtidas, Goiás, desconto 53%, faturamento estimado R$ 18.473. Esses números **são históricos e somente ilustram o painel da Avantpro**; não são dados coletados pelo Gestor Pro.
+- Replicar a função de painel compacto com identidade visual própria, acessibilidade e tooltips de origem. Curtidas, desconto, qualidade e tendência cabem como subcampos das T09–T15 e T31, sem ampliar o total de tarefas.
+
+### Método de trabalho mostrado no vídeo [transcrição]
+- 00:00–01:35: pesquisa de produto, comparação de títulos e ranking das 20 palavras mais usadas (frequência de títulos não é volume de busca).
+- 01:35–03:35: comparar vendas acumuladas com idade do anúncio, distinguir anúncios rápidos de antigos; calcular médias históricas com rótulo de estimativa.
+- 03:35–06:50: calcular viabilidade com custo de aquisição, frete, taxas, impostos e margem; não tomar taxas do vídeo como vigentes.
+- 06:50–09:10: comparar fornecedores, negociar custo e confrontar preço de compra com preços efetivos do mercado.
+- Processo: demanda → concorrência e preço → custo máximo viável → fornecedores → decisão comercial.
+
+### Fórmulas e armadilhas
+- Média histórica mensal estimada = vendas acumuladas / idade em dias × 30. Média histórica diária = vendas acumuladas / idade em dias. Exigir idade válida e fonte confiável.
+- Vendas observadas no intervalo = contador acumulado final − inicial, somente para o mesmo item e a mesma semântica. Checar resets e mudanças de variação. Intervalo inferior a 30 dias não equivale a vendas reais de 30 dias.
+- Faturamento bruto estimado = unidades atribuíveis ao período × preço considerado. Preço atual pode diferir dos preços históricos/variações; não afirmar GMV real.
+- Distinguir margem de contribuição, lucro líquido e outros conceitos; parametrizar taxas da Shopee vigentes, frete, impostos, embalagens e outros custos por loja.
+- Distinguir real do período, observado entre snapshots, média histórica, estimativa e indisponível; documentar fonte, período, confiança, data e fórmula.
+- Não utilizar tabela interna de comissões da Avantpro como tabela Shopee atual sem validação independente.
+
+### Aplicação das 35 tarefas
+- T01–T15: coleta por anúncio e painel de resultados, incluindo data/idade, vendas, origem, fotos e nota. T07 (percentual) e T15 (Ads) são investigação prioritária antes de afirmar precisão.
+- T16–T21: ranking de títulos, termos compostos, comparação de concorrentes, filtros e snapshots próprios.
+- T22–T30: calculadora e comparação de fornecedores, taxas configuráveis, teto de compra e preço mínimo.
+- T31–T35: painel visual, contrato de integração com Gestor Sênior, procedência, parecer e fluxo de decisão.
+- A extensão Gestor Pro é independente do Motor Sênior, com isolamento de armazenamento, scripts e mensagens.
+- 100% geral somente após coleta real, exibição na extensão, integração ao Gestor Sênior e testes sem regressão. Validado em laboratório é um marco distinto.
+- Na **quarta tentativa com erro**, interromper e elaborar prompt técnico para Claude com histórico das quatro tentativas e evidências sanitizadas.
+- Registrar acertos e falhas no diário compartilhado. Minimizar deploys; não publicar checkout antigo.
+
+### Questões técnicas ainda abertas
+1. Qual campo determina criação/publicação/atualização do anúncio?
+2. Qual origem permite comprovar vendas reais de 30 dias e com qual cobertura?
+3. Qual denominador do percentual vendido em 30 dias, e qual regra da seta?
+4. O que determina imagem Baixa/Média?
+5. Qual sinal técnico comprova PATROCINADO?
+6. Como lidar com faturamento estimado quando há mudanças históricas de preço/variação?
+
+**Atenção:** este adendo preserva os mapeamentos anteriores; não converte achados estáticos/visuais em validação operacional.
