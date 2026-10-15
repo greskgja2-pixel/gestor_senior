@@ -697,3 +697,11 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 - Aviso "Métricas não coletadas" mostra painel técnico com IDs cobertos e campos faltantes; botão explícito "Salvar diagnóstico da coleta" grava evidências sanitizadas no sistema de Saúde do Sistema (`gs_system_health_reports`), sem valores de preço, venda, cookies, tokens nem payload bruto. Assim o diagnóstico pode ser consultado por um agente autorizado e cruzado com o Motor.
 - Pendência: Motor Sênior v0.20.0 em ZIP não está disponível no repositório; para corrigir coleta no Seller Center é preciso analisar a versão instalada. O último relatório salvo no banco antes deste patch era de 02/10, então não se pode afirmar causa raiz da falta dos dois itens.
 - Testes em `tests/funnel-product-diagnostics.test.mjs`; validar CI e deploy.
+
+
+### 2026-10-14 — ChatGPT — botão Recoletar dados por anúncio no Funil
+- Implementado em `app/funil/page.js`: botão `↻ Recoletar dados` no topo direito de **cada** card do Funil por Produto, abaixo do selo de situação. Mantém layout responsivo e dá retorno por card (coletando, atualizado, ausente, parcial, erro).
+- Fonte existente confirmada: comando do Motor Sênior `sellerFunnel` para o período da loja. **A extensão v0.20.0 não foi fornecida para validar uma API individual**: a coleta consulta o relatório do período e atualiza SOMENTE o item ID selecionado na UI. Não afirmar que a extensão já faz uma consulta item-a-item no Seller Center.
+- Estado de carregamento isolado: não desmonta toda a página, não mexe nos outros anúncios nem nos Ads; impede disparos concorrentes e descarta respostas atrasadas após troca de período.
+- `mergeRecollectedFunnelProduct` em `app/lib/funnel-product-diagnostics.js` aceita apenas período informado igual ao pedido, preserva o snapshot antigo se menos completo, diferencia item não devolvido de resposta sem métricas e respeita zeros reais. Não mistura campos de snapshots distintos.
+- Testes de recoleta individual em `tests/funnel-product-diagnostics.test.mjs`. O Motor pode continuar sem trazer um anúncio enquanto não for corrigida sua coleta; o botão expõe isso claramente.

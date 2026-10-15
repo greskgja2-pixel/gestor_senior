@@ -166,3 +166,13 @@
 .collectionDetails .collectionActions{justify-content:flex-start;margin-top:9px}
 .collectionDetails .collectionActions button:first-child{background:#fff;color:#775326;border-color:#d6c3a5}
 @media(max-width:650px){.collectionRows>div{grid-template-columns:1fr;gap:4px}}
+
+/* 2026-10-14 — Recoleta acionada individualmente no cabeçalho dos cards. */
+.productHeaderActions{display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex:0 0 auto}
+.productRecollectButton{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:34px;padding:7px 11px;border:1px solid #b5cff1;background:#eef6ff;color:#1765c3;border-radius:9px;font-size:12px;font-weight:800;line-height:1.2;cursor:pointer;white-space:nowrap}
+.productRecollectButton:hover:not(:disabled){background:#dfeeff;border-color:#74a7e8}
+.productRecollectButton:disabled{opacity:.55;cursor:wait}
+.productRecollectFeedback{margin:-2px 0 13px;padding:10px 12px;border-radius:10px;border:1px solid #f0deba;background:#fffaf2;color:#785b27;font-size:12px;line-height:1.5}
+.productRecollectFeedback[data-tone=success]{border-color:#d2e9dd;background:#f2fbf5;color:#20764d}
+@media(max-width:720px){.productHeaderActions{gap:6px}.productRecollectButton{font-size:11px;padding:7px 9px;white-space:normal;text-align:center}}
+@media(max-width:460px){.productHeaderActions{grid-row:2;grid-column:1/-1;flex-direction:row;align-items:center;justify-content:space-between;width:100%}.productStatus{grid-column:auto;grid-row:auto}.productRecollectButton{min-height:38px}}
