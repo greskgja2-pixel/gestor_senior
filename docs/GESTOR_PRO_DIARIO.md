@@ -34,3 +34,12 @@ Data inicial: 2026-10-15
 - **Resultado:** protótipo escrito, não testado ao vivo; não afirmar que o campo existe em todos os resultados, nem que corresponde à publicação.
 - Status T01: investigando, 0/4 tentativas com erro em execução real. T02–T35 mantidas pendentes.
 - Não alterado o Motor Sênior. Integração com backend ainda não implementada.
+
+
+## 2026-10-15 — ChatGPT — Primeira coleta real do Mapeador Gestor Pro
+- Recebidos print Shopee e JSON da busca 'tag saída maternidade': 6 respostas de API, 60 anúncios, cinco campos por anúncio (`ctime`, `item_rating`, `itemid`, `liked_count`, `shopid`).
+- Descoberta: `ctime` presente em todos os 60 anúncios na resposta natural `api/v4/search/search_items`, em `$.items[N].item_data.ctime`.
+- Não foi exibido painel de extensão sob os cards no print. Possível falha no reconhecimento dos links ou contêiner visual. Versão 0.1.1 recompilada para novo teste, ainda não validada ao vivo.
+- Acertos: interceptação e exportação JSON. Erro/limitação: overlay sem exibição. Sem prova conclusiva da semântica de publicação do `ctime`.
+- Contagem de tentativas com erro do overlay nesta tarefa: 1; nenhuma integração Motor Sênior. T01 permanece investigando.
+- Próximo: usuário instalar versão 0.1.1, verificar cards e enviar JSON/print; se necessário, inspecionar DOM exato dos links.
