@@ -57,3 +57,11 @@ Data inicial: 2026-10-15
 - Erro: painéis inseridos antes de imagens em parte da grade e um painel indevido na área de lojas relacionadas. Ainda sem confirmação semântica independente do ctime e sem integração ao Motor Sênior.
 - Correção v0.1.4: seleção da raiz do cartão por geometria e inclusão do painel ao final do cartão; exclusão da seção acima do cabeçalho da pesquisa; campo sem nota distinguido de nota zero. Scripts passaram node --check; ZIP para teste local, não publicado no GitHub nem validado ao vivo.
 - Próximo passo: usuário instalar v0.1.4 e enviar print das primeiras duas linhas, validar posição e cobertura. T01 não concluída; manter 35 tarefas e Motor Sênior isolado.
+
+## 2026-10-15 — ChatGPT — T01, teste visual v0.1.4 e escalonamento Claude
+- Evidência: print da Shopee e exportação JSON de 60 produtos, 7 respostas, `/api/v4/search/search_items`, capturado às 22:57:05Z.
+- Diagnóstico: 60 produtos capturados, 63 links detectados, 61 correspondências e 60 painéis declarados. Alguns painéis permanecem fora do card, entre linhas, e um próximo ao bloco de lojas relacionadas; problema de ancoragem visual não resolvido.
+- Pontos bons: dados `ctime`, avaliação e curtidas exibidos e exportação mantida. Limites: a semântica de `ctime` ainda não é independentemente validada, e não houve integração ao Gestor Sênior.
+- Foram acumuladas quatro ou mais tentativas com erro de apresentação. **Escalonado ao Claude** conforme regra; diagnóstico técnico preparado em `PROMPT_CLAUDE_GESTOR_PRO_T01_LAYOUT.md` para ser enviado com ZIP v0.1.4 e print. Não lançar nova versão por tentativa cega.
+- Hipótese a validar: `locateCard()` escolhe ancestral genérico, `appendChild` insere no nível errado; filtros da região de busca insuficientes.
+- Estado: T01 ainda em investigação; nenhuma mudança no Motor Sênior nem deploy de produção.
