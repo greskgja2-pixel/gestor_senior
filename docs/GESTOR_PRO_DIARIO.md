@@ -43,3 +43,10 @@ Data inicial: 2026-10-15
 - Acertos: interceptação e exportação JSON. Erro/limitação: overlay sem exibição. Sem prova conclusiva da semântica de publicação do `ctime`.
 - Contagem de tentativas com erro do overlay nesta tarefa: 1; nenhuma integração Motor Sênior. T01 permanece investigando.
 - Próximo: usuário instalar versão 0.1.1, verificar cards e enviar JSON/print; se necessário, inspecionar DOM exato dos links.
+
+## 2026-10-15 — ChatGPT — Validação visual v0.1.2
+- Evidência: print da Shopee com painéis inseridos sob resultados e contador da extensão.
+- Diagnóstico legível: 60 coletados, 38 links, 36 correspondências, **35 painéis**. A captura+inserção visual funcionou; falta cobertura total e correspondência precisa em todos os cards.
+- Problemas observados: painéis grandes com valores JSON brutos, layout afetado, uma diferença entre correspondências e painéis, e alguns produtos sem painel. Código da função locateCard/insertAdjacentElement precisa de refinamento.
+- Status T01 permanece investigando; nenhuma integração ao Gestor Sênior, nenhuma prova definitiva de semântica ctime. Rodada visual v0.1.2 confirmou avanço, sem concluir tarefa.
+- Próximo passo: painel compacto com data convertida e idade (indicada como derivada), seletor estável por itemid/shopid e diagnóstico de omissões. Manter Motor Sênior isolado.
