@@ -501,8 +501,8 @@ test('Manifesto e página do Motor compartilham a versão distribuída',()=>{
   const latest=read('app/api/extension/latest/route.js');
   const release=read('lib/motor-release.js');
   const page=read('app/motor-senior/page.js');
-  assert.match(release,/version: '0\.18\.6'/);
-  assert.match(release,/Gestor-Senior-Shopee-Intelligence-v0\.18\.6-PESQUISA-NATURAL\.zip/);
+  assert.match(release,/version: '0\.20\.1'/);
+  assert.match(release,/Motor-Senior-v0\.20\.1-Funil-Resiliente\.zip/);
   assert.match(latest,/NextResponse\.json\(MOTOR_RELEASE/);
   assert.match(latest,/no-store/);
   assert.match(page,/MOTOR_RELEASE\.version/);
