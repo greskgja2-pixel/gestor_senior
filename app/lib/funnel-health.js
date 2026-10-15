@@ -1,6 +1,16 @@
 const num=v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v))?null:Number(v);
 const val=x=>num(x?.value??x);
 const arr=v=>Array.isArray(v)?v:[];
+// Erros do Motor vêm como {source,error}; String(objeto) virava "[object Object]" e escondia a causa real.
+function describeSellerError(x){
+  if(x&&typeof x==='object'&&!Array.isArray(x)){
+    const source=x.source!=null?String(x.source):null;
+    const message=x.error!=null?String(x.error):(x.message!=null?String(x.message):null);
+    const text=message||(()=>{try{return JSON.stringify(x)}catch{return'[erro sem descrição]'}})();
+    return(source?source+': ':'')+text.slice(0,280);
+  }
+  return String(x).slice(0,300);
+}
 
 export function deriveStoreFunnel(seller){
   const s=seller||{},k=s.keyMetrics||{},rt=s.realtime?.key_metrics||{},overview=s.productOverview||{};
@@ -51,6 +61,10 @@ export function deriveStoreFunnel(seller){
     evidence:{
       period:s?.period?.type||null,
       productCount:products.length,
+      // Catálogo relatado pela Shopee (rankings.total) vs. produtos que realmente chegaram no Gestor.
+      // Divergência aqui aponta coleta incompleta (ex.: página do ranking que falhou), não "poucos dados".
+      productsExpected:num(s.totalProducts),
+      rankingsPagesFailed:arr(s.errors).filter(e=>/^product-rankings-page-/.test(String(e?.source||''))).length,
       productFields:{
         impressions:products.filter(p=>num(p?.product_card_impressions)!=null).length,
         clicks:products.filter(p=>num(p?.product_card_clicks)!=null).length
@@ -76,7 +90,7 @@ export function deriveStoreFunnel(seller){
         orders:num(rt.orders)!=null,
         sales:num(rt.sales)!=null
       },
-      sellerErrors:arr(s.errors).map(x=>String(x).slice(0,300)).slice(0,20)
+      sellerErrors:arr(s.errors).map(describeSellerError).slice(0,20)
     }
   };
 }
