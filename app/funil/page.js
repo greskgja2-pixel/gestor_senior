@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import {useEffect,useMemo,useState} from 'react';
+import {useEffect,useMemo,useRef,useState} from 'react';
 import {motorData} from '../lib/client-async';
 import {deriveStoreFunnel} from '../lib/funnel-health';
+import {PRODUCT_FUNNEL_FIELDS,chooseBestFunnelResponse,needsFunnelRetry,diagnoseFunnelProducts} from '../lib/funnel-product-diagnostics';
 import styles from './funil.module.css';
 
 const num=v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v))?null:Number(v);
@@ -22,6 +23,16 @@ const PERIODS=[
 ];
 const periodMeta=id=>PERIODS.find(x=>x.id===id)||PERIODS[1];
 const signedPct=v=>num(v)==null?'—':(Number(v)>=0?'+':'')+(Number(v)*100).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%';
+
+async function getJsonWithPost(url,body){
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),30000);
+  try{
+    const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:controller.signal});
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok||data?.error)throw new Error(data?.error||'HTTP '+r.status);
+    return data;
+  }finally{clearTimeout(timer)}
+}
 
 async function getJson(url){
   const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),30000);
@@ -744,14 +755,29 @@ export default function FunilPage(){
   const [period,setPeriod]=useState('past30days');
   const [context,setContext]=useState({});
   const [state,setState]=useState({loading:true,error:'',seller:null,ads:null});
+  const latestRequest=useRef(0);
+  const [diagnosticUpload,setDiagnosticUpload]=useState({saving:false,message:'',error:false});
   const load=async(selectedPeriod=period)=>{
-
+    const requestId=++latestRequest.current;
+    setDiagnosticUpload({saving:false,message:'',error:false});
     setState(s=>({...s,loading:true,error:''}));
     const meta=periodMeta(selectedPeriod);
     const [sellerR,adsR]=await Promise.allSettled([
-      (async()=>{const first=await motorData('sellerFunnel',{period:selectedPeriod},60000);const errorList=arr(first?.errors);const allNotReady=errorList.length>0&&errorList.every(x=>/data isn.t ready|not ready|not_ready|not.ready/i.test(String(x?.error||x?.message||'')));const hasMetrics=deriveStoreFunnel(first).coverage.stageCount>0;if(!allNotReady||hasMetrics)return first;await new Promise(resolve=>setTimeout(resolve,1800));return motorData('sellerFunnel',{period:selectedPeriod},60000)})(),
+      (async()=>{
+         const first=await motorData('sellerFunnel',{period:selectedPeriod},60000);
+         const errorList=arr(first?.errors);
+         const allNotReady=errorList.length>0&&errorList.every(x=>/data isn.t ready|not ready|not_ready|not.ready/i.test(String(x?.error||x?.message||'')));
+         if(!allNotReady&&!needsFunnelRetry(first))return first;
+         // Uma única retentativa do mesmo período. Não substituir 30 dias por Hoje.
+         await new Promise(resolve=>setTimeout(resolve,1800));
+         try{
+           const again=await motorData('sellerFunnel',{period:selectedPeriod},60000);
+           return chooseBestFunnelResponse(first,again);
+         }catch{return first}
+       })(),
       getJson('/api/shopee/ads?days='+meta.days)
     ]);
+    if(requestId!==latestRequest.current)return;
     const seller=sellerR.status==='fulfilled'?sellerR.value:null;
     const ads=adsR.status==='fulfilled'?(adsR.value?.v7||adsR.value?.v5||adsR.value):null;
     const errors=[];
@@ -768,11 +794,14 @@ export default function FunilPage(){
       // A Super Análise é a fonte de elegibilidade do Funil. O Motor apenas
       // complementa os produtos com métricas do Seller Center.
       const extra=await getJson('/api/funnel/context');
+      if(requestId!==latestRequest.current)return;
       setContext(extra?.items||{});
     }catch(error){
       errors.push('Contexto da Super Análise: '+String(error?.message||error));
+      if(requestId!==latestRequest.current)return;
       setContext({});
     }
+    if(requestId!==latestRequest.current)return;
     setState({loading:false,error:errors.join(' · '),seller,ads});
   };
   useEffect(()=>{
@@ -828,6 +857,29 @@ export default function FunilPage(){
     };
     return{totals,rates,coverage,products,med,sources,campaigns,comparison,trends:s.productMetricTrends||{},orderPerformance:s.orderPerformance||{},key:k,realtime:rt,period:s.period||null,errors:arr(s.errors)};
   },[state]);
+  const funnelProductDiagnosis=useMemo(()=>diagnoseFunnelProducts(state.seller,context),[state.seller,context]);
+  const saveCollectionDiagnostic=async()=>{
+    if(diagnosticUpload.saving||!state.seller)return;
+    setDiagnosticUpload({saving:true,message:'',error:false});
+    // Somente IDs e flags de presença; sem payload bruto, preço ou credenciais.
+    const evidence={
+      periodRequested:period,
+      ...funnelProductDiagnosis,
+      sourceStages:model.coverage?.presentStages||[],
+      diagnosticType:'product-funnel-coverage-v1'
+    };
+    try{
+      const result=await getJsonWithPost('/api/system-health/report',{
+        checkedAt:new Date().toISOString(),deep:true,summary:'warning',
+        modules:[{id:'funnel-product',label:'Funil por Produto',status:'warning',detail:'Cobertura de IDs e campos (sem valores ou credenciais).'}],
+        funnelCoverage:model.coverage,
+        funnelEvidence:evidence
+      });
+      setDiagnosticUpload({saving:false,message:'Diagnóstico salvo. Protocolo: '+(result?.report?.id||'registrado')+'.',error:false});
+    }catch(error){
+      setDiagnosticUpload({saving:false,message:'Falha ao salvar diagnóstico: '+String(error?.message||error),error:true});
+    }
+  };
 
   if(state.loading)return <div className={styles.page}><div className={styles.loading}>Lendo Informações Gerenciais da Shopee e montando o funil…</div></div>;
 
@@ -913,6 +965,20 @@ export default function FunilPage(){
           {period!=='real_time'&&<button type="button" onClick={()=>changePeriod('real_time')}>Testar Hoje</button>}
           <Link href="/?section=config">Saúde do Sistema →</Link>
         </div>
+        <details className={styles.collectionDetails}>
+          <summary>Entender quais anúncios o Motor devolveu</summary>
+          <p>Período solicitado: {periodMeta(period).label}. Período informado pelo Motor: {funnelProductDiagnosis.periodReported?periodMeta(funnelProductDiagnosis.periodReported).label:'não informado'}. Produtos na resposta: {funnelProductDiagnosis.returnedProductCount}; encontrados entre os analisados: {funnelProductDiagnosis.matchedCount} de {funnelProductDiagnosis.analyzedProductCount}.</p>
+          <div className={styles.collectionRows}>{funnelProductDiagnosis.products.map(item=><div key={item.id}>
+            <strong>ID {item.id}</strong>
+            <span>{item.status==='not_returned'?'Não veio na lista do Motor':item.status==='no_metrics'?'Encontrado sem métricas':item.status==='partial'?'Encontrado com dados parciais':'Métricas coletadas'}</span>
+            <small>{PRODUCT_FUNNEL_FIELDS.filter(([key])=>item.fields[key]).map(([,label])=>label).join(', ')||'Nenhuma etapa retornada'}</small>
+          </div>)}</div>
+          <div className={styles.collectionActions}>
+            <button type="button" disabled={diagnosticUpload.saving} onClick={saveCollectionDiagnostic}>{diagnosticUpload.saving?'Salvando…':'Salvar diagnóstico da coleta'}</button>
+          </div>
+          <small>Salva somente IDs dos anúncios e indicadores de presença das métricas no relatório técnico da loja. Não envia valores comerciais, cookies ou credenciais.</small>
+          {diagnosticUpload.message&&<p role="status" data-error={diagnosticUpload.error?'true':'false'}>{diagnosticUpload.message}</p>}
+        </details>
       </aside>}
       <div className={styles.guidanceMode}>
         <div><strong>Como você quer receber as sugestões?</strong><small>Sua escolha fica salva neste navegador.</small></div>

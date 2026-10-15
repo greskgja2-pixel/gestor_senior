@@ -150,3 +150,19 @@
 .collectionActions button,.collectionActions a{border:1px solid #d6c3a5;border-radius:9px;padding:9px 12px;font-size:12px;font-weight:800;text-decoration:none;background:#fff;color:#775326;cursor:pointer}
 .collectionActions button:first-child{background:#1769e8;border-color:#1769e8;color:#fff}
 @media(max-width:850px){.collectionNotice{align-items:stretch;flex-direction:column}.collectionActions{flex:1 1 auto}.collectionActions button,.collectionActions a{flex:1 1 auto;text-align:center}}
+
+/* Diagnóstico técnico de cobertura de produtos — coleta parcial do Motor Sênior */
+.collectionNotice{flex-wrap:wrap}
+.collectionDetails{flex:1 0 100%;min-width:0;border-top:1px solid #edd7b2;padding-top:10px;margin-top:3px;color:#6e5a3d}
+.collectionDetails summary{font-weight:800;font-size:12px;cursor:pointer;color:#765326}
+.collectionDetails>p{margin:8px 0;font-size:11px;line-height:1.5}
+.collectionDetails>small{display:block;font-size:10px;line-height:1.5;margin:9px 0 0}
+.collectionDetails p[data-error=true]{color:#ad384c}
+.collectionRows{display:grid;gap:6px;margin:10px 0}
+.collectionRows>div{display:grid;grid-template-columns:135px minmax(150px,1fr) minmax(200px,1.5fr);gap:9px;align-items:center;border:1px solid #ebdec9;background:#fff;border-radius:9px;padding:8px 10px;font-size:11px}
+.collectionRows strong{color:#294664;white-space:nowrap}
+.collectionRows span{color:#79552a;font-weight:800}
+.collectionRows small{color:#667d91;line-height:1.4}
+.collectionDetails .collectionActions{justify-content:flex-start;margin-top:9px}
+.collectionDetails .collectionActions button:first-child{background:#fff;color:#775326;border-color:#d6c3a5}
+@media(max-width:650px){.collectionRows>div{grid-template-columns:1fr;gap:4px}}
