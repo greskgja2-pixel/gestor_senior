@@ -7,8 +7,8 @@ export const GESTOR_PRO_TASKS = [
     "status": "investigando",
     "labValidated": false,
     "gestorIntegrated": false,
-    "attempts": 0,
-    "notes": "Investigação inicial: campo ctime documentado em item_cards.item_data na busca pública; ainda sem validação real atual. Protótipo isolado em gestor-pro-extension/.",
+    "attempts": 5,
+    "notes": "v0.1.5 entregue pelo Claude; passou checagem estática e 33 testes em Chromium com DOM sintético (relatados); aguardando teste ao vivo na Shopee. Sem integração ao Gestor Sênior.",
     "evidence": ["Fonte pública Charted Sea: item_cards.item_data.ctime; hipótese, não confirmação ao vivo."]
   },
   {

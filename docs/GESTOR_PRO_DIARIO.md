@@ -65,3 +65,11 @@ Data inicial: 2026-10-15
 - Foram acumuladas quatro ou mais tentativas com erro de apresentação. **Escalonado ao Claude** conforme regra; diagnóstico técnico preparado em `PROMPT_CLAUDE_GESTOR_PRO_T01_LAYOUT.md` para ser enviado com ZIP v0.1.4 e print. Não lançar nova versão por tentativa cega.
 - Hipótese a validar: `locateCard()` escolhe ancestral genérico, `appendChild` insere no nível errado; filtros da região de busca insuficientes.
 - Estado: T01 ainda em investigação; nenhuma mudança no Motor Sênior nem deploy de produção.
+
+## 2026-10-15 — Claude — T01: diagnóstico de ancoragem e Mapeador v0.1.5
+- **Tarefa:** T01, 5ª tentativa de apresentação após escalonamento no 4º erro. Continua investigando, não 100%.
+- **Causa raiz:** escolha do card por largura/altura, inserção após conteúdo de altura fixa causando transbordamento; cabeçalho com span não reconhecido; deduplicação em ordem de DOM usando link da faixa de anúncios antes da grade.
+- **Correção entregue:** versão 0.1.5 isolada em ZIP enviado pelo usuário, com identificação estrutural de card, filtragem de anúncios fora da grade, medição geométrica da inserção e omissão controlada sem espaço. JSON exporta diagnóstico/probe. Evita duplicações, loops e painéis órfãos.
+- **Testes relatados pelo Claude:** Chromium com DOM sintético e itens reais: 33 verificações sem falhas; **não validados no site Shopee real**. Nesta sessão ChatGPT conferiu os três scripts com node --check e o manifesto JSON 0.1.5.
+- **Arquivos:** overlay.js, page-observer.js, popup.js, popup.html, manifest.json, LEIA-ME.txt. Pacote original: Gestor-Pro-Mapeador-v0.1.5_1.zip, fornecido na conversa. Sem cópia do código no repositório neste commit documental.
+- **Pendente:** teste de usuário em Shopee real, confirmação de ctime, integração ao Gestor Sênior. Sem deploy de produção nem mudança no Motor Sênior.

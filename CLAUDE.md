@@ -753,3 +753,7 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 - Adendo técnico na Enciclopédia em docs/ENCICLOPEDIA_SHOPEE_GESTOR_SENIOR.md com conclusões estáticas e visuais separadas de fatos validados.
 - Exatamente 35 tarefas, nenhuma implementada/validada neste adendo. Diário também atualizado em docs/GESTOR_PRO_DIARIO.md.
 - Próxima tarefa T01; manter isolamento do Motor Sênior e produzir prompt para Claude ao quarto erro na mesma tarefa.
+
+### 2026-10-15 — Claude — Gestor Pro T01: ancoragem do painel (Mapeador v0.1.5)
+- Detalhes completos em `docs/GESTOR_PRO_DIARIO.md`. Resumo: causa raiz = painel anexado ao fim de caixa de card com altura fixa (transborda sobre a linha de baixo), filtro de cabeçalho que falhava com `<span>` e dedupe por ordem de DOM que dava o painel ao anúncio. Correção v0.1.5 valida geometria antes de inserir e, sem espaço, NÃO insere (`sem_espaco`). Testado em Chromium com DOM sintético (33/33), não na Shopee real. Sem deploy, sem push (bloqueado). Motor Sênior intocado.
+- Lição para a lista de bugs: **nunca escolher "o card" por tamanho/geometria nem anexar UI no fim de um container de terceiros; achar a raiz por estrutura (contenção de IDs), medir depois de inserir e preferir não inserir a inserir errado.**
