@@ -4,7 +4,7 @@ import Link from 'next/link';
 import {useEffect,useMemo,useRef,useState} from 'react';
 import {motorData} from '../lib/client-async';
 import {deriveStoreFunnel} from '../lib/funnel-health';
-import {PRODUCT_FUNNEL_FIELDS,chooseBestFunnelResponse,needsFunnelRetry,diagnoseFunnelProducts} from '../lib/funnel-product-diagnostics';
+import {PRODUCT_FUNNEL_FIELDS,chooseBestFunnelResponse,needsFunnelRetry,diagnoseFunnelProducts,mergeRecollectedFunnelProduct} from '../lib/funnel-product-diagnostics';
 import styles from './funil.module.css';
 
 const num=v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v))?null:Number(v);
@@ -674,7 +674,7 @@ function TitleEditor({p,context,onClose}){
   </section>;
 }
 
-function ProductFunnelCard({p,med,mode,context}){
+function ProductFunnelCard({p,med,mode,context,onRecollect,recollecting,recollectDisabled,recollectFeedback}){
   const [priceOpen,setPriceOpen]=useState(false);
   const [titleOpen,setTitleOpen]=useState(false);
   const plan=mode==='specific'?specificPlan(p,med,context):productPlan(p,med);
@@ -692,8 +692,18 @@ function ProductFunnelCard({p,med,mode,context}){
         <img src={productImage} alt="" onError={e=>{e.currentTarget.onerror=null;e.currentTarget.src='/favicon.ico'}}/>
         <div><h3>{p.name||'Produto'}</h3><small>ID {p.id||'—'}</small></div>
       </div>
-      <span className={styles.productStatus} data-priority={plan.priority}>{status}</span>
+      <div className={styles.productHeaderActions}>
+        <span className={styles.productStatus} data-priority={plan.priority}>{status}</span>
+        <button type="button" className={styles.productRecollectButton}
+          onClick={()=>onRecollect(String(p.id))}
+          disabled={recollectDisabled}
+          title="O Motor consulta o relatório da Shopee para este período e o Gestor atualiza apenas este anúncio."
+          aria-label={'Recoletar dados do anúncio '+(p.name||p.id)}>
+          {recollecting?'↻ Coletando…':'↻ Recoletar dados'}
+        </button>
+      </div>
     </header>
+    {recollectFeedback?.message&&<div className={styles.productRecollectFeedback} data-tone={recollectFeedback.tone} role="status" aria-live="polite">{recollectFeedback.message}</div>}
 
     <div className={styles.productFunnelBody}>
       <div className={styles.productFunnelLeft}>
@@ -757,8 +767,14 @@ export default function FunilPage(){
   const [state,setState]=useState({loading:true,error:'',seller:null,ads:null});
   const latestRequest=useRef(0);
   const [diagnosticUpload,setDiagnosticUpload]=useState({saving:false,message:'',error:false});
+  const [recollection,setRecollection]=useState({busyId:'',feedback:{}});
+  const recollectInFlight=useRef(null);
+  const recollectSequence=useRef(0);
   const load=async(selectedPeriod=period)=>{
     const requestId=++latestRequest.current;
+    ++recollectSequence.current;
+    recollectInFlight.current=null;
+    setRecollection({busyId:'',feedback:{}});
     setDiagnosticUpload({saving:false,message:'',error:false});
     setState(s=>({...s,loading:true,error:''}));
     const meta=periodMeta(selectedPeriod);
@@ -822,6 +838,46 @@ export default function FunilPage(){
   const chooseGuidance=mode=>{
     setGuidanceMode(mode);
     try{localStorage.setItem('gs_funnel_guidance_mode',mode)}catch{}
+  };
+  const recollectProduct=async itemId=>{
+    const id=String(itemId||'').trim();
+    if(!id||!state.seller||recollectInFlight.current)return;
+    // Não substituir o relatório de outros itens nem bloquear a página inteira.
+    const request={id,period,epoch:latestRequest.current,sequence:++recollectSequence.current};
+    recollectInFlight.current=request;
+    setRecollection(old=>({busyId:id,feedback:{...old.feedback,[id]:null}}));
+    const feedback=(message,tone='warning')=>setRecollection(old=>({
+      busyId:'',
+      feedback:{...old.feedback,[id]:{message,tone}}
+    }));
+    try{
+      const fresh=await motorData('sellerFunnel',{period:request.period},60000);
+      if(recollectInFlight.current!==request||request.epoch!==latestRequest.current)return;
+      const result=mergeRecollectedFunnelProduct(state.seller,fresh,id,request.period);
+      if(result.status==='updated'){
+        setState(current=>({...current,seller:result.seller}));
+        const pending=result.complete?'Todas as 7 etapas disponíveis.':result.metrics+' de 7 etapas recebidas; as demais continuam indisponíveis.';
+        feedback('Recoleta concluída para este anúncio ('+periodMeta(request.period).label+'). '+pending,'success');
+      }else{
+        const messages={
+          not_returned:'O Motor respondeu, mas não devolveu este anúncio no período '+periodMeta(request.period).label+'. Nenhum dado foi inventado.',
+          no_metrics:'O Motor encontrou este anúncio, mas não retornou métricas do Funil. Os dados anteriores foram preservados.',
+          less_complete:'O Motor retornou menos métricas do que antes; mantive os dados anteriores para não perder informação.',
+          period_unconfirmed:'O Motor não informou o período dos dados. A atualização foi descartada para não misturar Hoje, 7 e 30 dias.',
+          period_mismatch:'O Motor retornou outro período. A atualização foi descartada para não misturar os dados.',
+          no_response:'O Motor não retornou dados utilizáveis para este anúncio.'
+        };
+        feedback(messages[result.status]||'Não foi possível atualizar este anúncio.');
+      }
+    }catch(error){
+      if(recollectInFlight.current!==request||request.epoch!==latestRequest.current)return;
+      feedback('Falha na recoleta: '+String(error?.message||error));
+    }finally{
+      if(recollectInFlight.current===request){
+        recollectInFlight.current=null;
+        setRecollection(old=>({...old,busyId:''}));
+      }
+    }
   };
 
   const model=useMemo(()=>{
@@ -990,7 +1046,9 @@ export default function FunilPage(){
       <div className={styles.productPlanBanner}><b>Plano de destrave</b><span>As sugestões são testes orientados por evidências; nenhuma alteração é aplicada automaticamente.</span></div>
       {!orderedAnalyzed.length?<div className={styles.empty}>Nenhum produto disponível. Faça a Super Análise dos anúncios que deseja acompanhar no Funil.</div>:<>
         <div className={styles.productFunnelList}>
-          {orderedAnalyzed.map(p=><ProductFunnelCard key={'funnel-'+p.id} p={p} med={model.med} mode={guidanceMode} context={context}/>)}
+          {orderedAnalyzed.map(p=><ProductFunnelCard key={'funnel-'+p.id} p={p} med={model.med} mode={guidanceMode} context={context}
+              onRecollect={recollectProduct} recollecting={recollection.busyId===String(p.id)}
+              recollectDisabled={!!recollection.busyId} recollectFeedback={recollection.feedback[String(p.id)]}/>)}
         </div>
         <details className={styles.rawDetails}><summary>Ver tabela completa dos produtos liberados</summary><div className={styles.tableWrap}><table><thead><tr><th>Produto</th><th>Impressões</th><th>Cliques</th><th>CTR</th><th>Visitantes</th><th>Carrinho</th><th>Pedido</th><th>Pago</th><th>Confirmado</th><th>Status</th></tr></thead><tbody>{orderedAnalyzed.map(p=><ProductRow key={p.id} p={p} med={model.med}/>)}</tbody></table></div></details>
       </>}

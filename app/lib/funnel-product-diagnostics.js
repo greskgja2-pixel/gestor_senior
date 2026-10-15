@@ -68,3 +68,40 @@ export function diagnoseFunnelProducts(seller,context,now=Date.now()){
     products:rows
   };
 }
+
+
+// O Motor Sênior atualmente oferece sellerFunnel como coleta do período da loja.
+// A ação individual lê essa fonte e atualiza somente o produto solicitado.
+export function mergeRecollectedFunnelProduct(previous,refreshed,itemId,requestedPeriod){
+  const id=idOf(itemId),actualPeriod=idOf(refreshed?.period?.type);
+  const unchanged=status=>({seller:previous,status,metrics:0});
+  if(!id||!previous||!refreshed)return unchanged('no_response');
+  if(!actualPeriod)return unchanged('period_unconfirmed');
+  if(actualPeriod!==requestedPeriod)return {...unchanged('period_mismatch'),actualPeriod};
+  const candidate=arr(refreshed?.products).find(p=>idOf(p?.id??p?.item_id??p?.itemId)===id);
+  if(!candidate)return unchanged('not_returned');
+  const count=p=>PRODUCT_FUNNEL_FIELDS.filter(([field])=>num(p?.[field])!=null).length;
+  const received=count(candidate);
+  if(received===0)return unchanged('no_metrics');
+  const oldProducts=arr(previous?.products);
+  const existing=oldProducts.find(p=>idOf(p?.id??p?.item_id??p?.itemId)===id);
+  if(existing&&count(existing)>received)return {...unchanged('less_complete'),metrics:received};
+  const updated={
+    ...(existing||{}),
+    ...candidate,
+    id,
+    name:candidate?.name||candidate?.title||candidate?.product_name||existing?.name||existing?.title||null,
+    image:candidate?.image||candidate?.image_url||existing?.image||null
+  };
+  // Não combinar métricas de duas coletas: todas as etapas vêm do mesmo snapshot.
+  // Números antigos de etapas ausentes na resposta nova devem permanecer ausentes.
+  for(const [field] of PRODUCT_FUNNEL_FIELDS){
+    updated[field]=num(candidate[field]);
+  }
+  // Taxas calculadas também pertencem ao snapshot novo: descartar taxas antigas.
+  for(const field of ['ctr','uv_to_add_to_cart_rate','uv_to_placed_buyers_rate','uv_to_paid_buyers_rate']){
+    updated[field]=num(candidate[field]);
+  }
+  const products=oldProducts.filter(p=>idOf(p?.id??p?.item_id??p?.itemId)!==id).concat(updated);
+  return {seller:{...previous,products},status:'updated',metrics:received,complete:received===PRODUCT_FUNNEL_FIELDS.length};
+}

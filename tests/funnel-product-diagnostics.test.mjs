@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
 const source=readFileSync(new URL('../app/lib/funnel-product-diagnostics.js',import.meta.url),'utf8');
-const {needsFunnelRetry,chooseBestFunnelResponse,diagnoseFunnelProducts}=await import('data:text/javascript;charset=utf-8,'+encodeURIComponent(source));
+const {needsFunnelRetry,chooseBestFunnelResponse,diagnoseFunnelProducts,mergeRecollectedFunnelProduct}=await import('data:text/javascript;charset=utf-8,'+encodeURIComponent(source));
 const ui=readFileSync(new URL('../app/funil/page.js',import.meta.url),'utf8');
 const now=new Date('2026-10-14T12:00:00Z').getTime();
 const context={
@@ -55,4 +55,68 @@ test('UI mantém cada período separado e coleta diagnóstico por ação explíc
   assert.match(ui,/getJsonWithPost\('\/api\/system-health\/report'/);
   assert.match(ui,/Salvar diagnóstico da coleta/);
   assert.match(ui,/Não veio na lista do Motor/);
+});
+
+
+test('botão de recoleta aparece em cada card, no cabeçalho',()=>{
+  assert.match(ui,/function ProductFunnelCard\(\{p,med,mode,context,onRecollect/);
+  assert.match(ui,/className=\{styles\.productHeaderActions\}/);
+  assert.match(ui,/↻ Recoletar dados/);
+  assert.match(ui,/onRecollect=\{recollectProduct\}/);
+  assert.match(ui,/recollectDisabled=\{!!recollection\.busyId\}/);
+  assert.match(ui,/aria-live="polite"/);
+});
+test('recoleta inclui somente ID solicitado sem apagar os demais anúncios',()=>{
+  const previous={period:{type:'real_time'},products:[
+    {id:'111',product_card_impressions:18,uv:2},
+    {id:'222',product_card_impressions:null,uv:null}
+  ],keyMetrics:{shop_uv:{value:20}}};
+  const incoming={period:{type:'real_time'},products:[
+    {id:'111',product_card_impressions:999,uv:99},
+    {id:'222',product_card_impressions:50,product_card_clicks:3,uv:4}
+  ]};
+  const result=mergeRecollectedFunnelProduct(previous,incoming,'222','real_time');
+  assert.equal(result.status,'updated');
+  assert.equal(result.metrics,3);
+  assert.equal(result.seller.products.find(x=>x.id==='222').uv,4);
+  assert.equal(result.seller.products.find(x=>x.id==='111').uv,2);
+  assert.equal(result.seller.keyMetrics.shop_uv.value,20);
+  assert.equal(previous.products[1].uv,null);
+});
+test('período não confirmado ou incompatível não atualiza métricas',()=>{
+  const old={products:[{id:'222'}]};
+  const wrong={period:{type:'real_time'},products:[{id:'222',uv:12}]};
+  const missing={products:[{id:'222',uv:12}]};
+  assert.equal(mergeRecollectedFunnelProduct(old,wrong,'222','past30days').status,'period_mismatch');
+  assert.equal(mergeRecollectedFunnelProduct(old,missing,'222','past30days').status,'period_unconfirmed');
+  assert.equal(mergeRecollectedFunnelProduct(old,wrong,'222','past30days').seller,old);
+});
+test('Motor pode não devolver ID ou devolver sem métricas, sem falso sucesso',()=>{
+  const old={products:[{id:'111',uv:5}]};
+  assert.equal(mergeRecollectedFunnelProduct(old,{period:{type:'real_time'},products:[{id:'111',uv:8}]},'222','real_time').status,'not_returned');
+  assert.equal(mergeRecollectedFunnelProduct(old,{period:{type:'real_time'},products:[{id:'222'}]},'222','real_time').status,'no_metrics');
+});
+test('não perde métricas anteriores se resposta for mais incompleta',()=>{
+  const old={products:[{id:'222',product_card_impressions:30,product_card_clicks:4,uv:6}]};
+  const fresh={period:{type:'real_time'},products:[{id:'222',uv:7}]};
+  const result=mergeRecollectedFunnelProduct(old,fresh,'222','real_time');
+  assert.equal(result.status,'less_complete');
+  assert.equal(result.seller,old);
+});
+test('zero verdadeiro é aceito e não herda métricas antigas',()=>{
+  const old={products:[{id:'222',product_card_impressions:15,uv:2}]};
+  const fresh={period:{type:'real_time'},products:[{id:'222',product_card_impressions:0,uv:0}]};
+  const result=mergeRecollectedFunnelProduct(old,fresh,'222','real_time');
+  assert.equal(result.status,'updated');
+  assert.equal(result.seller.products[0].product_card_impressions,0);
+  assert.equal(result.seller.products[0].uv,0);
+  assert.equal(result.seller.products[0].paid_buyers,null);
+});
+test('não mantém taxas de um snapshot anterior durante a recoleta',()=>{
+  const old={products:[{id:'222',product_card_impressions:15,product_card_clicks:4,uv:7,ctr:0.9,uv_to_add_to_cart_rate:0.8}]};
+  const fresh={period:{type:'real_time'},products:[{id:'222',product_card_impressions:22,product_card_clicks:3,uv:8}]};
+  const result=mergeRecollectedFunnelProduct(old,fresh,'222','real_time');
+  assert.equal(result.status,'updated');
+  assert.equal(result.seller.products[0].ctr,null);
+  assert.equal(result.seller.products[0].uv_to_add_to_cart_rate,null);
 });
