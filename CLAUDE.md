@@ -740,3 +740,20 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 - Instalar a v0.20.1 da extensão e rodar "Executar diagnóstico agora" (Saúde do Sistema) ou "Salvar diagnóstico da coleta" (Funil) com sessão real do Seller Center, nos períodos Hoje/7/30 dias, para os 3 itens de referência. Como agora tenho acesso de leitura ao Supabase do projeto (`shopeeos`, tabela `gs_system_health_reports`), consigo ler o relatório fresco diretamente, sem precisar que o usuário exporte nada — só preciso que a coleta seja executada após o deploy da v0.20.1.
 - Se o relatório fresco mostrar `rankingsPagesFailed=0` mas os 2 produtos ainda ausentes de `products[]`, a hipótese de timeout/concorrência cai e o próximo suspeito é a própria resposta do `product-rankings` da Shopee não listar produtos sem nenhuma atividade no período — o que só se confirma com a captura real.
 - Teto de 100 produtos (20 páginas) no ranking segue sem correção: não é a causa aqui (catálogo de 30), mas uma loja maior perderia produtos de baixa venda silenciosamente; fica registrado para não ser esquecido.
+
+
+### 2026-10-15 — ChatGPT — Gestor Pro: rastreamento das 35 tarefas
+- Criada a página de acompanhamento `/gestor-pro`, com filtros, resumos, status por tarefa e progresso. Nenhuma tarefa técnica considerada concluída.
+- Registro técnico compartilhado em `docs/GESTOR_PRO_DIARIO.md`; lista versionada em `app/gestor-pro/tasks.js`.
+- Extensão Gestor Pro deve nascer isolada do Motor Sênior. Quarto erro na mesma tarefa: interromper e preparar prompt para Claude com evidências, sem segredos.
+- Preservar Enciclopédia e aprendizados da Avantpro; não misturar métricas estimadas com números reais.
+- Validar build e rotas antes de merge; minimizar deploys. Sem coleta real nesta sessão.
+
+### 2026-10-15 — ChatGPT — Aprendizados Avantpro documentados para Gestor Pro
+- Adendo técnico na Enciclopédia em docs/ENCICLOPEDIA_SHOPEE_GESTOR_SENIOR.md com conclusões estáticas e visuais separadas de fatos validados.
+- Exatamente 35 tarefas, nenhuma implementada/validada neste adendo. Diário também atualizado em docs/GESTOR_PRO_DIARIO.md.
+- Próxima tarefa T01; manter isolamento do Motor Sênior e produzir prompt para Claude ao quarto erro na mesma tarefa.
+
+### 2026-10-15 — Claude — Gestor Pro T01: ancoragem do painel (Mapeador v0.1.5)
+- Detalhes completos em `docs/GESTOR_PRO_DIARIO.md`. Resumo: causa raiz = painel anexado ao fim de caixa de card com altura fixa (transborda sobre a linha de baixo), filtro de cabeçalho que falhava com `<span>` e dedupe por ordem de DOM que dava o painel ao anúncio. Correção v0.1.5 valida geometria antes de inserir e, sem espaço, NÃO insere (`sem_espaco`). Testado em Chromium com DOM sintético (33/33), não na Shopee real. Sem deploy, sem push (bloqueado). Motor Sênior intocado.
+- Lição para a lista de bugs: **nunca escolher "o card" por tamanho/geometria nem anexar UI no fim de um container de terceiros; achar a raiz por estrutura (contenção de IDs), medir depois de inserir e preferir não inserir a inserir errado.**

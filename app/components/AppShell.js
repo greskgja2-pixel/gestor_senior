@@ -15,6 +15,7 @@ const MENU=[
   {type:'item',label:'Super Análise',icon:'▤',tone:'indigo',href:'/super-analise'},
   {type:'item',label:'Pesquisa de Produtos',icon:'⌕',tone:'green',href:'/pesquisa-produtos'},
   {type:'item',label:'Favoritos',icon:'★',tone:'amber',href:'/favoritos'},
+  {type:'item',label:'Gestor Pro',icon:'◇',tone:'violet',href:'/gestor-pro'},
   {type:'item',label:'Super Anúncio',icon:'▣',tone:'cyan',href:'/extensao-shopee-intelligence?section=super-anuncio'},
   {type:'item',label:'Concorrentes',icon:'⌘',tone:'blue',href:'/extensao-shopee-intelligence?section=concorrentes'},
   {type:'item',label:'Reanálises',icon:'↻',tone:'purple',href:'/extensao-shopee-intelligence?section=reanalises'},
@@ -61,6 +62,7 @@ function routeState(pathname,section){
   if(pathname.startsWith('/produtos'))return{label:'Super Análise',group:'products'};
   if(pathname.startsWith('/pesquisa-produtos'))return{label:'Pesquisa de Produtos'};
   if(pathname.startsWith('/favoritos'))return{label:'Favoritos'};
+  if(pathname.startsWith('/gestor-pro'))return{label:'Gestor Pro'};
   if(pathname.startsWith('/pedidos'))return{label:'Pedidos'};
   if(pathname.startsWith('/super-analise'))return{label:'Super Análise',group:'products'};
   if(pathname.startsWith('/protecao-roas'))return{label:'Proteção ROAS',group:'ads'};
