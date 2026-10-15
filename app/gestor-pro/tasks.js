@@ -4,12 +4,12 @@ export const GESTOR_PRO_TASKS = [
     "category": "Busca Shopee",
     "title": "Data de criação do anúncio",
     "description": "Investigar o campo e a origem exata da data de criação/publicação; exibir na busca e disponibilizar ao Gestor.",
-    "status": "pendente",
+    "status": "investigando",
     "labValidated": false,
     "gestorIntegrated": false,
     "attempts": 0,
-    "notes": "",
-    "evidence": []
+    "notes": "Investigação inicial: campo ctime documentado em item_cards.item_data na busca pública; ainda sem validação real atual. Protótipo isolado em gestor-pro-extension/.",
+    "evidence": ["Fonte pública Charted Sea: item_cards.item_data.ctime; hipótese, não confirmação ao vivo."]
   },
   {
     "id": "T02",

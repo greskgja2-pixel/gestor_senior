@@ -27,3 +27,10 @@ Data inicial: 2026-10-15
 - Falhas: nenhuma falha de implementação investigada; não houve coleta real nesta sessão.
 - Próximo: T01, identificar origem real da data de criação do anúncio.
 - Publicação: somente documentação na branch do painel Gestor Pro, sem merge para main nesta sessão.
+
+## 2026-10-15 — ChatGPT — T01 em investigação (protótipo experimental)
+- Hipótese independente: `data.item_cards[].item_data.ctime` é timestamp de criação da listagem segundo documentação de terceiro (Charted Sea).
+- Novo laboratório separado em `gestor-pro-extension/`, Manifest V3, observador passivo Fetch/XHR e painel T01 nos resultados quando a fonte traz ID, loja e timestamp.
+- **Resultado:** protótipo escrito, não testado ao vivo; não afirmar que o campo existe em todos os resultados, nem que corresponde à publicação.
+- Status T01: investigando, 0/4 tentativas com erro em execução real. T02–T35 mantidas pendentes.
+- Não alterado o Motor Sênior. Integração com backend ainda não implementada.
