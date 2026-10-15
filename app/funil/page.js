@@ -80,7 +80,7 @@ function FunnelVisual({totals,rates}){
   const {worst}=funnelSummary(totals,rates);
   const validRates=funnelSummary(totals,rates).transitions.filter(x=>x.rate!=null);
   const tone=!worst?'data':worst.rate<.15?'bad':worst.rate<.35?'warn':'good';
-  const status=tone==='bad'?'CRÍTICO':tone==='warn'?'ATENÇÃO':tone==='good'?'ACOMPANHAR':'POUCOS DADOS';
+  const status=tone==='bad'?'CRÍTICO':tone==='warn'?'ATENÇÃO':tone==='good'?'ACOMPANHAR':'DADOS NÃO COLETADOS';
   return <section className={styles.storeFunnelCard} data-priority={tone}>
     <header className={styles.storeFunnelHeader}>
       <div><span className={styles.storeFunnelIcon}>▽</span><div><h2>Funil da Loja</h2><p>Visão geral da passagem dos clientes por cada etapa da loja.</p></div></div>
@@ -170,10 +170,21 @@ function PostOrderPanel({orderPerformance}){
 
 function productPlan(p,med){
   const impressions=num(p.product_card_impressions),clicks=num(p.product_card_clicks),uv=num(p.uv),carts=num(p.add_to_cart_buyers),placed=num(p.placed_buyers),paid=num(p.paid_buyers),confirmed=num(p.confirmed_buyers);
-  const ctr=num(p.ctr),cartRate=num(p.uv_to_add_to_cart_rate),placedRate=num(p.uv_to_placed_buyers_rate),paidRate=num(p.uv_to_paid_buyers_rate);
+  const ctr=num(p.ctr)??(impressions>0&&clicks!=null?clicks/impressions:null);
+  const cartRate=num(p.uv_to_add_to_cart_rate)??(uv>0&&carts!=null?carts/uv:null);
+  const paidRate=num(p.uv_to_paid_buyers_rate)??(uv>0&&paid!=null?paid/uv:null);
   const cartPlaced=carts>0&&placed!=null?placed/carts:null,placedPaid=placed>0&&paid!=null?paid/placed:null,paidConfirmed=paid>0&&confirmed!=null?confirmed/paid:null;
   const low=(value,medianValue,minBase)=>value!=null&&medianValue!=null&&minBase&&value<medianValue*.6;
-  if((impressions??0)<100||(uv??0)<10)return{
+  if(impressions==null||uv==null)return{
+    priority:'missing',rank:5,
+    label:impressions==null&&uv==null?'DADOS NÃO COLETADOS':'COLETA PARCIAL',
+    title:'Métricas do funil não coletadas',
+    why:'O Motor Sênior não entregou impressões e/ou visitantes para este anúncio no período selecionado. Isso não significa que o produto tenha pouco tráfego.',
+    evidence:`Impressões: ${impressions==null?'não coletadas':int(impressions)} · Visitantes: ${uv==null?'não coletados':int(uv)}`,
+    actions:['Use “Atualizar agora” para tentar coletar novamente no período escolhido.','Teste também “Hoje” para conferir se o Motor consegue ler as métricas em tempo real, sem misturar os períodos.','Se persistir, acesse Configurações → Saúde do Sistema e execute o diagnóstico do Motor Sênior.'],
+    href:'/?section=config',action:'Ver Saúde do Sistema'
+  };
+  if(impressions<100||uv<10)return{
     priority:'data',rank:4,label:'POUCOS DADOS',title:'Ainda não dá para culpar uma etapa',
     why:'O volume deste produto ainda é pequeno para separar um problema real de uma oscilação normal.',
     evidence:`${int(impressions)} impressões · ${int(uv)} visitantes`,
@@ -214,6 +225,13 @@ function productPlan(p,med){
     evidence:`Pago→confirmado ${pct(paidConfirmed)} · mediana ${pct(med.paidConfirmed)} · ${int(paid)} compradores pagos`,
     actions:['Cheque cancelamentos, ruptura de estoque e problemas de expedição antes de mudar o anúncio.','Confirme se as variações vendidas realmente têm estoque disponível.','Priorize a operação; mexer em título ou capa não resolve este gargalo.'],
     href:'/produtos',action:'Ver produto'
+  };
+  if([ctr,cartRate,cartPlaced,placedPaid,paidConfirmed].every(rate=>rate==null))return{
+    priority:'missing',rank:5,label:'COLETA PARCIAL',title:'Taxas de conversão não coletadas',
+    why:'Existem dados de alcance, mas faltam as etapas seguintes para concluir se o funil deste produto está saudável.',
+    evidence:`${int(impressions)} impressões · ${int(uv)} visitantes · taxas indisponíveis`,
+    actions:['Atualize os dados para coletar cliques, carrinhos e pedidos.','Confira se o Motor está lendo o período selecionado nas Informações Gerenciais.','Evite alterar preço, título ou ROAS por um diagnóstico incompleto.'],
+    href:'/?section=config',action:'Ver Saúde do Sistema'
   };
   return{
     priority:'good',rank:3,label:'SAUDÁVEL',title:'Nenhum gargalo forte apareceu agora',
@@ -352,7 +370,8 @@ function ProductActionCard({p,med,mode,context}){
 
 function productBottleneck(plan){
   if(plan.priority==='good')return{title:'Funil saudável',tone:'good',detail:'As principais taxas deste produto estão próximas ou acima do padrão da sua loja.'};
-  if(plan.priority==='data')return{title:'Dados insuficientes',tone:'data',detail:'Ainda falta volume para apontar um gargalo com segurança.'};
+  if(plan.priority==='missing')return{title:plan.title,tone:'missing',detail:plan.why};
+  if(plan.priority==='data')return{title:'Amostra pequena',tone:'data',detail:'Há números reais, mas o volume ainda é baixo para apontar um gargalo com segurança.'};
   if(plan.title.includes('antes do clique'))return{title:'Maior gargalo: Impressões → Cliques',tone:'bad',detail:'O produto aparece, mas proporcionalmente poucas pessoas clicam para conhecer o anúncio.'};
   if(plan.title.includes('não coloca no carrinho'))return{title:'Maior gargalo: Visitas → Carrinho',tone:'bad',detail:'O cliente entra no anúncio, mas a oferta ainda não convence o suficiente para gerar intenção de compra.'};
   if(plan.title.includes('desiste antes do pedido'))return{title:'Maior gargalo: Carrinho → Pedido',tone:'bad',detail:'Os clientes demonstram intenção de compra, mas muitos não finalizam o pedido.'};
@@ -649,7 +668,7 @@ function ProductFunnelCard({p,med,mode,context}){
   const [titleOpen,setTitleOpen]=useState(false);
   const plan=mode==='specific'?specificPlan(p,med,context):productPlan(p,med);
   const bottleneck=productBottleneck(plan);
-  const status=plan.priority==='bad'?'CRÍTICO':plan.priority==='warn'?'ATENÇÃO':plan.priority==='good'?'SAUDÁVEL':'POUCOS DADOS';
+  const status=plan.priority==='bad'?'CRÍTICO':plan.priority==='warn'?'ATENÇÃO':plan.priority==='good'?'SAUDÁVEL':plan.label;
   const productContext=context?.[String(p.id)]||null;
   const competitor=arr(productContext?.competitors)[0]||null;
   const productImage=p.image||productContext?.image||'/favicon.ico';
@@ -738,7 +757,12 @@ export default function FunilPage(){
     const errors=[];
     if(sellerR.status==='rejected')errors.push('Funil completo: '+String(sellerR.reason?.message||sellerR.reason));
     if(adsR.status==='rejected')errors.push('Shopee Ads: '+String(adsR.reason?.message||adsR.reason));
-    if(seller&&deriveStoreFunnel(seller).coverage.stageCount===0&&arr(seller?.errors).some(x=>/data isn.t ready|not ready|not_ready/i.test(String(x?.error||x?.message||''))))errors.push('A Shopee ainda não disponibilizou os relatórios gerenciais desse período. Abra Informações Gerenciais no Seller Center, aguarde o carregamento e use Atualizar agora.');
+    if(seller&&deriveStoreFunnel(seller).coverage.stageCount===0){
+       const notReady=arr(seller?.errors).some(x=>/data isn.t ready|not ready|not_ready/i.test(String(x?.error||x?.message||'')));
+       errors.push(notReady
+         ?'O Motor informou que o relatório deste período ainda não estava pronto. Confira o período em Informações Gerenciais no Seller Center e tente atualizar.'
+         :'A resposta do Motor não trouxe etapas mensuráveis do funil para este período. Verifique a conexão e a cobertura em Configurações → Saúde do Sistema.');
+     }
     if(seller&&seller?.period?.type&&seller.period.type!==selectedPeriod)errors.push('O Motor Sênior respondeu '+periodMeta(seller.period.type).label+' em vez de '+periodMeta(selectedPeriod).label+'. Atualize a extensão para v0.17.4+ para usar o histórico mapeado.');
     try{
       // A Super Análise é a fonte de elegibilidade do Funil. O Motor apenas
@@ -773,8 +797,13 @@ export default function FunilPage(){
 
   const model=useMemo(()=>{
     const s=state.seller||{},k=s.keyMetrics||{},rt=s.realtime?.key_metrics||{};
-    const products=arr(s.products);
-    const {totals,rates}=deriveStoreFunnel(s);
+    const products=arr(s.products).map(p=>({
+      ...p,
+      id:String(p?.id??p?.item_id??p?.itemId??'').trim(),
+      name:p?.name||p?.title||p?.product_name||null,
+      image:p?.image||p?.image_url||null
+    })).filter(p=>p.id);
+    const {totals,rates,coverage}=deriveStoreFunnel(s);
     const med={
       ctr:median(products.map(p=>num(p.ctr))),
       clickVisit:median(products.map(p=>{const a=num(p.product_card_clicks),b=num(p.uv);return a>0&&b!=null?b/a:null})),
@@ -797,7 +826,7 @@ export default function FunilPage(){
       paidGmv:num(k?.paid_gmv?.chain_ratio),
       confirmedOrders:num(k?.confirmed_orders?.chain_ratio)
     };
-    return{totals,rates,products,med,sources,campaigns,comparison,trends:s.productMetricTrends||{},orderPerformance:s.orderPerformance||{},key:k,realtime:rt,period:s.period||null,errors:arr(s.errors)};
+    return{totals,rates,coverage,products,med,sources,campaigns,comparison,trends:s.productMetricTrends||{},orderPerformance:s.orderPerformance||{},key:k,realtime:rt,period:s.period||null,errors:arr(s.errors)};
   },[state]);
 
   if(state.loading)return <div className={styles.page}><div className={styles.loading}>Lendo Informações Gerenciais da Shopee e montando o funil…</div></div>;
@@ -824,7 +853,7 @@ export default function FunilPage(){
     return productPlan(a,model.med).rank-productPlan(b,model.med).rank;
   });
   const unavailableForFunnel=Math.max(0,model.products.filter(p=>!context?.[String(p.id)]?.analyzedAt).length);
-  const analyzedWithoutMetrics=analyzedProducts.filter(p=>p.funnelMetricsUnavailable).length;
+  const analyzedWithoutMetrics=analyzedProducts.filter(p=>p.funnelMetricsUnavailable||productPlan(p,model.med).priority==='missing').length;
 
   const full=!!state.seller;
   const actualPeriod=state.seller?.period?.type||period;
@@ -874,7 +903,17 @@ export default function FunilPage(){
 
     {tab==='produto'&&<section className={styles.panel}>
       <div className={styles.sectionHead}><div><h2>Funil por Produto</h2><p>Anúncios com Super Análise recente permanecem disponíveis mesmo quando a coleta do Motor estiver temporariamente sem métricas.</p></div><span>{analyzedProducts.length} disponíveis</span></div>
-      <div className={styles.funnelEligibilityNotice}><b>Super Análise obrigatória</b><span>{analyzedWithoutMetrics>0?`${analyzedWithoutMetrics} produto(s) analisado(s) estão aguardando métricas do Funil.`:unavailableForFunnel>0?`${unavailableForFunnel} produto(s) da coleta ainda precisam de Super Análise.`:'Todos os produtos analisados estão com métricas disponíveis.'}</span><Link href="/super-analise">Gerenciar na Super Análise →</Link></div>
+      <div className={styles.funnelEligibilityNotice}><b>Super Análise obrigatória</b><span>{analyzedWithoutMetrics>0?`${analyzedWithoutMetrics} produto(s) analisado(s) estão sem métricas completas do Funil.`:unavailableForFunnel>0?`${unavailableForFunnel} produto(s) da coleta ainda precisam de Super Análise.`:'Todos os produtos analisados estão com métricas disponíveis.'}</span><Link href="/super-analise">Gerenciar na Super Análise →</Link></div>
+      {analyzedWithoutMetrics>0&&<aside className={styles.collectionNotice} role="status">
+        <div><strong>Métricas não coletadas ou incompletas em {analyzedWithoutMetrics} de {analyzedProducts.length} anúncios</strong>
+          <p>O Motor não entregou todos os números necessários para o funil de {actualPeriodMeta.label}. Isso não comprova baixo tráfego. Preço e concorrentes vêm da Super Análise, uma fonte diferente.</p>
+        </div>
+        <div className={styles.collectionActions}>
+          <button type="button" onClick={()=>load(period)}>↻ Tentar novamente</button>
+          {period!=='real_time'&&<button type="button" onClick={()=>changePeriod('real_time')}>Testar Hoje</button>}
+          <Link href="/?section=config">Saúde do Sistema →</Link>
+        </div>
+      </aside>}
       <div className={styles.guidanceMode}>
         <div><strong>Como você quer receber as sugestões?</strong><small>Sua escolha fica salva neste navegador.</small></div>
         <div role="group" aria-label="Modo de orientação">
