@@ -12,6 +12,19 @@ function describeSellerError(x){
   return String(x).slice(0,300);
 }
 
+const NOT_READY_RE=/data isn.t ready|not ready|not_ready|not.ready|60001/i;
+// A Shopee processa os relatórios fechados (ontem, 7 e 30 dias) entre 00:00 e 10:00 (GMT-03):
+// o próprio Seller Center exibe "Estamos processando os dados da sua loja das 00:00 às 10:00"
+// e a API MyData responde code=60001 "data isn't ready". Não é falha do Motor nem do Gestor.
+export function sellerReportNotReady(seller){
+  return arr(seller?.errors).some(x=>NOT_READY_RE.test(String(x?.error||x?.message||'')));
+}
+export function isShopeeProcessingWindow(date=new Date()){
+  // Hora de Brasília (UTC-3, sem horário de verão desde 2019).
+  const hour=(date.getUTCHours()+21)%24;
+  return hour<10;
+}
+
 export function deriveStoreFunnel(seller){
   const s=seller||{},k=s.keyMetrics||{},rt=s.realtime?.key_metrics||{},overview=s.productOverview||{};
   const products=arr(s.products);
@@ -90,6 +103,7 @@ export function deriveStoreFunnel(seller){
         orders:num(rt.orders)!=null,
         sales:num(rt.sales)!=null
       },
+      reportNotReady:sellerReportNotReady(s),
       sellerErrors:arr(s.errors).map(describeSellerError).slice(0,20)
     }
   };

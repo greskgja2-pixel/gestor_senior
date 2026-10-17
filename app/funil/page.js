@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import {useEffect,useMemo,useRef,useState} from 'react';
 import {motorData} from '../lib/client-async';
-import {deriveStoreFunnel} from '../lib/funnel-health';
+import {deriveStoreFunnel,sellerReportNotReady,isShopeeProcessingWindow} from '../lib/funnel-health';
 import {PRODUCT_FUNNEL_FIELDS,chooseBestFunnelResponse,needsFunnelRetry,diagnoseFunnelProducts,mergeRecollectedFunnelProduct} from '../lib/funnel-product-diagnostics';
 import styles from './funil.module.css';
 
@@ -800,9 +800,9 @@ export default function FunilPage(){
     if(sellerR.status==='rejected')errors.push('Funil completo: '+String(sellerR.reason?.message||sellerR.reason));
     if(adsR.status==='rejected')errors.push('Shopee Ads: '+String(adsR.reason?.message||adsR.reason));
     if(seller&&deriveStoreFunnel(seller).coverage.stageCount===0){
-       const notReady=arr(seller?.errors).some(x=>/data isn.t ready|not ready|not_ready/i.test(String(x?.error||x?.message||'')));
+       const notReady=sellerReportNotReady(seller);
        errors.push(notReady
-         ?'O Motor informou que o relatório deste período ainda não estava pronto. Confira o período em Informações Gerenciais no Seller Center e tente atualizar.'
+         ?'A Shopee ainda está processando os relatórios fechados (ontem, 7 e 30 dias): ela processa os dados da loja das 00:00 às 10:00 (GMT-03) e responde “data isn’t ready” até terminar.'+(isShopeeProcessingWindow()?' Agora está dentro dessa janela — tente de novo depois das 10:00. ':' Confira o período em Informações Gerenciais no Seller Center e tente atualizar. ')+'Você pode olhar o período “Hoje” manualmente; o Gestor não troca o período sozinho.'
          :'A resposta do Motor não trouxe etapas mensuráveis do funil para este período. Verifique a conexão e a cobertura em Configurações → Saúde do Sistema.');
      }
     if(seller&&seller?.period?.type&&seller.period.type!==selectedPeriod)errors.push('O Motor Sênior respondeu '+periodMeta(seller.period.type).label+' em vez de '+periodMeta(selectedPeriod).label+'. Atualize a extensão para v0.17.4+ para usar o histórico mapeado.');
@@ -1026,7 +1026,7 @@ export default function FunilPage(){
           <p>Período solicitado: {periodMeta(period).label}. Período informado pelo Motor: {funnelProductDiagnosis.periodReported?periodMeta(funnelProductDiagnosis.periodReported).label:'não informado'}. Produtos na resposta: {funnelProductDiagnosis.returnedProductCount}; encontrados entre os analisados: {funnelProductDiagnosis.matchedCount} de {funnelProductDiagnosis.analyzedProductCount}.</p>
           <div className={styles.collectionRows}>{funnelProductDiagnosis.products.map(item=><div key={item.id}>
             <strong>ID {item.id}</strong>
-            <span>{item.status==='not_returned'?'Não veio na lista do Motor':item.status==='no_metrics'?'Encontrado sem métricas':item.status==='partial'?'Encontrado com dados parciais':'Métricas coletadas'}</span>
+            <span>{item.status==='not_returned'?(item.missingReason==='not_in_complete_ranking'?'A Shopee não listou este anúncio no período (lista completa)':'Não veio na lista do Motor'):item.status==='no_metrics'?'Encontrado sem métricas':item.status==='partial'?'Encontrado com dados parciais':'Métricas coletadas'}</span>
             <small>{PRODUCT_FUNNEL_FIELDS.filter(([key])=>item.fields[key]).map(([,label])=>label).join(', ')||'Nenhuma etapa retornada'}</small>
           </div>)}</div>
           <div className={styles.collectionActions}>
