@@ -32,26 +32,25 @@ function stateFrom(value){
 }
 function normalizeOne(row,index){
   const observed=marketplaceItemEvidence(row,{source:'motor-natural-search'});
-  const b=row?.item_basic||row?.item||row?.product||row||{};
-  const rating=b?.item_rating||row?.item_rating||{};
-  const price=priceFromShopee(b?.price??b?.price_min??b?.price_min_before_discount??row?.price);
-  const original=priceFromShopee(b?.price_before_discount??b?.original_price??row?.original_price);
-  const sold=n(b?.historical_sold??b?.sold??row?.sold??row?.historicalSold);
-  const monthlySold=observed?.monthlySold??null; // estimativa mensal nunca vira período real
-  const title=String(b?.name??b?.item_name??row?.title??row?.name??'Produto sem título').trim();
-  const itemId=String(b?.itemid??b?.item_id??row?.itemid??row?.itemId??row?.item_id??'').trim();
-  const shopId=String(b?.shopid??b?.shop_id??row?.shopid??row?.shopId??row?.shop_id??'').trim();
-  const image=imageUrl(b?.image??b?.image_url??row?.image??row?.imageUrl??arr(b?.images)[0]??arr(row?.images)[0]);
-  const location=stateFrom(b?.shop_location??b?.location??row?.shopLocation??row?.shop_location??row?.seller_location??row?.seller_location_raw??row?.location);
-  const ratingValue=n(rating?.rating_star??b?.rating_star??row?.rating);
-  const reviews=n(rating?.rating_count?.[0]??rating?.rating_count??b?.rating_count??row?.reviewCount??row?.review_count??row?.reviews);
-  const discount=price!=null&&original!=null&&original>price?Math.round((1-price/original)*100):null;
-  const revenue=price!=null&&sold!=null?price*sold:null;
-  const monthlyRevenue=price!=null&&monthlySold!=null?price*monthlySold:null;
-  const preferred=Boolean(b?.is_preferred_shop||b?.is_preferred_seller||row?.preferred||/vendedor\s+indicado|\bindicado\b/i.test(String(row?.searchText||'')));
+  if(!observed)return null;
+  const price=observed.price,original=observed.originalPrice,sold=observed.sold,monthlySold=observed.monthlySold;
+  const itemId=observed.itemId,shopId=observed.shopId||'';
+  const discount=observed.discountPct??(price!=null&&original!=null&&original>price?Math.round((1-price/original)*100):null);
   const url=itemId&&shopId?`https://shopee.com.br/product/${shopId}/${itemId}`:null;
-  return {key:itemId||shopId||String(index),index,title,itemId,shopId,image,price,original,discount,sold,monthlySold,rating:ratingValue,reviews,location,revenue,monthlyRevenue,preferred,url,provenance:observed?.provenance??null,estimatedMonthlySold:observed?.estimatedMonthlySold??null,raw:row};
+  return{
+    key:itemId,index,title:observed.title||'Produto sem título',itemId,shopId,
+    image:imageUrl(observed.image),price,original,discount,sold,monthlySold,
+    rating:observed.rating,reviews:observed.reviewCount,location:stateFrom(observed.location),
+    revenue:price!=null&&sold!=null?price*sold:null,
+    monthlyRevenue:price!=null&&monthlySold!=null?price*monthlySold:null,
+    preferred:observed.preferred,official:observed.official,
+    brand:observed.brand,hasVideo:observed.hasVideo,sellerName:observed.sellerName,
+    createdAt:observed.createdAt,stock:observed.stock,fiveStarReviews:observed.fiveStarReviews,
+    url,provenance:observed.provenance,
+    estimatedMonthlySold:observed.estimatedMonthlySold,raw:row
+  };
 }
+
 function extractRows(payload){
   // Uma só regra de leitura para pesquisa e radar competitivo.
   return extractMarketplaceRows(payload);
@@ -353,7 +352,7 @@ export default function MarketResearch(){
   }
 
   function loadPayload(payload,source='arquivo'){
-    const normalized=extractRows(payload).map(normalizeOne).filter(r=>r.itemId||r.title);
+    const normalized=extractRows(payload).map(normalizeOne).filter(Boolean);
     const diag=payload?.diagnostics??payload?.data?.diagnostics??null;
     setRows(normalized);
     setRemovedRows([]);

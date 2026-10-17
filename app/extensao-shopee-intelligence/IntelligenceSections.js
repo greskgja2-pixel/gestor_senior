@@ -338,25 +338,29 @@ function shopeeSearchPrice(value){
   return raw>10000?raw/100000:raw;
 }
 function searchMarketData(row){
-  const b=row?.item_basic||row?.item||row||{};
+  const observed=marketplaceItemEvidence(row,{source:'motor-natural-search'});
+  const b=row?.item_basic||row?.item_data||row?.item||row||{};
   const searchText=String(row?.searchText||b?.searchText||row?.display_text||b?.display_text||'');
-  const textPrices=[...searchText.matchAll(/R\$\s*\n?\s*([0-9.]+,[0-9]{2})/gi)].map(m=>Number(m[1].replace(/\./g,'').replace(',','.'))).filter(Number.isFinite);
-  const price=shopeeSearchPrice(b?.price??b?.price_min??b?.price_min_before_discount)??(textPrices[0]??null);
-  const originalPrice=shopeeSearchPrice(b?.price_before_discount??b?.original_price)??(textPrices.length>1?textPrices[1]:null);
-  const sold=n(b?.historical_sold??b?.sold);
-  const monthlySold=n(b?.monthly_sold??b?.sold_30d);
-  const preferred=/\bindicado\b|vendedor\s+indicado/i.test(searchText)?true:preferredFromObject(row);
-  const locationRaw=b?.shop_location??b?.location??b?.shop_location_name??b?.seller_location??row?.shop_location??row?.location??row?.seller_location??null;
-  const location=stateFromText(locationRaw)||locationFromObject(row)||stateFromText(searchText)||stateFromText(row?.description??b?.description);
+  const textPrices=[...searchText.matchAll(/R\$\s*\n?\s*([0-9.]+,[0-9]{2})/gi)]
+    .map(m=>Number(m[1].replace(/\./g,'').replace(',','.'))).filter(Number.isFinite);
+  const location=stateFromText(observed?.location)||locationFromObject(row)||stateFromText(searchText);
   const shop=shopIdentityFromObject(row);
   return{
-    price,originalPrice,sold,monthlySold,preferred,
-    location:location||null,shopName:shop.name||null,shopUsername:shop.username||null,shopUrl:shop.url||null,
-    title:b?.name||b?.item_name||row?.title||null,
-    rating:n(b?.item_rating?.rating_star??b?.rating_star??row?.rating),
+    price:observed?.price??textPrices[0]??null,
+    originalPrice:observed?.originalPrice??textPrices[1]??null,
+    sold:observed?.sold??null,monthlySold:observed?.monthlySold??null,
+    preferred:observed?.preferred??preferredFromObject(row),
+    location:location||null,shopName:observed?.sellerName||shop.name||null,
+    shopUsername:shop.username||null,shopUrl:shop.url||null,
+    title:observed?.title||b?.name||b?.item_name||row?.title||null,
+    rating:observed?.rating??null,
+    official:observed?.official??null,brand:observed?.brand??null,
+    hasVideo:observed?.hasVideo??null,createdAt:observed?.createdAt??null,
+    reviewCount:observed?.reviewCount??null,fieldProvenance:observed?.provenance??null,
     rawSource:'search-item'
   };
 }
+
 function detectAdsFromSearchRow(row){
   if(!row||typeof row!=='object')return{status:'unknown',evidence:null};
   if(row?.is_ads===true)return{status:'detected',evidence:row?.ads_evidence||'extension.is_ads=true'};
@@ -480,7 +484,16 @@ async function collectNaturalCompetitorGroup(list,keyword,maxPages){
         watch_id:row.watch.id,keyword:visibility.keyword||keyword,searched_at:searchedAt,
         max_pages:Math.min(5,maxPages),items_per_page:visibility.itemsPerPage||60,
         competitor:{...visibility.competitor,found:true},owner:visibility.owner,
-        ads:visibility.ads,market:{...(visibility.market||{}),provenance:observed?.provenance||null},
+        ads:visibility.ads,market:{...(visibility.market||{}),
+          price:observed?.price??visibility.market?.price??null,
+          originalPrice:observed?.originalPrice??visibility.market?.originalPrice??null,
+          sold:observed?.sold??visibility.market?.sold??null,
+          monthlySold:observed?.monthlySold??visibility.market?.monthlySold??null,
+          preferred:observed?.preferred??visibility.market?.preferred??null,
+          location:observed?.location??visibility.market?.location??null,
+          rating:observed?.rating??visibility.market?.rating??null,
+          title:observed?.title??visibility.market?.title??null,
+          provenance:observed?.provenance||null},
         found_by:'motor-natural-search',
         diagnostics:{method:'motor-natural-search',itemsCaptured:candidates.length,pagesRequested:Math.min(5,maxPages)}
       });
@@ -714,7 +727,7 @@ function Competitors({items}){
           })
         },15000);
         const market=normalized.market||{};
-        const hasMarketData=n(market.price)!=null||n(market.sold)!=null||n(market.monthlySold)!=null||market.preferred!==null||!!market.location||!!market.shopName||!!market.shopUsername||!!market.shopUrl||!!market.title;
+        const hasMarketData=n(market.price)!=null||n(market.sold)!=null||n(market.monthlySold)!=null||market.preferred!=null||!!market.location||!!market.shopName||!!market.shopUsername||!!market.shopUrl||!!market.title;
         if(hasMarketData){
           await fetchJsonWithTimeout('/api/competitor-monitor',{
             method:'POST',headers:{'Content-Type':'application/json'},

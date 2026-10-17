@@ -711,3 +711,10 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 - A página `/login` redireciona convidados de prévia para a visão geral. Com sessão válida o Gestor continua funcionando normalmente.
 - Testes `tests/preview-guest-login.test.mjs` no prebuild; comprovar que Vercel Preview apresenta painel sem login e `/api/tasks` retorna 401 sem sessão.
 - Não publicar bypass de login em produção; não dar acesso anônimo a produtos, custos, Ads, históricos nem ações.
+
+### 2026-10-16 — ChatGPT — Leitura do mapeamento REA (formato item_data)
+- Recebidos `GESTOR_PRO_REA_MAPEAMENTO_COLETA.md`, `gestor-pro-coleta.mjs` e `interceptor-mundo-da-pagina.js` do usuário; documentação relata coleta real feita pelo Claude de 60 itens da busca `ventilador`, **não reproduzida aqui**.
+- Atualizado `app/lib/marketplace-evidence.js` para `item_data` + `item_card_displayed_asset`, mantendo `item_basic`: monthly_sold_count da Shopee, total acumulado, preço, criação Unix, 5 estrelas, marca opcional, vídeo por icon_type=2, Official/PREFERRED, origem por campo. Zero legítimo e null ausente.
+- `MarketResearch` e Radar de Concorrentes passam a consumir adapter compartilhado. Sem alterações de banco, precificação ou login.
+- Regresso sintético em `tests/marketplace-evidence.test.mjs`; conferir build Vercel da branch. Dados de patrocínio ainda não conclusivos; `adsid` é somente indício não confirmado.
+- Cuidado: `main` já avançou e divergiu da PR #99. **Não realizar merge sem conciliar os novos commits e sem QA real no Motor instalado.**

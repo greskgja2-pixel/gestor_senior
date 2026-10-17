@@ -52,3 +52,12 @@ Este PR implementa apenas o contrato de evidências da coleta pública:
 - Somente confirma concorrente se o `item_id` da busca for idêntico ao vinculado. Até cinco páginas naturais; itens restantes continuam no fallback de servidor até dez páginas.
 - Se o servidor devolver HTTP 403, preserva os resultados encontrados no Motor. Fontes gravadas separadamente em novos snapshots.
 - **Prévia apenas:** testar Chrome desktop e Quetta/Android, funcionamento em segundo plano, cobertura e comportamento de limite da Shopee antes de publicar.
+## Avanço 4 — Mapeamento REA entregue em 16/10/2026
+**Base documental:** `GESTOR_PRO_REA_MAPEAMENTO_COLETA.md`, `gestor-pro-coleta.mjs` e `interceptor-mundo-da-pagina.js`, enviados pelo usuário. Relatório descreve coleta real de 60 anúncios do termo "ventilador"; **esta validação real foi executada pelo Claude, não por este agente.**
+
+- A rota `/api/v4/search/search_items` tem formas `item_basic` e `item_data` + `item_card_displayed_asset`. O normalizador compartilhado agora lê as duas.
+- Campos conforme amostra: `item_card_display_sold_count.monthly_sold_count` (vendas 30 dias, dados retornados na amostra), `historical_sold_count`, `ctime`, `item_card_display_price.price`, `item_rating.rating_count[0,5]`, `seller_flag.name`, `icon_in_image.icon_type===2`, `shop_location`, `global_brand.display_name` (opcional).
+- O período só é observado quando há campo; estimativas explícitas ficam fora da métrica real. Estoque ausente não vira zero. `adsid` não vira patrocinado confirmado.
+- Atualizadas `MarketResearch.normalizeOne` e `IntelligenceSections.searchMarketData`; servidor de concorrentes já reutilizava esse contrato. Testes sintéticos anexados à suíte do prebuild.
+- **Não altera o ZIP instalado do Motor Sênior**, logo não confirma ainda que ele transmite todos os campos. HTTP 403 e patrocínio continuam sem fonte conclusiva.
+- Branch de prévia; `main` divergiu com commits novos e requer reconciliação antes de eventual merge.
