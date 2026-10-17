@@ -38,8 +38,8 @@ test('Pesquisa v2 preserva busca pelo Motor Senior',()=>{
 
 
 test('Pesquisa compara diagnóstico do Motor com o normalizador do Gestor',()=>{
-  assert.match(page,/row\?\.reviewCount/);
-  assert.match(page,/row\?\.shopLocation/);
+  assert.match(page,/reviews:observed\.reviewCount/);
+  assert.match(page,/stateFrom\(observed\.location\)/);
   assert.match(page,/payload\?\.diagnostics/);
   assert.match(page,/Motor Sênior × Gestor/);
   assert.match(page,/normalização/);

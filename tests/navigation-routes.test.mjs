@@ -102,7 +102,10 @@ test('Pesquisa de Produtos integra inteligencia de mercado com coleta/importacao
   assert.match(page,/Importar coleta/);
   assert.match(page,/opportunityScore/);
   assert.match(page,/monthlySold/);
-  assert.match(page,/seller_location|shop_location/);
+  // Campos Shopee agora são interpretados pelo contrato compartilhado.
+  assert.match(page,/marketplaceItemEvidence\(row/);
+  const evidence=read('app/lib/marketplace-evidence.js');
+  assert.match(evidence,/shop_location/);
 });
 
 
