@@ -81,3 +81,29 @@ test('a tela permite retentativa e não mascara fontes',()=>{
   assert.match(ui,/Saúde do Sistema/);
   assert.doesNotMatch(ui,/\(impressions\?\?0\)<100/);
 });
+
+// Issue #105 — evidência real (17/10/2026 00:37 GMT-03): Seller Center exibia "Estamos processando os dados
+// da sua loja das 00:00 às 10:00" e a API MyData respondia code=60001 em ontem/7/30 dias, mas não em real_time.
+import {sellerReportNotReady,isShopeeProcessingWindow,deriveStoreFunnel as deriveForNotReady} from '../app/lib/funnel-health.js';
+import {diagnoseFunnelProducts as diagnoseForReason} from '../app/lib/funnel-product-diagnostics.js';
+test('relatório fechado não pronto (60001) é reconhecido e não vira zero',()=>{
+  const seller={period:{type:'past30days'},products:[],errors:[{source:'key-metrics',error:"/api/mydata/v3/dashboard/key-metrics/: err:data isn't ready, detail:data isn't ready"}]};
+  assert.equal(sellerReportNotReady(seller),true);
+  assert.equal(sellerReportNotReady({errors:[{error:'excedeu 9s'}]}),false);
+  const d=deriveForNotReady(seller);
+  assert.equal(d.coverage.stageCount,0);
+  assert.equal(d.evidence.reportNotReady,true);
+});
+test('janela de processamento da Shopee é 00:00–10:00 em Brasília',()=>{
+  assert.equal(isShopeeProcessingWindow(new Date('2026-10-17T03:37:00Z')),true);   // 00:37 BRT
+  assert.equal(isShopeeProcessingWindow(new Date('2026-10-17T12:59:00Z')),true);   // 09:59 BRT
+  assert.equal(isShopeeProcessingWindow(new Date('2026-10-17T13:00:00Z')),false);  // 10:00 BRT
+});
+test('anúncio ausente de ranking completo é distinguido de coleta incompleta',()=>{
+  const ctx={a:{itemId:'1',analyzedAt:new Date().toISOString()},b:{itemId:'2',analyzedAt:new Date().toISOString()}};
+  const complete={period:{type:'real_time'},totalProducts:1,products:[{id:'1',uv:1}],errors:[]};
+  assert.equal(diagnoseForReason(complete,ctx).products.find(x=>x.id==='2').missingReason,'not_in_complete_ranking');
+  const failed={...complete,totalProducts:3,errors:[{source:'product-rankings-page-2',error:'excedeu 9s'}]};
+  assert.equal(diagnoseForReason(failed,ctx).products.find(x=>x.id==='2').missingReason,'collection_incomplete');
+  assert.equal(diagnoseForReason(complete,ctx).products.find(x=>x.id==='1').missingReason,null);
+});

@@ -41,6 +41,12 @@ export function diagnoseFunnelProducts(seller,context,now=Date.now()){
     if(id&&!index.has(id))index.set(id,p);
   }
   const rows=[];
+  // O ranking da Shopee só lista anúncios com atividade no período (evidência real: loja com 30 anúncios,
+  // total=5 em "Hoje"). Se o total informado chegou inteiro e nenhuma página falhou, a ausência é da
+  // própria lista da Shopee, e não perda de coleta do Motor.
+  const expected=num(seller?.totalProducts);
+  const rankingFailed=arr(seller?.errors).some(e=>/^product-rankings/.test(String(e?.source||'')));
+  const listComplete=expected!=null&&allProducts.length>=expected&&!rankingFailed;
   for(const ctx of Object.values(context||{})){
     const id=idOf(ctx?.itemId);
     if(!id||!ctx?.analyzedAt)continue;
@@ -54,6 +60,7 @@ export function diagnoseFunnelProducts(seller,context,now=Date.now()){
       id,
       status:!p?'not_returned':present===0?'no_metrics':!primaryReady||present<PRODUCT_FUNNEL_FIELDS.length?'partial':'complete',
       returned:!!p,
+      missingReason:!p?(listComplete?'not_in_complete_ranking':'collection_incomplete'):null,
       present,
       total:PRODUCT_FUNNEL_FIELDS.length,
       fields
