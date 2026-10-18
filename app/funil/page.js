@@ -72,35 +72,35 @@ function productPlan(p,med){
     priority:'bad',rank:0,label:'FAÇA AGORA',title:'Está travando antes do clique',
     why:'O produto aparece, mas recebe proporcionalmente menos cliques que o padrão da sua própria loja.',
     evidence:`CTR ${pct(ctr)} · mediana da loja ${pct(med.ctr)} · ${int(impressions)} impressões`,
-    actions:['Troque ou melhore a imagem principal antes de mexer na descrição.','Compare título, preço e oferta com os concorrentes que aparecem junto na busca.','Veja se o benefício principal do produto fica claro já na capa e no começo do título.'],
+    actions:['Pesquise na Shopee o nome do seu produto e abra os anúncios que mais vendem. Compare a capa deles com a sua (fundo, enquadramento, quantidade de itens à mostra, texto na imagem) e refaça a sua seguindo o padrão que se repete, sem copiar a imagem.','Reescreva o começo do título com o que o cliente digita (produto + principal característica) e compare com os títulos dos mais vendidos.','Compare seu preço com anúncios iguais ao seu: se estiver bem acima, avalie oferta ou cupom antes de baixar o preço, conferindo a margem.'],
     href:'/extensao-shopee-intelligence?section=super-anuncio',action:'Revisar capa e título'
   };
   if(low(cartRate,med.cart,uv>=10))return{
     priority:'bad',rank:0,label:'FAÇA AGORA',title:'O cliente entra, mas não coloca no carrinho',
     why:'A vitrine consegue trazer visitantes, porém o anúncio perde força quando a pessoa vê os detalhes.',
     evidence:`Visita→carrinho ${pct(cartRate)} · mediana ${pct(med.cart)} · ${int(uv)} visitantes`,
-    actions:['Revise as imagens secundárias: medidas, quantidade, variações e benefícios precisam ficar óbvios.','Confira preço, frete, prazo, estoque das variações e avaliações recentes.','Melhore a descrição para responder dúvidas que aparecem nas avaliações e nos concorrentes.'],
+    actions:['Abra o anúncio no celular, como o cliente, e veja se nas primeiras telas dá para entender o que é, a quantidade/tamanho e o preço. Se não der, reorganize as imagens.','Adicione imagens que os concorrentes mostram e você não: medidas, o que vem na embalagem, produto em uso e tabela de variações.','Compare preço final (com frete) e prazo com 3 concorrentes diretos e leia as avaliações negativas deles para responder as dúvidas na sua descrição.'],
     href:'/extensao-shopee-intelligence?section=super-anuncio',action:'Revisar o anúncio'
   };
   if(low(cartPlaced,med.cartPlaced,carts>=5))return{
     priority:'bad',rank:0,label:'FAÇA AGORA',title:'O cliente coloca no carrinho e desiste antes do pedido',
     why:'Existe intenção de compra, mas uma parte grande não transforma o carrinho em pedido.',
     evidence:`Carrinho→pedido ${pct(cartPlaced)} · mediana ${pct(med.cartPlaced)} · ${int(carts)} compradores no carrinho`,
-    actions:['Compare o preço final com os concorrentes, não só o preço de vitrine.','Revise frete, prazo e possibilidade de cupom/oferta; aqui eles pesam mais do que trocar título.','Confirme estoque e disponibilidade das variações mais procuradas.'],
+    actions:['Simule a compra: coloque no carrinho e vá até o fechamento. Veja o preço final com frete e taxas; um valor que muda no fim costuma gerar desistência.','Compare o preço final com anúncios iguais ao seu. Se estiver acima, teste cupom ou oferta pequena, conferindo antes a margem na calculadora do Gestor.','Confira o estoque das variações mais procuradas e o prazo de envio: variação sem estoque ou prazo longo fazem o cliente desistir.'],
     href:'/pesquisa-produtos',action:'Comparar mercado'
   };
   if(low(placedPaid,med.placedPaid,placed>=5))return{
     priority:'warn',rank:1,label:'REVISAR',title:'Muitos pedidos são criados, mas poucos viram pagamento',
     why:'O gargalo está depois da intenção e da criação do pedido, perto do fechamento.',
     evidence:`Pedido→pago ${pct(placedPaid)} · mediana ${pct(med.placedPaid)} · ${int(placed)} compradores com pedido`,
-    actions:['Não comece pela capa: o cliente já chegou longe no funil.','Revise preço final, cupom, frete/prazo e possíveis motivos de cancelamento do pedido.','Acompanhe se o problema se repete por alguns dias antes de fazer mudanças grandes.'],
+    actions:['No Seller Center, abra os pedidos não pagos ou expirados do período e procure um padrão: mesmo produto, mesma variação ou valores altos.','Não comece pela capa: o cliente já criou o pedido. Reveja o preço final e o prazo mostrados no fechamento.','Acompanhe por alguns dias antes de fazer mudanças grandes e mude uma coisa por vez.'],
     href:'/insights',action:'Ver outros sinais'
   };
   if(low(paidConfirmed,med.paidConfirmed,paid>=5))return{
     priority:'warn',rank:1,label:'REVISAR',title:'A venda é paga, mas perde força antes da confirmação',
     why:'A aquisição funcionou; o ponto de atenção está na etapa operacional depois do pagamento.',
     evidence:`Pago→confirmado ${pct(paidConfirmed)} · mediana ${pct(med.paidConfirmed)} · ${int(paid)} compradores pagos`,
-    actions:['Cheque cancelamentos, ruptura de estoque e problemas de expedição antes de mudar o anúncio.','Confirme se as variações vendidas realmente têm estoque disponível.','Priorize a operação; mexer em título ou capa não resolve este gargalo.'],
+    actions:['No Seller Center, abra os pedidos cancelados deste produto e leia o motivo (sem estoque, atraso no envio, pedido do comprador).','Se for estoque: atualize a quantidade real e desative variações zeradas. Se for atraso: confira se o prazo de preparo configurado é possível de cumprir.','Despache dentro do prazo e confira as devoluções: se o motivo é produto diferente do anúncio, ajuste fotos e descrição.'],
     href:'/produtos',action:'Ver produto'
   };
   if([ctr,cartRate,cartPlaced,placedPaid,paidConfirmed].every(rate=>rate==null))return{
