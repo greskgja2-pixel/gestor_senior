@@ -9,6 +9,7 @@ import {classifyProduct} from '../lib/funnel-product-state';
 import ProductList from './ProductList';
 import {PRODUCT_FUNNEL_FIELDS,chooseBestFunnelResponse,needsFunnelRetry,diagnoseFunnelProducts,mergeRecollectedFunnelProduct} from '../lib/funnel-product-diagnostics';
 import TrafficSources from './TrafficSources';
+import AdsHistory from './AdsHistory';
 import StoreOverview,{Icon,GuidanceSwitch,imageFallback,IMAGE_PLACEHOLDER} from './StoreOverview';
 import styles from './funil.module.css';
 
@@ -604,11 +605,6 @@ function ProductRow({p,med}){
   </tr>
 }
 
-function normalizeAdsCampaign(c){
-  const impressions=num(c?.impressions??c?.impression),clicks=num(c?.clicks??c?.click),orders=num(c?.orders??c?.order);
-  return{name:c?.productName||c?.title||c?.campaignName||'Campanha',impressions,clicks,orders,ctr:impressions>0&&clicks!=null?clicks/impressions:null,cvr:clicks>0&&orders!=null?orders/clicks:null};
-}
-
 export default function FunilPage(){
   const [tab,setTab]=useState('loja');
   const [requestedItem,setRequestedItem]=useState('');
@@ -672,7 +668,7 @@ export default function FunilPage(){
       setContext({});
     }
     if(requestId!==latestRequest.current)return;
-    setState({loading:false,error:errors.join(' · '),seller,ads});
+    setState({loading:false,error:errors.join(' · '),seller,ads,adsError:adsR.status==='rejected'?String(adsR.reason?.message||adsR.reason):''});
     // Só conta como atualização válida quando o Motor entregou pelo menos uma etapa do funil.
     if(seller&&deriveStoreFunnel(seller).coverage.stageCount>0)setLastUpdated({at:Date.now(),period:selectedPeriod});
   };
@@ -776,14 +772,13 @@ export default function FunilPage(){
       paidConfirmed:median(products.map(p=>{const a=num(p.paid_buyers),b=num(p.confirmed_buyers);return a>0&&b!=null?b/a:null}))
     };
     const traffic=s.traffic||null;
-    const campaigns=arr(state.ads?.campaigns).map(normalizeAdsCampaign);
     const comparison={
       visitors:num(k?.shop_uv?.chain_ratio),
       paidOrders:num(k?.paid_orders?.chain_ratio),
       paidGmv:num(k?.paid_gmv?.chain_ratio),
       confirmedOrders:num(k?.confirmed_orders?.chain_ratio)
     };
-    return{totals,rates,coverage,sources,evidence,products,med,traffic,campaigns,comparison,trends:s.productMetricTrends||{},orderPerformance:s.orderPerformance||{},key:k,realtime:rt,period:s.period||null,errors:arr(s.errors)};
+    return{totals,rates,coverage,sources,evidence,products,med,traffic,comparison,trends:s.productMetricTrends||{},orderPerformance:s.orderPerformance||{},key:k,realtime:rt,period:s.period||null,errors:arr(s.errors)};
   },[state]);
   const funnelProductDiagnosis=useMemo(()=>diagnoseFunnelProducts(state.seller,context),[state.seller,context]);
   const saveCollectionDiagnostic=async()=>{
@@ -938,12 +933,9 @@ export default function FunilPage(){
     {!state.loading&&tab==='trafego'&&<TrafficSources traffic={model.traffic} errors={model.errors} periodMeta={actualPeriodMeta} periodId={actualPeriod}
       lastUpdated={stamp?stamp.getTime():null} onGoTab={selectTab} onRefresh={()=>load(period)} onChangePeriod={changePeriod}/>}
 
-    {!state.loading&&tab==='ads'&&<section className={styles.panel}>
-      <div className={styles.sectionHead}><div><h2>Histórico Shopee Ads · 7 dias</h2><p>Camada complementar para enxergar campanhas fora do recorte em tempo real.</p></div></div>
-      <p className={styles.tabNote}><Icon name="info" size={15}/>São métricas de publicidade paga (campanhas). Elas não representam o funil geral da loja, que inclui também o tráfego orgânico.</p>
-      {!model.campaigns.length?<div className={styles.empty}>Sem campanhas disponíveis.</div>:<div className={styles.adsList}>{model.campaigns.slice(0,12).map((c,i)=><div key={i}><b>{c.name}</b><span>{int(c.impressions)} impressões · {int(c.clicks)} cliques · {int(c.orders)} pedidos</span><small>CTR {pct(c.ctr)} · clique→pedido {pct(c.cvr)}</small></div>)}</div>}
-    </section>}
+    {!state.loading&&tab==='ads'&&<AdsHistory ads={state.ads} adsError={state.adsError} context={context} periodMeta={periodMeta(period)} periodId={period}
+      lastUpdated={stamp?stamp.getTime():null} onRefresh={()=>load(period)} onOpenProduct={id=>openProduct(id)}/>}
 
-    {!state.loading&&tab!=='loja'&&tab!=='trafego'&&<section className={styles.sourceNote}><strong>Fonte e confiabilidade</strong><p>Os indicadores vêm de Informações Gerenciais da Shopee, coletados pelo Motor Sênior com a sessão do Seller Center. Etapas sem números disponíveis permanecem como “—”, sem estimativas artificiais. O fluxo utiliza Carrinho → Pedido → Pago → Confirmado.</p>{model.errors.length>0&&<details><summary>Detalhes técnicos da coleta ({model.errors.length})</summary><small>{model.errors.map(x=>x.source+': '+x.error).join(' · ').slice(0,2500)}</small></details>}</section>}
+    {!state.loading&&tab!=='loja'&&tab!=='trafego'&&tab!=='ads'&&<section className={styles.sourceNote}><strong>Fonte e confiabilidade</strong><p>Os indicadores vêm de Informações Gerenciais da Shopee, coletados pelo Motor Sênior com a sessão do Seller Center. Etapas sem números disponíveis permanecem como “—”, sem estimativas artificiais. O fluxo utiliza Carrinho → Pedido → Pago → Confirmado.</p>{model.errors.length>0&&<details><summary>Detalhes técnicos da coleta ({model.errors.length})</summary><small>{model.errors.map(x=>x.source+': '+x.error).join(' · ').slice(0,2500)}</small></details>}</section>}
   </div>
 }

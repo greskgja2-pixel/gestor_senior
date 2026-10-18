@@ -564,3 +564,16 @@ test('manifesto de atualização do Motor é público para a extensão consultar
   const middleware=read('middleware.js');
   assert.match(middleware,/\/api\/extension\/latest/);
 });
+
+
+test('Histórico Ads separa publicidade paga do funil geral e usa título do período real',()=>{
+  const ads=read('app/funil/AdsHistory.js');
+  const page=read('app/funil/page.js');
+  assert.match(ads,/Histórico Shopee Ads · \{periodMeta\.label\}/);
+  assert.doesNotMatch(page,/Histórico Shopee Ads · 7 dias/);
+  assert.match(ads,/São métricas de publicidade paga \(campanhas\)\. Elas não representam o funil geral da loja/);
+  assert.match(ads,/Fonte e confiabilidade/);
+  assert.match(ads,/Ver análise/);
+  assert.match(ads,/Abrir Funil por Produto/);
+  assert.match(page,/<AdsHistory/);
+});
