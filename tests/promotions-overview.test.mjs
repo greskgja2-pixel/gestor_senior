@@ -5,6 +5,7 @@ const page=fs.readFileSync('app/promocoes/page.js','utf8');
 const api=fs.readFileSync('app/api/shopee/promotions-overview/route.js','utf8');
 const shell=fs.readFileSync('app/components/AppShell.js','utf8');
 test('Central de Promoções aparece na navegação',()=>{assert.match(shell,/label:'Promoções'/);assert.match(shell,/href:'\/promocoes'/)});
-test('Central separa ativas, agendadas, descontos e flash sale',()=>{assert.match(page,/Ativas agora/);assert.match(page,/Agendadas/);assert.match(page,/Campanhas de desconto/);assert.match(page,/Ofertas Relâmpago/)});
+const diagnosis=fs.readFileSync('app/lib/promotions-diagnosis.js','utf8');
+test('Central separa ativas, agendadas, descontos e flash sale',()=>{const ui=page+diagnosis;assert.match(ui,/Ativas agora/);assert.match(ui,/Agendadas/);assert.match(ui,/Campanhas de desconto/);assert.match(ui,/Ofertas Relâmpago/);assert.match(ui,/Encerradas/)});
 test('Visão consolidada usa fontes oficiais já integradas',()=>{assert.match(api,/getDiscountList/);assert.match(api,/getDiscount/);assert.match(api,/getShopFlashSaleList/);assert.match(api,/getShopFlashSaleItems/)});
 test('Central é somente leitura',()=>{assert.doesNotMatch(api,/export async function POST/);assert.match(page,/Somente leitura nesta versão/)});
