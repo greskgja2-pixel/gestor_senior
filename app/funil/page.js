@@ -4,7 +4,9 @@ import Link from 'next/link';
 import {useEffect,useMemo,useRef,useState} from 'react';
 import {motorData} from '../lib/client-async';
 import {deriveStoreFunnel} from '../lib/funnel-health';
+import {transitionById,stageByKey,rankProductsForStage} from '../lib/funnel-store-diagnosis';
 import {PRODUCT_FUNNEL_FIELDS,chooseBestFunnelResponse,needsFunnelRetry,diagnoseFunnelProducts,mergeRecollectedFunnelProduct} from '../lib/funnel-product-diagnostics';
+import StoreOverview,{Icon,GuidanceSwitch,imageFallback,IMAGE_PLACEHOLDER} from './StoreOverview';
 import styles from './funil.module.css';
 
 const num=v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v))?null:Number(v);
@@ -22,7 +24,6 @@ const PERIODS=[
   {id:'real_time',label:'Hoje',days:1}
 ];
 const periodMeta=id=>PERIODS.find(x=>x.id===id)||PERIODS[1];
-const signedPct=v=>num(v)==null?'—':(Number(v)>=0?'+':'')+(Number(v)*100).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%';
 
 async function getJsonWithPost(url,body){
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),30000);
@@ -42,141 +43,6 @@ async function getJson(url){
     if(!r.ok||j?.error)throw new Error(j?.error||('HTTP '+r.status));
     return j;
   }finally{clearTimeout(timer)}
-}
-
-function Step({label,value,sub,rate,tone='blue'}){
-  return <div className={styles.step} data-tone={tone} data-missing={value==null?'true':'false'}>
-    <div className={styles.stepTop}><span>{label}</span><strong>{int(value)}</strong></div>
-    <div className={styles.stepMeta}><small>{sub}</small>{rate!=null&&<b>{pct(rate)}</b>}</div>
-  </div>
-}
-
-function funnelSummary(totals,rates){
-  const transitions=[
-    {id:'ctr',from:'Impressões',to:'Cliques',rate:num(rates.ctr)},
-    {id:'clickVisit',from:'Cliques',to:'Visitantes',rate:num(rates.clickVisit)},
-    {id:'visitCart',from:'Visitantes',to:'Carrinho',rate:num(rates.visitCart)},
-    {id:'cartPlaced',from:'Carrinho',to:'Pedido',rate:num(rates.cartPlaced)},
-    {id:'placedPaid',from:'Pedido',to:'Pago',rate:num(rates.placedPaid)},
-    {id:'paidConfirmed',from:'Pago',to:'Confirmado',rate:num(rates.paidConfirmed)}
-  ];
-  const valid=transitions.filter(x=>x.rate!=null&&x.rate>=0&&x.rate<=1);
-  const worst=valid.length?[...valid].sort((a,b)=>a.rate-b.rate)[0]:null;
-  const stages=[
-    {key:'impressions',label:'Impressões',value:totals.impressions,icon:'◉'},
-    {key:'clicks',label:'Cliques',value:totals.clicks,icon:'↗'},
-    {key:'visitors',label:'Visitantes',value:totals.visitors,icon:'●'},
-    {key:'carts',label:'Carrinho',value:totals.carts,icon:'▣'},
-    {key:'placed',label:'Pedido criado',value:totals.placed,icon:'▤'},
-    {key:'paid',label:'Pago',value:totals.paid,icon:'▰'},
-    {key:'confirmed',label:'Confirmado',value:totals.confirmed,icon:'✓'}
-  ];
-  return{stages,transitions,worst};
-}
-
-function StoreMiniFunnel({totals}){
-  const values=[totals.impressions,totals.clicks,totals.visitors,totals.carts,totals.placed,totals.paid,totals.confirmed];
-  const labels=['Impressões','Cliques','Visitas','Carrinho','Pedido','Pago','Confirmado'];
-  const rates=values.map((v,i)=>i===0?(v!=null?1:null):(values[i-1]>0&&v!=null?v/values[i-1]:null));
-  return <div className={styles.storeMiniFunnel} aria-label="Funil da loja">
-    {labels.map((label,index)=><div className={styles.storeMiniStage} data-index={index} data-missing={values[index]==null?'true':'false'} key={label}>
-      <div className={styles.storeMiniBar}><span>{label}</span></div>
-      <strong>{int(values[index])}</strong>
-      <small>{pct(rates[index])}</small>
-    </div>)}
-  </div>;
-}
-
-function FunnelVisual({totals,rates}){
-  const {worst}=funnelSummary(totals,rates);
-  const validRates=funnelSummary(totals,rates).transitions.filter(x=>x.rate!=null);
-  const tone=!worst?'data':worst.rate<.15?'bad':worst.rate<.35?'warn':'good';
-  const status=tone==='bad'?'CRÍTICO':tone==='warn'?'ATENÇÃO':tone==='good'?'ACOMPANHAR':'DADOS NÃO COLETADOS';
-  return <section className={styles.storeFunnelCard} data-priority={tone}>
-    <header className={styles.storeFunnelHeader}>
-      <div><span className={styles.storeFunnelIcon}>▽</span><div><h2>Funil da Loja</h2><p>Visão geral da passagem dos clientes por cada etapa da loja.</p></div></div>
-      <span className={styles.productStatus} data-priority={tone}>{status}</span>
-    </header>
-    <div className={styles.storeFunnelBody}>
-      <div className={styles.storeFunnelLeft}>
-        <StoreMiniFunnel totals={totals}/>
-        <div className={styles.storeFunnelLegend}><strong>Leitura rápida</strong><span>O número à direita é o volume da etapa. A porcentagem mostra quanto passou da etapa anterior.</span></div>
-      </div>
-      <div className={styles.storeFunnelRight}>
-        <section className={styles.productDiagnosis} data-tone={tone}>
-          {worst?<><h4>Maior gargalo: {worst.from} → {worst.to}</h4><strong>{pct(worst.rate)} de passagem · perda de {pct(1-worst.rate)}</strong><p>Esta é a menor passagem entre as etapas disponíveis no período. Use o Plano de Destrave abaixo para descobrir quais produtos investigar primeiro.</p></>:<><h4>Dados insuficientes</h4><strong>Não foi possível comparar as etapas</strong><p>Atualize os dados do funil para o Gestor identificar onde a loja está perdendo mais clientes.</p></>}
-        </section>
-        <section className={styles.storeStageSummary}>
-          <strong>Passagem por etapa</strong>
-          <div>{validRates.map(t=><span key={t.id} data-worst={worst?.id===t.id?'true':'false'}><small>{t.from} → {t.to}</small><b>{pct(t.rate)}</b></span>)}</div>
-        </section>
-      </div>
-    </div>
-  </section>;
-}
-
-function KpiStrip({totals,rates}){
-  const worst=funnelSummary(totals,rates).worst;
-  const cards=[
-    {id:'ctr',label:'CTR',sub:'Impressão → Clique',rate:rates.ctr,desc:rates.ctr!=null?`A cada 100 impressões, cerca de ${Math.round(rates.ctr*100)} viram cliques.`:'Sem dados suficientes.'},
-    {id:'visitCart',label:'Visita → Carrinho',sub:'Intenção de compra',rate:rates.visitCart,desc:rates.visitCart!=null?`A cada 100 visitantes, cerca de ${Math.round(rates.visitCart*100)} adicionam ao carrinho.`:'Sem dados suficientes.'},
-    {id:'cartPlaced',label:'Carrinho → Pedido',sub:'Fechamento do carrinho',rate:rates.cartPlaced,desc:rates.cartPlaced!=null?`A cada 100 carrinhos, cerca de ${Math.round(rates.cartPlaced*100)} viram pedido.`:'Sem dados suficientes.'},
-    {id:'placedPaid',label:'Pedido → Pago',sub:'Pagamento',rate:rates.placedPaid,desc:rates.placedPaid!=null?`A cada 100 pedidos, cerca de ${Math.round(rates.placedPaid*100)} são pagos.`:'Sem dados suficientes.'},
-    {id:'paidConfirmed',label:'Pago → Confirmado',sub:'Confirmação final',rate:rates.paidConfirmed,desc:rates.paidConfirmed!=null?`A cada 100 pagos, cerca de ${Math.round(rates.paidConfirmed*100)} são confirmados.`:'Sem dados suficientes.'}
-  ];
-  return <section className={styles.kpiStrip}>{cards.map(card=><article key={card.id} data-worst={worst?.id===card.id?'true':'false'}>
-    <span className={styles.kpiDot}>{card.id==='ctr'?'◉':card.id==='visitCart'?'●':card.id==='cartPlaced'?'▣':card.id==='placedPaid'?'▤':'✓'}</span>
-    <div><small>{card.label}</small><b>{pct(card.rate)}</b><em>{card.sub}</em><p>{card.desc}</p></div>
-  </article>)}</section>
-}
-
-function ComparisonStrip({comparison}){
-  const cards=[
-    ['Visitantes',comparison.visitors],
-    ['Pedidos pagos',comparison.paidOrders],
-    ['GMV pago',comparison.paidGmv],
-    ['Confirmados',comparison.confirmedOrders]
-  ];
-  return <section className={styles.comparisonStrip}>
-    <div><strong>Comparação com o período anterior</strong><small>A Shopee calcula a variação usando uma janela anterior de mesmo tamanho.</small></div>
-    {cards.map(([label,value])=><article key={label} data-direction={value==null?'none':value>=0?'up':'down'}><span>{label}</span><b>{signedPct(value)}</b></article>)}
-  </section>
-}
-
-function Sparkline({points=[]}){
-  const vals=arr(points).map(x=>num(x?.value)).filter(x=>x!=null);
-  if(vals.length<2)return <span className={styles.sparkEmpty}>Sem série</span>;
-  const min=Math.min(...vals),max=Math.max(...vals),span=max-min||1;
-  const coords=vals.map((v,i)=>`${(i/(vals.length-1))*100},${36-((v-min)/span)*30}`).join(' ');
-  return <svg className={styles.sparkline} viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true"><polyline points={coords}/></svg>;
-}
-
-function TrendPanel({trends,periodLabel}){
-  const metrics=[
-    ['Visitantes',trends?.uv],
-    ['Carrinho',trends?.atc_uv],
-    ['Pedidos',trends?.placed_order],
-    ['Pagos',trends?.paid_order],
-    ['Confirmados',trends?.confirmed_order]
-  ];
-  const available=metrics.filter(([,points])=>arr(points).length>1);
-  if(!available.length)return null;
-  return <section className={styles.trendPanel}>
-    <div className={styles.trendHead}><div><h2>Evolução diária</h2><p>Série histórica enviada pela Shopee no período de {periodLabel.toLowerCase()}.</p></div><span>{arr(available[0]?.[1]).length} pontos</span></div>
-    <div className={styles.trendGrid}>{available.map(([label,points])=><article key={label}><div><span>{label}</span><b>{int(arr(points).reduce((a,x)=>a+(num(x?.value)||0),0))}</b></div><Sparkline points={points}/></article>)}</div>
-    <small className={styles.trendNote}>Os totais acima são somas dos pontos da série. Taxas não são somadas; o funil principal continua usando os agregados oficiais quando disponíveis.</small>
-  </section>
-}
-
-function PostOrderPanel({orderPerformance}){
-  const cancelledOrders=val(orderPerformance?.cancelled_orders),refundOrders=val(orderPerformance?.return_refund_orders);
-  const cancelledSales=val(orderPerformance?.cancelled_sales),refundSales=val(orderPerformance?.return_refund_sales);
-  if([cancelledOrders,refundOrders,cancelledSales,refundSales].every(x=>x==null))return null;
-  return <section className={styles.postOrderPanel}>
-    <div><strong>Pós-venda do período</strong><small>Ajuda a separar problema de anúncio de problema operacional depois do pedido.</small></div>
-    <article><span>Pedidos cancelados</span><b>{int(cancelledOrders)}</b><small>{money(cancelledSales)}</small></article>
-    <article><span>Devolução/Reembolso</span><b>{int(refundOrders)}</b><small>{money(refundSales)}</small></article>
-  </section>
 }
 
 function productPlan(p,med){
@@ -302,70 +168,11 @@ function specificPlan(p,med,context){
 }
 
 
-function storeStageProductRate(p,stageId){
-  const impressions=num(p.product_card_impressions),clicks=num(p.product_card_clicks),visits=num(p.uv),carts=num(p.add_to_cart_buyers),placed=num(p.placed_buyers),paid=num(p.paid_buyers),confirmed=num(p.confirmed_buyers);
-  if(stageId==='ctr')return{rate:impressions>0&&clicks!=null?clicks/impressions:null,base:impressions};
-  if(stageId==='clickVisit')return{rate:clicks>0&&visits!=null?visits/clicks:null,base:clicks};
-  if(stageId==='visitCart')return{rate:visits>0&&carts!=null?carts/visits:null,base:visits};
-  if(stageId==='cartPlaced')return{rate:carts>0&&placed!=null?placed/carts:null,base:carts};
-  if(stageId==='placedPaid')return{rate:placed>0&&paid!=null?paid/placed:null,base:placed};
-  if(stageId==='paidConfirmed')return{rate:paid>0&&confirmed!=null?confirmed/paid:null,base:paid};
-  return{rate:null,base:null};
-}
-
-function storeSpecificCopy(stage){
-  const map={
-    ctr:{title:'Primeiro: faça mais gente clicar nos produtos que já aparecem',why:'A loja está perdendo a maior proporção antes do clique. Não comece alterando descrição ou pós-venda: ataque primeiro a vitrine da busca.',steps:['Comece pelos produtos abaixo: são os que combinam volume relevante com taxa abaixo da referência da própria loja.','Em cada um, revise primeiro imagem principal, começo do título e preço/oferta que aparece na busca.','Mude um grupo pequeno de produtos, acompanhe o CTR no mesmo período e só depois avance para os próximos.']},
-    clickVisit:{title:'Primeiro: investigue a passagem do clique para a visita',why:'A maior perda observada está entre o clique registrado e a visita. Antes de editar anúncios em massa, confira os produtos com maior diferença nessa passagem.',steps:['Abra os produtos abaixo e confira se a experiência do card até a página está coerente.','Evite mudar preço, capa e descrição todos ao mesmo tempo; primeiro confirme que a perda se repete nos produtos destacados.','Reavalie a taxa depois do teste no mesmo recorte de período.']},
-    visitCart:{title:'Primeiro: transforme visitas em intenção de compra',why:'As pessoas chegam aos anúncios, mas poucas avançam para o carrinho. A prioridade é a oferta dentro da página do produto.',steps:['Comece pelos produtos abaixo e confira preço final, campanha ativa, frete, prazo e estoque das variações.','Depois revise imagens secundárias, medidas/quantidade e prova social para remover dúvidas antes do carrinho.','Acompanhe Visita → Carrinho após as mudanças; não use CTR como métrica principal deste teste.']},
-    cartPlaced:{title:'Primeiro: destrave quem já colocou no carrinho',why:'Existe intenção de compra, mas o fechamento perde força antes da criação do pedido.',steps:['Nos produtos abaixo, compare preço final vigente — incluindo oferta — com os concorrentes e confira margem antes de qualquer redução.','Revise cupom, frete, prazo e estoque das variações mais vendidas; não comece por capa ou título.','Acompanhe Carrinho → Pedido no mesmo período depois do teste.']},
-    placedPaid:{title:'Primeiro: investigue por que pedidos não viram pagamento',why:'O cliente já criou o pedido. Alterar capa e título agora atacaria uma etapa anterior ao problema observado.',steps:['Priorize os produtos abaixo e procure sinais de preço final, frete/prazo, cancelamento ou indisponibilidade no fechamento.','Evite reduzir preço sem evidência de que ele é o bloqueio; confira campanha e margem primeiro.','Acompanhe Pedido → Pago por alguns dias antes de fazer mudanças grandes.']},
-    paidConfirmed:{title:'Primeiro: trate a operação depois do pagamento',why:'A aquisição chegou ao pagamento; a maior perda está na confirmação final.',steps:['Priorize estoque, separação, expedição e cancelamentos dos produtos abaixo.','Não altere imagem, título ou Ads para tentar corrigir uma perda operacional pós-pagamento.','Use cancelamentos e devoluções do período como evidência complementar antes de agir.']}
-  };
-  return map[stage?.id]||{title:'Ainda faltam dados para uma ordem segura',why:'O Gestor não recebeu etapas suficientes para apontar a primeira ação.',steps:['Atualize os dados do funil.','Confirme que o Motor Sênior está conectado.','Evite alterações em massa enquanto faltarem evidências.']};
-}
-
-function StoreSpecificPlan({model,context,onOpenProduct}){
-  const summary=funnelSummary(model.totals,model.rates),worst=summary.worst,copy=storeSpecificCopy(worst);
-  if(!worst)return <div className={styles.empty}>Ainda não há dados suficientes para o modo “me diga o que fazer”. Atualize o funil e tente novamente.</div>;
-  const productRates=model.products.map(p=>{
-    const m=storeStageProductRate(p,worst.id);
-    return{p,...m};
-  }).filter(x=>x.rate!=null&&x.base>0);
-  const reference=median(productRates.map(x=>x.rate));
-  const ranked=productRates.map(x=>({...x,gap:reference!=null?Math.max(0,reference-x.rate):0,opportunity:reference!=null?Math.max(0,(reference-x.rate)*x.base):0}))
-    .sort((a,b)=>(b.opportunity-a.opportunity)||(b.base-a.base)).slice(0,3);
-  const actionable=ranked.filter(x=>x.opportunity>0);
-  const shown=actionable.length?actionable:ranked;
-  return <article className={styles.storeSpecificPlan}>
-    <div className={styles.storeSpecificHero}>
-      <span className={styles.storeSpecificIcon}>→</span>
-      <div><small>ME DIGA O QUE FAZER · 1ª PRIORIDADE</small><h3>{copy.title}</h3><p>{copy.why}</p><div className={styles.storeSpecificEvidence}><b>{worst.from} → {worst.to}: {pct(worst.rate)}</b><span>Referência mediana dos produtos: {pct(reference)}</span></div></div>
-    </div>
-    <div className={styles.storeSpecificSteps}><strong>Faça nesta ordem</strong><ol>{copy.steps.map((step,i)=><li key={i}><span>{i+1}</span><p>{step}</p></li>)}</ol></div>
-    <div className={styles.storeSpecificProducts}>
-      <div className={styles.storeSpecificProductsHead}><div><strong>Produtos para começar</strong><small>Ordenados pelo maior gap ponderado pelo volume desta etapa; não é previsão de vendas.</small></div><button type="button" onClick={()=>onOpenProduct('')}>Ver todos no Funil por Produto →</button></div>
-      {shown.length?<div className={styles.storeSpecificProductGrid}>{shown.map(({p,rate,base},index)=>{
-        const ctx=context?.[String(p.id)],specific=ctx?specificPlan(p,model.med,context):null;
-        const firstAction=specific?.actions?.[0]||copy.steps[1];
-        return <section key={p.id} className={styles.storeSpecificProduct}>
-          <div className={styles.storeSpecificProductTop}><em>{index+1}</em><img src={p.image||ctx?.image||'/favicon.ico'} alt="" onError={e=>{e.currentTarget.onerror=null;e.currentTarget.src='/favicon.ico'}}/><div><b>{p.name||'Produto'}</b><small>ID {p.id||'—'} · {int(base)} na etapa</small></div></div>
-          <div className={styles.storeSpecificRate}><span>Taxa deste produto <b>{pct(rate)}</b></span><span>Referência <b>{pct(reference)}</b></span></div>
-          <p><strong>Ação:</strong> {firstAction}</p>
-          {!ctx&&<small className={styles.storeSpecificMissing}>Faça a Super Análise deste produto para o Gestor cruzar concorrentes, preço, margem e dizer exatamente o que alterar.</small>}
-          <button type="button" onClick={()=>onOpenProduct(String(p.id))}>{ctx?'Abrir plano específico':'Abrir produto no Funil'} →</button>
-        </section>;
-      })}</div>:<div className={styles.empty}>Nenhum produto possui dados suficientes nesta etapa.</div>}
-    </div>
-    <small className={styles.storeSpecificFoot}>O Gestor prioriza evidências da sua própria loja. Nenhuma alteração de preço, anúncio ou campanha é aplicada automaticamente.</small>
-  </article>;
-}
-
 function ProductActionCard({p,med,mode,context}){
   const plan=mode==='specific'?specificPlan(p,med,context):productPlan(p,med);
   return <article className={styles.actionCard} data-priority={plan.priority}>
     <div className={styles.actionTop}>
-      <div className={styles.product}><img src={p.image||'/favicon.ico'} alt="" onError={e=>{e.currentTarget.onerror=null;e.currentTarget.src='/favicon.ico'}}/><div><b>{p.name||'Produto'}</b><small>ID {p.id||'—'}</small></div></div>
+      <div className={styles.product}><img src={p.image||IMAGE_PLACEHOLDER} alt="" onError={imageFallback}/><div><b>{p.name||'Produto'}</b><small>ID {p.id||'—'}</small></div></div>
       <span>{plan.label}</span>
     </div>
     <div className={styles.actionBody}>
@@ -674,7 +481,7 @@ function TitleEditor({p,context,onClose}){
   </section>;
 }
 
-function ProductFunnelCard({p,med,mode,context,onRecollect,recollecting,recollectDisabled,recollectFeedback}){
+function ProductFunnelCard({p,med,mode,context,onRecollect,recollecting,recollectDisabled,recollectFeedback,focused}){
   const [priceOpen,setPriceOpen]=useState(false);
   const [titleOpen,setTitleOpen]=useState(false);
   const plan=mode==='specific'?specificPlan(p,med,context):productPlan(p,med);
@@ -682,14 +489,14 @@ function ProductFunnelCard({p,med,mode,context,onRecollect,recollecting,recollec
   const status=plan.priority==='bad'?'CRÍTICO':plan.priority==='warn'?'ATENÇÃO':plan.priority==='good'?'SAUDÁVEL':plan.label;
   const productContext=context?.[String(p.id)]||null;
   const competitor=arr(productContext?.competitors)[0]||null;
-  const productImage=p.image||productContext?.image||'/favicon.ico';
+  const productImage=p.image||productContext?.image||IMAGE_PLACEHOLDER;
   const evidence=plan.evidence||'';
   const titleActionIndex=plan.actions.findIndex(action=>/t[ií]tulo|palavra.?chave|keyword/i.test(String(action)));
   const priceActionIndex=plan.actions.findIndex((action,index)=>index!==titleActionIndex&&/pre[cç]o|oferta/i.test(String(action)));
-  return <article className={styles.productFunnelCard} data-priority={plan.priority}>
+  return <article className={styles.productFunnelCard} id={'produto-'+p.id} data-priority={plan.priority} data-focused={focused?'true':'false'}>
     <header className={styles.productFunnelHeader}>
       <div className={styles.productIdentity}>
-        <img src={productImage} alt="" onError={e=>{e.currentTarget.onerror=null;e.currentTarget.src='/favicon.ico'}}/>
+        <img src={productImage} alt="" onError={imageFallback}/>
         <div><h3>{p.name||'Produto'}</h3><small>ID {p.id||'—'}</small></div>
       </div>
       <div className={styles.productHeaderActions}>
@@ -735,6 +542,7 @@ function ProductFunnelCard({p,med,mode,context,onRecollect,recollecting,recollec
 
         <div className={styles.productFunnelFooter}>
           <Link href={plan.href}>{plan.action} →</Link>
+          {productContext&&<Link className={styles.productSecondaryLink} href={`/super-analise?item_id=${encodeURIComponent(p.id)}${productContext.reportId?`&report_id=${encodeURIComponent(productContext.reportId)}`:''}`}>Abrir Super Análise deste anúncio</Link>}
         </div>
       </div>
     </div>
@@ -746,7 +554,7 @@ function ProductFunnelCard({p,med,mode,context,onRecollect,recollecting,recollec
 function ProductRow({p,med}){
   const plan=productPlan(p,med);
   return <tr>
-    <td><div className={styles.product}><img src={p.image||'/favicon.ico'} alt=""/><div><b>{p.name||'Produto'}</b><small>ID {p.id||'—'}</small></div></div></td>
+    <td><div className={styles.product}><img src={p.image||IMAGE_PLACEHOLDER} alt=""/><div><b>{p.name||'Produto'}</b><small>ID {p.id||'—'}</small></div></div></td>
     <td>{int(p.product_card_impressions)}</td><td>{int(p.product_card_clicks)}</td><td>{pct(num(p.ctr))}</td>
     <td>{int(p.uv)}</td><td>{int(p.add_to_cart_buyers)}</td><td>{int(p.placed_buyers)}</td><td>{int(p.paid_buyers)}</td><td>{int(p.confirmed_buyers)}</td>
     <td><span className={styles.flag} data-priority={plan.priority}>{plan.label}</span></td>
@@ -762,6 +570,8 @@ export default function FunilPage(){
   const [tab,setTab]=useState('loja');
   const [requestedItem,setRequestedItem]=useState('');
   const [guidanceMode,setGuidanceMode]=useState('standard');
+  const [stageFocus,setStageFocus]=useState('');
+  const [lastUpdated,setLastUpdated]=useState(null);
   const [period,setPeriod]=useState('past30days');
   const [context,setContext]=useState({});
   const [state,setState]=useState({loading:true,error:'',seller:null,ads:null});
@@ -819,6 +629,8 @@ export default function FunilPage(){
     }
     if(requestId!==latestRequest.current)return;
     setState({loading:false,error:errors.join(' · '),seller,ads});
+    // Só conta como atualização válida quando o Motor entregou pelo menos uma etapa do funil.
+    if(seller&&deriveStoreFunnel(seller).coverage.stageCount>0)setLastUpdated({at:Date.now(),period:selectedPeriod});
   };
   useEffect(()=>{
     try{
@@ -830,10 +642,29 @@ export default function FunilPage(){
     }catch{}
     load('past30days');
   },[]);
+  // Ao abrir um anúncio vindo do diagnóstico, leva a tela até o card correspondente.
+  useEffect(()=>{
+    if(tab!=='produto'||state.loading)return;
+    const timer=setTimeout(()=>{
+      try{document.getElementById(requestedItem?'produto-'+requestedItem:'funil-produtos')?.scrollIntoView({behavior:'smooth',block:'start'})}catch{}
+    },60);
+    return()=>clearTimeout(timer);
+  },[tab,requestedItem,state.loading]);
   const changePeriod=next=>{
     if(next===period)return;
     setPeriod(next);
     load(next);
+  };
+  const selectTab=next=>{
+    if(next==='produto'){setRequestedItem('');setStageFocus('')}
+    setTab(next);
+  };
+  // Abre a aba Por Produto mantendo o contexto: anúncio escolhido, etapa analisada e, se pedido, o modo específico.
+  const openProduct=(itemId,opts={})=>{
+    setRequestedItem(String(itemId||''));
+    setStageFocus(opts.stage||'');
+    if(opts.mode==='specific')chooseGuidance('specific');
+    setTab('produto');
   };
   const chooseGuidance=mode=>{
     setGuidanceMode(mode);
@@ -888,7 +719,7 @@ export default function FunilPage(){
       name:p?.name||p?.title||p?.product_name||null,
       image:p?.image||p?.image_url||null
     })).filter(p=>p.id);
-    const {totals,rates,coverage}=deriveStoreFunnel(s);
+    const {totals,rates,coverage,sources,evidence}=deriveStoreFunnel(s);
     const med={
       ctr:median(products.map(p=>num(p.ctr))),
       clickVisit:median(products.map(p=>{const a=num(p.product_card_clicks),b=num(p.uv);return a>0&&b!=null?b/a:null})),
@@ -898,11 +729,11 @@ export default function FunilPage(){
       placedPaid:median(products.map(p=>{const a=num(p.placed_buyers),b=num(p.paid_buyers);return a>0&&b!=null?b/a:null})),
       paidConfirmed:median(products.map(p=>{const a=num(p.paid_buyers),b=num(p.confirmed_buyers);return a>0&&b!=null?b/a:null}))
     };
-    const sources=[];
+    const trafficSources=[];
     const tr=s.traffic||{};
     for(const [key,label] of [['product_card','Card de produto / Busca'],['live','Live'],['video','Vídeo'],['affiliate','Afiliados'],['paid_ads','Shopee Ads']]){
       const t=tr?.[key]?.total;
-      if(t)sources.push({key,label,sales:num(t.sales),orders:num(t.orders),clicks:num(t.product_clicks),impressions:num(t.product_impressions),ctr:num(t.ctr),conversion:num(t.product_clicks_to_orders_rate??t.conversion)});
+      if(t)trafficSources.push({key,label,sales:num(t.sales),orders:num(t.orders),clicks:num(t.product_clicks),impressions:num(t.product_impressions),ctr:num(t.ctr),conversion:num(t.product_clicks_to_orders_rate??t.conversion)});
     }
     const campaigns=arr(state.ads?.campaigns).map(normalizeAdsCampaign);
     const comparison={
@@ -911,7 +742,7 @@ export default function FunilPage(){
       paidGmv:num(k?.paid_gmv?.chain_ratio),
       confirmedOrders:num(k?.confirmed_orders?.chain_ratio)
     };
-    return{totals,rates,coverage,products,med,sources,campaigns,comparison,trends:s.productMetricTrends||{},orderPerformance:s.orderPerformance||{},key:k,realtime:rt,period:s.period||null,errors:arr(s.errors)};
+    return{totals,rates,coverage,sources,evidence,products,med,trafficSources,campaigns,comparison,trends:s.productMetricTrends||{},orderPerformance:s.orderPerformance||{},key:k,realtime:rt,period:s.period||null,errors:arr(s.errors)};
   },[state]);
   const funnelProductDiagnosis=useMemo(()=>diagnoseFunnelProducts(state.seller,context),[state.seller,context]);
   const saveCollectionDiagnostic=async()=>{
@@ -937,8 +768,6 @@ export default function FunilPage(){
     }
   };
 
-  if(state.loading)return <div className={styles.page}><div className={styles.loading}>Lendo Informações Gerenciais da Shopee e montando o funil…</div></div>;
-
   const productsById=new Map(model.products.map(p=>[String(p.id),p]));
   const analyzedProducts=Object.values(context||{}).map(ctx=>{
     const id=String(ctx?.itemId||'').trim();
@@ -955,62 +784,72 @@ export default function FunilPage(){
       funnelMetricsUnavailable:true
     };
   }).filter(Boolean);
+  // Com uma etapa em foco (vinda do diagnóstico), os anúncios com maior oportunidade nela vêm primeiro.
+  // É só ordenação: nenhum anúncio some da lista.
+  const focusOpportunity=new Map(stageFocus?rankProductsForStage(model.products,stageFocus,9999).ranked.map(x=>[String(x.p.id),x.opportunity]):[]);
   const orderedAnalyzed=[...analyzedProducts].sort((a,b)=>{
     if(requestedItem&&String(a.id)===requestedItem)return -1;
     if(requestedItem&&String(b.id)===requestedItem)return 1;
+    if(stageFocus){const d=(focusOpportunity.get(String(b.id))||0)-(focusOpportunity.get(String(a.id))||0);if(d)return d}
     return productPlan(a,model.med).rank-productPlan(b,model.med).rank;
   });
+  const focusTransition=stageFocus?transitionById(stageFocus):null;
   const unavailableForFunnel=Math.max(0,model.products.filter(p=>!context?.[String(p.id)]?.analyzedAt).length);
   const analyzedWithoutMetrics=analyzedProducts.filter(p=>p.funnelMetricsUnavailable||productPlan(p,model.med).priority==='missing').length;
 
   const full=!!state.seller;
-  const actualPeriod=state.seller?.period?.type||period;
+  const reported=state.seller?.period?.type;
+  const actualPeriod=state.loading?period:(reported||period);
   const actualPeriodMeta=periodMeta(actualPeriod);
+  const periodMismatch=!state.loading&&reported&&reported!==period;
+  const stamp=lastUpdated&&lastUpdated.period===period?new Date(lastUpdated.at):null;
+  const hhmm=d=>d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  // Estado da coleta: nunca declara "atualizado" antes da resposta e deixa dados parciais explícitos.
+  const status=state.loading?{tone:'loading',text:`Coletando o funil de ${periodMeta(period).label.toLowerCase()} no Seller Center… isso pode levar até 1 minuto.`}
+    :!full?{tone:'error',text:'Não foi possível coletar o funil completo neste período.'}
+    :model.coverage.stageCount===0?{tone:'error',text:'O Motor respondeu, mas sem nenhuma etapa do funil neste período.'}
+    :model.coverage.stageCount<7?{tone:'partial',text:`Dados parciais: ${model.coverage.stageCount} de 7 etapas coletadas (faltam ${model.coverage.missingStages.join(', ')}).${stamp?` Atualizado às ${hhmm(stamp)}.`:''}`}
+    :{tone:'ok',text:`Atualizado${stamp?` às ${hhmm(stamp)}`:''} · ${periodMeta(period).label} · 7 de 7 etapas coletadas.`};
+  const TABS=[['loja','Funil da Loja','store'],['produto','Por Produto','package'],['trafego','Fontes de Tráfego','traffic'],['ads','Histórico Ads','ads']];
+  const topProduct=orderedAnalyzed[0]||null;
+
   return <div className={styles.page}>
     <header className={styles.header}>
-      <div><span className={styles.eyebrow}>GESTOR SÊNIOR · CONVERSÃO</span><h1>Análise de Funil</h1><p>Descubra em qual etapa suas vendas estão travando e o que fazer primeiro.</p></div>
+      <div><span className={styles.eyebrow}>GESTOR SÊNIOR · CONVERSÃO</span><h1>Análise de Funil</h1><p>Descubra onde sua loja perde clientes e o que melhorar primeiro.</p></div>
       <div className={styles.headerActions}>
-        <div className={styles.periodPicker} role="group" aria-label="Período do funil">{PERIODS.map(x=><button type="button" key={x.id} data-active={period===x.id} onClick={()=>changePeriod(x.id)} disabled={state.loading}>{x.label}</button>)}</div>
-        <span className={styles.periodBadge}>◷ {actualPeriodMeta.label}{actualPeriod==='real_time'?' · tempo real':''}</span>
-        <button type="button" onClick={()=>load(period)} disabled={state.loading}>↻ Atualizar agora</button>
+        <div className={styles.periodPicker} role="group" aria-label="Período do funil">{PERIODS.map(x=><button type="button" key={x.id} data-active={period===x.id} aria-pressed={period===x.id} onClick={()=>changePeriod(x.id)} disabled={state.loading}>{x.label}</button>)}</div>
+        <span className={styles.periodBadge} data-warn={periodMismatch?'true':'false'} title="Período efetivamente usado nos dados exibidos (informado pelo Motor)"><Icon name="clock" size={14}/>{state.loading?'Coletando…':<>Dados de: {actualPeriodMeta.label}{actualPeriod==='real_time'?' · tempo real':''}</>}</span>
+        <button type="button" onClick={()=>load(period)} disabled={state.loading} aria-busy={state.loading}><Icon name="refresh" size={15}/>{state.loading?'Atualizando…':'Atualizar agora'}</button>
       </div>
     </header>
 
-    {state.error&&<div className={styles.warning}>{state.error}</div>}
-    {!full&&<div className={styles.warning}><b>Funil completo indisponível.</b> Atualize o Motor Sênior para a versão 0.17.4 ou superior e mantenha uma sessão ativa no Seller Center. Enquanto isso, a aba “Histórico Ads” continua usando os dados já disponíveis.</div>}
+    <div className={styles.statusLine} data-tone={status.tone} role="status" aria-live="polite">
+      <Icon name={status.tone==='ok'?'check':status.tone==='loading'?'refresh':'alert'} size={16}/>
+      <span>{status.text}</span>
+      {status.tone==='error'&&!state.loading&&<button type="button" onClick={()=>load(period)}>Tentar novamente</button>}
+    </div>
+    {periodMismatch&&<div className={styles.warning}>O Motor Sênior respondeu {periodMeta(reported).label} em vez de {periodMeta(period).label}. Atualize a extensão para v0.17.4+ para usar o histórico mapeado.</div>}
+    {!state.loading&&state.error&&<div className={styles.warning}>{state.error}</div>}
+    {!state.loading&&!full&&<div className={styles.warning}><b>Funil completo indisponível.</b> Atualize o Motor Sênior para a versão 0.17.4 ou superior e mantenha uma sessão ativa no Seller Center. Enquanto isso, a aba “Histórico Ads” continua usando os dados já disponíveis.</div>}
 
-    <nav className={styles.tabs}>
-      <button data-active={tab==='loja'} onClick={()=>setTab('loja')}>Funil da Loja</button>
-      <button data-active={tab==='produto'} onClick={()=>setTab('produto')}>Por Produto</button>
-      <button data-active={tab==='trafego'} onClick={()=>setTab('trafego')}>Fontes de Tráfego</button>
-      <button data-active={tab==='ads'} onClick={()=>setTab('ads')}>Histórico Ads</button>
+    <nav className={styles.tabs} aria-label="Seções da análise de funil">
+      {TABS.map(([id,label,icon])=><button type="button" key={id} data-active={tab===id} aria-current={tab===id?'page':undefined} onClick={()=>selectTab(id)}><Icon name={icon} size={16}/>{label}</button>)}
     </nav>
 
-    {tab==='loja'&&<>
-      <FunnelVisual totals={model.totals} rates={model.rates}/>
-      <KpiStrip totals={model.totals} rates={model.rates}/>
-      <ComparisonStrip comparison={model.comparison}/>
-      <TrendPanel trends={model.trends} periodLabel={actualPeriodMeta.label}/>
-      <PostOrderPanel orderPerformance={model.orderPerformance}/>
-      <section className={styles.unlockPanel}>
-        <div className={styles.unlockHead}>
-          <div><span className={styles.targetIcon}>◎</span><div><h2>Plano de Destrave</h2><p>Ações para atacar primeiro os produtos com maior gargalo.</p></div></div>
-          <div className={styles.compactGuidance}><span>Modo de orientação:</span><button type="button" data-active={guidanceMode==='standard'} onClick={()=>chooseGuidance('standard')}>Padrão</button><button type="button" data-active={guidanceMode==='specific'} onClick={()=>chooseGuidance('specific')}>Específico · me diga o que fazer</button></div>
-        </div>
-        {guidanceMode==='specific'
-          ?<StoreSpecificPlan model={model} context={context} onOpenProduct={itemId=>{setRequestedItem(itemId);setTab('produto')}}/>
-          :orderedAnalyzed.length?<ProductActionCard p={orderedAnalyzed[0]} med={model.med} mode="standard" context={context}/>:<div className={styles.empty}>Nenhum produto está liberado para o Plano de Destrave. Faça a Super Análise para liberar o diagnóstico por produto.</div>}
-        {guidanceMode==='standard'&&orderedAnalyzed.length>1&&<button type="button" className={styles.allProductsBtn} onClick={()=>setTab('produto')}>Ver plano de todos os produtos →</button>}
-      </section>
-      <section className={styles.education}>
-        <div><b>1</b><h3>Impressão → clique</h3><p>Queda forte aqui aponta para capa, título, preço percebido ou competitividade na busca.</p></div>
-        <div><b>2</b><h3>Visita → carrinho</h3><p>Se a pessoa entra e não adiciona, revise oferta, prova social, imagens, variações, frete e descrição.</p></div>
-        <div><b>3</b><h3>Carrinho → pedido/pago</h3><p>O desejo existe, mas algo trava o fechamento: preço final, cupom, frete, prazo ou confiança.</p></div>
-      </section>
-    </>}
+    {state.loading&&<div className={styles.loadingPanel} aria-busy="true">
+      <span className={styles.spinner} aria-hidden="true"/>
+      <div><b>Lendo Informações Gerenciais da Shopee e montando o funil de {periodMeta(period).label.toLowerCase()}…</b><p>Os números do período anterior foram ocultados para não serem confundidos com este período.</p></div>
+    </div>}
 
-    {tab==='produto'&&<section className={styles.panel}>
+    {!state.loading&&tab==='loja'&&<StoreOverview
+      model={model} context={context} guidanceMode={guidanceMode} onChooseGuidance={chooseGuidance}
+      onOpenProduct={openProduct} resolvePlan={p=>specificPlan(p,model.med,context)}
+      periodMeta={actualPeriodMeta} periodId={actualPeriod} lastUpdated={stamp?stamp.getTime():null}
+      topProductCard={topProduct?<ProductActionCard p={topProduct} med={model.med} mode={guidanceMode} context={context}/>:null}/>}
+
+    {!state.loading&&tab==='produto'&&<section className={styles.panel} id="funil-produtos">
       <div className={styles.sectionHead}><div><h2>Funil por Produto</h2><p>Anúncios com Super Análise recente permanecem disponíveis mesmo quando a coleta do Motor estiver temporariamente sem métricas.</p></div><span>{analyzedProducts.length} disponíveis</span></div>
+      {focusTransition&&<div className={styles.stageFocusBanner} role="status"><Icon name="target" size={16}/><span>Anúncios ordenados pela maior oportunidade em <b>{stageByKey(focusTransition.from)?.label} → {stageByKey(focusTransition.to)?.label}</b> (distância para a mediana dos seus anúncios × volume). Nenhum anúncio foi ocultado.</span><button type="button" onClick={()=>setStageFocus('')}>Limpar ordenação</button></div>}
       <div className={styles.funnelEligibilityNotice}><b>Super Análise obrigatória</b><span>{analyzedWithoutMetrics>0?`${analyzedWithoutMetrics} produto(s) analisado(s) estão sem métricas completas do Funil.`:unavailableForFunnel>0?`${unavailableForFunnel} produto(s) da coleta ainda precisam de Super Análise.`:'Todos os produtos analisados estão com métricas disponíveis.'}</span><Link href="/super-analise">Gerenciar na Super Análise →</Link></div>
       {analyzedWithoutMetrics>0&&<aside className={styles.collectionNotice} role="status">
         <div><strong>Métricas não coletadas ou incompletas em {analyzedWithoutMetrics} de {analyzedProducts.length} anúncios</strong>
@@ -1036,17 +875,12 @@ export default function FunilPage(){
           {diagnosticUpload.message&&<p role="status" data-error={diagnosticUpload.error?'true':'false'}>{diagnosticUpload.message}</p>}
         </details>
       </aside>}
-      <div className={styles.guidanceMode}>
-        <div><strong>Como você quer receber as sugestões?</strong><small>Sua escolha fica salva neste navegador.</small></div>
-        <div role="group" aria-label="Modo de orientação">
-          <button type="button" data-active={guidanceMode==='standard'} onClick={()=>chooseGuidance('standard')}><b>Padrão</b><span>Mostre o problema e o que revisar</span></button>
-          <button type="button" data-active={guidanceMode==='specific'} onClick={()=>chooseGuidance('specific')}><b>Específico · me diga o que fazer</b><span>Cruze concorrentes, preço, margem e Super Análise</span></button>
-        </div>
-      </div>
+      <GuidanceSwitch mode={guidanceMode} onChange={chooseGuidance}/>
       <div className={styles.productPlanBanner}><b>Plano de destrave</b><span>As sugestões são testes orientados por evidências; nenhuma alteração é aplicada automaticamente.</span></div>
       {!orderedAnalyzed.length?<div className={styles.empty}>Nenhum produto disponível. Faça a Super Análise dos anúncios que deseja acompanhar no Funil.</div>:<>
         <div className={styles.productFunnelList}>
           {orderedAnalyzed.map(p=><ProductFunnelCard key={'funnel-'+p.id} p={p} med={model.med} mode={guidanceMode} context={context}
+              focused={!!requestedItem&&String(p.id)===requestedItem}
               onRecollect={recollectProduct} recollecting={recollection.busyId===String(p.id)}
               recollectDisabled={!!recollection.busyId} recollectFeedback={recollection.feedback[String(p.id)]}/>)}
         </div>
@@ -1054,16 +888,18 @@ export default function FunilPage(){
       </>}
     </section>}
 
-    {tab==='trafego'&&<section className={styles.panel}>
+    {!state.loading&&tab==='trafego'&&<section className={styles.panel}>
       <div className={styles.sectionHead}><div><h2>De onde vêm suas vendas?</h2><p>Contribuição das fontes de tráfego carregadas pela própria Shopee.</p></div></div>
-      <div className={styles.sourceGrid}>{model.sources.length?model.sources.map(s=><article key={s.key}><h3>{s.label}</h3><strong>{money(s.sales)}</strong><span>{int(s.orders)} pedidos</span><div><small>{int(s.impressions)} impressões</small><small>{int(s.clicks)} cliques</small><small>CTR {pct(s.ctr)}</small><small>Conv. {pct(s.conversion)}</small></div></article>):<div className={styles.empty}>Sem fontes de tráfego disponíveis.</div>}</div>
+      <p className={styles.tabNote}><Icon name="info" size={15}/>Cada fonte tem sua própria contagem; elas não somam o funil da loja nem formam um único percurso de compradores.</p>
+      <div className={styles.sourceGrid}>{model.trafficSources.length?model.trafficSources.map(s=><article key={s.key}><h3>{s.label}</h3><strong>{money(s.sales)}</strong><span>{int(s.orders)} pedidos</span><div><small>{int(s.impressions)} impressões</small><small>{int(s.clicks)} cliques</small><small>CTR {pct(s.ctr)}</small><small>Conv. {pct(s.conversion)}</small></div></article>):<div className={styles.empty}>Sem fontes de tráfego disponíveis.</div>}</div>
     </section>}
 
-    {tab==='ads'&&<section className={styles.panel}>
+    {!state.loading&&tab==='ads'&&<section className={styles.panel}>
       <div className={styles.sectionHead}><div><h2>Histórico Shopee Ads · 7 dias</h2><p>Camada complementar para enxergar campanhas fora do recorte em tempo real.</p></div></div>
+      <p className={styles.tabNote}><Icon name="info" size={15}/>São métricas de publicidade paga (campanhas). Elas não representam o funil geral da loja, que inclui também o tráfego orgânico.</p>
       {!model.campaigns.length?<div className={styles.empty}>Sem campanhas disponíveis.</div>:<div className={styles.adsList}>{model.campaigns.slice(0,12).map((c,i)=><div key={i}><b>{c.name}</b><span>{int(c.impressions)} impressões · {int(c.clicks)} cliques · {int(c.orders)} pedidos</span><small>CTR {pct(c.ctr)} · clique→pedido {pct(c.cvr)}</small></div>)}</div>}
     </section>}
 
-    <section className={styles.sourceNote}><strong>Fonte e confiabilidade</strong><p>Os indicadores vêm de Informações Gerenciais da Shopee, coletados pelo Motor Sênior com a sessão do Seller Center. Etapas sem números disponíveis permanecem como “—”, sem estimativas artificiais. O fluxo utiliza Carrinho → Pedido → Pago → Confirmado.</p>{model.errors.length>0&&<details><summary>Detalhes técnicos da coleta ({model.errors.length})</summary><small>{model.errors.map(x=>x.source+': '+x.error).join(' · ').slice(0,2500)}</small></details>}</section>
+    {!state.loading&&tab!=='loja'&&<section className={styles.sourceNote}><strong>Fonte e confiabilidade</strong><p>Os indicadores vêm de Informações Gerenciais da Shopee, coletados pelo Motor Sênior com a sessão do Seller Center. Etapas sem números disponíveis permanecem como “—”, sem estimativas artificiais. O fluxo utiliza Carrinho → Pedido → Pago → Confirmado.</p>{model.errors.length>0&&<details><summary>Detalhes técnicos da coleta ({model.errors.length})</summary><small>{model.errors.map(x=>x.source+': '+x.error).join(' · ').slice(0,2500)}</small></details>}</section>}
   </div>
 }

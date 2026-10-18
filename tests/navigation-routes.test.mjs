@@ -8,6 +8,9 @@ const intelligence=read('app/extensao-shopee-intelligence/page.js');
 const sections=read('app/extensao-shopee-intelligence/IntelligenceSections.js');
 const utility=read('app/UtilityNative.js');
 const funnelHealth=read('app/lib/funnel-health.js');
+// Desde o redesign "consultor de conversão" (2026-10-17) a UI do Funil da Loja vive em StoreOverview.js
+// e a lógica de diagnóstico em app/lib/funnel-store-diagnosis.js; page.js mantém o carregamento e o Funil por Produto.
+const funnelUi=()=>read('app/funil/page.js')+'\n'+read('app/funil/StoreOverview.js')+'\n'+read('app/lib/funnel-store-diagnosis.js');
 const home=read('app/page.js');
 const superAd=read('app/extensao-shopee-intelligence/SuperAnuncioMockup.js');
 const superAnalysisPage=read('app/super-analise/page.js');
@@ -107,13 +110,13 @@ test('Pesquisa de Produtos integra inteligencia de mercado com coleta/importacao
 
 
 test('Análise de Funil usa o Motor Sênior e preserva fallback de Ads',()=>{
-  const funnel=read('app/funil/page.js');
+  const funnel=funnelUi();
   assert.match(funnel,/motorData\('sellerFunnel'/);
   for(const token of ['Impressões','Cliques','Visitantes','Carrinho','Pedido criado','Pago','Confirmado'])assert.ok(funnel.includes(token),'etapa ausente: '+token);
   assert.match(funnel,/Fontes de Tráfego/);
   assert.match(funnel,/Histórico Ads/);
   assert.match(funnel,/\/api\/shopee\/ads\?days=/);
-  assert.match(funnel,/versão 0\.17\.4/);
+  assert.match(read('app/funil/page.js'),/versão 0\.17\.4/);
 });
 
 
@@ -129,11 +132,15 @@ test('Análise de Funil oferece plano de destrave por produto',()=>{
 
 
 test('Análise de Funil possui modos padrão e específico com evidências reais',()=>{
-  const funnel=read('app/funil/page.js');
+  const funnel=funnelUi();
   const contextApi=read('app/api/funnel/context/route.js');
   assert.match(funnel,/guidanceMode/);
   assert.match(funnel,/Padrão/);
   assert.match(funnel,/Específico · me diga o que fazer/);
+  // O seletor mostra "Visão resumida" / "Passo a passo", mas os valores persistidos continuam standard/specific.
+  assert.match(funnel,/Visão resumida/);
+  assert.match(funnel,/Passo a passo/);
+  assert.match(funnel,/gs_funnel_guidance_mode/);
   assert.match(funnel,/function specificPlan/);
   // Desde "Funil desacoplado da coleta do Motor" (2026-09-29), o Funil busca
   // o contexto recente da loja sem filtrar por item_ids (a API mantém o
@@ -152,30 +159,30 @@ test('Análise de Funil possui modos padrão e específico com evidências reais
 
 
 test('Análise de Funil usa funil visual real e destaca maior gargalo',()=>{
-  const funnel=read('app/funil/page.js');
-  const css=read('app/funil/funil.module.css');
+  const funnel=funnelUi();
+  const css=read('app/funil/overview.module.css');
   assert.match(funnel,/function FunnelVisual/);
-  assert.match(funnel,/function StoreMiniFunnel/);
+  assert.match(funnel,/function DiagnosisHero/);
   assert.match(funnel,/function KpiStrip/);
   assert.match(funnel,/Maior gargalo:/);
   assert.match(funnel,/Plano de Destrave/);
   assert.match(funnel,/label:'Hoje'/);
   assert.match(funnel,/tempo real/);
-  assert.match(css,/\.storeMiniFunnel/);
+  assert.match(css,/\.stageList/);
   assert.match(css,/clip-path:polygon/);
-  assert.match(css,/\.storeFunnelCard/);
-  assert.match(css,/\.kpiStrip/);
+  assert.match(css,/\.hero\b/);
+  assert.match(css,/\.kpiGrid/);
 });
 
 
 test('Análise de Funil usa 30 dias como padrão e períodos históricos confirmados',()=>{
-  const funnel=read('app/funil/page.js');
+  const funnel=funnelUi();
   assert.match(funnel,/useState\('past30days'\)/);
   assert.match(funnel,/\{id:'past7days',label:'7 dias'/);
   assert.match(funnel,/\{id:'past30days',label:'30 dias'/);
   assert.match(funnel,/motorData\('sellerFunnel',\{period:selectedPeriod\}/);
   assert.match(funnelHealth,/productOverview/);
-  assert.match(funnel,/ComparisonStrip/);
+  assert.match(funnel,/function ComparisonStrip/);
   assert.match(funnel,/v0\.17\.4/);
   assert.doesNotMatch(funnel,/products\.reduce\(\(a,p\)=>a\+\(num\(p\.add_to_cart_buyers\)/);
 });
@@ -196,13 +203,16 @@ test('Funil preserva null e não converte ausência em zero',()=>{
 
 
 test('Análise de Funil aproveita séries diárias e pós-venda mapeados',()=>{
-  const funnel=read('app/funil/page.js');
+  const funnel=funnelUi();
   assert.match(funnel,/function TrendPanel/);
   assert.match(funnel,/productMetricTrends/);
   assert.match(funnel,/function PostOrderPanel/);
   assert.match(funnel,/orderPerformance/);
   assert.match(funnel,/cancelled_orders/);
   assert.match(funnel,/return_refund_orders/);
+  // Pós-venda é secundário e recolhível; evolução diária tem resumo compacto + gráfico completo.
+  assert.match(funnel,/Pós-venda e ocorrências/);
+  assert.match(funnel,/Evolução do Funil/);
 });
 
 
@@ -511,29 +521,32 @@ test('Manifesto e página do Motor compartilham a versão distribuída',()=>{
 
 
 test('Funil da Loja implementa modo específico acionável',()=>{
-  const funnel=read('app/funil/page.js');
-  const css=read('app/funil/funil.module.css');
-  assert.match(funnel,/function StoreSpecificPlan/);
-  assert.match(funnel,/function storeStageProductRate/);
-  assert.match(funnel,/ME DIGA O QUE FAZER · 1ª PRIORIDADE/);
-  assert.match(funnel,/guidanceMode==='specific'[\s\S]*?<StoreSpecificPlan/);
-  assert.match(funnel,/gap ponderado pelo volume/);
+  const funnel=funnelUi();
+  const css=read('app/funil/overview.module.css');
+  assert.match(funnel,/function UnlockPlan/);
+  assert.match(funnel,/function StartProductCard/);
+  assert.match(funnel,/export function storeStageProductRate/);
+  assert.match(funnel,/export function rankProductsForStage/);
+  assert.match(funnel,/PRIORIDADE Nº 1/);
+  assert.match(funnel,/ponderada pelo volume da etapa/);
   assert.match(funnel,/Nenhuma alteração de preço, anúncio ou campanha é aplicada automaticamente/);
-  assert.match(css,/\.storeSpecificProductGrid/);
-  assert.match(css,/@media\(max-width:560px\)/);
+  assert.match(funnel,/Abrir produto no Funil/);
+  assert.match(funnel,/Abrir plano específico/);
+  assert.match(funnel,/Ver todos no Funil por Produto/);
+  assert.match(css,/\.startGrid/);
+  assert.match(css,/@media\(max-width:640px\)/);
 });
 
 
 test('Funil da Loja usa layout compacto inspirado no Funil por Produto',()=>{
-  const funnel=read('app/funil/page.js');
-  const css=read('app/funil/funil.module.css');
-  assert.match(funnel,/function StoreMiniFunnel/);
-  assert.match(funnel,/className=\{styles\.storeFunnelCard\}/);
+  const funnel=funnelUi();
+  const css=read('app/funil/overview.module.css');
+  assert.match(funnel,/Passagem entre etapas/);
   assert.match(funnel,/Maior gargalo:/);
-  assert.match(funnel,/Passagem por etapa/);
-  assert.match(css,/\.storeFunnelBody\{display:grid/);
-  assert.match(css,/\.storeMiniStage\[data-index="6"\]/);
-  assert.match(css,/@media\(max-width:720px\)/);
+  assert.match(css,/\.stageList/);
+  assert.match(css,/\.stage\[data-index="6"\]/);
+  assert.match(css,/\.explorer\{[^}]*display:grid/);
+  assert.match(css,/@media\(max-width:640px\)/);
 });
 
 

@@ -30,6 +30,17 @@ export function deriveStoreFunnel(seller){
     confirmed:val(k.confirmed_orders)??val(overview.confirmed_order),
     paidGmv:val(k.paid_gmv)??val(overview.paid_gmv)??num(rt.sales)
   };
+  // Origem de cada total (mesma ordem de prioridade acima) para a UI não tratar fontes diferentes como um percurso único.
+  const pick=(...opts)=>{for(const [value,label] of opts)if(value!=null)return label;return null};
+  const sources={
+    impressions:pick([productImpressions,'Soma dos anúncios · ranking de produtos'],[val(k.product_impressions),'Resumo da loja · key-metrics']),
+    clicks:pick([productClicks,'Soma dos anúncios · ranking de produtos'],[val(k.product_clicks),'Resumo da loja · key-metrics']),
+    visitors:pick([val(k.shop_uv),'Visitantes da loja · key-metrics (shop_uv)'],[val(overview.uv),'Visão geral de produtos (uv)'],[num(rt.uv),'Tempo real (uv)']),
+    carts:pick([val(overview.atc_uv),'Visão geral de produtos (atc_uv)']),
+    placed:pick([val(k.place_orders),'Pedidos criados · key-metrics'],[val(overview.placed_order),'Visão geral de produtos (placed_order)'],[num(rt.orders),'Tempo real (pedidos)']),
+    paid:pick([val(k.paid_orders),'Pedidos pagos · key-metrics'],[val(overview.paid_order),'Visão geral de produtos (paid_order)']),
+    confirmed:pick([val(k.confirmed_orders),'Pedidos confirmados · key-metrics'],[val(overview.confirmed_order),'Visão geral de produtos (confirmed_order)'])
+  };
   const rates={
     ctr:totals.impressions>0&&totals.clicks!=null?totals.clicks/totals.impressions:null,
     clickVisit:totals.clicks>0&&totals.visitors!=null?totals.visitors/totals.clicks:null,
@@ -50,7 +61,7 @@ export function deriveStoreFunnel(seller){
   const missingStages=stageEntries.filter(([key])=>totals[key]==null).map(([,label])=>label);
   const validTransitions=transitionEntries.filter(([key])=>rates[key]!=null).map(([,label])=>label);
   return{
-    totals,rates,
+    totals,rates,sources,
     coverage:{
       presentStages,missingStages,validTransitions,
       stageCount:presentStages.length,
