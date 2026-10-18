@@ -6,6 +6,7 @@ import {motorData} from '../lib/client-async';
 import {deriveStoreFunnel} from '../lib/funnel-health';
 import {transitionById,stageByKey,rankProductsForStage} from '../lib/funnel-store-diagnosis';
 import {PRODUCT_FUNNEL_FIELDS,chooseBestFunnelResponse,needsFunnelRetry,diagnoseFunnelProducts,mergeRecollectedFunnelProduct} from '../lib/funnel-product-diagnostics';
+import TrafficSources from './TrafficSources';
 import StoreOverview,{Icon,GuidanceSwitch,imageFallback,IMAGE_PLACEHOLDER} from './StoreOverview';
 import styles from './funil.module.css';
 
@@ -729,12 +730,7 @@ export default function FunilPage(){
       placedPaid:median(products.map(p=>{const a=num(p.placed_buyers),b=num(p.paid_buyers);return a>0&&b!=null?b/a:null})),
       paidConfirmed:median(products.map(p=>{const a=num(p.paid_buyers),b=num(p.confirmed_buyers);return a>0&&b!=null?b/a:null}))
     };
-    const trafficSources=[];
-    const tr=s.traffic||{};
-    for(const [key,label] of [['product_card','Card de produto / Busca'],['live','Live'],['video','Vídeo'],['affiliate','Afiliados'],['paid_ads','Shopee Ads']]){
-      const t=tr?.[key]?.total;
-      if(t)trafficSources.push({key,label,sales:num(t.sales),orders:num(t.orders),clicks:num(t.product_clicks),impressions:num(t.product_impressions),ctr:num(t.ctr),conversion:num(t.product_clicks_to_orders_rate??t.conversion)});
-    }
+    const traffic=s.traffic||null;
     const campaigns=arr(state.ads?.campaigns).map(normalizeAdsCampaign);
     const comparison={
       visitors:num(k?.shop_uv?.chain_ratio),
@@ -742,7 +738,7 @@ export default function FunilPage(){
       paidGmv:num(k?.paid_gmv?.chain_ratio),
       confirmedOrders:num(k?.confirmed_orders?.chain_ratio)
     };
-    return{totals,rates,coverage,sources,evidence,products,med,trafficSources,campaigns,comparison,trends:s.productMetricTrends||{},orderPerformance:s.orderPerformance||{},key:k,realtime:rt,period:s.period||null,errors:arr(s.errors)};
+    return{totals,rates,coverage,sources,evidence,products,med,traffic,campaigns,comparison,trends:s.productMetricTrends||{},orderPerformance:s.orderPerformance||{},key:k,realtime:rt,period:s.period||null,errors:arr(s.errors)};
   },[state]);
   const funnelProductDiagnosis=useMemo(()=>diagnoseFunnelProducts(state.seller,context),[state.seller,context]);
   const saveCollectionDiagnostic=async()=>{
@@ -888,11 +884,8 @@ export default function FunilPage(){
       </>}
     </section>}
 
-    {!state.loading&&tab==='trafego'&&<section className={styles.panel}>
-      <div className={styles.sectionHead}><div><h2>De onde vêm suas vendas?</h2><p>Contribuição das fontes de tráfego carregadas pela própria Shopee.</p></div></div>
-      <p className={styles.tabNote}><Icon name="info" size={15}/>Cada fonte tem sua própria contagem; elas não somam o funil da loja nem formam um único percurso de compradores.</p>
-      <div className={styles.sourceGrid}>{model.trafficSources.length?model.trafficSources.map(s=><article key={s.key}><h3>{s.label}</h3><strong>{money(s.sales)}</strong><span>{int(s.orders)} pedidos</span><div><small>{int(s.impressions)} impressões</small><small>{int(s.clicks)} cliques</small><small>CTR {pct(s.ctr)}</small><small>Conv. {pct(s.conversion)}</small></div></article>):<div className={styles.empty}>Sem fontes de tráfego disponíveis.</div>}</div>
-    </section>}
+    {!state.loading&&tab==='trafego'&&<TrafficSources traffic={model.traffic} errors={model.errors} periodMeta={actualPeriodMeta} periodId={actualPeriod}
+      lastUpdated={stamp?stamp.getTime():null} onGoTab={selectTab} onRefresh={()=>load(period)} onChangePeriod={changePeriod}/>}
 
     {!state.loading&&tab==='ads'&&<section className={styles.panel}>
       <div className={styles.sectionHead}><div><h2>Histórico Shopee Ads · 7 dias</h2><p>Camada complementar para enxergar campanhas fora do recorte em tempo real.</p></div></div>
@@ -900,6 +893,6 @@ export default function FunilPage(){
       {!model.campaigns.length?<div className={styles.empty}>Sem campanhas disponíveis.</div>:<div className={styles.adsList}>{model.campaigns.slice(0,12).map((c,i)=><div key={i}><b>{c.name}</b><span>{int(c.impressions)} impressões · {int(c.clicks)} cliques · {int(c.orders)} pedidos</span><small>CTR {pct(c.ctr)} · clique→pedido {pct(c.cvr)}</small></div>)}</div>}
     </section>}
 
-    {!state.loading&&tab!=='loja'&&<section className={styles.sourceNote}><strong>Fonte e confiabilidade</strong><p>Os indicadores vêm de Informações Gerenciais da Shopee, coletados pelo Motor Sênior com a sessão do Seller Center. Etapas sem números disponíveis permanecem como “—”, sem estimativas artificiais. O fluxo utiliza Carrinho → Pedido → Pago → Confirmado.</p>{model.errors.length>0&&<details><summary>Detalhes técnicos da coleta ({model.errors.length})</summary><small>{model.errors.map(x=>x.source+': '+x.error).join(' · ').slice(0,2500)}</small></details>}</section>}
+    {!state.loading&&tab!=='loja'&&tab!=='trafego'&&<section className={styles.sourceNote}><strong>Fonte e confiabilidade</strong><p>Os indicadores vêm de Informações Gerenciais da Shopee, coletados pelo Motor Sênior com a sessão do Seller Center. Etapas sem números disponíveis permanecem como “—”, sem estimativas artificiais. O fluxo utiliza Carrinho → Pedido → Pago → Confirmado.</p>{model.errors.length>0&&<details><summary>Detalhes técnicos da coleta ({model.errors.length})</summary><small>{model.errors.map(x=>x.source+': '+x.error).join(' · ').slice(0,2500)}</small></details>}</section>}
   </div>
 }

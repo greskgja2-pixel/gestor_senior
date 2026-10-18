@@ -50,7 +50,10 @@ const ICONS={
   returned:<><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/></>,
   shield:<path d="M12 3l8 3v6c0 4.5-3.2 8-8 9-4.8-1-8-4.5-8-9V6z"/>,
   external:<><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5"/></>,
-  arrow:<path d="M5 12h14M13 6l6 6-6 6"/>
+  arrow:<path d="M5 12h14M13 6l6 6-6 6"/>,
+  search:<><circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/></>,
+  live:<><circle cx="12" cy="12" r="2.2"/><path d="M7.5 7.5a6.4 6.4 0 000 9M16.5 7.5a6.4 6.4 0 010 9M4.5 4.5a10.5 10.5 0 000 15M19.5 4.5a10.5 10.5 0 010 15"/></>,
+  play:<><circle cx="12" cy="12" r="9.5"/><path d="M10 8.5l5.5 3.5-5.5 3.5z"/></>
 };
 export function Icon({name,size=18,className}){
   return <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">{ICONS[name]||ICONS.info}</svg>;
