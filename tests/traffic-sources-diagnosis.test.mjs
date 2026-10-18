@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {normalizeSource,normalizeTraffic,rankBy,diagnoseTraffic,readField,TRAFFIC_SOURCES,SENTINEL} from '../app/lib/traffic-sources-diagnosis.js';
+import {normalizeSource,normalizeTraffic,rankBy,diagnoseTraffic,readField,storeTotals,TRAFFIC_SOURCES,SENTINEL} from '../app/lib/traffic-sources-diagnosis.js';
 
 // Valores reais do print de 17/10/2026 (30 dias).
 const traffic={
@@ -10,16 +10,42 @@ const traffic={
   affiliate:{total:{sales:19.99,orders:1,product_clicks:19,product_clicks_to_orders_rate:.053}},
   paid_ads:{total:{sales:SENTINEL,orders:SENTINEL,product_impressions:SENTINEL,product_clicks:SENTINEL,ctr:SENTINEL,conversion:SENTINEL}}
 };
+// Resumo real capturado em 17/10/2026 (30 dias, leitura no Seller Center): Ads só traz o GMV; pct_diff de Afiliados é sentinela.
+const overview={total_sales:2270.59,total_sales_pct_diff:.0502,product_card:2196.64,product_card_pct_diff:.0255,product_card_ratio:.9674,live:0,live_pct_diff:0,live_ratio:0,video:53.96,video_pct_diff:1.6993,video_ratio:.0238,affiliate:19.99,affiliate_pct_diff:SENTINEL,affiliate_ratio:.0088,paid_ads:1853.47,paid_ads_pct_diff:.2457,paid_ads_ratio:.8163};
+const withOverview={...traffic,overview};
 const by=(list,key)=>list.find(s=>s.key===key);
 
-test('-1.000.000 é valor reservado: Shopee Ads fica indisponível, sem GMV/pedidos/taxas',()=>{
+test('-1.000.000 é valor reservado: sem o resumo, Shopee Ads fica indisponível (sem GMV/pedidos/taxas)',()=>{
   const ads=by(normalizeTraffic(traffic),'paid_ads');
   assert.equal(ads.status,'unavailable');
   assert.equal(ads.sentinel,true);
   for(const k of ['sales','orders','clicks','impressions','ctr','conversion'])assert.equal(ads[k],null,k);
   assert.match(ads.reason,/-1\.000\.000/);
-  assert.match(ads.hypothesis,/need_paid_ads_data=false/);
-  assert.match(ads.hypothesis,/Não confirmado/);
+  assert.match(ads.hypothesis,/Confirmado em teste/);
+});
+
+test('com o resumo (overview), Ads mostra só o GMV real e descarta o resto; participação e variação vêm da Shopee',()=>{
+  const list=normalizeTraffic(withOverview);
+  const ads=by(list,'paid_ads');
+  assert.equal(ads.status,'partial');
+  assert.equal(ads.sales,1853.47);
+  assert.equal(ads.salesOrigin,'resumo');
+  for(const k of ['orders','clicks','impressions','ctr','conversion'])assert.equal(ads[k],null,k);
+  assert.ok(Math.abs(ads.share-.8163)<1e-9);
+  assert.ok(Math.abs(ads.pctDiff-.2457)<1e-9);
+  assert.match(ads.reason,/Histórico Ads/);
+  // pct_diff = -1.000.000 (Afiliados) é "sem dado", não -100.000.000%
+  assert.equal(by(list,'affiliate').pctDiff,null);
+  // variação negativa legítima continua válida
+  assert.equal(normalizeSource(TRAFFIC_SOURCES[0],{sales:1,orders:1},{product_card_pct_diff:-.3}).pctDiff,-.3);
+  assert.equal(storeTotals(withOverview).sales,2270.59);
+  assert.equal(storeTotals(null).sales,null);
+});
+
+test('as quatro fontes não pagas somam o GMV total; Ads é parte sobreposta (nunca somada)',()=>{
+  const sum=overview.product_card+overview.live+overview.video+overview.affiliate;
+  assert.ok(Math.abs(sum-overview.total_sales)<.005);
+  assert.ok(overview.paid_ads<=overview.total_sales);
 });
 
 test('qualquer valor negativo é inválido e nunca vira zero',()=>{
@@ -71,6 +97,11 @@ test('diagnóstico: líder de GMV, fonte sem dados e nenhuma soma de fontes',()=
   const ads=d.insights.find(i=>i.id==='nodata-paid_ads');
   assert.ok(ads);
   assert.match(ads.action,/Histórico Ads/);
+  const d2=diagnoseTraffic(normalizeTraffic(withOverview));
+  const share=d2.insights.find(i=>i.id==='ads-share');
+  assert.ok(share);
+  assert.match(share.hypothesis,/Não comprovado/);
+  assert.match(share.fact,/não é somado/);
   assert.ok(!d.insights.some(i=>/total geral|soma/i.test(i.title)));
   assert.equal(d.usableCount,4);
 });

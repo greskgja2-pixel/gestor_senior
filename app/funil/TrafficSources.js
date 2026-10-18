@@ -4,7 +4,7 @@
 // Toda validação/cálculo está em app/lib/traffic-sources-diagnosis.js. Nada aqui soma fontes ou inventa números.
 
 import {useEffect,useMemo,useState} from 'react';
-import {normalizeTraffic,diagnoseTraffic,rankBy,RANK_METRICS,MIN_CLICKS_FOR_CONVERSION,MIN_IMPRESSIONS_FOR_CTR} from '../lib/traffic-sources-diagnosis';
+import {normalizeTraffic,diagnoseTraffic,rankBy,storeTotals,SHARE_NOTE,RANK_METRICS,MIN_CLICKS_FOR_CONVERSION,MIN_IMPRESSIONS_FOR_CTR} from '../lib/traffic-sources-diagnosis';
 import {Icon,InfoTip,StatusPill} from './StoreOverview';
 import styles from './traffic.module.css';
 
@@ -12,6 +12,7 @@ const num=v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v))?null:N
 const int=v=>num(v)==null?'—':Math.round(Number(v)).toLocaleString('pt-BR');
 const pct=v=>num(v)==null?'—':(Number(v)*100).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%';
 const money=v=>num(v)==null?'—':Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const diffText=v=>v==null?null:(v>=0?'▲ +':'▼ ')+(v*100).toLocaleString('pt-BR',{maximumFractionDigits:1})+'% vs período anterior';
 const pedidos=v=>int(v)+(Number(v)===1?' pedido':' pedidos');
 const fmt=(metric,v)=>metric==='sales'?money(v):metric==='orders'?int(v):pct(v);
 const STATUS={
@@ -27,12 +28,13 @@ function Metric({label,value,note,tip}){
 }
 
 function SummaryCards({diag,periodLabel,sources}){
-  const {summary,unavailable}=diag;
+  const {summary}=diag;
+  const incomplete=sources.filter(x=>x.status!=='ok');
   const cards=[
     {icon:'chart',title:'Maior GMV',main:summary.topSales?.source.label,sub:summary.topSales?money(summary.topSales.value):null,empty:'Sem fonte com GMV válido'},
     {icon:'package',title:'Mais pedidos',main:summary.topOrders?.source.label,sub:summary.topOrders?pedidos(summary.topOrders.value):null,empty:'Sem fonte com pedidos válidos'},
     {icon:'target',title:'Melhor conversão comparável',main:summary.bestConversion?.source.label,sub:summary.bestConversion?pct(summary.bestConversion.value)+' pedidos ÷ cliques'+(rankBy(sources,'conversion').ranked.length===1?' · única fonte com amostra suficiente':''):null,empty:`Nenhuma fonte com ${MIN_CLICKS_FOR_CONVERSION}+ cliques`},
-    {icon:'help',title:'Fontes sem dados',main:unavailable.length?unavailable.map(s=>s.short).join(', '):'Nenhuma',sub:unavailable.length?'Não avaliadas, sem estimativa':'Todas enviaram dados',empty:null}
+    {icon:'help',title:'Fontes com dados incompletos',main:incomplete.length?incomplete.map(s=>s.short).join(', '):'Nenhuma',sub:incomplete.length?'Só o que a Shopee enviou; sem estimativa':'Todas enviaram dados completos',empty:null}
   ];
   return <div className={styles.summary}>{cards.map(c=><article key={c.title}>
     <span className={styles.sumIcon}><Icon name={c.icon} size={17}/></span>
@@ -71,7 +73,7 @@ function SourceCard({s,selected,onSelect}){
       <header><span className={styles.cardIcon}><Icon name={s.icon} size={18}/></span><b>{s.label}</b></header>
       {invalid
         ?<div className={styles.na}><strong>Dados indisponíveis</strong><small>{s.status==='missing'?'A Shopee não enviou esta fonte.':'A Shopee devolveu um valor reservado, não um resultado.'}</small></div>
-        :<><strong className={styles.gmv}>{money(s.sales)}</strong><span className={styles.orders}>{pedidos(s.orders)}</span></>}
+        :<><strong className={styles.gmv}>{money(s.sales)}</strong><span className={styles.orders}>{s.orders==null?'Pedidos indisponíveis':pedidos(s.orders)}</span>{s.share!=null&&<span className={styles.share}>{pct(s.share)} do GMV da loja</span>}{s.pctDiff!=null&&<span className={styles.diff} data-dir={s.pctDiff>=0?'up':'down'}>{diffText(s.pctDiff)}</span>}</>}
       <footer><StatusPill level={st.level} label={st.label}/>{s.status==='ok'&&s.sales===0&&s.orders===0&&<small>Sem vendas nesta fonte (zero real)</small>}</footer>
     </button>
     {!invalid&&<details className={styles.more}>
@@ -98,8 +100,10 @@ function Detail({s,onGoTab}){
       {s.key==='paid_ads'&&<button type="button" className={styles.ghostBtn} onClick={()=>onGoTab('ads')}>Ver Histórico Ads <Icon name="arrow" size={14}/></button>}
     </>:<>
       <div className={styles.metrics}>
-        <Metric label="GMV" value={money(s.sales)} tip="Valor bruto de mercadorias atribuído a esta fonte segundo a Shopee. Não é lucro nem receita líquida."/>
-        <Metric label="Pedidos" value={int(s.orders)}/>
+        <Metric label="GMV" value={money(s.sales)} note={s.salesOrigin==='resumo'?'do resumo da Shopee':null} tip="Valor bruto de mercadorias atribuído a esta fonte segundo a Shopee. Não é lucro nem receita líquida."/>
+        <Metric label="Pedidos" value={int(s.orders)} note={s.orders==null?'indisponível nesta API':null}/>
+        <Metric label="Participação no GMV" value={pct(s.share)} note="parte do GMV total da loja" tip={SHARE_NOTE}/>
+        <Metric label="Variação" value={s.pctDiff==null?'—':(s.pctDiff>=0?'+':'')+pct(s.pctDiff)} note="GMV vs período anterior (Shopee)" tip="Variação do GMV desta fonte em relação ao período anterior, calculada pela Shopee. Quando a Shopee não envia, aparece —."/>
         <Metric label="Ticket médio" value={money(s.salesPerOrder)} note="GMV ÷ pedidos" tip="Calculado pelo Gestor: GMV dividido por pedidos da mesma fonte."/>
         <Metric label="Impressões" value={int(s.impressions)}/>
         <Metric label="Cliques" value={int(s.clicks)}/>
@@ -127,6 +131,7 @@ function Insights({diag}){
 export default function TrafficSources({traffic,errors,periodMeta,periodId,lastUpdated,onGoTab,onRefresh,onChangePeriod}){
   const sources=useMemo(()=>normalizeTraffic(traffic),[traffic]);
   const diag=useMemo(()=>diagnoseTraffic(sources),[sources]);
+  const total=useMemo(()=>storeTotals(traffic),[traffic]);
   const [metric,setMetric]=useState('sales');
   const [selected,setSelected]=useState(null);
   useEffect(()=>{setSelected(diag.summary.topSales?.source.key||sources.find(s=>s.status==='ok'||s.status==='partial')?.key||sources[0]?.key)},[diag,sources,periodId]);
@@ -145,6 +150,7 @@ export default function TrafficSources({traffic,errors,periodMeta,periodId,lastU
   return <div className={styles.root}>
     <section className={styles.block} aria-labelledby="fontes-title">
       <div className={styles.title}><span><Icon name="traffic" size={18}/></span><div><h2 id="fontes-title">De onde vêm suas vendas?</h2><p>Dados de {periodMeta.label}. Cada fonte tem sua própria contagem: elas não somam o funil da loja nem formam um único percurso de compradores.</p></div></div>
+      {total.sales!=null&&<p className={styles.total}><b>GMV total da loja (Shopee): {money(total.sales)}</b>{total.pctDiff!=null&&<span> · {diffText(total.pctDiff)}</span>}<small>É a soma de Card/Busca, Live, Vídeo e Afiliados. Shopee Ads é uma parte desse total (se sobrepõe a Card/Busca) e nunca é somada.</small></p>}
       <SummaryCards diag={diag} periodLabel={periodMeta.label} sources={sources}/>
     </section>
     <Comparison sources={sources} metric={metric} setMetric={setMetric}/>
@@ -161,7 +167,7 @@ export default function TrafficSources({traffic,errors,periodMeta,periodId,lastU
           <li><b>Origem:</b> Informações Gerenciais da Shopee (fontes de tráfego), coletadas pelo Motor Sênior com a sessão do Seller Center.</li>
           <li><b>Período:</b> {periodMeta.label} · <b>última coleta concluída:</b> {stamp}.</li>
           <li><b>Calculado pelo Gestor:</b> CTR (cliques ÷ impressões), conversão (pedidos ÷ cliques, usando a taxa da Shopee quando válida), ticket médio e rankings.</li>
-          <li><b>Valores reservados:</b> a Shopee usa -1.000.000 para "sem dado". Esses valores são descartados e a fonte aparece como indisponível, nunca como zero.</li>
+          <li><b>Valores reservados:</b> a Shopee usa -1.000.000 para "sem dado" (inclusive em variações). Esses valores são descartados, nunca viram zero. Em Shopee Ads só o GMV do resumo é válido; pedidos, cliques e ROAS não vêm desta API (veja Histórico Ads).</li>
           <li><b>Zero real:</b> uma fonte com GMV 0 e 0 pedidos é exibida como zero; fonte sem dados é exibida como indisponível.</li>
           <li><b>Limitações:</b> fontes podem se sobrepor (ex.: Ads dentro de Card/Busca), então não há total geral; taxas pequenas só entram em rankings com amostra mínima.</li>
           {trafficErrors.length>0&&<li><b>Erros da coleta:</b> {trafficErrors.map(e=>(e.source||'')+': '+(e.error||e.message||'')).join(' · ').slice(0,600)}</li>}

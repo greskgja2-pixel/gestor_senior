@@ -33,13 +33,20 @@ export function readField(total,keys){
   return{state:'missing',value:null,raw:null,sentinel:false};
 }
 
-const PAID_ADS_HYPOTHESIS='Não confirmado com a resposta bruta: a coleta do Motor pede esta tabela com need_paid_ads_data=false, e a Shopee costuma preencher com -1.000.000 o que não foi solicitado. Os dados de Ads, quando necessários, estão na aba Histórico Ads (outra fonte, outra definição).';
+const PAID_ADS_NOTE='Confirmado em teste de leitura no Seller Center (17/10/2026): nesta API a Shopee devolve -1.000.000 em todos os detalhes de Ads (pedidos, cliques, impressões, ROAS), com need_paid_ads_data=false ou true. Só o GMV de Ads vem, no resumo (overview). Pedidos, gasto e ROAS de campanhas estão na aba Histórico Ads (outra fonte, outra definição).';
 
-export function normalizeSource(def,total){
-  const base={key:def.key,label:def.label,short:def.short,icon:def.icon,what:def.what,
+export function normalizeSource(def,total,overview){
+  // Resumo (overview): GMV por fonte, participação no GMV total e variação vs período anterior (fração).
+  // Nos campos *_pct_diff a Shopee também usa -1.000.000 como "sem dado"; negativos legítimos são variações reais.
+  const ovSales=readField(overview,[def.key]);
+  const ovRatio=readField(overview,[def.key+'_ratio']);
+  const rawDiff=num(overview?.[def.key+'_pct_diff']);
+  const pctDiff=rawDiff==null||rawDiff===SENTINEL?null:rawDiff;
+  const base={key:def.key,share:ovRatio.value,pctDiff,salesOrigin:null,label:def.label,short:def.short,icon:def.icon,what:def.what,
     status:'missing',reason:'',hypothesis:'',sales:null,orders:null,clicks:null,impressions:null,
     ctr:null,ctrNote:'',conversion:null,conversionNote:'',conversionOrigin:null,salesPerOrder:null,invalidFields:[],sentinel:false};
   if(!total||typeof total!=='object'){
+    if(ovSales.value!=null)return{...base,status:'partial',sales:ovSales.value,salesOrigin:'resumo',reason:'Só o GMV do resumo da Shopee está disponível para esta fonte.'};
     return{...base,status:'missing',reason:'A Shopee não enviou esta fonte neste período.'};
   }
   const f={
@@ -65,11 +72,18 @@ export function normalizeSource(def,total){
   }else out.conversionNote=out.clicks===0?'Sem cliques para calcular a conversão.':'Pedidos ou cliques indisponíveis; conversão não calculada.';
   if(out.sales!=null&&out.orders>0)out.salesPerOrder=out.sales/out.orders;
 
+  // GMV inválido no detalhe, mas válido no resumo: usa o resumo (mesma definição de GMV da Shopee) e descarta o resto.
+  if(out.sales==null&&ovSales.value!=null){out.sales=ovSales.value;out.salesOrigin='resumo'}
+  else if(out.sales!=null)out.salesOrigin='detalhe';
   const core=[f.sales.state,f.orders.state];
-  if(core.every(s=>s==='invalid')){
+  if(out.salesOrigin==='resumo'&&out.orders==null){
+    out.status='partial';
+    out.reason=def.key==='paid_ads'?PAID_ADS_NOTE:'O detalhe desta fonte veio inválido; só o GMV do resumo da Shopee foi usado.';
+    out.sentinel=out.sentinel||sentinel;
+  }else if(core.every(s=>s==='invalid')){
     out.status='unavailable';
     out.reason=sentinel?'A Shopee devolveu o valor reservado -1.000.000 (código de "sem dado"), não um resultado comercial. Nada foi exibido como GMV, pedidos ou taxas.':'A Shopee devolveu valores negativos, que não são resultados comerciais válidos. Nada foi exibido como GMV, pedidos ou taxas.';
-    if(def.key==='paid_ads')out.hypothesis=PAID_ADS_HYPOTHESIS;
+    if(def.key==='paid_ads')out.hypothesis=PAID_ADS_NOTE;
   }else if(core.every(s=>s==='missing')){
     out.status='missing';out.reason='A Shopee enviou esta fonte sem GMV nem pedidos neste período.';
   }else if(core.every(s=>s==='ok')&&invalidFields.length===0){
@@ -82,7 +96,15 @@ export function normalizeSource(def,total){
 }
 
 export function normalizeTraffic(traffic){
-  return TRAFFIC_SOURCES.map(def=>normalizeSource(def,traffic?.[def.key]?.total));
+  return TRAFFIC_SOURCES.map(def=>normalizeSource(def,traffic?.[def.key]?.total,traffic?.overview));
+}
+
+// GMV total da loja segundo o resumo da Shopee. É a soma das fontes NÃO pagas (Card/Busca + Live + Vídeo + Afiliados);
+// Shopee Ads é uma parte que se sobrepõe a elas (conferido: 2.196,64 + 0 + 53,96 + 19,99 = 2.270,59 e Ads = 1.853,47).
+export function storeTotals(traffic){
+  const t=readField(traffic?.overview,['total_sales']);
+  const d=num(traffic?.overview?.total_sales_pct_diff);
+  return{sales:t.value,pctDiff:d==null||d===SENTINEL?null:d};
 }
 
 export const RANK_METRICS=Object.freeze([
@@ -91,6 +113,7 @@ export const RANK_METRICS=Object.freeze([
   {id:'ctr',label:'CTR',format:'pct'},
   {id:'conversion',label:'Conversão',format:'pct'}
 ]);
+export const SHARE_NOTE='Participação = parte do GMV total da loja segundo a Shopee. Ads se sobrepõe às outras fontes, então as participações não somam 100%.';
 
 // Elegibilidade por métrica: valor válido e amostra mínima nas taxas.
 export function eligibleFor(source,metric){
@@ -130,6 +153,13 @@ export function diagnoseTraffic(sources){
       fact:`${s.label} tem o maior GMV entre as ${withSales.length} fonte(s) com dados válidos neste período, e as fontes não são somadas (podem se sobrepor).`,
       hypothesis:null,
       action:'Abra o Funil por Produto e veja quais anúncios mais aparecem e vendem por essa fonte; proteja o que já funciona antes de mexer em muita coisa.'});
+  }
+  const ads=sources.find(x=>x.key==='paid_ads');
+  if(ads&&ads.share!=null&&ads.sales!=null&&ads.share>=.5){
+    insights.push({id:'ads-share',tone:'warn',title:`Shopee Ads responde por ${(ads.share*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}% do GMV`,
+      fact:`O GMV atribuído a Shopee Ads foi ${ads.sales.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}, ${(ads.share*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}% do GMV da loja. Ads se sobrepõe ao Card/Busca, então esse valor não é somado às outras fontes.`,
+      hypothesis:'Uma fatia grande atribuída a Ads pode indicar dependência de anúncios pagos, mas a Shopee também atribui a Ads vendas que poderiam ocorrer sem anúncio. Não comprovado.',
+      action:'Veja o gasto e o ROAS na aba Histórico Ads antes de aumentar investimento, e compare quais produtos vendem sem Ads no Funil por Produto.'});
   }
   // Volume alto com conversão relativamente baixa
   const convEligible=usable.filter(s=>eligibleFor(s,'conversion'));
