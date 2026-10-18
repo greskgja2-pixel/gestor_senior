@@ -88,3 +88,18 @@
 .diff{font-size:12px;font-weight:800}.diff[data-dir=up]{color:#157a50}.diff[data-dir=down]{color:#a3293b}
 .total{display:grid;gap:3px;margin:0;padding:10px 13px;border:1px solid #d6e5f6;background:#f1f7fe;border-radius:12px;font-size:14px;color:#17304b}
 .total small{font-size:12px;line-height:1.45;color:#5d7185}
+
+/* 2026-10-17 — mais cor */
+.root>.block:first-child{background:linear-gradient(135deg,#f3f8ff 0%,#fff 55%,#f6f1ff 100%);border-color:#d3e1f5}
+.title>span{background:linear-gradient(135deg,#1769e8,#6a48d1);color:#fff;box-shadow:0 4px 12px rgba(23,105,232,.25)}
+.summary article{border:0;border-top:4px solid var(--tone,#1769e8);background:linear-gradient(180deg,var(--tint,#f1f7ff),#fff 70%);box-shadow:0 4px 14px rgba(35,64,94,.07)}
+.summary article[data-tone=blue]{--tone:#1769e8;--tint:#eaf3ff}.summary article[data-tone=green]{--tone:#20a46b;--tint:#e6f7ee}.summary article[data-tone=purple]{--tone:#7a52e0;--tint:#f0eaff}.summary article[data-tone=orange]{--tone:#ec8a1d;--tint:#fff2e0}
+.sumIcon{background:var(--tone,#1769e8)!important;color:#fff!important}.summary small{color:var(--tone,#5b7690)}
+.total{background:linear-gradient(90deg,#e8f6ef,#eef4ff);border-color:#cfe6dc}
+.root [data-source=product_card]{--src:#1769e8;--srcTint:#eaf3ff}.root [data-source=live]{--src:#e0457b;--srcTint:#ffecf3}.root [data-source=video]{--src:#7a52e0;--srcTint:#f0eaff}.root [data-source=affiliate]{--src:#ec8a1d;--srcTint:#fff2e0}.root [data-source=paid_ads]{--src:#20a46b;--srcTint:#e6f7ee}
+.bars li .barTrack>span{background:var(--src,#3b7ed8)}.bars li .rank{background:var(--src,#17406a)}.barName svg{color:var(--src,#2f79dc)}
+.card{border-top:4px solid var(--src,#e0e8f1);background:linear-gradient(180deg,var(--srcTint,#fff),#fff 60%)}
+.card[data-status=unavailable],.card[data-status=missing]{background:#f3f5f8}
+.cardIcon{background:var(--src,#2f79dc);color:#fff}.gmv{color:var(--src,#14304d)}
+.segmented button[data-active=true]{background:linear-gradient(135deg,#1769e8,#4a86f0);color:#fff}
+.insights article[data-tone=data]{border-left-color:#8aa0b4;background:#f5f8fb}.insights article[data-tone=good]{background:#f1fbf6}.insights article[data-tone=warn]{background:#fff9ee}

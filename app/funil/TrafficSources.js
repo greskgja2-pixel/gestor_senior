@@ -31,12 +31,12 @@ function SummaryCards({diag,periodLabel,sources}){
   const {summary}=diag;
   const incomplete=sources.filter(x=>x.status!=='ok');
   const cards=[
-    {icon:'chart',title:'Maior GMV',main:summary.topSales?.source.label,sub:summary.topSales?money(summary.topSales.value):null,empty:'Sem fonte com GMV válido'},
-    {icon:'package',title:'Mais pedidos',main:summary.topOrders?.source.label,sub:summary.topOrders?pedidos(summary.topOrders.value):null,empty:'Sem fonte com pedidos válidos'},
-    {icon:'target',title:'Melhor conversão comparável',main:summary.bestConversion?.source.label,sub:summary.bestConversion?pct(summary.bestConversion.value)+' pedidos ÷ cliques'+(rankBy(sources,'conversion').ranked.length===1?' · única fonte com amostra suficiente':''):null,empty:`Nenhuma fonte com ${MIN_CLICKS_FOR_CONVERSION}+ cliques`},
-    {icon:'help',title:'Fontes com dados incompletos',main:incomplete.length?incomplete.map(s=>s.short).join(', '):'Nenhuma',sub:incomplete.length?'Só o que a Shopee enviou; sem estimativa':'Todas enviaram dados completos',empty:null}
+    {tone:'blue',icon:'chart',title:'Maior GMV',main:summary.topSales?.source.label,sub:summary.topSales?money(summary.topSales.value):null,empty:'Sem fonte com GMV válido'},
+    {tone:'green',icon:'package',title:'Mais pedidos',main:summary.topOrders?.source.label,sub:summary.topOrders?pedidos(summary.topOrders.value):null,empty:'Sem fonte com pedidos válidos'},
+    {tone:'purple',icon:'target',title:'Melhor conversão comparável',main:summary.bestConversion?.source.label,sub:summary.bestConversion?pct(summary.bestConversion.value)+' pedidos ÷ cliques'+(rankBy(sources,'conversion').ranked.length===1?' · única fonte com amostra suficiente':''):null,empty:`Nenhuma fonte com ${MIN_CLICKS_FOR_CONVERSION}+ cliques`},
+    {tone:'orange',icon:'help',title:'Fontes com dados incompletos',main:incomplete.length?incomplete.map(s=>s.short).join(', '):'Nenhuma',sub:incomplete.length?'Só o que a Shopee enviou; sem estimativa':'Todas enviaram dados completos',empty:null}
   ];
-  return <div className={styles.summary}>{cards.map(c=><article key={c.title}>
+  return <div className={styles.summary}>{cards.map(c=><article key={c.title} data-tone={c.tone}>
     <span className={styles.sumIcon}><Icon name={c.icon} size={17}/></span>
     <small>{c.title}</small>
     <b>{c.main||c.empty}</b>
@@ -54,7 +54,7 @@ function Comparison({sources,metric,setMetric}){
       <div className={styles.title}><span><Icon name="chart" size={18}/></span><div><h2 id="fontes-comp">Comparação das fontes</h2><p>Só valores válidos. Barras comparam fontes, não formam um total (podem se sobrepor).</p></div></div>
       <div className={styles.segmented} role="group" aria-label="Ordenar por">{RANK_METRICS.map(m=><button key={m.id} type="button" aria-pressed={metric===m.id} data-active={metric===m.id} onClick={()=>setMetric(m.id)}>{m.label}</button>)}</div>
     </div>
-    {ranked.length?<ol className={styles.bars}>{ranked.map((r,i)=><li key={r.source.key}>
+    {ranked.length?<ol className={styles.bars}>{ranked.map((r,i)=><li key={r.source.key} data-source={r.source.key}>
       <span className={styles.rank}>{i+1}</span>
       <span className={styles.barName}><Icon name={r.source.icon} size={15}/>{r.source.label}</span>
       <span className={styles.barTrack} role="img" aria-label={`${r.source.label}: ${fmt(metric,r.value)}`}><span style={{width:Math.max(3,(r.value/max)*100)+'%'}}/></span>
@@ -68,7 +68,7 @@ function Comparison({sources,metric,setMetric}){
 function SourceCard({s,selected,onSelect}){
   const st=STATUS[s.status];
   const invalid=s.status==='unavailable'||s.status==='missing';
-  return <article className={styles.card} data-selected={selected} data-status={s.status}>
+  return <article className={styles.card} data-selected={selected} data-status={s.status} data-source={s.key}>
     <button type="button" className={styles.cardMain} aria-pressed={selected} onClick={()=>onSelect(s.key)}>
       <header><span className={styles.cardIcon}><Icon name={s.icon} size={18}/></span><b>{s.label}</b></header>
       {invalid

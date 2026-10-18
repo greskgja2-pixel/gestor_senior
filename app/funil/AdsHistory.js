@@ -19,14 +19,14 @@ const pedidos=v=>int(v)+(Number(v)===1?' pedido':' pedidos');
 function Summary({s,periodLabel}){
   const T=ADS_THRESHOLDS;
   const cards=[
-    {icon:'ads',t:'Anúncios no histórico',main:String(s.total),sub:'campanhas de Ads com dados no período'},
-    {icon:'package',t:'Mais pedidos',main:s.topOrders?.ad.title,sub:s.topOrders?pedidos(s.topOrders.ad.orders):'Nenhum pedido atribuído'},
-    {icon:'cursor',t:'Mais cliques',main:s.topClicks?.ad.title,sub:s.topClicks?int(s.topClicks.ad.clicks)+' cliques':'—'},
-    {icon:'target',t:'Melhor CTR (amostra mínima)',main:s.bestCtr?.ad.title,sub:s.bestCtr?pct(s.bestCtr.ad.ctr)+' · '+int(s.bestCtr.ad.impressions)+' impressões':`Nenhum com ${T.minImpressions.toLocaleString('pt-BR')}+ impressões`},
-    {icon:'funnel',t:'Melhor clique → pedido',main:s.bestCvr?.ad.title,sub:s.bestCvr?pct(s.bestCvr.ad.cvr)+' · '+int(s.bestCvr.ad.clicks)+' cliques':`Nenhum com ${T.minClicks}+ cliques e pedidos`},
-    {icon:'alert',t:'Precisam de atenção',main:String(s.waste),sub:`${s.zeroOrders} com 0 pedidos · ${s.limited} com amostra limitada`}
+    {tone:'blue',icon:'ads',t:'Anúncios no histórico',main:String(s.total),sub:'campanhas de Ads com dados no período'},
+    {tone:'green',icon:'package',t:'Mais pedidos',main:s.topOrders?.ad.title,sub:s.topOrders?pedidos(s.topOrders.ad.orders):'Nenhum pedido atribuído'},
+    {tone:'teal',icon:'cursor',t:'Mais cliques',main:s.topClicks?.ad.title,sub:s.topClicks?int(s.topClicks.ad.clicks)+' cliques':'—'},
+    {tone:'purple',icon:'target',t:'Melhor CTR (amostra mínima)',main:s.bestCtr?.ad.title,sub:s.bestCtr?pct(s.bestCtr.ad.ctr)+' · '+int(s.bestCtr.ad.impressions)+' impressões':`Nenhum com ${T.minImpressions.toLocaleString('pt-BR')}+ impressões`},
+    {tone:'orange',icon:'funnel',t:'Melhor clique → pedido',main:s.bestCvr?.ad.title,sub:s.bestCvr?pct(s.bestCvr.ad.cvr)+' · '+int(s.bestCvr.ad.clicks)+' cliques':`Nenhum com ${T.minClicks}+ cliques e pedidos`},
+    {tone:'red',icon:'alert',t:'Precisam de atenção',main:String(s.waste),sub:`${s.zeroOrders} com 0 pedidos · ${s.limited} com amostra limitada`}
   ];
-  return <div className={styles.summary}>{cards.map(c=><article key={c.t}>
+  return <div className={styles.summary}>{cards.map(c=><article key={c.t} data-tone={c.tone}>
     <span className={styles.sumIcon}><Icon name={c.icon} size={17}/></span><small>{c.t}</small>
     <b title={c.main}>{c.main||'—'}</b><em>{c.sub}</em><i>{periodLabel}</i>
   </article>)}</div>;

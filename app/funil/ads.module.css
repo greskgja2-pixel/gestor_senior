@@ -10,7 +10,7 @@
 .empty{margin:0;padding:12px;border:1px dashed #d4dfea;border-radius:11px;color:#6a7f93;font-size:13px;background:#fafcfe}
 .empty button{border:0;background:transparent;color:#1769e8;font-weight:800;cursor:pointer;text-decoration:underline}
 .hint{font-size:12px;line-height:1.5;color:#6f8296}
-.finance{margin:0;display:block;padding:10px 13px;border:1px solid #d6e5f6;background:#fbfdff;border-radius:12px;font-size:14px;color:#17304b}.finance small{font-size:12px;color:#6f8296}
+.finance{margin:0;display:block;padding:10px 13px;border:1px solid #d6e5f6;background:#fbfdff;border-radius:12px;font-size:14px;color:#17304b}.finance small{display:block;margin-top:3px;font-size:12px;color:#6f8296}
 .summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .summary article{display:grid;gap:3px;align-content:start;border:1px solid #e3ebf3;border-radius:13px;padding:12px;background:#fbfdff;min-width:0}
 .sumIcon{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:#edf5ff;color:#2f79dc;margin-bottom:3px}
@@ -58,3 +58,24 @@
 .collapseBody{padding:0 14px 14px}.collapseBody ul{margin:0;padding-left:18px;display:grid;gap:6px;font-size:12.5px;line-height:1.5;color:#46607a}
 @media(max-width:1280px){.row{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"ident status" "metrics metrics" "expand expand"}.ident{grid-area:ident}.status{grid-area:status}.metrics{grid-area:metrics}.expand{grid-area:expand;justify-self:start}.summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){.summary{grid-template-columns:1fr}.row{grid-template-columns:1fr;grid-template-areas:"ident" "status" "metrics" "expand"}.metrics{grid-template-columns:repeat(3,1fr)}.reads{grid-template-columns:1fr}.block{padding:12px}.filters button{flex:1 1 auto}.sort{width:100%}.sort select{flex:1}.collapse>summary>em{display:none}.expand{width:100%;justify-content:center}}
+
+/* 2026-10-17 — mais cor: cartões e métricas com tons próprios, linhas tingidas pelo estado */
+.block:first-child{background:linear-gradient(135deg,#f3f8ff 0%,#ffffff 55%,#f6f1ff 100%);border-color:#d3e1f5}
+.title>span{background:linear-gradient(135deg,#1769e8,#6a48d1);color:#fff;box-shadow:0 4px 12px rgba(23,105,232,.25)}
+.summary article{border:0;border-top:4px solid var(--tone,#1769e8);background:linear-gradient(180deg,var(--tint,#f1f7ff),#fff 70%);box-shadow:0 4px 14px rgba(35,64,94,.07)}
+.summary article[data-tone=blue]{--tone:#1769e8;--tint:#eaf3ff}.summary article[data-tone=green]{--tone:#20a46b;--tint:#e6f7ee}.summary article[data-tone=teal]{--tone:#12a3b8;--tint:#e3f6f9}
+.summary article[data-tone=purple]{--tone:#7a52e0;--tint:#f0eaff}.summary article[data-tone=orange]{--tone:#ec8a1d;--tint:#fff2e0}.summary article[data-tone=red]{--tone:#e5484d;--tint:#ffecee}
+.sumIcon{background:var(--tone,#1769e8)!important;color:#fff!important}
+.summary small{color:var(--tone,#5b7690)}.summary b{font-size:16px}
+.finance{background:linear-gradient(90deg,#e8f6ef,#eef4ff);border-color:#cfe6dc}
+.item{border-left-width:6px}
+.item[data-state=waste]{background:linear-gradient(90deg,#fff3f4,#fff 40%)}.item[data-state=strong]{background:linear-gradient(90deg,#eef9f3,#fff 40%)}
+.item[data-state=lowCtr]{background:linear-gradient(90deg,#fff8ec,#fff 40%)}.item[data-state=promising]{background:linear-gradient(90deg,#edf4ff,#fff 40%)}
+.item[data-state=limited],.item[data-state=nodata]{background:linear-gradient(90deg,#f3f5f8,#fff 40%)}
+.metrics div:nth-child(1) dd,.metrics div:nth-child(1) dt svg{color:#1769e8}.metrics div:nth-child(2) dd,.metrics div:nth-child(2) dt svg{color:#12a3b8}
+.metrics div:nth-child(3) dd,.metrics div:nth-child(3) dt svg{color:#20a46b}.metrics div:nth-child(4) dd,.metrics div:nth-child(4) dt svg{color:#7a52e0}.metrics div:nth-child(5) dd,.metrics div:nth-child(5) dt svg{color:#ec8a1d}
+.metrics dd{font-size:16px}
+.filters button{border-color:#c9d9ea;background:#f4f8fd}.filters button[data-active=true]{background:linear-gradient(135deg,#1769e8,#4a86f0);box-shadow:0 3px 10px rgba(23,105,232,.28)}
+.expand{background:#eef6ff}.expand[aria-expanded=true]{background:linear-gradient(135deg,#1769e8,#4a86f0)}
+.triad article:not([data-kind=cause]){border-top:3px solid #3b8ef0}.triad article[data-kind=cause]{border-top:3px solid #f2a11d}
+.reads p:first-child{background:#f0eaff;border-color:#dccffa;color:#5a3cb8}.reads p:last-child{background:#fff2e0;border-color:#fbdcae;color:#a85a00}
