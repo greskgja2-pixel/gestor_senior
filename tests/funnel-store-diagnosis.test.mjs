@@ -106,7 +106,7 @@ test('produtos para começar: maior oportunidade (gap × volume) primeiro e nada
 test('todas as conversões têm hipóteses e passos, sem promessa de resultado',()=>{
   for(const t of FUNNEL_TRANSITIONS.filter(x=>x.kind==='conversion')){
     assert.ok(t.causes.length>=3,t.id+' sem hipóteses');
-    assert.equal(t.steps.length,3,t.id+' sem 3 passos');
+    assert.ok(t.steps.length>=4,t.id+" sem passos concretos");
     assert.match(t.per100(.5),/De cada 100/);
     assert.doesNotMatch(t.why+t.steps.join(' ')+t.causes.join(' '),/garant|vai aumentar|certamente/i);
   }

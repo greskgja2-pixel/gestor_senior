@@ -759,3 +759,6 @@ _(acrescente abaixo: data, o que revisou, divergências, erros encontrados)_
 
 ### 2026-10-17 — Claude — `/funil-demo` (demonstração pública com dados FICTÍCIOS)
 Rota pública (middleware + `PUBLIC_PAGES` do AppShell) que renderiza `StoreOverview` com dados sintéticos gerados no cliente, sem Motor, Shopee ou banco, para revisar o layout sem login. Faixa amarela avisa que é demonstração; botões de produto ficam desativados. `/funil` continua protegido por login. Não colocar dados reais nesta rota.
+
+### 2026-10-17 — Claude — Orientações do Plano de Destrave mais específicas
+Os passos de cada passagem (`steps` em `app/lib/funnel-store-diagnosis.js`) e as ações por anúncio (`productPlan` em `page.js`) agora dizem o que fazer na prática (ex.: pesquisar o produto na Shopee, comparar a capa com os mais vendidos, simular a compra no celular, ler motivos de cancelamento no Seller Center). Continuam sendo testes sugeridos, sem promessa de resultado; o primeiro passo é a "primeira ação" mostrada no diagnóstico e na visão resumida.

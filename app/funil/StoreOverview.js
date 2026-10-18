@@ -154,7 +154,7 @@ function DiagnosisHero({diag,model,periodMeta,onViewProducts,onViewPlan}){
     {state==='bottleneck'&&<div className={styles.triad}>
       <article data-kind="fact"><span className={styles.kindTag}><Icon name="check" size={13}/>Fato identificado</span><p>{heroFact(primary,t,model.totals)}</p></article>
       <article data-kind="cause"><span className={styles.kindTag}><Icon name="help" size={13}/>Possível causa · hipótese</span><ul>{t.causes.slice(0,3).map((c,i)=><li key={i}>{c}</li>)}</ul><small>Hipóteses para investigar; o Gestor ainda não comprovou nenhuma delas.</small></article>
-      <article data-kind="action"><span className={styles.kindTag}><Icon name="list" size={13}/>Ação sugerida</span><p>{t.steps[1]||t.steps[0]}</p><small>Faça um teste por vez e acompanhe a mesma métrica no mesmo período.</small></article>
+      <article data-kind="action"><span className={styles.kindTag}><Icon name="list" size={13}/>Ação sugerida</span><p>{t.steps[0]}</p><small>Faça um teste por vez e acompanhe a mesma métrica no mesmo período.</small></article>
     </div>}
 
     {state==='bottleneck'&&<div className={styles.heroFoot}>
@@ -301,7 +301,7 @@ function StartProductCard({item,index,t,ref_,ctx,plan,onOpen,detailed}){
       <div className={styles.meterText}><span>Este anúncio <b>{pct(rate)}</b></span><span>Referência <b>{pct(ref_)}</b></span></div>
     </div>
     <p className={styles.reason}><span className={styles.kindTag} data-kind="fact"><Icon name="check" size={12}/>Fato</span>{relBelow!=null&&relBelow>0?`${Math.round(relBelow*100)}% abaixo da mediana dos seus anúncios`:'Sem folga relevante contra a mediana'} · {int(base)} na entrada da etapa.</p>
-    <p className={styles.reason}><span className={styles.kindTag} data-kind="action"><Icon name="list" size={12}/>Ação sugerida</span>{plan?.actions?.[0]||t.steps[1]}</p>
+    <p className={styles.reason}><span className={styles.kindTag} data-kind="action"><Icon name="list" size={12}/>Ação sugerida</span>{plan?.actions?.[0]||t.steps[0]}</p>
     {detailed&&plan&&<p className={styles.reason}><span className={styles.kindTag} data-kind="cause"><Icon name="help" size={12}/>Leitura do anúncio · hipótese</span>{plan.title}. {plan.evidence}</p>}
     {!ctx&&<small className={styles.warnText}>Sem Super Análise: o Gestor não cruza concorrentes, preço e margem para este anúncio.</small>}
     <footer>
@@ -342,7 +342,7 @@ function UnlockPlan({model,diag,context,guidanceMode,onChooseGuidance,onOpenProd
           <ol>{t.steps.map((step,i)=><li key={i} data-done={!!done[i]}><label><input type="checkbox" checked={!!done[i]} onChange={e=>setDone(d=>({...d,[i]:e.target.checked}))}/><span className={styles.stepNo}>{i+1}</span><p>{step}</p></label></li>)}</ol>
           <p className={styles.noteBox} role="note"><Icon name="info" size={15}/>Depois de mexer, volte aqui e compare a mesma passagem no mesmo período. Mudanças podem levar dias para aparecer.</p>
         </div>
-        :<div className={styles.stepsCompact}><span className={styles.kindTag} data-kind="action"><Icon name="list" size={12}/>Primeira ação</span><p>{t.steps[1]||t.steps[0]}</p></div>}
+        :<div className={styles.stepsCompact}><span className={styles.kindTag} data-kind="action"><Icon name="list" size={12}/>Primeira ação</span><p>{t.steps[0]}</p></div>}
 
       <div className={styles.startHead}>
         <div><strong>Produtos para começar</strong><small>Ordenados pela maior distância para a mediana dos seus anúncios, ponderada pelo volume da etapa. Não é previsão de vendas.</small></div>
