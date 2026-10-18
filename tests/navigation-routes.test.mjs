@@ -249,7 +249,17 @@ test('Por Produto usa cards com mini funil visual aprovado',()=>{
   assert.match(funnel,/Maior gargalo: Carrinho → Pedido/);
   assert.match(funnel,/Concorrente de referência/);
   assert.match(funnel,/Faça assim/);
-  assert.match(funnel,/productFunnelList/);
+  // Desde 2026-10-17 os anúncios aparecem numa lista compacta (ProductList.js) com detalhe expansível, em vez de cards enormes empilhados.
+  assert.match(funnel,/<ProductList/);
+  const list=read('app/funil/ProductList.js');
+  assert.match(list,/Ver análise/);
+  assert.match(list,/aria-haspopup="menu"/);
+  assert.match(list,/Recoletar dados/);
+  assert.match(list,/Saúde do Sistema/);
+  assert.match(list,/Ver Shopee Ads/);
+  assert.match(funnel,/Abrir Super Análise deste anúncio/);
+  assert.match(funnel,/Dados do funil indisponíveis/);
+  assert.match(funnel,/Amostra pequena — conclusão limitada/);
   assert.doesNotMatch(funnel,/className=\{styles\.actionIntro\}/);
   assert.match(css,/\.productMiniFunnel/);
   assert.match(css,/\.productFunnelCard/);

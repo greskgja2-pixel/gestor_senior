@@ -5,6 +5,8 @@ import {useEffect,useMemo,useRef,useState} from 'react';
 import {motorData} from '../lib/client-async';
 import {deriveStoreFunnel} from '../lib/funnel-health';
 import {transitionById,stageByKey,rankProductsForStage} from '../lib/funnel-store-diagnosis';
+import {classifyProduct} from '../lib/funnel-product-state';
+import ProductList from './ProductList';
 import {PRODUCT_FUNNEL_FIELDS,chooseBestFunnelResponse,needsFunnelRetry,diagnoseFunnelProducts,mergeRecollectedFunnelProduct} from '../lib/funnel-product-diagnostics';
 import TrafficSources from './TrafficSources';
 import StoreOverview,{Icon,GuidanceSwitch,imageFallback,IMAGE_PLACEHOLDER} from './StoreOverview';
@@ -200,16 +202,31 @@ function productBottleneck(plan){
 }
 
 function MiniProductFunnel({p}){
+  const [sel,setSel]=useState(null);
   const impressions=num(p.product_card_impressions),clicks=num(p.product_card_clicks),visits=num(p.uv),carts=num(p.add_to_cart_buyers),placed=num(p.placed_buyers),paid=num(p.paid_buyers);
   const values=[impressions,clicks,visits,carts,placed,paid];
   const labels=['Impressões','Cliques','Visitas','Carrinho','Pedido','Pago'];
-  const rates=values.map((v,i)=>i===0?(v!=null?1:null):(values[i-1]>0&&v!=null?v/values[i-1]:null));
+  const keys=['impressions','clicks','visitors','carts','placed','paid'];
+  // Taxa só com as duas pontas coletadas; acima de 100% é incompatibilidade de bases, não conversão.
+  const rawRates=values.map((v,i)=>i===0?(v!=null?1:null):(values[i-1]>0&&v!=null?v/values[i-1]:null));
+  const rates=rawRates.map(r=>r!=null&&r>1?null:r);
+  const over=rawRates.map(r=>r!=null&&r>1);
+  let readout='Toque numa etapa para ver o que ela significa e como a taxa foi calculada.';
+  if(sel!=null){
+    const v=values[sel];
+    if(v==null)readout=labels[sel]+': não coletado. Isso não é tratado como zero.';
+    else if(sel===0)readout='Este anúncio recebeu '+int(v)+' impressões no período.';
+    else if(values[sel-1]==null)readout=int(v)+' '+labels[sel].toLowerCase()+'. A etapa anterior não foi coletada, então a taxa não é calculada.';
+    else if(over[sel])readout=int(v)+' '+labels[sel].toLowerCase()+' para '+int(values[sel-1])+' '+labels[sel-1].toLowerCase()+': a taxa passaria de 100% (métricas de bases diferentes), por isso não é exibida como conversão.';
+    else readout=int(v)+' '+labels[sel].toLowerCase()+' para '+int(values[sel-1])+' '+labels[sel-1].toLowerCase()+(rates[sel]!=null?': '+pct(rates[sel])+' de passagem'+(sel===1?' (CTR calculada)':'')+'.':'.');
+  }
   return <div className={styles.productMiniFunnel} aria-label="Funil do produto">
-    {labels.map((label,index)=><div className={styles.productMiniStage} data-index={index} data-missing={values[index]==null?'true':'false'} key={label}>
-      <div className={styles.productMiniBar}><span>{label}</span></div>
+    {labels.map((label,index)=><div className={styles.productMiniStage} data-index={index} data-missing={values[index]==null?'true':'false'} data-selected={sel===index?'true':'false'} key={label}>
+      <button type="button" className={styles.productMiniBar} aria-pressed={sel===index} onClick={()=>setSel(sel===index?null:index)}><span>{label}</span></button>
       <strong>{int(values[index])}</strong>
       <small>{pct(rates[index])}</small>
     </div>)}
+    <p className={styles.miniReadout} aria-live="polite">{readout}</p>
   </div>
 }
 
@@ -482,26 +499,39 @@ function TitleEditor({p,context,onClose}){
   </section>;
 }
 
-function ProductFunnelCard({p,med,mode,context,onRecollect,recollecting,recollectDisabled,recollectFeedback,focused}){
+function causesForPlan(plan){
+  const t=/antes do clique/.test(plan.title)?'ctr':/não coloca no carrinho/.test(plan.title)?'visitCart':/desiste antes do pedido/.test(plan.title)?'cartPlaced':/poucos viram pagamento/.test(plan.title)?'placedPaid':/antes da confirmação/.test(plan.title)?'paidConfirmed':null;
+  return t?transitionById(t):null;
+}
+
+// Detalhe expandido de UM anúncio (a lista compacta fica em ProductList.js). Visão resumida = diagnóstico + 1 ação;
+// Passo a passo = hipóteses, 3 passos, como verificar e base da sugestão. Ambos usam o MESMO cálculo (productPlan/specificPlan).
+function ProductFunnelCard({p,med,mode,context,onRecollect,recollecting,recollectDisabled,recollectFeedback,focused,state}){
   const [priceOpen,setPriceOpen]=useState(false);
   const [titleOpen,setTitleOpen]=useState(false);
   const plan=mode==='specific'?specificPlan(p,med,context):productPlan(p,med);
   const bottleneck=productBottleneck(plan);
-  const status=plan.priority==='bad'?'CRÍTICO':plan.priority==='warn'?'ATENÇÃO':plan.priority==='good'?'SAUDÁVEL':plan.label;
+  const stateId=state?.id||'ready';
+  const noData=stateId==='missing'||stateId==='failed';
+  const small=stateId==='small';
+  // Selo do detalhe: desempenho só quando há dados suficientes; nos demais casos mostra o estado da coleta (nunca um "CRÍTICO" sem dados).
+  const status=stateId==='ready'?(plan.priority==='bad'?'CRÍTICO':plan.priority==='warn'?'ATENÇÃO':plan.priority==='good'?'SAUDÁVEL':plan.label):state.label;
+  const statusPriority=stateId==='ready'?plan.priority:stateId==='failed'?'bad':stateId==='small'?'data':'missing';
   const productContext=context?.[String(p.id)]||null;
   const competitor=arr(productContext?.competitors)[0]||null;
-  const productImage=p.image||productContext?.image||IMAGE_PLACEHOLDER;
   const evidence=plan.evidence||'';
+  const transition=causesForPlan(plan);
+  const specific=mode==='specific';
   const titleActionIndex=plan.actions.findIndex(action=>/t[ií]tulo|palavra.?chave|keyword/i.test(String(action)));
   const priceActionIndex=plan.actions.findIndex((action,index)=>index!==titleActionIndex&&/pre[cç]o|oferta/i.test(String(action)));
-  return <article className={styles.productFunnelCard} id={'produto-'+p.id} data-priority={plan.priority} data-focused={focused?'true':'false'}>
+  const actions=specific?plan.actions.slice(0,3):plan.actions.slice(0,1);
+  const diagTitle=noData?'Dados do funil indisponíveis':small?'Amostra pequena — conclusão limitada':bottleneck.title;
+  const diagDetail=noData?'O Motor Sênior ainda não forneceu as métricas deste anúncio para o período selecionado.':small?'Os números disponíveis ainda não permitem identificar com segurança o principal gargalo. Os dados existentes continuam visíveis, mas sem recomendação categórica.':bottleneck.detail;
+  return <article className={styles.productFunnelCard} data-priority={plan.priority} data-state={stateId} data-focused={focused?'true':'false'}>
     <header className={styles.productFunnelHeader}>
-      <div className={styles.productIdentity}>
-        <img src={productImage} alt="" onError={imageFallback}/>
-        <div><h3>{p.name||'Produto'}</h3><small>ID {p.id||'—'}</small></div>
-      </div>
+      <div className={styles.productIdentity}><div><h3>Análise do anúncio</h3><small>{p.name||'Produto'} · ID {p.id||'—'}</small></div></div>
       <div className={styles.productHeaderActions}>
-        <span className={styles.productStatus} data-priority={plan.priority}>{status}</span>
+        <span className={styles.productStatus} data-priority={statusPriority}>{status}</span>
         <button type="button" className={styles.productRecollectButton}
           onClick={()=>onRecollect(String(p.id))}
           disabled={recollectDisabled}
@@ -513,36 +543,48 @@ function ProductFunnelCard({p,med,mode,context,onRecollect,recollecting,recollec
     </header>
     {recollectFeedback?.message&&<div className={styles.productRecollectFeedback} data-tone={recollectFeedback.tone} role="status" aria-live="polite">{recollectFeedback.message}</div>}
 
-    <div className={styles.productFunnelBody}>
-      <div className={styles.productFunnelLeft}>
-        <MiniProductFunnel p={p}/>
-        <div className={styles.productCompetitorBox}>
-          <strong>Concorrente de referência</strong>
-          {competitor?<a href={competitor.url||'#'} target={competitor.url?'_blank':undefined} rel={competitor.url?'noreferrer':undefined} data-disabled={!competitor.url?'true':'false'}>
-            {competitor.image?<img src={competitor.image} alt="" onError={e=>{e.currentTarget.style.display='none'}}/>:<span className={styles.productCompetitorPlaceholder}>◎</span>}
-            <div><b>{competitor.title||'Concorrente vinculado'}</b><small>{competitor.price!=null?money(competitor.price):'Preço não coletado'}{competitor.sold!=null?' · '+int(competitor.sold)+' vendidos':''}</small></div>
-          </a>:<div className={styles.productCompetitorEmpty}>Ainda não há concorrente vinculado para este produto.</div>}
-        </div>
-      </div>
+    <div className={styles.productFunnelBody} data-nodata={noData?'true':'false'}>
+      {!noData&&<div className={styles.productFunnelLeft}><MiniProductFunnel p={p}/></div>}
 
       <div className={styles.productFunnelRight}>
-        <section className={styles.productDiagnosis} data-tone={bottleneck.tone}>
-          <h4>{bottleneck.title}</h4>
-          <strong>{evidence}</strong>
-          <p>{bottleneck.detail}</p>
-          {mode==='specific'&&plan.specificNote&&<small>{plan.specificNote}</small>}
+        <section className={styles.productDiagnosis} data-tone={noData?'missing':small?'data':bottleneck.tone}>
+          <h4>{diagTitle}</h4>
+          {!noData&&<strong>{evidence}</strong>}
+          <p>{diagDetail}</p>
+          {specific&&plan.specificNote&&<small>{plan.specificNote}</small>}
+          {noData&&<details className={styles.techFold}><summary>Detalhes da coleta</summary><p>{plan.evidence||'Sem métricas retornadas.'} Preço e concorrentes vêm da Super Análise, outra fonte. Isso não comprova baixo tráfego.</p></details>}
         </section>
 
+        {specific&&transition&&transition.causes.length>0&&!small&&!noData&&<section className={styles.causesBox}>
+          <strong>Possíveis causas · hipóteses</strong>
+          <ul>{transition.causes.map((c,i)=><li key={i}>{c}</li>)}</ul>
+          <small>Hipóteses para investigar; nenhuma foi comprovada.</small>
+        </section>}
+
         <section className={styles.productActionBox}>
-          <strong>Faça assim</strong>
-          <ol>{plan.actions.slice(0,3).map((action,index)=><li key={index}><span>{index+1}</span><p>{action}</p>
+          <strong>{specific?'Faça assim':'Principal ação'}</strong>
+          <ol>{actions.map((action,index)=><li key={index}><span>{index+1}</span><p>{action}</p>
             {index===titleActionIndex&&<button type="button" className={styles.inlineActionButton} onClick={()=>{setTitleOpen(v=>!v);setPriceOpen(false)}}>{titleOpen?'Fechar editor':'✎ Editar título'}</button>}
             {index===priceActionIndex&&<button type="button" className={styles.inlineActionButton} onClick={()=>{setPriceOpen(v=>!v);setTitleOpen(false)}}>{priceOpen?'Fechar calculadora':'▦ Abrir calculadora'}</button>}
           </li>)}</ol>
+          {specific&&transition&&!small&&!noData&&<p className={styles.verifyLine}><b>Como verificar:</b> acompanhe {transition.kpiLabel} deste anúncio no mesmo período depois de mudar uma coisa por vez.</p>}
+          {!specific&&plan.actions.length>1&&<small className={styles.verifyLine}>Mais {plan.actions.length-1} passo(s) no modo “Passo a passo”.</small>}
         </section>
 
+        <details className={styles.competitorFold}>
+          <summary>Comparar concorrente<small>Fonte: Super Análise{productContext?.analyzedAt?' · coletado em '+new Date(productContext.analyzedAt).toLocaleDateString('pt-BR'):''}</small></summary>
+          <div className={styles.productCompetitorBox}>
+            <strong>Concorrente de referência</strong>
+            {competitor?<a href={competitor.url||'#'} target={competitor.url?'_blank':undefined} rel={competitor.url?'noreferrer':undefined} data-disabled={!competitor.url?'true':'false'}>
+              {competitor.image?<img src={competitor.image} alt="" onError={e=>{e.currentTarget.style.display='none'}}/>:<span className={styles.productCompetitorPlaceholder}>◎</span>}
+              <div><b>{competitor.title||'Concorrente vinculado'}</b><small>{competitor.price!=null?money(competitor.price):'Preço não coletado'}{competitor.sold!=null?' · '+int(competitor.sold)+' vendidos (período não informado)':''}</small></div>
+            </a>:<div className={styles.productCompetitorEmpty}>Ainda não há concorrente vinculado para este produto.</div>}
+          </div>
+        </details>
+
         <div className={styles.productFunnelFooter}>
-          <Link href={plan.href}>{plan.action} →</Link>
+          {!noData&&<Link href={plan.href}>{plan.action} →</Link>}
+          {noData&&<Link href="/?section=config">Ver Saúde do Sistema →</Link>}
           {productContext&&<Link className={styles.productSecondaryLink} href={`/super-analise?item_id=${encodeURIComponent(p.id)}${productContext.reportId?`&report_id=${encodeURIComponent(productContext.reportId)}`:''}`}>Abrir Super Análise deste anúncio</Link>}
         </div>
       </div>
@@ -572,6 +614,7 @@ export default function FunilPage(){
   const [requestedItem,setRequestedItem]=useState('');
   const [guidanceMode,setGuidanceMode]=useState('standard');
   const [stageFocus,setStageFocus]=useState('');
+  const [expandedId,setExpandedId]=useState('');
   const [lastUpdated,setLastUpdated]=useState(null);
   const [period,setPeriod]=useState('past30days');
   const [context,setContext]=useState({});
@@ -640,6 +683,7 @@ export default function FunilPage(){
       const params=new URLSearchParams(window.location.search);
       if(params.get('tab')==='produto')setTab('produto');
       setRequestedItem(String(params.get('item_id')||''));
+      setExpandedId(String(params.get('item_id')||''));
     }catch{}
     load('past30days');
   },[]);
@@ -657,12 +701,13 @@ export default function FunilPage(){
     load(next);
   };
   const selectTab=next=>{
-    if(next==='produto'){setRequestedItem('');setStageFocus('')}
+    if(next==='produto'){setRequestedItem('');setExpandedId('');setStageFocus('')}
     setTab(next);
   };
   // Abre a aba Por Produto mantendo o contexto: anúncio escolhido, etapa analisada e, se pedido, o modo específico.
   const openProduct=(itemId,opts={})=>{
     setRequestedItem(String(itemId||''));
+    setExpandedId(String(itemId||''));
     setStageFocus(opts.stage||'');
     if(opts.mode==='specific')chooseGuidance('specific');
     setTab('produto');
@@ -689,10 +734,10 @@ export default function FunilPage(){
       if(result.status==='updated'){
         setState(current=>({...current,seller:result.seller}));
         const pending=result.complete?'Todas as 7 etapas disponíveis.':result.metrics+' de 7 etapas recebidas; as demais continuam indisponíveis.';
-        feedback('Recoleta concluída para este anúncio ('+periodMeta(request.period).label+'). '+pending,'success');
+        feedback('Métricas atualizadas ('+periodMeta(request.period).label+'). '+pending,'success');
       }else{
         const messages={
-          not_returned:'O Motor respondeu, mas não devolveu este anúncio no período '+periodMeta(request.period).label+'. Nenhum dado foi inventado.',
+          not_returned:'A coleta terminou, mas a Shopee não disponibilizou as métricas deste anúncio no período '+periodMeta(request.period).label+'. Nenhum dado foi inventado.',
           no_metrics:'O Motor encontrou este anúncio, mas não retornou métricas do Funil. Os dados anteriores foram preservados.',
           less_complete:'O Motor retornou menos métricas do que antes; mantive os dados anteriores para não perder informação.',
           period_unconfirmed:'O Motor não informou o período dos dados. A atualização foi descartada para não misturar Hoje, 7 e 30 dias.',
@@ -703,7 +748,7 @@ export default function FunilPage(){
       }
     }catch(error){
       if(recollectInFlight.current!==request||request.epoch!==latestRequest.current)return;
-      feedback('Falha na recoleta: '+String(error?.message||error));
+      feedback('Falha na recoleta: não foi possível concluir a coleta ('+String(error?.message||error)+'). Tente novamente.');
     }finally{
       if(recollectInFlight.current===request){
         recollectInFlight.current=null;
@@ -790,6 +835,12 @@ export default function FunilPage(){
     return productPlan(a,model.med).rank-productPlan(b,model.med).rank;
   });
   const focusTransition=stageFocus?transitionById(stageFocus):null;
+  const productRows=orderedAnalyzed.map(p=>{
+    const plan=productPlan(p,model.med);
+    const failed=/^Falha/.test(String(recollection.feedback[String(p.id)]?.message||''));
+    const state=classifyProduct(plan,{updating:recollection.busyId===String(p.id),failed});
+    return{p,plan,state,ctx:context?.[String(p.id)]||null};
+  });
   const unavailableForFunnel=Math.max(0,model.products.filter(p=>!context?.[String(p.id)]?.analyzedAt).length);
   const analyzedWithoutMetrics=analyzedProducts.filter(p=>p.funnelMetricsUnavailable||productPlan(p,model.med).priority==='missing').length;
 
@@ -844,15 +895,15 @@ export default function FunilPage(){
       topProductCard={topProduct?<ProductActionCard p={topProduct} med={model.med} mode={guidanceMode} context={context}/>:null}/>}
 
     {!state.loading&&tab==='produto'&&<section className={styles.panel} id="funil-produtos">
-      <div className={styles.sectionHead}><div><h2>Funil por Produto</h2><p>Anúncios com Super Análise recente permanecem disponíveis mesmo quando a coleta do Motor estiver temporariamente sem métricas.</p></div><span>{analyzedProducts.length} disponíveis</span></div>
+      <div className={styles.sectionHead}><div><h2>Funil por Produto</h2><p>Escolha um anúncio para ver o funil, o diagnóstico e o plano de ação. Anúncios com Super Análise recente aparecem mesmo sem métricas do funil.</p></div><span>{analyzedProducts.length} disponíveis</span></div>
       {focusTransition&&<div className={styles.stageFocusBanner} role="status"><Icon name="target" size={16}/><span>Anúncios ordenados pela maior oportunidade em <b>{stageByKey(focusTransition.from)?.label} → {stageByKey(focusTransition.to)?.label}</b> (distância para a mediana dos seus anúncios × volume). Nenhum anúncio foi ocultado.</span><button type="button" onClick={()=>setStageFocus('')}>Limpar ordenação</button></div>}
-      <div className={styles.funnelEligibilityNotice}><b>Super Análise obrigatória</b><span>{analyzedWithoutMetrics>0?`${analyzedWithoutMetrics} produto(s) analisado(s) estão sem métricas completas do Funil.`:unavailableForFunnel>0?`${unavailableForFunnel} produto(s) da coleta ainda precisam de Super Análise.`:'Todos os produtos analisados estão com métricas disponíveis.'}</span><Link href="/super-analise">Gerenciar na Super Análise →</Link></div>
+      <div className={styles.funnelEligibilityNotice}><b>Super Análise obrigatória</b><span>{analyzedWithoutMetrics>0?`${analyzedWithoutMetrics} produto(s) analisado(s) estão sem métricas completas do Funil.`:unavailableForFunnel>0?`${unavailableForFunnel} produto(s) da coleta ainda precisam de Super Análise.`:'Todos os produtos analisados estão com métricas disponíveis.'} Preço e concorrentes vêm da Super Análise; as métricas do funil vêm do Motor Sênior.</span><Link href="/super-analise">Gerenciar na Super Análise →</Link></div>
       {analyzedWithoutMetrics>0&&<aside className={styles.collectionNotice} role="status">
         <div><strong>Métricas não coletadas ou incompletas em {analyzedWithoutMetrics} de {analyzedProducts.length} anúncios</strong>
-          <p>O Motor não entregou todos os números necessários para o funil de {actualPeriodMeta.label}. Isso não comprova baixo tráfego. Preço e concorrentes vêm da Super Análise, uma fonte diferente.</p>
+          <p>O Motor não entregou todos os números do funil de {actualPeriodMeta.label}. Isso não comprova baixo tráfego.</p>
         </div>
         <div className={styles.collectionActions}>
-          <button type="button" onClick={()=>load(period)}>↻ Tentar novamente</button>
+          <button type="button" title={`Refaz a coleta do funil da loja em ${actualPeriodMeta.label} e atualiza os ${analyzedWithoutMetrics} anúncio(s) sem métricas, preservando dados válidos.`} onClick={()=>load(period)}>↻ Tentar novamente</button>
           {period!=='real_time'&&<button type="button" onClick={()=>changePeriod('real_time')}>Testar Hoje</button>}
           <Link href="/?section=config">Saúde do Sistema →</Link>
         </div>
@@ -872,14 +923,14 @@ export default function FunilPage(){
         </details>
       </aside>}
       <GuidanceSwitch mode={guidanceMode} onChange={chooseGuidance}/>
-      <div className={styles.productPlanBanner}><b>Plano de destrave</b><span>As sugestões são testes orientados por evidências; nenhuma alteração é aplicada automaticamente.</span></div>
-      {!orderedAnalyzed.length?<div className={styles.empty}>Nenhum produto disponível. Faça a Super Análise dos anúncios que deseja acompanhar no Funil.</div>:<>
-        <div className={styles.productFunnelList}>
-          {orderedAnalyzed.map(p=><ProductFunnelCard key={'funnel-'+p.id} p={p} med={model.med} mode={guidanceMode} context={context}
-              focused={!!requestedItem&&String(p.id)===requestedItem}
-              onRecollect={recollectProduct} recollecting={recollection.busyId===String(p.id)}
-              recollectDisabled={!!recollection.busyId} recollectFeedback={recollection.feedback[String(p.id)]}/>)}
-        </div>
+      <p className={styles.planHint}><b>Plano de destrave</b> · As sugestões são testes orientados por evidências; nenhuma alteração é aplicada automaticamente.</p>
+      {!productRows.length?<div className={styles.empty}>Nenhum produto disponível. Faça a Super Análise dos anúncios que deseja acompanhar no Funil.</div>:<>
+        <ProductList rows={productRows} expandedId={expandedId} recollection={recollection} onRecollect={recollectProduct}
+          onToggle={id=>setExpandedId(cur=>cur===id?'':id)}
+          renderDetail={row=><ProductFunnelCard key={'funnel-'+row.p.id} p={row.p} med={model.med} mode={guidanceMode} context={context} state={row.state}
+              focused={!!requestedItem&&String(row.p.id)===requestedItem}
+              onRecollect={recollectProduct} recollecting={recollection.busyId===String(row.p.id)}
+              recollectDisabled={!!recollection.busyId} recollectFeedback={recollection.feedback[String(row.p.id)]}/>}/>
         <details className={styles.rawDetails}><summary>Ver tabela completa dos produtos liberados</summary><div className={styles.tableWrap}><table><thead><tr><th>Produto</th><th>Impressões</th><th>Cliques</th><th>CTR</th><th>Visitantes</th><th>Carrinho</th><th>Pedido</th><th>Pago</th><th>Confirmado</th><th>Status</th></tr></thead><tbody>{orderedAnalyzed.map(p=><ProductRow key={p.id} p={p} med={model.med}/>)}</tbody></table></div></details>
       </>}
     </section>}
