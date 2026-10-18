@@ -19,6 +19,16 @@ const pct=v=>num(v)==null?'—':(Number(v)*100).toLocaleString('pt-BR',{maximumF
 const money=v=>num(v)==null?'—':Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const val=x=>num(x?.value??x);
 const arr=v=>Array.isArray(v)?v:[];
+// Imagens do catálogo (cache de produtos da loja). Só aceita HTTPS dos domínios de imagem da Shopee.
+const SHOPEE_IMAGE=/^https:\/\/(cf\.shopee\.com\.br|down-br\.img\.susercontent\.com)\//;
+const catalogImageMap=items=>{
+  const map={};
+  for(const item of arr(items)){
+    const url=item?.image?.image_url_list?.[0]||item?.image_info?.image_url;
+    if(item?.item_id!=null&&typeof url==='string'&&SHOPEE_IMAGE.test(url))map[String(item.item_id)]=url;
+  }
+  return map;
+};
 const median=values=>{const a=values.filter(v=>Number.isFinite(v)).sort((x,y)=>x-y);if(!a.length)return null;const m=Math.floor(a.length/2);return a.length%2?a[m]:(a[m-1]+a[m])/2};
 const cleanText=v=>String(v||'').replace(/\s+/g,' ').trim();
 const pickSuggestion=(list,re)=>arr(list).map(cleanText).find(x=>re.test(x))||null;
@@ -614,7 +624,7 @@ export default function FunilPage(){
   const [lastUpdated,setLastUpdated]=useState(null);
   const [period,setPeriod]=useState('past30days');
   const [context,setContext]=useState({});
-  const [state,setState]=useState({loading:true,error:'',seller:null,ads:null});
+  const [state,setState]=useState({loading:true,error:'',seller:null,ads:null,images:{}});
   const latestRequest=useRef(0);
   const [diagnosticUpload,setDiagnosticUpload]=useState({saving:false,message:'',error:false});
   const [recollection,setRecollection]=useState({busyId:'',feedback:{}});
@@ -628,7 +638,7 @@ export default function FunilPage(){
     setDiagnosticUpload({saving:false,message:'',error:false});
     setState(s=>({...s,loading:true,error:''}));
     const meta=periodMeta(selectedPeriod);
-    const [sellerR,adsR]=await Promise.allSettled([
+    const [sellerR,adsR,catalogR]=await Promise.allSettled([
       (async()=>{
          const first=await motorData('sellerFunnel',{period:selectedPeriod},60000);
          const errorList=arr(first?.errors);
@@ -642,6 +652,8 @@ export default function FunilPage(){
          }catch{return first}
        })(),
       getJson('/api/shopee/ads?days='+meta.days)
+    ,
+      getJson('/api/shopee/products')
     ]);
     if(requestId!==latestRequest.current)return;
     const seller=sellerR.status==='fulfilled'?sellerR.value:null;
@@ -668,7 +680,9 @@ export default function FunilPage(){
       setContext({});
     }
     if(requestId!==latestRequest.current)return;
-    setState({loading:false,error:errors.join(' · '),seller,ads,adsError:adsR.status==='rejected'?String(adsR.reason?.message||adsR.reason):''});
+    // Imagens são complementares: se o catálogo falhar, mantém as que já tinha e nada é inventado.
+    const images=catalogR.status==='fulfilled'?catalogImageMap(catalogR.value?.items):null;
+    setState(s=>({loading:false,error:errors.join(' · '),seller,ads,images:images||s.images||{},adsError:adsR.status==='rejected'?String(adsR.reason?.message||adsR.reason):''}));
     // Só conta como atualização válida quando o Motor entregou pelo menos uma etapa do funil.
     if(seller&&deriveStoreFunnel(seller).coverage.stageCount>0)setLastUpdated({at:Date.now(),period:selectedPeriod});
   };
@@ -759,7 +773,7 @@ export default function FunilPage(){
       ...p,
       id:String(p?.id??p?.item_id??p?.itemId??'').trim(),
       name:p?.name||p?.title||p?.product_name||null,
-      image:p?.image||p?.image_url||null
+      image:p?.image||p?.image_url||state.images?.[String(p?.id??p?.item_id??p?.itemId??'').trim()]||null
     })).filter(p=>p.id);
     const {totals,rates,coverage,sources,evidence}=deriveStoreFunnel(s);
     const med={
@@ -816,7 +830,7 @@ export default function FunilPage(){
     return{
       id,
       name:ctx?.title||('Produto '+id),
-      image:ctx?.image||null,
+      image:ctx?.image||state.images?.[id]||null,
       funnelMetricsUnavailable:true
     };
   }).filter(Boolean);
@@ -933,7 +947,7 @@ export default function FunilPage(){
     {!state.loading&&tab==='trafego'&&<TrafficSources traffic={model.traffic} errors={model.errors} periodMeta={actualPeriodMeta} periodId={actualPeriod}
       lastUpdated={stamp?stamp.getTime():null} onGoTab={selectTab} onRefresh={()=>load(period)} onChangePeriod={changePeriod}/>}
 
-    {!state.loading&&tab==='ads'&&<AdsHistory ads={state.ads} adsError={state.adsError} context={context} periodMeta={periodMeta(period)} periodId={period}
+    {!state.loading&&tab==='ads'&&<AdsHistory images={state.images} ads={state.ads} adsError={state.adsError} context={context} periodMeta={periodMeta(period)} periodId={period}
       lastUpdated={stamp?stamp.getTime():null} onRefresh={()=>load(period)} onOpenProduct={id=>openProduct(id)}/>}
 
     {!state.loading&&tab!=='loja'&&tab!=='trafego'&&tab!=='ads'&&<section className={styles.sourceNote}><strong>Fonte e confiabilidade</strong><p>Os indicadores vêm de Informações Gerenciais da Shopee, coletados pelo Motor Sênior com a sessão do Seller Center. Etapas sem números disponíveis permanecem como “—”, sem estimativas artificiais. O fluxo utiliza Carrinho → Pedido → Pago → Confirmado.</p>{model.errors.length>0&&<details><summary>Detalhes técnicos da coleta ({model.errors.length})</summary><small>{model.errors.map(x=>x.source+': '+x.error).join(' · ').slice(0,2500)}</small></details>}</section>}

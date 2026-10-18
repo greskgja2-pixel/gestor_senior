@@ -32,10 +32,10 @@ function Summary({s,periodLabel}){
   </article>)}</div>;
 }
 
-function Row({row,expanded,onToggle,context,onOpenProduct}){
+function Row({row,expanded,onToggle,context,images,onOpenProduct}){
   const {ad,state,interpretation:it}=row;
   const ctx=ad.itemId?context?.[ad.itemId]:null;
-  const img=ctx?.image||IMAGE_PLACEHOLDER;
+  const img=ctx?.image||(ad.itemId?images?.[ad.itemId]:null)||IMAGE_PLACEHOLDER;
   return <li className={styles.item} data-state={state.id} data-expanded={expanded}>
     <div className={styles.row}>
       <div className={styles.ident}><img src={img} alt="" onError={imageFallback}/><div><b title={ad.title}>{ad.title}</b><small>{ad.stateLabel?ad.stateLabel+' · ':''}{ad.itemId?'ID '+ad.itemId:'Campanha '+(ad.campaignId??'—')}</small></div></div>
@@ -77,7 +77,7 @@ function Row({row,expanded,onToggle,context,onOpenProduct}){
   </li>;
 }
 
-export default function AdsHistory({ads,adsError,context,periodMeta,periodId,lastUpdated,onRefresh,onOpenProduct}){
+export default function AdsHistory({images,ads,adsError,context,periodMeta,periodId,lastUpdated,onRefresh,onOpenProduct}){
   const built=useMemo(()=>buildAds(ads?.campaigns),[ads]);
   const [filter,setFilter]=useState('all');
   const [sort,setSort]=useState('orders');
@@ -105,7 +105,7 @@ export default function AdsHistory({ads,adsError,context,periodMeta,periodId,las
             <InfoTip label="Como ordenamos" align="right">Valores ausentes e taxas de amostra pequena ficam no fim da lista. Oportunidade = quantos pedidos a mais o anúncio teria se convertesse como a mediana dos seus outros anúncios (cliques × distância); serve para ordenar a investigação, não é previsão de vendas.</InfoTip></label>
         </div>
         <div className={styles.filters} role="group" aria-label="Filtrar anúncios">{AD_FILTERS.map(f=><button key={f.id} type="button" aria-pressed={filter===f.id} data-active={filter===f.id} onClick={()=>setFilter(f.id)}>{f.label}</button>)}</div>
-        {shown.length?<ul className={styles.list}>{shown.map(r=><Row key={r.ad.id} row={r} expanded={openId===r.ad.id} onToggle={id=>setOpenId(c=>c===id?'':id)} context={context} onOpenProduct={onOpenProduct}/>)}</ul>
+        {shown.length?<ul className={styles.list}>{shown.map(r=><Row key={r.ad.id} row={r} expanded={openId===r.ad.id} onToggle={id=>setOpenId(c=>c===id?'':id)} context={context} images={images} onOpenProduct={onOpenProduct}/>)}</ul>
           :<p className={styles.empty}>Nenhum anúncio neste filtro. <button type="button" onClick={()=>setFilter('all')}>Mostrar todos</button></p>}
         <small className={styles.hint}>Comparações são relativas à mediana dos seus próprios anúncios neste período (CTR {built.ref.ctr!=null?pct(built.ref.ctr):'sem referência'} · clique → pedido {built.ref.cvr!=null?pct(built.ref.cvr):'sem referência'}), não a um padrão da Shopee.</small>
       </section>}
