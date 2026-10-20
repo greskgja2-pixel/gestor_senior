@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {normalizeConversations,normalizeMessages,awaitingReply,searchConversations,filterConversations,sortConversations,unreadTotal,bridgeStateFromError,automations,contextOf,isSendDisabledError,timeLabel} from '../app/lib/messenger-state.js';
+import {normalizeConversations,normalizeMessages,awaitingReply,searchConversations,filterConversations,sortConversations,unreadTotal,bridgeStateFromError,automations,contextOf,isSendDisabledError,timeLabel,diagnosticsText} from '../app/lib/messenger-state.js';
 
 const raw=[
   {conversation_id:'c1',buyer_id:11,buyer_name:'Maria Silva',last_message:'Oi, cadê meu pedido?',unread_count:2,timestamp:1_800_000_100},
@@ -78,4 +78,11 @@ test('página: sem cookies da Shopee, sem envio automático e com confirmação'
   assert.match(page,/Confirmar envio/);
   assert.match(page,/nenhuma mensagem é enviada automaticamente/i);
   assert.equal((page.match(/shopeeMessengerSendText/g)||[]).length,1);   // um único ponto de envio, atrás da confirmação
+});
+
+test('diagnóstico do Motor vira texto legível, sem dados pessoais',()=>{
+  const t=diagnosticsText({attempts:[{biz_id:0,ok:true,shape:'object.data[]',raw_count:0},{biz_id:11,ok:false,error:'HTTP 403'}]});
+  assert.match(t,/biz_id 0: 0 item\(ns\), formato object\.data\[\]/);
+  assert.match(t,/biz_id 11: erro — HTTP 403/);
+  assert.match(diagnosticsText(null),/sem detalhes/);
 });

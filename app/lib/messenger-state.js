@@ -135,3 +135,10 @@ export function contextOf(conv,context){
     productId:product?.product_id||product?.item_id||product?.id||null,
     productShopId:product?.shop_id||null};
 }
+
+// Resumo em texto do que a Shopee devolveu (vem do Motor ≥0.20.2; sem dados pessoais).
+export function diagnosticsText(d){
+  const attempts=Array.isArray(d?.attempts)?d.attempts:[];
+  if(!attempts.length)return'Motor sem detalhes da leitura.';
+  return attempts.map(a=>a.ok?`biz_id ${a.biz_id}: ${a.raw_count} item(ns), formato ${a.shape}`:`biz_id ${a.biz_id}: erro — ${a.error}`).join(' | ');
+}

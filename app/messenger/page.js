@@ -10,7 +10,7 @@ import {motorData} from '../lib/client-async';
 import {Icon,StatusPill,imageFallback} from '../funil/StoreOverview';
 import {
   normalizeConversations,normalizeMessages,awaitingReply,searchConversations,filterConversations,sortConversations,unreadTotal,
-  timeLabel,bridgeStateFromError,isSendDisabledError,automations,contextOf,FILTERS
+  timeLabel,bridgeStateFromError,isSendDisabledError,automations,contextOf,FILTERS,diagnosticsText
 } from '../lib/messenger-state';
 import styles from './messenger.module.css';
 
@@ -46,6 +46,7 @@ export default function MessengerPage(){
   const [sending,setSending]=useState(false);
   const [bridge,setBridge]=useState({id:'connecting'});
   const [listError,setListError]=useState('');
+  const [diagnostics,setDiagnostics]=useState(null);
   const [historyError,setHistoryError]=useState('');
   const [sendNotice,setSendNotice]=useState('');
   const [sendSupport,setSendSupport]=useState('unknown');
@@ -68,6 +69,7 @@ export default function MessengerPage(){
     try{
       const data=await motorData('shopeeMessengerList',{bizIds:[0,11,12],limit:40},25000);
       const rows=normalizeConversations(data);
+      setDiagnostics(data?.diagnostics||null);
       setConversations(rows);
       setBridge({id:'connected'});setLastSync(Date.now());
       // Preserva a conversa aberta (atualiza só os dados da lista, sem reabrir nem apagar o histórico).
@@ -188,7 +190,7 @@ export default function MessengerPage(){
         <div className={styles.filters} role="group" aria-label="Filtrar conversas">{FILTERS.map(f=><button key={f.id} type="button" data-active={filter===f.id} aria-pressed={filter===f.id} onClick={()=>setFilter(f.id)}>{f.label}{f.id==='unread'&&unread>0?` (${unread})`:''}</button>)}</div>
         <div className={styles.list}>
           {loading&&!conversations.length&&<div className={styles.empty}><Icon name="refresh" size={20}/><b>Carregando conversas…</b><span>Consultando o WebChat pelo Motor Sênior.</span></div>}
-          {!loading&&!conversations.length&&!listError&&<div className={styles.empty}><Icon name="chat" size={22}/><b>Nenhuma conversa encontrada</b><span>Verifique se há novas mensagens no WebChat da Shopee e atualize para sincronizar de novo.</span><button type="button" onClick={loadConversations}>Atualizar conversas</button></div>}
+          {!loading&&!conversations.length&&!listError&&<div className={styles.empty}><Icon name="chat" size={22}/><b>Nenhuma conversa encontrada</b><span>{diagnostics?'A Shopee respondeu, mas sem conversas neste formato. Veja o diagnóstico abaixo e envie-o para análise.':'Verifique se há novas mensagens no WebChat da Shopee e atualize para sincronizar de novo.'}</span>{diagnostics?<code className={styles.diag}>{diagnosticsText(diagnostics)}</code>:<small className={styles.diag}>Sem diagnóstico do Motor: instale o Motor Sênior 0.20.2 ou superior para ver o que a Shopee devolveu.</small>}<button type="button" onClick={loadConversations}>Atualizar conversas</button></div>}
           {!loading&&!conversations.length&&listError&&<div className={styles.empty} data-tone="bad"><Icon name="alert" size={22}/><b>Não foi possível carregar as conversas</b><span>{bridge.help||listError}</span><button type="button" onClick={loadConversations}>Tentar novamente</button></div>}
           {conversations.length>0&&listError&&<div className={styles.stale} role="status"><Icon name="alert" size={14}/>Última sincronização falhou; exibindo as conversas anteriores{stamp?` (de ${stamp})`:''}.</div>}
           {conversations.length>0&&!shown.length&&<div className={styles.empty}><Icon name="search" size={20}/><b>Nada encontrado</b><span>{query?'Nenhuma conversa corresponde à busca.':'Nenhuma conversa neste filtro.'}</span><button type="button" onClick={()=>{setQuery('');setFilter('all')}}>Limpar busca e filtros</button></div>}

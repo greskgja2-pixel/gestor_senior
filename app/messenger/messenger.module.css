@@ -127,3 +127,4 @@
   .back{display:grid}.detailsBtn{display:inline-flex}
   .composer{grid-template-columns:1fr}.mine,.theirs{max-width:90%}
 }
+.diag{display:block;font-size:11px;line-height:1.4;color:#506a82;background:#f3f7fb;border:1px dashed #c9d9ea;border-radius:8px;padding:6px 8px;word-break:break-word;text-align:left;user-select:all}
