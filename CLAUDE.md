@@ -847,3 +847,7 @@ A API de Ads não traz imagem; a aba Histórico Ads mostrava só o placeholder (
 **Regras de honestidade mantidas:** margem ausente = "Margem indisponível" (nunca zero); produto com variações não tem margem agregada; "Custo parcial (X de Y)" do mockup NÃO foi implementado porque o total de variações não vem da lista (mostra só quantas têm custo). A contagem de **Margem negativa** considera apenas as ofertas já carregadas (linhas visíveis).
 **Testes:** os de cabeçalho/ações em `navigation-routes.test.mjs` foram atualizados ao novo layout.
 **Validação:** sem Node/npm/git nesta sessão — `node --test`, `next build` e verificação visual NÃO foram executados. Conferir antes do merge.
+
+
+### 2026-10-21 — Claude — 3 testes de Concorrentes desatualizados (branch `fix/testes-concorrentes`)
+A "Dev validation" falhava em todas as branches por 3 testes de `tests/competitor-radar-layout.test.mjs` que descreviam o layout anterior. O redesign compacto (`82b7ec9`) e a remoção de ações legadas (`ad15140`) trocaram `radarExactVisibility`/`radarExactActions` por `radarCompactMenu` + popover "Detalhes do concorrente", e `collectSearchVisibility`/`mega*` por `collectVisibilityGroup`/`visibilityViaMega`/`marketplaceSearch`. Só os testes foram atualizados; nenhum código de produção mudou. Lição: ao redesenhar uma tela, atualizar o teste de layout dela no mesmo commit. `node --test tests/*.test.mjs` → 212/212.

@@ -9,7 +9,7 @@ const api=fs.readFileSync(new URL('../app/api/competitor-monitor/route.js',impor
 test('Concorrentes foi reconstruido com estrutura propria do mockup',()=>{
   for(const token of [
     'radarExactToolbar','radarExactKpis','radarExactProgress','radarExactColumns','radarExactCard',
-    'radarExactIdentity','radarExactPrice','radarExactSales','radarExactVisibility','radarExactActions',
+    'radarExactIdentity','radarExactPrice','radarExactSales','radarCompactMenu',
     'Alertas do radar competitivo','Distribuição dos concorrentes','Dicas e insights'
   ])assert.ok(ui.includes(token),'estrutura ausente: '+token);
   assert.match(css,/GS_RADAR_EXACT_MOCKUP_2026_09_24/);
@@ -35,13 +35,14 @@ test('cada concorrente oferece titulo clicavel e atalhos do anuncio proprio',()=
   assert.match(ui,/tab=price/);
 });
 
-test('visibilidade principal tem somente os tres dados essenciais do mockup',()=>{
-  assert.match(ui,/Visibilidade na busca/);
-  assert.match(ui,/Concorrente/);
-  assert.match(ui,/Meu anúncio/);
-  assert.match(ui,/Shopee Ads/);
+// Desde o redesign compacto (82b7ec9) a visibilidade na busca fica no popover "Detalhes do concorrente".
+test('detalhes do concorrente mostram posicao na busca, meu anuncio e Ads, com link para a analise',()=>{
+  assert.match(ui,/Detalhes do concorrente/);
+  assert.match(ui,/<dt>Rank na busca<\/dt>/);
+  assert.match(ui,/<dt>Meu anúncio<\/dt>/);
+  assert.match(ui,/<dt>Ads<\/dt>/);
   assert.match(ui,/Ver análise da busca/);
-  assert.match(css,/\.radarExactVisibility>div\{display:grid;grid-template-columns:1fr auto/);
+  assert.match(css,/\.radarCompactMenu/);
 });
 
 test('barra de progresso informa avanço real durante a rechecagem',()=>{
@@ -52,10 +53,11 @@ test('barra de progresso informa avanço real durante a rechecagem',()=>{
 });
 
 test('coleta de posição e ads continua integrada ao Motor Senior',()=>{
-  assert.match(ui,/collectSearchVisibility/);
-  assert.match(ui,/megaStartResearch/);
-  assert.match(ui,/megaGetStatus/);
-  assert.match(ui,/megaGetResult/);
+  // collectSearchVisibility e as chamadas mega* foram substituídas (ad15140, 82b7ec9) por estas.
+  assert.match(ui,/collectVisibilityGroup/);
+  assert.match(ui,/visibilityViaMega/);
+  assert.match(ui,/motorData\('marketplaceSearch'/);
+  assert.match(ui,/\/api\/competitor-visibility/);
   assert.match(ui,/Ads ativo nesta busca/);
 });
 
