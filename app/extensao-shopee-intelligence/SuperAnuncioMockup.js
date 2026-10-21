@@ -19,7 +19,9 @@ const metric=(r,k)=>r?.metrics?.[k]??r?.ads_snapshot?.manual?.[k]??r?.ads_snapsh
 // Prefere a imagem oficial do produto (Open Platform) e URLs dos hosts de imagem da Shopee; a coleta pela página às vezes
 // captura um ícone da interface (ex.: seta do carrossel) como "imagem", então o primeiro candidato nem sempre serve.
 const PRODUCT_IMAGE_HOST=/^https?:\/\/(?:[\w-]+\.)*(?:susercontent\.com|cf\.shopee\.com\.br)\//i;
-const imageOf=p=>{const c=[p?.image?.image_url_list?.[0],p?.imageUrls?.[0],p?.imageUrl,p?.image_url].filter(x=>typeof x==='string'&&x);return c.find(u=>PRODUCT_IMAGE_HOST.test(u))||c[0]||null};
+const imageOfSimple=p=>{const c=[p?.image?.image_url_list?.[0],p?.imageUrls?.[0],p?.imageUrl,p?.image_url].filter(x=>typeof x==='string'&&x);return c.find(u=>PRODUCT_IMAGE_HOST.test(u))||c[0]||null};
+// imageCandidates (abaixo) já descarta .svg e imagens de interface e ordena as URLs de produto; a escolha simples fica de reserva.
+const imageOf=p=>imageCandidates(p)[0]||imageOfSimple(p);
 const competitorUrl=c=>c?.url||c?.link||c?.productUrl||c?.product_url||(c?.shopId&&c?.itemId?`https://shopee.com.br/product/${c.shopId}/${c.itemId}`:c?.shop_id&&c?.item_id?`https://shopee.com.br/product/${c.shop_id}/${c.item_id}`:null);
 const competitorPrice=c=>{if(n(c?.price)!=null)return n(c.price);const m=String(c?.searchText||'').match(/R\$\s*\n?\s*([0-9.]+,[0-9]{2})/i);return m?Number(m[1].replace(/\./g,'').replace(',','.')):null};
 const competitorSold=c=>{if(n(c?.sold)!=null)return n(c.sold);const m=String(c?.searchText||'').match(/([0-9]+(?:[.,][0-9]+)?)\s*(mil)?\+?\s*Vendido/i);if(!m)return null;const base=Number(m[1].replace(',','.'));return Number.isFinite(base)?Math.round(base*(m[2]?1000:1)):null};
@@ -125,6 +127,9 @@ function Icon({name,className=''}) {
     case 'settings': return <svg {...common}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21h-4v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H3v-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3h4v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1v4H21a1.7 1.7 0 0 0-1.6 1z"/></svg>;
     case 'monitor': return <svg {...common}><path d="M3 12h4l2-5 4 10 2-5h6"/><path d="M4 20h16"/></svg>;
     case 'more': return <svg {...common}><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>;
+    case 'check': return <svg {...common}><path d="M4 12.5l5 5L20 6.5"/></svg>;
+    case 'alert': return <svg {...common}><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.01"/></svg>;
+    case 'info': return <svg {...common}><circle cx="12" cy="12" r="9.5"/><path d="M12 11v6M12 7.5v.01"/></svg>;
     default: return <svg {...common}><circle cx="12" cy="12" r="8"/></svg>;
   }
 }
@@ -336,6 +341,8 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
   const [showList,setShowList]=useState(!initialItemId);
   const [listFilter,setListFilter]=useState('Todos');
   const [optimizedAreas,setOptimizedAreas]=useState({});
+  const [editorIdle,setEditorIdle]=useState(false);
+  const checklistRef=useRef(null);
   const router=useRouter();
   const searchRef=useRef(null);
   const item=useMemo(()=>items.find(x=>String(x.itemId)===String(selectedId))||items[0]||null,[items,selectedId]);
@@ -576,6 +583,30 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
   };
   const activeArea=areaMeta[detailTab]||areaMeta.content;
 
+  // Status de cada aba, só com dados que a tela já tem (margem, imagens coletadas, tarefas abertas, agenda). Sem dado => "Sem dados".
+  const taskCount=types=>arr(productTasks.rows).filter(t=>types.includes(String(t?.task_type||'').toLowerCase())).length;
+  const plural=(count,word)=>`${count} ${word}${count>1?'s':''}`;
+  function areaStatus(key){
+    if(key==='monitoring'){
+      const next=item.schedule?.next_run_at||r.next_reanalysis_at;
+      return next?{tone:'blue',icon:'clock',text:'Agendado',title:`Próxima checagem: ${when(next)}`}:null;
+    }
+    if(key==='financial'){
+      if(margin==null)return cost==null?{tone:'amber',icon:'alert',text:'Sem custo',title:'Cadastre o custo para calcular a margem.'}:{tone:'gray',icon:null,text:'Sem dados',title:'Margem não calculada.'};
+      if(margin<=0)return{tone:'red',icon:'alert',text:'Margem negativa',title:`Margem estimada ${pct(margin)}`};
+      if(margin<MARGIN_TIGHT_PCT)return{tone:'amber',icon:'alert',text:'Margem apertada',title:`Margem estimada ${pct(margin)}`};
+      return{tone:'green',icon:'check',text:`Margem ${pct(margin)}`,title:`Margem estimada ${pct(margin)}`};
+    }
+    if(isOptimized(key))return{tone:'green',icon:'check',text:'Concluído',title:'Marcado como concluído por você.'};
+    if(key==='media'){
+      const open=taskCount(['images','video']);
+      if(open>0)return{tone:'amber',icon:'alert',text:plural(open,'pendência'),title:'Há tarefas abertas de imagens ou vídeo para este anúncio.'};
+      return images.length?{tone:'gray',icon:null,text:`${images.length} ${images.length>1?'imagens':'imagem'}`,title:'Imagens coletadas na última análise.'}:{tone:'gray',icon:null,text:'Sem dados',title:'Nenhuma imagem coletada.'};
+    }
+    return{tone:'gray',icon:null,text:'Pendente',title:'Ainda não marcado como concluído.'};
+  }
+  const openChecklist=()=>{const el=checklistRef.current;if(el){el.open=true;el.scrollIntoView({behavior:'smooth',block:'start'})}};
+
   return <div className={styles.screen}>
     <ZoomModal src={zoomSrc} onClose={()=>setZoomSrc('')}/>
     <main className={`${styles.main} ${styles.detailMain}`}>
@@ -590,7 +621,7 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
       {deleteError&&<div className={styles.deleteError}>{deleteError}</div>}
 
       <section className={styles.detailProductCard}>
-        {imageOf(p)?<button type="button" className={styles.detailProductImage} onClick={()=>setZoomSrc(imageOf(p))} title="Ampliar imagem"><Icon name="image" className={styles.imgPlaceholder}/><img src={imageOf(p)} alt="" onError={e=>{e.currentTarget.style.display='none'}}/><span>⌕</span></button>:<div className={styles.detailProductImageFallback}><Icon name="image"/></div>}
+        {imageOf(p)?<button type="button" className={styles.detailProductImage} onClick={()=>setZoomSrc(imageOf(p))} title="Ampliar imagem"><Icon name="image" className={styles.imgPlaceholder}/><img src={imageOf(p)} alt="" ref={el=>{if(el&&el.complete&&el.naturalWidth===0)el.style.display='none'}} onError={e=>{e.currentTarget.style.display='none'}}/><span>⌕</span></button>:<div className={styles.detailProductImageFallback}><Icon name="image"/></div>}
         <div className={styles.detailIdentity}>
           <small>Anúncio acompanhado</small>
           <h2>{p.title||p.item_name||`Produto ${item.itemId}`}</h2>
@@ -604,10 +635,13 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
       </section>
 
       <nav className={styles.detailTabs} aria-label="Áreas do Super Anúncio">
-        {Object.entries(areaMeta).map(([key,meta])=><button key={key} type="button" data-active={detailTab===key?'true':'false'} data-done={key==='monitoring'?'false':isOptimized(key)?'true':'false'} onClick={()=>{setDetailTab(key);if(key!=='monitoring')setEditorTab(defaultEditorForGroup(key))}}>
-          <Icon name={meta.icon}/><span>{meta.label}</span>{isOptimized(key)&&<b>✓</b>}
-        </button>)}
+        {Object.entries(areaMeta).map(([key,meta])=>{const st=areaStatus(key);return <button key={key} type="button" data-area={key} data-active={detailTab===key?'true':'false'} data-done={key==='monitoring'?'false':isOptimized(key)?'true':'false'} onClick={()=>{setDetailTab(key);if(key!=='monitoring')setEditorTab(defaultEditorForGroup(key))}}>
+          <span className={styles.tabMain}><Icon name={meta.icon}/><span>{meta.label}</span>{isOptimized(key)&&<b>✓</b>}</span>
+          {st&&<em className={styles.tabStatus} data-tone={st.tone} title={st.title}>{st.icon&&<Icon name={st.icon}/>}{st.text}</em>}
+        </button>})}
       </nav>
+
+      <NextActionsStrip state={productTasks} onReload={()=>loadProductTasks(item.itemId,{force:true})} onOpenAll={openChecklist}/>
 
       {detailTab==='monitoring'&&<MonitoringPanel itemId={item.itemId}/>}
 
@@ -630,14 +664,15 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
       </section>}
 
       {detailTab!=='monitoring'&&<section className={styles.detailEditor}>
-        <div className={styles.detailActionsBar}>
+        <div className={styles.detailActionsBar} data-idle={editorIdle?'true':'false'}>
           <div className={styles.detailActionsTitle}><b>Ações</b><small>{activeArea.label}</small></div>
           <button type="button" onClick={()=>setShowList(true)}><Icon name="arrowLeft"/> Voltar</button>
           <div id="gs-editor-toolbar" className={styles.detailEditorToolbar}/>
-          <button type="button" className={styles.doneButton} data-done={isOptimized(detailTab)?'true':'false'} onClick={()=>markOptimized(detailTab)}>✓ {isOptimized(detailTab)?'Feito':'Feito'}</button>
+          {editorIdle&&<span className={styles.idleHint}><Icon name="info"/>Nada a alterar neste item</span>}
+          <button type="button" className={styles.doneButton} data-done={isOptimized(detailTab)?'true':'false'} onClick={()=>markOptimized(detailTab)}>✓ {isOptimized(detailTab)?'Concluído':'Marcar como concluído'}</button>
         </div>
         <div className={styles.detailEditorBody}>
-          <SuperAnaliseInteligente key={`${r.id}-${editorTab}`} report={r} products={[]} initialTab={editorTab} embedded/>
+          <SuperAnaliseInteligente key={`${r.id}-${editorTab}`} report={r} products={[]} initialTab={editorTab} embedded onStateChange={s=>setEditorIdle(Boolean(s?.idle))}/>
         </div>
       </section>}
 
@@ -665,7 +700,7 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
           <div className={styles.accordionBody}><HistoryPanel history={item.history||[r]}/></div>
         </details>
 
-        <details>
+        <details ref={checklistRef}>
           <summary><span><Icon name="file"/></span><div><b>Checklist</b><small>Itens que ainda podem ser otimizados.</small></div><i>⌄</i></summary>
           <div className={styles.accordionBody}><NextActionsCard state={productTasks} itemId={item.itemId} onAction={resolveProductTask} onReload={()=>loadProductTasks(item.itemId,{force:true})}/></div>
         </details>
@@ -710,6 +745,27 @@ function Overview({item,price,prevPrice,sold,prevSold,margin,ai,flashSales,produ
       <Reason icon="chart" title="Margem">Preço e custo registrados são usados para acompanhar a margem.</Reason>
     </div>
   </section></>;
+}
+
+// Faixa curta com as 3 próximas ações mais prioritárias (mesmos dados do Checklist, que continua completo mais abaixo).
+function NextActionsStrip({state,onReload,onOpenAll}){
+  const rows=arr(state?.rows);
+  const loading=state?.phase==='loading';
+  const failed=state?.phase==='error'||state?.phase==='timeout';
+  if(!state||state.phase==='idle')return null;
+  const toneOf=p=>p==='urgent'||p==='high'?'red':p==='low'?'blue':'amber';
+  const iconOf=t=>({flash_sale:'tag',reanalysis:'refresh',competitors:'users',images:'image',video:'play',ads:'megaphone'}[String(t||'').toLowerCase()]||'clock');
+  return <section className={styles.nextStrip} aria-label="Próximas ações">
+    <span className={styles.nextLabel}><Icon name="sparkles"/>Próximas ações</span>
+    {loading&&<span className={styles.nextMuted}>Carregando…</span>}
+    {failed&&<><span className={styles.nextMuted}>Não foi possível carregar.</span><button type="button" className={styles.nextAll} onClick={onReload}>Tentar novamente</button></>}
+    {!loading&&!failed&&!rows.length&&<span className={styles.nextChip} data-tone="green"><Icon name="check"/>Nenhuma pendência aberta</span>}
+    {!loading&&!failed&&rows.slice(0,3).map((t,i)=>{
+      const href=taskHref(t),inner=<><Icon name={iconOf(t.task_type)}/><span>{t.title||'Tarefa pendente'}</span></>;
+      return href?<Link key={t.id||i} href={href} className={styles.nextChip} data-tone={toneOf(t.priority)}>{inner}</Link>:<span key={t.id||i} className={styles.nextChip} data-tone={toneOf(t.priority)}>{inner}</span>;
+    })}
+    {!loading&&!failed&&rows.length>0&&<button type="button" className={styles.nextAll} onClick={onOpenAll}>Ver todas ({rows.length})</button>}
+  </section>;
 }
 
 function NextActionsCard({state,itemId,onAction,onReload}){
