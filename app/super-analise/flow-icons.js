@@ -29,6 +29,8 @@ const PATHS={
   sprout:<><path d="M12 21v-9"/><path d="M12 12c0-4 3-6 7-6 0 4-3 6-7 6z"/><path d="M12 15c0-3-2-5-6-5 0 3 2 5 6 5z"/></>,
   waves:<path d="M3 12c2-4 4-4 6 0s4 4 6 0 4-4 6 0"/>,
   percent:<><path d="M19 5L5 19"/><circle cx="7" cy="7" r="2.2"/><circle cx="17" cy="17" r="2.2"/></>,
+  shield:<path d="M12 3l8 3v6c0 4.5-3.2 8-8 9-4.8-1-8-4.5-8-9V6z"/>,
+  send:<path d="M21 3L10 14M21 3l-7 18-4-7-7-4z"/>,
   pencil:<><path d="M4 20l4-1 11-11-3-3L5 16z"/><path d="M14 6l3 3"/></>
 };
 
