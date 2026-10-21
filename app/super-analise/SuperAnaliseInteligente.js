@@ -7,6 +7,7 @@ import {createPortal} from 'react-dom';
 import styles from './page.module.css';
 import {fetchJsonWithTimeout,classifyAsyncError} from '../lib/client-async';
 import ReminderButton from '../components/ReminderButton';
+import CategoryRequirements from './CategoryRequirements';
 import {loadCategoryTree,categoryPath,searchLeafCategories,countLeafCategories} from '../lib/shopee-categories';
 
 const n=v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v))?null:Number(v);
@@ -286,6 +287,7 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
   const [message,setMessage]=useState('');
   const [draft,setDraft]=useState({});
   const [chosenCategory,setChosenCategory]=useState('');
+  const [catReq,setCatReq]=useState(null);
   const [gallery,setGallery]=useState([]);
   const [baseline,setBaseline]=useState(null);
   const [history,setHistory]=useState({past:[],future:[]});
@@ -456,6 +458,14 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
     const changes=Object.fromEntries(Object.entries(realChanges).filter(([k])=>allowed.includes(k)));
     if(!Object.keys(changes).length)return true;
     if(changes.categoryId!=null&&typeof window!=='undefined'&&!window.confirm('Trocar a categoria muda onde o anúncio aparece na Shopee e pode exigir revisar atributos e marca. Enviar a nova categoria agora?'))return false;
+    if(changes.categoryId!=null){
+      const r=catReq&&String(catReq.categoryId)===String(chosenCategory)?catReq:null;
+      if(!r||r.loading){setMessage('Aguarde: ainda estou lendo os campos obrigatórios da categoria.');return false}
+      if(r.error){setMessage('Não consegui ler os campos obrigatórios da categoria: '+r.error);return false}
+      if(r.missing.length){setMessage('Preencha antes de salvar: '+r.missing.join(', ')+'.');return false}
+      changes.attributeList=r.attributeList;
+      if(r.brand)changes.brand=r.brand;
+    }
     setSaving(true);setMessage('');
     try{
       const result=await fetchJsonWithTimeout('/api/shopee/product-update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({item_id:report.item_id,changes})},30000);
@@ -725,7 +735,7 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
 
           {tab==='images'&&<ImagesSection gallery={gallery} competitors={competitors} plan={suggestionImproves?draft.imagePlan:''} onPlan={v=>setField('imagePlan',v)} before={activeBefore} after={guardedAfter} blocked={!suggestionImproves} setZoomSrc={setZoomSrc} downloadImage={downloadImage} removeImage={removeImage} moveImage={moveImage} uploadRef={uploadRef} onUploadFiles={onUploadFiles}/>}
           {tab==='video'&&<PlanSection title="Vídeo" original={p.hasVideo?'O anúncio possui vídeo.':'O anúncio não possui vídeo.'} plan={suggestionImproves?draft.videoPlan:''} onPlan={v=>setField('videoPlan',v)} before={activeBefore} after={guardedAfter} blocked={!suggestionImproves}/>}
-          {tab==='category'&&<CategoryPicker currentId={baseline?.chosenCategory||''} chosenId={chosenCategory} disabled={saving} onChoose={id=>mutate(()=>setChosenCategory(String(id)))}/>}
+          {tab==='category'&&<CategoryPicker currentId={baseline?.chosenCategory||''} chosenId={chosenCategory} disabled={saving} onChoose={id=>mutate(()=>setChosenCategory(String(id)))}>{chosenCategory&&chosenCategory!==String(baseline?.chosenCategory||'')?<CategoryRequirements key={chosenCategory} categoryId={chosenCategory} onChange={setCatReq}/>:null}</CategoryPicker>}
           {tab==='category'&&<CategoryComparison current={currentCategory||'—'} competitors={compCategoryRows} dominant={dominantCategory} aligned={categoryAligned} onApply={()=>{if(dominantRow?.id)mutate(()=>setChosenCategory(String(dominantRow.id)));else setMessage('A categoria predominante foi identificada, mas o ID oficial não foi coletado. Nenhuma alteração será enviada sem um ID real da Shopee.')}} selected={chosenCategory} setZoomSrc={setZoomSrc}/>}
           {tab==='price'&&<PriceSection costVariations={costVariations} costValue={costFieldValue} setVarCost={(id,v)=>setVarCosts(x=>({...x,[id]:v}))} costDirty={costDirty} costSaving={costSaving} costMsg={costMsg} onSaveCost={saveCost} price={draft.price} cost={draft.cost} setPrice={v=>setField('price',v)} setCost={v=>setField('cost',v)} margin={liveMargin} competitors={competitors} plan={suggestionImproves?draft.pricePlan:''} onPlan={v=>setField('pricePlan',v)} before={activeBefore} after={guardedAfter} blocked={!suggestionImproves} setZoomSrc={setZoomSrc} slots={slots} selectedSlots={selectedSlots} flashSelectedIds={flashSelectedIds} setFlashSelectedIds={setFlashSelectedIds} slotError={slotError} flash={flash} setFlash={setFlash} createFlash={prepareFlashCreation} flashBusy={flashBusy} flashMessage={flashMessage} flashDays={flashDays} setFlashDays={setFlashDays} flashInsight={flashInsight} reloadFlash={period=>loadFlashMeta(flashDays,period||flashPeriod)} useRecommendedSlot={useRecommendedSlot} flashPeriod={flashPeriod} setFlashPeriod={setFlashPeriod} setFlashPreset={setFlashPreset} models={effectiveFlashModels} variationDraft={flashVariationDraft} setVariationDraft={setFlashVariationDraft} applyFlashPriceToAll={applyFlashPriceToAll}/>}
           {tab==='variations'&&<VariationsSection product={p} plan={suggestionImproves?draft.variationsPlan:''} onPlan={v=>setField('variationsPlan',v)} before={activeBefore} after={guardedAfter} blocked={!suggestionImproves}/>}
@@ -781,7 +791,7 @@ function ImagesSection({gallery,competitors,plan,onPlan,before,after,blocked,set
 
 // Seletor das categorias OFICIAIS da Shopee: busca entre as categorias finais (as únicas que um anúncio pode usar).
 // Escolher só marca a categoria como alteração pendente; quem envia à Shopee é o botão Salvar da barra de ações.
-function CategoryPicker({currentId,chosenId,onChoose,disabled}){
+function CategoryPicker({currentId,chosenId,onChoose,disabled,children}){
   const [state,setState]=useState({phase:'loading',byId:null,error:''});
   const [query,setQuery]=useState('');
   const load=()=>{setState({phase:'loading',byId:null,error:''});loadCategoryTree().then(byId=>setState({phase:'ready',byId,error:''})).catch(e=>setState({phase:'error',byId:null,error:String(e?.message||e)}))};
@@ -803,6 +813,7 @@ function CategoryPicker({currentId,chosenId,onChoose,disabled}){
       {query.trim().length>=2&&!results.length&&<div className={styles.cpInfo}>Nenhuma categoria final encontrada para “{query.trim()}”.</div>}
       {results.length>0&&<ul className={styles.cpList}>{results.map(x=>{const isChosen=String(x.id)===String(chosenId),isCurrent=String(x.id)===String(currentId);return <li key={x.id} data-selected={isChosen?'true':'false'}><span>{x.path}<small>ID {x.id}{isCurrent?' · categoria atual':''}</small></span><button type="button" disabled={disabled||isChosen} onClick={()=>onChoose(x.id)}>{isChosen?'Selecionada':'Selecionar'}</button></li>})}</ul>}
     </>}
+    {children}
   </section>;
 }
 

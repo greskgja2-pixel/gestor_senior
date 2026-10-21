@@ -1,7 +1,8 @@
 import {NextResponse} from 'next/server';
 import {getActiveShop} from '../../../../lib/shop';
 import {getItemBaseInfo,updateItem} from '../../../../lib/shopee';
-import {getCategories} from '../../../../lib/shopee-catalog';
+import {getCategories,getAttributes,getBrands} from '../../../../lib/shopee-catalog';
+import {normalizeAttributeTree,buildCategoryPayload} from '../../../../lib/category-attributes';
 
 export const dynamic='force-dynamic';
 export const runtime='nodejs';
@@ -19,7 +20,7 @@ export async function POST(request){
   if(!shop)return NextResponse.json({error:'Nenhuma loja Shopee conectada.'},{status:400});
 
   const requested=body?.changes&&typeof body.changes==='object'?body.changes:{};
-  const allowedKeys=new Set(['title','description','categoryId']);
+  const allowedKeys=new Set(['title','description','categoryId','attributeList','brand']);
   const unknownKeys=Object.keys(requested).filter(key=>!allowedKeys.has(key));
   if(unknownKeys.length){
     return NextResponse.json({
@@ -52,7 +53,23 @@ export async function POST(request){
     }
     if(!found)return NextResponse.json({error:'Essa categoria não existe na lista oficial da Shopee.'},{status:400});
     if(found.has_children)return NextResponse.json({error:'Escolha uma categoria final (sem subcategorias).'},{status:400});
+    // Cada categoria tem atributos (e às vezes marca) obrigatórios: a Shopee recusa a troca sem eles.
+    let attributes=[],brandInfo=null;
+    try{
+      const tree=normalizeAttributeTree(await getAttributes(shop,categoryId),categoryId);
+      attributes=tree.response.attribute_list;
+      brandInfo=(await getBrands(shop,categoryId,0,1))?.response||null;
+    }catch(error){
+      return NextResponse.json({error:'Não foi possível ler os campos obrigatórios da categoria na Shopee agora: '+String(error?.message||error)},{status:502});
+    }
+    const payload=buildCategoryPayload({attributes,brandInfo,input:{attributeList:requested.attributeList,brand:requested.brand}});
+    if(payload.error)return NextResponse.json({error:payload.error},{status:400});
     itemFields.category_id=categoryId;
+    itemFields.attribute_list=payload.attribute_list;
+    if(payload.brand)itemFields.brand=payload.brand;
+  }
+  if(!Object.prototype.hasOwnProperty.call(requested,'categoryId')&&(requested.attributeList!==undefined||requested.brand!==undefined)){
+    return NextResponse.json({error:'Atributos e marca só podem ser enviados junto com a categoria.'},{status:400});
   }
   if(!Object.keys(itemFields).length){
     return NextResponse.json({error:'Nenhuma alteração real de Título, Descrição ou Categoria para salvar.'},{status:400});
@@ -89,7 +106,7 @@ export async function POST(request){
     if(itemFields.item_name!==undefined)applied.push('title');
     if(itemFields.description!==undefined)applied.push('description');
     if(itemFields.category_id!==undefined)applied.push('categoryId');
-    const warning=itemFields.category_id!==undefined?'Categoria alterada: confira os atributos e a marca do anúncio na Shopee, pois podem variar conforme a categoria.':undefined;
+    const warning=itemFields.category_id!==undefined?'Categoria alterada: atributos e marca foram enviados junto; confira no Seller Center se está tudo certo.':undefined;
     return NextResponse.json({ok:true,item_id:itemId,applied,verified:true,...(warning?{warning}:{})});
   }catch(error){
     return NextResponse.json({error:String(error?.message||error)},{status:502});
