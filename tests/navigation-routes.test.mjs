@@ -349,7 +349,7 @@ test('Funil por Produto tem editor inline de título baseado em Super Análise e
   assert.match(context,/titleSuggestion/);
   assert.match(context,/titleKeywords/);
   assert.match(context,/ai\?\.title\?\.suggestion/);
-  assert.match(productUpdate,/allowedKeys=new Set\(\['title','description'\]\)/);
+  assert.match(productUpdate,/allowedKeys=new Set\(\['title','description','categoryId'\]\)/);
   assert.match(css,/\.inlineTitleEditor/);
   assert.match(css,/\.titleCompareGrid/);
   assert.match(css,/\.titleKeywords/);

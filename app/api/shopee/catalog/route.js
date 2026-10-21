@@ -4,6 +4,10 @@ import { getCategories, getAttributes, getBrands, getModelList } from "../../../
 
 export const dynamic = "force-dynamic";
 
+// A lista oficial de categorias é grande e muda pouco: guarda por loja por 10 minutos para não chamar a Shopee a cada abertura.
+const categoryCache = new Map();
+const CATEGORY_TTL_MS = 10 * 60 * 1000;
+
 function positiveInt(value) {
   const n = Number(value);
   return Number.isSafeInteger(n) && n > 0 ? n : null;
@@ -61,7 +65,14 @@ export async function GET(request) {
   try {
     let data;
     if (resource === "categories") {
-      data = await getCategories(shop);
+      const key = String(shop.shop_id);
+      const hit = categoryCache.get(key);
+      if (hit && Date.now() - hit.at < CATEGORY_TTL_MS) {
+        data = hit.data;
+      } else {
+        data = await getCategories(shop);
+        if (!data?.error) categoryCache.set(key, { at: Date.now(), data });
+      }
     } else if (resource === "attributes") {
       const categoryId = positiveInt(url.searchParams.get("category_id"));
       if (!categoryId) return NextResponse.json({ error: "category_id inválido." }, { status: 400 });

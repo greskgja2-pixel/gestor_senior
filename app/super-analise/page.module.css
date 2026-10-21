@@ -562,3 +562,15 @@
   .competitorGrid>article{grid-template-columns:70px minmax(0,1fr)}
   .competitorGrid>article>.zoomWrap{width:70px}
 }
+
+/* GS_SELETOR_CATEGORIA_OFICIAL_2026_10_21 - seletor das categorias oficiais da Shopee na aba Categoria */
+.categoryPicker{display:grid;gap:10px;padding:14px 16px;margin-bottom:12px;background:#fff;border:1px solid #dce6f1;border-radius:14px}
+.cpCurrent{font-size:13px;color:#1d3a5c}.cpCurrent small{color:#6f7f95;font-size:12px}
+.cpChosen{font-size:13px;color:#1b6b43;background:#e6f6ee;border:1px solid #b7e2cc;border-radius:10px;padding:9px 12px;line-height:1.5}.cpChosen small{color:#4f8a69;font-size:12px}
+.cpInfo{font-size:13px;color:#5a7089;background:#f4f7fb;border-radius:10px;padding:9px 12px}.cpInfo[data-error="true"]{background:#ffe9e9;color:#a82d2d}.cpInfo button{margin-left:8px;border:0;background:none;color:#1764c8;font-weight:800;cursor:pointer;text-decoration:underline}
+.cpSearch{width:100%;height:42px;border:1px solid #cfdae7;border-radius:10px;padding:0 14px;font-size:14px;color:#1d3a5c;background:#fbfdff;outline:none}.cpSearch:focus{border-color:#6ca5ea;box-shadow:0 0 0 3px rgba(23,105,232,.1)}
+.cpList{list-style:none;margin:0;padding:0;display:grid;gap:6px;max-height:340px;overflow-y:auto}
+.cpList li{display:flex;align-items:center;gap:12px;padding:9px 12px;border:1px solid #e1e8f1;border-radius:10px;background:#f9fbfe}
+.cpList li[data-selected="true"]{border-color:#24b56b;background:#e6f6ee}
+.cpList li>span{flex:1;min-width:0;font-size:13px;color:#1d3a5c;line-height:1.35}.cpList li>span small{display:block;font-size:12px;color:#6f7f95}
+.cpList li>button{flex:none;height:34px;padding:0 14px;border-radius:9px;border:1px solid #1769e8;background:#1769e8;color:#fff;font-size:13px;font-weight:800;cursor:pointer}.cpList li>button:disabled{background:#e6f6ee;border-color:#b7e2cc;color:#1b7a4b;cursor:default}

@@ -7,6 +7,7 @@ import {createPortal} from 'react-dom';
 import styles from './page.module.css';
 import {fetchJsonWithTimeout,classifyAsyncError} from '../lib/client-async';
 import ReminderButton from '../components/ReminderButton';
+import {loadCategoryTree,categoryPath,searchLeafCategories,countLeafCategories} from '../lib/shopee-categories';
 
 const n=v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v))?null:Number(v);
 const decimal=v=>{if(v===null||v===undefined||v==='')return null;const raw=String(v).trim().replace(/\s/g,'');const normalized=raw.includes(',')?raw.replace(/\./g,'').replace(',','.'):raw;const value=Number(normalized);return Number.isFinite(value)?value:null};
@@ -344,10 +345,11 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
       const valid=arr(saved).filter(k=>allowedTabs.has(k));
       setCompletedTabs(valid);
       const firstPending=TAB_KEYS.find(k=>!valid.includes(k))||TAB_KEYS[TAB_KEYS.length-1];
-      setTab(firstPending);
+      // Embutido no Super Anúncio, abre exatamente a aba pedida (Editar categoria, Editar imagens…) em vez da primeira pendente.
+      setTab(embedded&&allowedTabs.has(initialTab)?initialTab:firstPending);
     }catch{
       setCompletedTabs([]);
-      setTab('title');
+      setTab(embedded&&allowedTabs.has(initialTab)?initialTab:'title');
     }
   },[report?.id,report?.item_id,allowedTabs]);
 
@@ -453,12 +455,13 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
     const allowed=tab==='title'?['title']:tab==='description'?['description']:tab==='images'?['images']:tab==='category'?['categoryId']:tab==='price'?['price']:[];
     const changes=Object.fromEntries(Object.entries(realChanges).filter(([k])=>allowed.includes(k)));
     if(!Object.keys(changes).length)return true;
+    if(changes.categoryId!=null&&typeof window!=='undefined'&&!window.confirm('Trocar a categoria muda onde o anúncio aparece na Shopee e pode exigir revisar atributos e marca. Enviar a nova categoria agora?'))return false;
     setSaving(true);setMessage('');
     try{
       const result=await fetchJsonWithTimeout('/api/shopee/product-update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({item_id:report.item_id,changes})},30000);
       const next={draft:{...draft},gallery:gallery.map(x=>({...x})),chosenCategory:String(chosenCategory||'')};
       setBaseline(next);setHistory({past:[],future:[]});
-      setMessage(`Alteração salva na Shopee com sucesso${result?.applied?.length?` (${result.applied.join(', ')})`:''}.`);
+      setMessage(`Alteração salva na Shopee com sucesso${result?.applied?.length?` (${result.applied.join(', ')})`:''}.${result?.warning?` ${result.warning}`:''}`);
       return true;
     }catch(e){setMessage(String(e?.message||e));return false}finally{setSaving(false)}
   }
@@ -722,6 +725,7 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
 
           {tab==='images'&&<ImagesSection gallery={gallery} competitors={competitors} plan={suggestionImproves?draft.imagePlan:''} onPlan={v=>setField('imagePlan',v)} before={activeBefore} after={guardedAfter} blocked={!suggestionImproves} setZoomSrc={setZoomSrc} downloadImage={downloadImage} removeImage={removeImage} moveImage={moveImage} uploadRef={uploadRef} onUploadFiles={onUploadFiles}/>}
           {tab==='video'&&<PlanSection title="Vídeo" original={p.hasVideo?'O anúncio possui vídeo.':'O anúncio não possui vídeo.'} plan={suggestionImproves?draft.videoPlan:''} onPlan={v=>setField('videoPlan',v)} before={activeBefore} after={guardedAfter} blocked={!suggestionImproves}/>}
+          {tab==='category'&&<CategoryPicker currentId={baseline?.chosenCategory||''} chosenId={chosenCategory} disabled={saving} onChoose={id=>mutate(()=>setChosenCategory(String(id)))}/>}
           {tab==='category'&&<CategoryComparison current={currentCategory||'—'} competitors={compCategoryRows} dominant={dominantCategory} aligned={categoryAligned} onApply={()=>{if(dominantRow?.id)mutate(()=>setChosenCategory(String(dominantRow.id)));else setMessage('A categoria predominante foi identificada, mas o ID oficial não foi coletado. Nenhuma alteração será enviada sem um ID real da Shopee.')}} selected={chosenCategory} setZoomSrc={setZoomSrc}/>}
           {tab==='price'&&<PriceSection costVariations={costVariations} costValue={costFieldValue} setVarCost={(id,v)=>setVarCosts(x=>({...x,[id]:v}))} costDirty={costDirty} costSaving={costSaving} costMsg={costMsg} onSaveCost={saveCost} price={draft.price} cost={draft.cost} setPrice={v=>setField('price',v)} setCost={v=>setField('cost',v)} margin={liveMargin} competitors={competitors} plan={suggestionImproves?draft.pricePlan:''} onPlan={v=>setField('pricePlan',v)} before={activeBefore} after={guardedAfter} blocked={!suggestionImproves} setZoomSrc={setZoomSrc} slots={slots} selectedSlots={selectedSlots} flashSelectedIds={flashSelectedIds} setFlashSelectedIds={setFlashSelectedIds} slotError={slotError} flash={flash} setFlash={setFlash} createFlash={prepareFlashCreation} flashBusy={flashBusy} flashMessage={flashMessage} flashDays={flashDays} setFlashDays={setFlashDays} flashInsight={flashInsight} reloadFlash={period=>loadFlashMeta(flashDays,period||flashPeriod)} useRecommendedSlot={useRecommendedSlot} flashPeriod={flashPeriod} setFlashPeriod={setFlashPeriod} setFlashPreset={setFlashPreset} models={effectiveFlashModels} variationDraft={flashVariationDraft} setVariationDraft={setFlashVariationDraft} applyFlashPriceToAll={applyFlashPriceToAll}/>}
           {tab==='variations'&&<VariationsSection product={p} plan={suggestionImproves?draft.variationsPlan:''} onPlan={v=>setField('variationsPlan',v)} before={activeBefore} after={guardedAfter} blocked={!suggestionImproves}/>}
@@ -773,6 +777,33 @@ function ImagesSection({gallery,competitors,plan,onPlan,before,after,blocked,set
     </section>
     <section className={styles.competitorsVisual}><h2>Comparação visual com os concorrentes</h2><div className={styles.competitorGrid}>{competitors.map((c,i)=><article key={i}><SmartImage urls={imageCandidates(c)} alt="" onZoom={setZoomSrc}/><div><small>Concorrente {i+1}</small>{competitorUrl(c)?<a href={competitorUrl(c)} target="_blank" rel="noreferrer">{c.title||`Concorrente ${i+1}`} ↗</a>:<b>{c.title||`Concorrente ${i+1}`}</b>}<span>Preço <strong>{money(parsedSearchPrice(c))}</strong></span><span>Vendidos <strong>{n(parsedSearchSold(c))?.toLocaleString('pt-BR')||missingStatus(c)}</strong></span></div></article>)}</div></section>
   </>
+}
+
+// Seletor das categorias OFICIAIS da Shopee: busca entre as categorias finais (as únicas que um anúncio pode usar).
+// Escolher só marca a categoria como alteração pendente; quem envia à Shopee é o botão Salvar da barra de ações.
+function CategoryPicker({currentId,chosenId,onChoose,disabled}){
+  const [state,setState]=useState({phase:'loading',byId:null,error:''});
+  const [query,setQuery]=useState('');
+  const load=()=>{setState({phase:'loading',byId:null,error:''});loadCategoryTree().then(byId=>setState({phase:'ready',byId,error:''})).catch(e=>setState({phase:'error',byId:null,error:String(e?.message||e)}))};
+  useEffect(()=>{load()},[]);
+  const byId=state.byId;
+  const results=useMemo(()=>searchLeafCategories(byId,query),[byId,query]);
+  const currentPath=byId&&currentId?categoryPath(byId,currentId):'';
+  const chosenPath=byId&&chosenId?categoryPath(byId,chosenId):'';
+  const changed=Boolean(chosenId)&&String(chosenId)!==String(currentId||'');
+  return <section className={styles.categoryPicker}>
+    <div className={styles.panelHead}><h2>Escolher a categoria oficial da Shopee</h2><span>Só categorias finais podem ser usadas em um anúncio</span></div>
+    <div className={styles.cpCurrent}>Categoria atual: <b>{currentPath||(currentId?`ID ${currentId}`:'não identificada')}</b>{currentPath&&currentId?<small> · ID {currentId}</small>:null}</div>
+    {changed&&<div className={styles.cpChosen}>Nova categoria selecionada: <b>{chosenPath||`ID ${chosenId}`}</b><small> · ID {chosenId}</small><span> Clique em <b>Salvar</b> na barra de ações para enviar à Shopee.</span></div>}
+    {state.phase==='loading'&&<div className={styles.cpInfo}>Carregando as categorias oficiais da Shopee…</div>}
+    {state.phase==='error'&&<div className={styles.cpInfo} data-error="true">{state.error||'Não foi possível carregar as categorias.'} <button type="button" onClick={load}>Tentar novamente</button></div>}
+    {state.phase==='ready'&&<>
+      <input className={styles.cpSearch} type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Digite parte do nome da categoria (ex.: blush, maquiagem)…" aria-label="Buscar categoria oficial da Shopee"/>
+      {query.trim().length<2&&<div className={styles.cpInfo}>Digite pelo menos 2 letras para buscar entre as {countLeafCategories(byId).toLocaleString('pt-BR')} categorias finais da Shopee.</div>}
+      {query.trim().length>=2&&!results.length&&<div className={styles.cpInfo}>Nenhuma categoria final encontrada para “{query.trim()}”.</div>}
+      {results.length>0&&<ul className={styles.cpList}>{results.map(x=>{const isChosen=String(x.id)===String(chosenId),isCurrent=String(x.id)===String(currentId);return <li key={x.id} data-selected={isChosen?'true':'false'}><span>{x.path}<small>ID {x.id}{isCurrent?' · categoria atual':''}</small></span><button type="button" disabled={disabled||isChosen} onClick={()=>onChoose(x.id)}>{isChosen?'Selecionada':'Selecionar'}</button></li>})}</ul>}
+    </>}
+  </section>;
 }
 
 function CategoryComparison({current,competitors,dominant,aligned,onApply,selected,setZoomSrc}){
