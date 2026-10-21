@@ -847,3 +847,10 @@ A API de Ads não traz imagem; a aba Histórico Ads mostrava só o placeholder (
 **Regras de honestidade mantidas:** margem ausente = "Margem indisponível" (nunca zero); produto com variações não tem margem agregada; "Custo parcial (X de Y)" do mockup NÃO foi implementado porque o total de variações não vem da lista (mostra só quantas têm custo). A contagem de **Margem negativa** considera apenas as ofertas já carregadas (linhas visíveis).
 **Testes:** os de cabeçalho/ações em `navigation-routes.test.mjs` foram atualizados ao novo layout.
 **Validação:** sem Node/npm/git nesta sessão — `node --test`, `next build` e verificação visual NÃO foram executados. Conferir antes do merge.
+
+
+### 2026-10-21 — Claude — Erro "Faça login" com menu mostrando sessão ativa (branch `fix/sessao-expirada-super-analise`)
+**Sintoma:** Super Análise mostrava "Falha na coleta · Faça login para acessar o Gestor Sênior." enquanto o menu lateral exibia conta e loja conectadas. Essa mensagem é o 401 do `middleware.js` (cookie `gs_account_session` ausente/inválido); o menu só lê `/api/auth/me` uma vez ao abrir e o ping de `/api/auth/activity` (60 s) ignorava o 401.
+**Mudança:** `client-async.js` ganhou `goToLogin()`, `accountSessionStatus()` e `LOGIN_REQUIRED_RE`; `AppShell.js` redireciona ao login se o ping receber 401; `WebAuditFlow.js`, ao falhar com mensagem de login, confere a sessão: expirada → login; válida → mensagem explicando que o Motor não usou a sessão (recarregar, conferir extensão, Saúde do Sistema).
+**Causa NÃO confirmada:** pode ser sessão expirada com a página aberta ou o Motor (v0.20.2, código fora do repo) chamando o Gestor sem o cookie (SameSite=lax). Se a mensagem nova aparecer com a sessão válida, a correção é na extensão.
+**Validação:** `node --test tests/*.test.mjs` → 209/212; as 3 falhas são as antigas de Concorrentes. `next build` e verificação visual NÃO foram feitos. Sem teste novo para o redirecionamento.

@@ -2,7 +2,7 @@
 
 import {useEffect,useMemo,useRef,useState} from 'react';
 import styles from './web-audit.module.css';
-import {motorData,classifyAsyncError} from '../lib/client-async';
+import {motorData,classifyAsyncError,accountSessionStatus,goToLogin,LOGIN_REQUIRED_RE} from '../lib/client-async';
 
 const n=v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v))?null:Number(v);
 const money=v=>n(v)==null?'—':n(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
@@ -106,8 +106,14 @@ export default function WebAuditFlow({initialUrl=''}){
     }catch(e){
       console.error('[Super Análise] collectProduct falhou',e);
       const kind=e?.code==='empty'?'empty':classifyAsyncError(e);
-      setOperation({status:kind,message:String(e?.message||e)});
-      setMessage(kind==='timeout'?'A coleta excedeu 35 segundos. Você pode tentar novamente sem perder o produto selecionado.':String(e?.message||e));
+      let text=String(e?.message||e);
+      if(LOGIN_REQUIRED_RE.test(text)){
+        const session=await accountSessionStatus();
+        if(session==='expired'){setOperation({status:'error',message:'Sua sessão expirou. Redirecionando para o login…'});setMessage('Sua sessão expirou. Redirecionando para o login…');goToLogin();return}
+        text='O Motor Senior não conseguiu usar sua sessão do Gestor, embora você continue conectado. Recarregue esta página (Ctrl+F5) e confira se a extensão está atualizada; se persistir, abra Configurações › Saúde do Sistema.';
+      }
+      setOperation({status:kind,message:text});
+      setMessage(kind==='timeout'?'A coleta excedeu 35 segundos. Você pode tentar novamente sem perder o produto selecionado.':text);
       autoStartedRef.current=false;
     }finally{setLoading(false);}
   }

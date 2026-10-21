@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import {useEffect,useMemo,useRef,useState} from 'react';
 import {usePathname,useSearchParams} from 'next/navigation';
-import {fetchJsonWithTimeout} from '../lib/client-async';
+import {fetchJsonWithTimeout,goToLogin} from '../lib/client-async';
 
 const MENU=[
   {type:'item',label:'Dashboard',icon:'⌂',tone:'violet',href:'/'},
@@ -318,7 +318,7 @@ function ProtectedAppShell({children,pathname}){
   useEffect(()=>{
     let alive=true;
     fetch('/api/auth/me',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(data=>{if(alive)setAccount(data)}).catch(()=>{});
-    const ping=()=>{if(document.visibilityState==='visible')fetch('/api/auth/activity',{method:'POST',cache:'no-store'}).catch(()=>{})};
+    const ping=()=>{if(document.visibilityState==='visible')fetch('/api/auth/activity',{method:'POST',cache:'no-store'}).then(r=>{if(r.status===401&&alive)goToLogin()}).catch(()=>{})};
     ping();const timer=setInterval(ping,60000);window.addEventListener('focus',ping);
     return()=>{alive=false;clearInterval(timer);window.removeEventListener('focus',ping)};
   },[]);
