@@ -127,6 +127,7 @@ function Icon({name,className=''}) {
     case 'settings': return <svg {...common}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21h-4v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H3v-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3h4v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1v4H21a1.7 1.7 0 0 0-1.6 1z"/></svg>;
     case 'monitor': return <svg {...common}><path d="M3 12h4l2-5 4 10 2-5h6"/><path d="M4 20h16"/></svg>;
     case 'more': return <svg {...common}><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>;
+    case 'pencil': return <svg {...common}><path d="M4 20l4-1 11-11-3-3L5 16z"/><path d="M14 6l3 3"/></svg>;
     case 'check': return <svg {...common}><path d="M4 12.5l5 5L20 6.5"/></svg>;
     case 'alert': return <svg {...common}><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.01"/></svg>;
     case 'info': return <svg {...common}><circle cx="12" cy="12" r="9.5"/><path d="M12 11v6M12 7.5v.01"/></svg>;
@@ -342,7 +343,8 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
   const [listFilter,setListFilter]=useState('Todos');
   const [optimizedAreas,setOptimizedAreas]=useState({});
   const [editorIdle,setEditorIdle]=useState(false);
-  const checklistRef=useRef(null);
+  const [editing,setEditing]=useState('');
+  const [officialImage,setOfficialImage]=useState(null);
   const router=useRouter();
   const searchRef=useRef(null);
   const item=useMemo(()=>items.find(x=>String(x.itemId)===String(selectedId))||items[0]||null,[items,selectedId]);
@@ -358,7 +360,21 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
     setOptimizedAreas(next);
     try{localStorage.setItem('gs-super-anuncio-optimized-'+item.itemId,JSON.stringify(next))}catch{}
   }
-  const isOptimized=area=>Boolean(optimizedAreas?.[area]||(area==='media'&&optimizedAreas?.images)||(area==='financial'&&optimizedAreas?.price));
+  const isOptimized=area=>Boolean(optimizedAreas?.[area]||(area==='content'&&optimizedAreas?.title&&optimizedAreas?.description)||(area==='media'&&optimizedAreas?.images)||(area==='financial'&&optimizedAreas?.price));
+  // Validar/desfazer a validação de um item (título, descrição, imagens, vídeo, categoria, variações). Fica salvo só neste navegador.
+  const isValidated=sub=>Boolean(optimizedAreas?.[sub]);
+  function toggleValidated(sub){
+    const next={...optimizedAreas,[sub]:!optimizedAreas?.[sub]};
+    setOptimizedAreas(next);
+    try{localStorage.setItem('gs-super-anuncio-optimized-'+item.itemId,JSON.stringify(next))}catch{}
+  }
+  // Foto oficial do anúncio (cache de produtos da loja), com reserva nas imagens coletadas que sejam de produto.
+  useEffect(()=>{
+    let alive=true;setOfficialImage(null);
+    if(!item?.itemId)return undefined;
+    loadCatalogImages().then(map=>{if(alive)setOfficialImage(map?.[String(item.itemId)]||null)});
+    return()=>{alive=false};
+  },[item?.itemId]);
 
   useEffect(()=>{
     const selected=items.find(x=>String(x.itemId)===String(initialItemId));
@@ -579,7 +595,8 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
     content:{label:'Conteúdo',icon:'file',description:'Título e descrição do anúncio.',subs:[['title','Título'],['description','Descrição']]},
     media:{label:'Mídia',icon:'image',description:'Imagens e vídeo do anúncio.',subs:[['images','Imagens'],['video','Vídeo']]},
     category:{label:'Categoria',icon:'tag',description:'Categoria, atributos e variações.',subs:[['category','Categoria do produto'],['variations','Atributos & variações']]},
-    financial:{label:'Financeiro',icon:'coins',description:'Preço, margem, Ads e ofertas.',subs:[['price','Preço, margem e oferta']]}
+    financial:{label:'Financeiro',icon:'coins',description:'Preço, margem, Ads e ofertas.',subs:[['price','Preço, margem e oferta']]},
+    history:{label:'Histórico',icon:'clock',description:'Evolução das análises e alterações.',subs:[]}
   };
   const activeArea=areaMeta[detailTab]||areaMeta.content;
 
@@ -591,6 +608,7 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
       const next=item.schedule?.next_run_at||r.next_reanalysis_at;
       return next?{tone:'blue',icon:'clock',text:'Agendado',title:`Próxima checagem: ${when(next)}`}:null;
     }
+    if(key==='history'){const count=arr(item.history).length||1;return{tone:'gray',icon:null,text:plural(count,'análise'),title:'Rodadas de análise preservadas para comparação.'}}
     if(key==='financial'){
       if(margin==null)return cost==null?{tone:'amber',icon:'alert',text:'Sem custo',title:'Cadastre o custo para calcular a margem.'}:{tone:'gray',icon:null,text:'Sem dados',title:'Margem não calculada.'};
       if(margin<=0)return{tone:'red',icon:'alert',text:'Margem negativa',title:`Margem estimada ${pct(margin)}`};
@@ -605,7 +623,8 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
     }
     return{tone:'gray',icon:null,text:'Pendente',title:'Ainda não marcado como concluído.'};
   }
-  const openChecklist=()=>{const el=checklistRef.current;if(el){el.open=true;el.scrollIntoView({behavior:'smooth',block:'start'})}};
+  const headerImage=officialImage||productImagesOf(p)[0]||null;
+  const toggleEditing=sub=>{setEditing(cur=>cur===sub?'':sub);setEditorTab(sub)};
 
   return <div className={styles.screen}>
     <ZoomModal src={zoomSrc} onClose={()=>setZoomSrc('')}/>
@@ -621,7 +640,7 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
       {deleteError&&<div className={styles.deleteError}>{deleteError}</div>}
 
       <section className={styles.detailProductCard}>
-        {imageOf(p)?<button type="button" className={styles.detailProductImage} onClick={()=>setZoomSrc(imageOf(p))} title="Ampliar imagem"><Icon name="image" className={styles.imgPlaceholder}/><img src={imageOf(p)} alt="" ref={el=>{if(el&&el.complete&&el.naturalWidth===0)el.style.display='none'}} onError={e=>{e.currentTarget.style.display='none'}}/><span>⌕</span></button>:<div className={styles.detailProductImageFallback}><Icon name="image"/></div>}
+        {headerImage?<button type="button" className={styles.detailProductImage} onClick={()=>setZoomSrc(headerImage)} title="Ampliar imagem"><Icon name="image" className={styles.imgPlaceholder}/><img src={headerImage} alt="" ref={el=>{if(el&&el.complete&&el.naturalWidth===0)el.style.display='none'}} onError={e=>{e.currentTarget.style.display='none'}}/><span>⌕</span></button>:<div className={styles.detailProductImageFallback}><Icon name="image"/></div>}
         <div className={styles.detailIdentity}>
           <small>Anúncio acompanhado</small>
           <h2>{p.title||p.item_name||`Produto ${item.itemId}`}</h2>
@@ -634,76 +653,63 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
         </div>
       </section>
 
+      <div className={styles.topCards}>
+        <CaptureCard r={r} ai={ai} competitors={competitors} score={score} afterScore={safeAfterScore} nextRun={item.schedule?.next_run_at||r.next_reanalysis_at}/>
+        <FutureTasksCard state={productTasks} itemId={item.itemId} onAction={resolveProductTask} onReload={()=>loadProductTasks(item.itemId,{force:true})}/>
+      </div>
+
       <nav className={styles.detailTabs} aria-label="Áreas do Super Anúncio">
-        {Object.entries(areaMeta).map(([key,meta])=>{const st=areaStatus(key);return <button key={key} type="button" data-area={key} data-active={detailTab===key?'true':'false'} data-done={key==='monitoring'?'false':isOptimized(key)?'true':'false'} onClick={()=>{setDetailTab(key);if(key!=='monitoring')setEditorTab(defaultEditorForGroup(key))}}>
-          <span className={styles.tabMain}><Icon name={meta.icon}/><span>{meta.label}</span>{isOptimized(key)&&<b>✓</b>}</span>
+        {Object.entries(areaMeta).map(([key,meta])=>{const st=areaStatus(key);return <button key={key} type="button" data-area={key} data-active={detailTab===key?'true':'false'} data-done={key==='monitoring'||key==='history'?'false':isOptimized(key)?'true':'false'} onClick={()=>{setDetailTab(key);setEditing('');if(key!=='monitoring'&&key!=='history')setEditorTab(defaultEditorForGroup(key))}}>
+          <span className={styles.tabMain}><Icon name={meta.icon}/><span>{meta.label}</span>{key!=='history'&&isOptimized(key)&&<b>✓</b>}</span>
           {st&&<em className={styles.tabStatus} data-tone={st.tone} title={st.title}>{st.icon&&<Icon name={st.icon}/>}{st.text}</em>}
         </button>})}
       </nav>
 
-      <NextActionsStrip state={productTasks} onReload={()=>loadProductTasks(item.itemId,{force:true})} onOpenAll={openChecklist}/>
-
       {detailTab==='monitoring'&&<MonitoringPanel itemId={item.itemId}/>}
+      {detailTab==='history'&&<HistoryPanel history={item.history||[r]}/>}
+      {detailTab==='content'&&<ContentPanel r={r} p={p} ai={ai} editing={editing} onEdit={toggleEditing} validated={isValidated} onValidate={toggleValidated}/>}
+      {detailTab==='media'&&<MediaPanel r={r} p={p} ai={ai} editing={editing} onEdit={toggleEditing} validated={isValidated} onValidate={toggleValidated} onZoom={setZoomSrc}/>}
+      {detailTab==='category'&&<CategoryPanel r={r} p={p} ai={ai} competitors={competitors} variations={variations} editing={editing} onEdit={toggleEditing} validated={isValidated} onValidate={toggleValidated} onZoom={setZoomSrc}/>}
 
-      {detailTab!=='monitoring'&&<section className={styles.detailAreaIntro}>
-        <div><span><Icon name={activeArea.icon}/></span><div><h2>{activeArea.label}</h2><p>{activeArea.description}</p></div></div>
-        <div className={styles.detailSubtabs}>
-          {activeArea.subs.map(([key,label])=><button key={key} type="button" data-active={editorTab===key?'true':'false'} onClick={()=>setEditorTab(key)}>{label}</button>)}
-        </div>
-      </section>}
+      {detailTab==='financial'&&<>
+        <section className={styles.detailAreaIntro}>
+          <div><span><Icon name={activeArea.icon}/></span><div><h2>{activeArea.label}</h2><p>{activeArea.description}</p></div></div>
+        </section>
+        <section className={styles.financeOverview}>
+          <div className={styles.financeHeading}><div><h2>Visão financeira</h2><p>Dados comerciais reunidos em um único lugar.</p></div><span>{offerStatus}</span></div>
+          <div className={styles.financeGrid}>{financialRows.map(([label,value])=><div key={label}><small>{label}</small><b>{value}</b></div>)}</div>
+          <div className={styles.offerSummary}>
+            <div><small>Status da Oferta Relâmpago</small><b>{offerStatus}</b></div>
+            <div><small>Período</small><b>{offerPeriod}</b></div>
+            <button type="button" onClick={()=>setEditorTab('price')}>Gerenciar oferta</button>
+          </div>
+          {(liveAds.phase==='error'||liveAds.phase==='timeout')&&<div className={styles.dataError}>{liveAds.error}<button type="button" onClick={()=>loadLiveAds(item.itemId)}>Tentar novamente</button></div>}
+        </section>
+        <section className={styles.financeOverview}>
+          <div className={styles.financeHeading}><div><h2>Resumo e cadeia de decisão</h2><p>Custo, preço, margem, vendas e ROAS lidos em sequência.</p></div></div>
+          <div className={styles.summaryGrid}>
+            <Fact label="Preço atual" value={dataText(price,money,p)} icon="tag"/>
+            <Fact label="Vendas acumuladas" value={sold==null?'—':sold.toLocaleString('pt-BR')} icon="cart"/>
+            <Fact label="Margem estimada" value={dataText(margin,pct,f)} icon="chart" tone="green"/>
+            <Fact label="Próxima rechecagem" value={when(item.schedule?.next_run_at||r.next_reanalysis_at)} icon="calendar"/>
+          </div>
+          <DecisionChain steps={chainSteps} verdict={verdict} onRegisterCost={()=>{setDetailTab('financial');setEditorTab('price')}}/>
+        </section>
+      </>}
 
-      {detailTab==='financial'&&<section className={styles.financeOverview}>
-        <div className={styles.financeHeading}><div><h2>Visão financeira</h2><p>Dados comerciais reunidos em um único lugar.</p></div><span>{offerStatus}</span></div>
-        <div className={styles.financeGrid}>{financialRows.map(([label,value])=><div key={label}><small>{label}</small><b>{value}</b></div>)}</div>
-        <div className={styles.offerSummary}>
-          <div><small>Status da Oferta Relâmpago</small><b>{offerStatus}</b></div>
-          <div><small>Período</small><b>{offerPeriod}</b></div>
-          <button type="button" onClick={()=>setEditorTab('price')}>Gerenciar oferta</button>
-        </div>
-        {(liveAds.phase==='error'||liveAds.phase==='timeout')&&<div className={styles.dataError}>{liveAds.error}<button type="button" onClick={()=>loadLiveAds(item.itemId)}>Tentar novamente</button></div>}
-      </section>}
-
-      {detailTab!=='monitoring'&&<section className={styles.detailEditor}>
+      {(detailTab==='financial'||(editing&&['content','media','category'].includes(detailTab)))&&<section className={styles.detailEditor}>
         <div className={styles.detailActionsBar} data-idle={editorIdle?'true':'false'}>
-          <div className={styles.detailActionsTitle}><b>Ações</b><small>{activeArea.label}</small></div>
-          <button type="button" onClick={()=>setShowList(true)}><Icon name="arrowLeft"/> Voltar</button>
+          <div className={styles.detailActionsTitle}><b>Ações</b><small>{detailTab==='financial'?activeArea.label:`Editando: ${ATTRIBUTE_BLOCKS.find(x=>x[0]===editing)?.[1]||activeArea.label}`}</small></div>
+          {detailTab==='financial'
+            ?<button type="button" onClick={()=>setShowList(true)}><Icon name="arrowLeft"/> Voltar</button>
+            :<button type="button" onClick={()=>setEditing('')}><Icon name="arrowLeft"/> Fechar edição</button>}
           <div id="gs-editor-toolbar" className={styles.detailEditorToolbar}/>
           {editorIdle&&<span className={styles.idleHint}><Icon name="info"/>Nada a alterar neste item</span>}
-          <button type="button" className={styles.doneButton} data-done={isOptimized(detailTab)?'true':'false'} onClick={()=>markOptimized(detailTab)}>✓ {isOptimized(detailTab)?'Concluído':'Marcar como concluído'}</button>
+          {detailTab==='financial'&&<button type="button" className={styles.doneButton} data-done={isOptimized(detailTab)?'true':'false'} onClick={()=>markOptimized(detailTab)}>✓ {isOptimized(detailTab)?'Concluído':'Marcar como concluído'}</button>}
         </div>
         <div className={styles.detailEditorBody}>
-          <SuperAnaliseInteligente key={`${r.id}-${editorTab}`} report={r} products={[]} initialTab={editorTab} embedded onStateChange={s=>setEditorIdle(Boolean(s?.idle))}/>
+          <SuperAnaliseInteligente key={`${r.id}-${detailTab==='financial'?'price':editing}`} report={r} products={[]} initialTab={detailTab==='financial'?'price':editing} embedded onStateChange={s=>setEditorIdle(Boolean(s?.idle))}/>
         </div>
-      </section>}
-
-      {detailTab!=='monitoring'&&<section className={styles.secondaryPanels} aria-label="Informações adicionais">
-        <details>
-          <summary><span><Icon name="bars"/></span><div><b>Resumo</b><small>Principais insights deste anúncio.</small></div><i>⌄</i></summary>
-          <div className={styles.accordionBody}>
-            <div className={styles.summaryGrid}>
-              <Fact label="Preço atual" value={dataText(price,money,p)} icon="tag"/>
-              <Fact label="Vendas acumuladas" value={sold==null?'—':sold.toLocaleString('pt-BR')} icon="cart"/>
-              <Fact label="Margem estimada" value={dataText(margin,pct,f)} icon="chart" tone="green"/>
-              <Fact label="Próxima rechecagem" value={when(item.schedule?.next_run_at||r.next_reanalysis_at)} icon="calendar"/>
-            </div>
-            <DecisionChain steps={chainSteps} verdict={verdict} onRegisterCost={()=>{setDetailTab('financial');setEditorTab('price')}}/>
-          </div>
-        </details>
-
-        <details>
-          <summary><span><Icon name="users"/></span><div><b>Concorrentes</b><small>Análise dos principais concorrentes.</small></div><i>⌄</i></summary>
-          <div className={styles.accordionBody}><CompetitorsPanel competitors={competitors} collectedAt={r.analyzed_at} onZoom={setZoomSrc}/></div>
-        </details>
-
-        <details>
-          <summary><span><Icon name="clock"/></span><div><b>Histórico</b><small>Evolução das análises e alterações.</small></div><i>⌄</i></summary>
-          <div className={styles.accordionBody}><HistoryPanel history={item.history||[r]}/></div>
-        </details>
-
-        <details ref={checklistRef}>
-          <summary><span><Icon name="file"/></span><div><b>Checklist</b><small>Itens que ainda podem ser otimizados.</small></div><i>⌄</i></summary>
-          <div className={styles.accordionBody}><NextActionsCard state={productTasks} itemId={item.itemId} onAction={resolveProductTask} onReload={()=>loadProductTasks(item.itemId,{force:true})}/></div>
-        </details>
       </section>}
 
       {detailTab!=='monitoring'&&<section className={styles.manageZone}><span className={styles.manageLabel}>Gerenciar análise deste anúncio</span><button type="button" className={styles.deleteBtn} onClick={deleteAnalysis} disabled={deleting}><Icon name="trash"/>{deleting?'Excluindo…':'Excluir análises'}</button></section>}
@@ -745,27 +751,6 @@ function Overview({item,price,prevPrice,sold,prevSold,margin,ai,flashSales,produ
       <Reason icon="chart" title="Margem">Preço e custo registrados são usados para acompanhar a margem.</Reason>
     </div>
   </section></>;
-}
-
-// Faixa curta com as 3 próximas ações mais prioritárias (mesmos dados do Checklist, que continua completo mais abaixo).
-function NextActionsStrip({state,onReload,onOpenAll}){
-  const rows=arr(state?.rows);
-  const loading=state?.phase==='loading';
-  const failed=state?.phase==='error'||state?.phase==='timeout';
-  if(!state||state.phase==='idle')return null;
-  const toneOf=p=>p==='urgent'||p==='high'?'red':p==='low'?'blue':'amber';
-  const iconOf=t=>({flash_sale:'tag',reanalysis:'refresh',competitors:'users',images:'image',video:'play',ads:'megaphone'}[String(t||'').toLowerCase()]||'clock');
-  return <section className={styles.nextStrip} aria-label="Próximas ações">
-    <span className={styles.nextLabel}><Icon name="sparkles"/>Próximas ações</span>
-    {loading&&<span className={styles.nextMuted}>Carregando…</span>}
-    {failed&&<><span className={styles.nextMuted}>Não foi possível carregar.</span><button type="button" className={styles.nextAll} onClick={onReload}>Tentar novamente</button></>}
-    {!loading&&!failed&&!rows.length&&<span className={styles.nextChip} data-tone="green"><Icon name="check"/>Nenhuma pendência aberta</span>}
-    {!loading&&!failed&&rows.slice(0,3).map((t,i)=>{
-      const href=taskHref(t),inner=<><Icon name={iconOf(t.task_type)}/><span>{t.title||'Tarefa pendente'}</span></>;
-      return href?<Link key={t.id||i} href={href} className={styles.nextChip} data-tone={toneOf(t.priority)}>{inner}</Link>:<span key={t.id||i} className={styles.nextChip} data-tone={toneOf(t.priority)}>{inner}</span>;
-    })}
-    {!loading&&!failed&&rows.length>0&&<button type="button" className={styles.nextAll} onClick={onOpenAll}>Ver todas ({rows.length})</button>}
-  </section>;
 }
 
 function NextActionsCard({state,itemId,onAction,onReload}){
@@ -938,4 +923,188 @@ function BottomCards({item,competitors,score,afterScore}){
     <section><h3><Icon name="refresh"/> Mudanças recentes</h3><p>Preço: {old==null?'sem comparação':`${money(old)} → ${money(price)}`}</p><p>Última análise: {when(latest.analyzed_at)}</p><p>Próxima rechecagem: {when(item.schedule?.next_run_at||latest.next_reanalysis_at)}</p></section>
     <section><h3><Icon name="users"/> Monitoramento competitivo</h3><p>{competitors.length} concorrente{competitors.length===1?'':'s'} vinculado{competitors.length===1?'':'s'}.</p><p>Os snapshots apresentam preço, vendas e demais dados capturados em cada coleta.</p></section>
   </div>;
+}
+
+// ───── Reorganização do detalhe (captura, tarefas futuras e blocos de análise por área) ─────
+// Imagem oficial do produto: o cache de produtos da loja (Open Platform) é a fonte confiável; a coleta pela página às vezes
+// grava ícones de interface (ex.: plugin de acessibilidade) como "imagem do anúncio".
+let catalogImageCache={at:0,promise:null};
+function loadCatalogImages(){
+  const now=Date.now();
+  if(catalogImageCache.promise&&now-catalogImageCache.at<60000)return catalogImageCache.promise;
+  const promise=fetchJsonWithTimeout('/api/shopee/products',{cache:'no-store'},15000).then(data=>{
+    const map={};
+    for(const it of arr(data?.items)){
+      const url=it?.image?.image_url_list?.[0]||it?.image_info?.image_url;
+      if(it?.item_id!=null&&typeof url==='string'&&PRODUCT_IMAGE_HOST.test(url))map[String(it.item_id)]=url;
+    }
+    return map;
+  }).catch(()=>({}));
+  catalogImageCache={at:now,promise};
+  return promise;
+}
+// Só URLs de imagem de produto da Shopee (descarta ícones de interface e SVGs).
+const productImagesOf=p=>imageCandidates(p).filter(u=>PRODUCT_IMAGE_HOST.test(u));
+const SUB_TERMS=Object.fromEntries(ATTRIBUTE_BLOCKS.map(([key,,,terms])=>[key,terms]));
+const JUSTIFICATIONS=[['seo','SEO'],['aida','AIDA'],['competitors','Concorrentes'],['clarity','Clareza'],['conversion','Conversão']];
+function subScoreText(r,ai,key){
+  const before=attributeScore(r,SUB_TERMS[key]||[]),afterRaw=n(ai?.afterScores?.[key]);
+  if(before!=null&&afterRaw!=null)return `Nota ${before} → ${Math.max(before,Math.round(afterRaw))}`;
+  return before!=null?`Nota ${before}`:'';
+}
+function categoryOf(c){
+  const direct=c?.categoryPath||c?.category_path||c?.category||c?.categoryName||c?.category_name;
+  if(direct)return String(direct).trim();
+  const m=String(c?.description||'').match(/CategoriaShopee(.+?)(?:Estoque|País de Origem|Envio de|Descrição do produto)/i);
+  return m?.[1]?m[1].trim().slice(0,140):null;
+}
+const categoryLeaf=v=>String(v||'').split(/>|\/|→|›/).map(x=>x.trim()).filter(Boolean).pop()?.toLowerCase()||'';
+
+function LongText({text,limit=320}){
+  const s=String(text||'').trim();
+  if(s.length<=limit)return <span className={styles.anPre}>{s}</span>;
+  return <><span className={styles.anPre}>{s.slice(0,limit).trimEnd()}…</span><details className={styles.anMore}><summary>Ver completo</summary><span className={styles.anPre}>{s}</span></details></>;
+}
+function AnField({label,tone,children}){
+  return <div className={styles.anField}><span className={styles.anLabel}>{label}</span><div className={styles.anText} data-tone={tone||''}>{children}</div></div>;
+}
+function AnalysisBlock({icon,tone,title,subtitle,score,status,children,onEdit,editLabel='Editar',editing,onValidate,validated}){
+  return <section className={styles.anBlock}>
+    <header className={styles.anHead}>
+      <span className={styles.anIcon} data-tone={tone}><Icon name={icon}/></span>
+      <div className={styles.anTitle}><h3>{title}</h3>{subtitle&&<span>{subtitle}</span>}</div>
+      {score&&<span className={styles.anScore}>{score}</span>}
+      {status&&<em className={styles.tabStatus} data-tone={status.tone}>{status.icon&&<Icon name={status.icon}/>}{status.text}</em>}
+    </header>
+    <div className={styles.anBody}>{children}</div>
+    <footer className={styles.anActions}>
+      <button type="button" className={styles.anBtn} data-active={editing?'true':'false'} onClick={onEdit}><Icon name="pencil"/>{editing?'Fechar edição':editLabel}</button>
+      <button type="button" className={`${styles.anBtn} ${styles.anOk}`} data-done={validated?'true':'false'} onClick={onValidate} title={validated?'Clique para desfazer a validação':'Marcar este item como revisado e correto'}><Icon name="check"/>{validated?'Validado':'Validar'}</button>
+    </footer>
+  </section>;
+}
+function aiTextBody({ai,sub,current,currentLabel}){
+  const a=ai?.[sub];
+  const suggestion=String(a?.suggestion||'').trim(),reason=String(a?.reason||'').trim();
+  const just=JUSTIFICATIONS.map(([k,l])=>[l,String(a?.[k]||'').trim()]).filter(([,t])=>t);
+  return <>
+    <AnField label={currentLabel}>{current?<LongText text={current}/>:'Sem dados'}</AnField>
+    <AnField label="Análise da I.A." tone={!a?'muted':suggestion?'ai':'ok'}>
+      {!a?'A I.A. ainda não analisou este item.':(reason||(suggestion?'A I.A. sugeriu uma melhoria.':'A I.A. não encontrou mudança necessária: o conteúdo atual pode ser preservado.'))}
+      {just.length>0&&<details className={styles.anMore}><summary>Ver justificativas</summary><ul>{just.map(([l,t])=><li key={l}><b>{l}:</b> {t}</li>)}</ul></details>}
+    </AnField>
+    {suggestion&&<AnField label="Sugestão da I.A."><LongText text={suggestion}/></AnField>}
+  </>;
+}
+function textStatus(ai,sub){
+  const a=ai?.[sub];
+  if(!a)return{tone:'gray',text:'Sem análise'};
+  return String(a.suggestion||'').trim()?{tone:'amber',icon:'alert',text:'Sugestão da I.A.'}:{tone:'green',icon:'check',text:'Pode preservar'};
+}
+
+function ContentPanel({r,p,ai,editing,onEdit,validated,onValidate}){
+  return <div className={styles.anStack}>
+    <AnalysisBlock icon="file" tone="violet" title="Título" subtitle="Como o título aparece na busca da Shopee" score={subScoreText(r,ai,'title')} status={textStatus(ai,'title')} editing={editing==='title'} onEdit={()=>onEdit('title')} validated={validated('title')} onValidate={()=>onValidate('title')}>
+      {aiTextBody({ai,sub:'title',current:p.title||p.item_name,currentLabel:'Título atual'})}
+    </AnalysisBlock>
+    <AnalysisBlock icon="file" tone="violet" title="Descrição" subtitle="Texto que convence quem abriu o anúncio" score={subScoreText(r,ai,'description')} status={textStatus(ai,'description')} editing={editing==='description'} onEdit={()=>onEdit('description')} validated={validated('description')} onValidate={()=>onValidate('description')}>
+      {aiTextBody({ai,sub:'description',current:p.description,currentLabel:'Descrição atual'})}
+    </AnalysisBlock>
+  </div>;
+}
+
+function MediaPanel({r,p,ai,editing,onEdit,validated,onValidate,onZoom}){
+  const urls=productImagesOf(p),declared=n(p.imageCount);
+  const count=declared??(urls.length||null);
+  const img=ai?.images||null,vid=ai?.video||null;
+  const types=arr(img?.recommendedTypes).map(x=>String(x||'').trim()).filter(Boolean).slice(0,6);
+  const imgJust=[['Comparação com os concorrentes',img?.competitorInsight],...JUSTIFICATIONS.filter(([k])=>k!=='seo'&&k!=='aida').map(([k,l])=>[l,img?.[k]])].map(([l,t])=>[l,String(t||'').trim()]).filter(([,t])=>t);
+  const plan=String(img?.suggestion||'').trim(),reason=String(img?.reason||'').trim();
+  const videoNow=p.hasVideo===true?'O anúncio tem vídeo.':p.hasVideo===false?'O anúncio não tem vídeo.':'Sem dados sobre vídeo.';
+  return <div className={styles.anStack}>
+    <AnalysisBlock icon="image" tone="magenta" title="Imagens do anúncio" subtitle="Quantas imagens existem e o que a I.A. recomenda" score={subScoreText(r,ai,'images')} status={count==null?{tone:'gray',text:'Sem dados'}:{tone:'blue',text:`${count} ${count===1?'imagem':'imagens'}`}} editLabel="Editar imagens" editing={editing==='images'} onEdit={()=>onEdit('images')} validated={validated('images')} onValidate={()=>onValidate('images')}>
+      <AnField label="Imagens do anúncio">
+        {count==null?'Sem dados sobre as imagens.':<>{count===0?'O anúncio não tem imagens.':`O anúncio tem ${count} ${count===1?'imagem':'imagens'}.`}</>}
+        {urls.length>0&&<div className={styles.anThumbs}>{urls.slice(0,6).map((u,i)=><button key={u+i} type="button" onClick={()=>onZoom?.(u)} title="Ampliar"><img src={u} alt="" onError={e=>{e.currentTarget.style.visibility='hidden'}}/></button>)}{urls.length>6&&<span>+{urls.length-6}</span>}</div>}
+      </AnField>
+      <AnField label="Análise da I.A. sobre as imagens" tone={!img?'muted':plan?'ai':'ok'}>
+        {!img?'A I.A. ainda não analisou as imagens.':(reason||(plan?'A I.A. sugeriu melhorias nas imagens.':'A I.A. não encontrou mudança necessária nas imagens.'))}
+        {imgJust.length>0&&<details className={styles.anMore}><summary>Ver justificativas</summary><ul>{imgJust.map(([l,t])=><li key={l}><b>{l}:</b> {t}</li>)}</ul></details>}
+      </AnField>
+      {types.length>0?<AnField label="Tipos de imagem recomendados pela I.A."><div className={styles.anChips}>{types.map(t=><span key={t} className={styles.nextChip} data-tone="blue">{t}</span>)}</div></AnField>:(plan?<AnField label="Plano da I.A. para as imagens"><LongText text={plan}/></AnField>:null)}
+    </AnalysisBlock>
+    <AnalysisBlock icon="play" tone="orange" title="Vídeo" subtitle="Vídeo de apresentação do produto" score={subScoreText(r,ai,'video')} status={textStatus(ai,'video')} editLabel="Editar vídeo" editing={editing==='video'} onEdit={()=>onEdit('video')} validated={validated('video')} onValidate={()=>onValidate('video')}>
+      <AnField label="Situação atual">{videoNow}</AnField>
+      <AnField label="Análise da I.A." tone={!vid?'muted':String(vid.suggestion||'').trim()?'ai':'ok'}>{!vid?'A I.A. ainda não analisou o vídeo.':(String(vid.reason||'').trim()||String(vid.suggestion||'').trim()||'A I.A. não encontrou mudança necessária.')}</AnField>
+    </AnalysisBlock>
+  </div>;
+}
+
+function CategoryPanel({r,p,ai,competitors,variations,editing,onEdit,validated,onValidate,onZoom}){
+  const mine=String(p.category||'').trim();
+  const rows=competitors.map((c,i)=>{const cat=categoryOf(c);return{i,title:c?.title||`Concorrente ${i+1}`,cat,same:cat&&mine?categoryLeaf(cat)===categoryLeaf(mine):null}});
+  const withCat=rows.filter(x=>x.cat),sameCount=withCat.filter(x=>x.same===true).length;
+  const cat=ai?.category||null;
+  const aligned=typeof cat?.aligned==='boolean'?cat.aligned:null;
+  const status=aligned===true?{tone:'green',icon:'check',text:'Mesma categoria'}:aligned===false?{tone:'amber',icon:'alert',text:'Categoria diferente'}:withCat.length?{tone:sameCount===withCat.length?'green':'amber',icon:sameCount===withCat.length?'check':'alert',text:`${sameCount} de ${withCat.length} iguais`}:{tone:'gray',text:'Sem dados'};
+  const varsNow=variations.length;
+  const va=ai?.variations||null;
+  return <div className={styles.anStack}>
+    <AnalysisBlock icon="tag" tone="orange" title="Categoria vs concorrentes" subtitle="Seu anúncio está na mesma categoria de quem vende mais?" score={subScoreText(r,ai,'category')} status={status} editLabel="Editar categoria" editing={editing==='category'} onEdit={()=>onEdit('category')} validated={validated('category')} onValidate={()=>onValidate('category')}>
+      <div className={styles.anTableWrap}><table className={styles.anTable}>
+        <thead><tr><th></th><th>Categoria capturada</th><th>Igual à sua?</th></tr></thead>
+        <tbody>
+          <tr><td><b>Seu anúncio</b></td><td>{mine||'Sem dados'}</td><td>—</td></tr>
+          {rows.map(x=><tr key={x.i}><td>{`Concorrente ${x.i+1}`}</td><td>{x.cat||'Sem dados'}</td><td>{x.same===null?<span className={styles.tabStatus} data-tone="gray">—</span>:<span className={styles.tabStatus} data-tone={x.same?'green':'amber'}>{x.same?'Sim':'Não'}</span>}</td></tr>)}
+          {!rows.length&&<tr><td colSpan={3}>Nenhum concorrente foi coletado nesta análise.</td></tr>}
+        </tbody>
+      </table></div>
+      <AnField label="Conclusão da I.A." tone={!cat?'muted':aligned===false?'ai':'ok'}>{!cat?'A I.A. ainda não comparou a categoria.':(String(cat.reason||'').trim()||(aligned===true?'A categoria está alinhada com a dos concorrentes.':'Sem conclusão registrada.'))}</AnField>
+    </AnalysisBlock>
+    <AnalysisBlock icon="grid" tone="teal" title="Atributos e variações" subtitle="Opções do produto e ficha técnica" score={subScoreText(r,ai,'variations')} status={textStatus(ai,'variations')} editLabel="Editar atributos" editing={editing==='variations'} onEdit={()=>onEdit('variations')} validated={validated('variations')} onValidate={()=>onValidate('variations')}>
+      <AnField label="Situação atual">{varsNow?`O anúncio tem ${varsNow} ${varsNow===1?'variação':'variações'}.`:'Sem variações coletadas.'}</AnField>
+      <AnField label="Análise da I.A." tone={!va?'muted':String(va.suggestion||'').trim()?'ai':'ok'}>{!va?'A I.A. ainda não analisou atributos e variações.':(String(va.reason||'').trim()||String(va.suggestion||'').trim()||'A I.A. não encontrou mudança necessária.')}</AnField>
+    </AnalysisBlock>
+    <details className={styles.anFold}><summary><Icon name="users"/>Concorrentes capturados ({competitors.length})</summary><CompetitorsPanel competitors={competitors} collectedAt={r.analyzed_at} onZoom={onZoom}/></details>
+  </div>;
+}
+
+function CaptureCard({r,ai,competitors,score,afterScore,nextRun}){
+  const sent=n(r.report?.visual_images_sent),skipped=r.report?.ai_images_skipped===true;
+  const provider=r.report?.ai_provider?`${String(r.report.ai_provider)==='gemini'?'Gemini':String(r.report.ai_provider)==='groq'?'Groq':r.report.ai_provider}${r.report?.ai_model?` · ${r.report.ai_model}`:''}`:null;
+  const cells=[
+    ['Coletado em',when(r.analyzed_at)],
+    ['Concorrentes analisados',String(competitors.length)],
+    ['Imagens enviadas à I.A.',skipped?'Análise visual pulada':sent==null?'Sem dados':String(sent)],
+    ['Análise feita por',provider||'Sem dados'],
+    ['Nota atual → potencial',score==null?'—':`${Math.round(score)} → ${afterScore==null?'—':Math.round(afterScore)}`],
+    ['Próxima checagem',nextRun?when(nextRun):'Não agendada']
+  ];
+  return <section className={styles.topCard}>
+    <header className={styles.topHead}><span className={styles.anIcon} data-tone="blue"><Icon name="clock"/></span><div className={styles.anTitle}><h3>Captura da análise</h3><span>O que foi coletado nesta análise</span></div></header>
+    <div className={styles.captureGrid}>{cells.map(([label,value])=><div key={label}><small>{label}</small><b>{value}</b></div>)}</div>
+  </section>;
+}
+
+function FutureTasksCard({state,itemId,onAction,onReload}){
+  const [expanded,setExpanded]=useState(false);
+  const rows=arr(state?.rows);
+  const loading=state?.phase==='loading',failed=state?.phase==='error'||state?.phase==='timeout';
+  const toneOf=pr=>pr==='urgent'||pr==='high'?'red':pr==='low'?'blue':'amber';
+  const prLabel={urgent:'Urgente',high:'Alta',medium:'Média',low:'Baixa'};
+  const iconOf=t=>({flash_sale:'tag',reanalysis:'refresh',competitors:'users',images:'image',video:'play',ads:'megaphone'}[String(t||'').toLowerCase()]||'clock');
+  return <section className={styles.topCard}>
+    <header className={styles.topHead}><span className={styles.anIcon} data-tone="orange"><Icon name="file"/></span><div className={styles.anTitle}><h3>Tarefas futuras</h3><span>O que fazer a seguir neste anúncio</span></div>{rows.length>0&&<span className={styles.anScore}>{rows.length} aberta{rows.length>1?'s':''}</span>}</header>
+    <div className={styles.futureList}>
+      {loading&&<span className={styles.nextMuted}>Carregando…</span>}
+      {failed&&<span className={styles.nextMuted}>{state?.error||'Não foi possível carregar as tarefas.'} <button type="button" className={styles.nextAll} onClick={onReload}>Tentar novamente</button></span>}
+      {!loading&&!failed&&!rows.length&&<span className={styles.nextChip} data-tone="green"><Icon name="check"/>Nenhuma pendência aberta</span>}
+      {!loading&&!failed&&rows.slice(0,3).map((t,i)=>{
+        const href=taskHref(t),inner=<><Icon name={iconOf(t.task_type)}/><span>{t.title||'Tarefa pendente'}</span><i>{prLabel[t.priority]||'Média'}</i></>;
+        return href?<Link key={t.id||i} href={href} className={styles.futureItem} data-tone={toneOf(t.priority)}>{inner}</Link>:<div key={t.id||i} className={styles.futureItem} data-tone={toneOf(t.priority)}>{inner}</div>;
+      })}
+    </div>
+    {!loading&&!failed&&rows.length>0&&<button type="button" className={styles.nextAll} onClick={()=>setExpanded(v=>!v)}>{expanded?'Ocultar detalhes':`Ver todas (${rows.length})`}</button>}
+    {expanded&&<NextActionsCard state={state} itemId={itemId} onAction={onAction} onReload={onReload}/>}
+  </section>;
 }

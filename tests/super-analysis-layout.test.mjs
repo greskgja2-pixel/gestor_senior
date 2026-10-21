@@ -230,14 +230,15 @@ test('Oferta Relampago: preco com virgula tambem alimenta margem e resumo',()=>{
 });
 
 
-test('Super Anuncio detalhe tem somente quatro areas principais e secundarios recolhidos',()=>{
-  for(const token of ["label:'Conteúdo'","label:'Mídia'","label:'Categoria'","label:'Financeiro'"])assert.ok(superAnuncio.includes(token),'área ausente: '+token);
+test('Super Anuncio detalhe: cards titulados, abas por area e blocos de analise com Validar/Editar',()=>{
+  for(const token of ["label:'Conteúdo'","label:'Mídia'","label:'Categoria'","label:'Financeiro'","label:'Histórico'"])assert.ok(superAnuncio.includes(token),'área ausente: '+token);
   assert.match(superAnuncio,/className=\{styles\.detailTabs\}/);
-  assert.match(superAnuncio,/className=\{styles\.secondaryPanels\}/);
-  for(const token of ['<b>Resumo</b>','<b>Concorrentes</b>','<b>Histórico</b>','<b>Checklist</b>'])assert.ok(superAnuncio.includes(token),'painel ausente: '+token);
+  for(const token of ['Captura da análise','Tarefas futuras','Categoria vs concorrentes','Imagens do anúncio','Tipos de imagem recomendados pela I.A.','Ver justificativas','Validar'])assert.ok(superAnuncio.includes(token),'bloco ausente: '+token);
+  // Resumo, Concorrentes e Checklist deixaram de ser cards soltos (foram para as abas e para Tarefas futuras).
+  assert.doesNotMatch(superAnuncio,/className=\{styles\.secondaryPanels\}/);
+  assert.doesNotMatch(superAnuncio,/<b>Checklist<\/b>/);
   assert.doesNotMatch(superAnuncio,/<details open/);
 });
-
 test('Financeiro unifica preço oferta custo margem Ads ROAS vendas GMV e custo por venda',()=>{
   for(const token of ['Preço atual','Preço da oferta','Custo do produto','Margem','Gasto com Ads','ROAS atual','ROAS alvo','Vendas','GMV','Custo por venda'])assert.ok(superAnuncio.includes(token),'financeiro ausente: '+token);
   assert.match(superAnuncio,/Status da Oferta Relâmpago/);
