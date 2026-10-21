@@ -16,7 +16,10 @@ const num=v=>n(v)==null?'—':n(v).toLocaleString('pt-BR',{maximumFractionDigits
 const when=v=>{if(!v)return'—';const d=new Date(v);return Number.isNaN(d.getTime())?'—':d.toLocaleString('pt-BR');};
 const flashWhen=v=>{const x=n(v);if(x==null)return'—';const d=new Date(x<1e12?x*1000:x);return Number.isNaN(d.getTime())?'—':d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});};
 const metric=(r,k)=>r?.metrics?.[k]??r?.ads_snapshot?.manual?.[k]??r?.ads_snapshot?.[k]??null;
-const imageOf=p=>p?.imageUrl||p?.image_url||p?.imageUrls?.[0]||p?.image?.image_url_list?.[0]||null;
+// Prefere a imagem oficial do produto (Open Platform) e URLs dos hosts de imagem da Shopee; a coleta pela página às vezes
+// captura um ícone da interface (ex.: seta do carrossel) como "imagem", então o primeiro candidato nem sempre serve.
+const PRODUCT_IMAGE_HOST=/^https?:\/\/(?:[\w-]+\.)*(?:susercontent\.com|cf\.shopee\.com\.br)\//i;
+const imageOf=p=>{const c=[p?.image?.image_url_list?.[0],p?.imageUrls?.[0],p?.imageUrl,p?.image_url].filter(x=>typeof x==='string'&&x);return c.find(u=>PRODUCT_IMAGE_HOST.test(u))||c[0]||null};
 const competitorUrl=c=>c?.url||c?.link||c?.productUrl||c?.product_url||(c?.shopId&&c?.itemId?`https://shopee.com.br/product/${c.shopId}/${c.itemId}`:c?.shop_id&&c?.item_id?`https://shopee.com.br/product/${c.shop_id}/${c.item_id}`:null);
 const competitorPrice=c=>{if(n(c?.price)!=null)return n(c.price);const m=String(c?.searchText||'').match(/R\$\s*\n?\s*([0-9.]+,[0-9]{2})/i);return m?Number(m[1].replace(/\./g,'').replace(',','.')):null};
 const competitorSold=c=>{if(n(c?.sold)!=null)return n(c.sold);const m=String(c?.searchText||'').match(/([0-9]+(?:[.,][0-9]+)?)\s*(mil)?\+?\s*Vendido/i);if(!m)return null;const base=Number(m[1].replace(',','.'));return Number.isFinite(base)?Math.round(base*(m[2]?1000:1)):null};
@@ -138,7 +141,7 @@ function ClockBadge(){
   return <div className={styles.clockBadge}><Icon name="calendar"/><div><b>{dateLabel}</b><small>{timeLabel} • Horário de Brasília</small></div></div>;
 }
 
-function Gauge({score,label}){const s=n(score);const p=Math.max(0,Math.min(100,s??0));return <div className={styles.gaugeWrap}><div className={styles.gauge} style={{'--score':`${p*1.8}deg`}}><div><b>{s==null?'—':Math.round(s)}</b><small>/100</small></div></div><span>{label}</span></div>}
+function Gauge({score,label}){const s=n(score);const p=Math.max(0,Math.min(100,s??0));return <div className={styles.gaugeWrap}><div className={styles.gauge} style={{'--score':`${p*1.8}deg`}}><div><b>{s==null?'—':Math.round(s)}</b>{(s==null||s<100)&&<small>/100</small>}</div></div><span>{label}</span></div>}
 function ZoomModal({src,onClose}){useEffect(()=>{if(!src)return undefined;const onKey=e=>{if(e.key==='Escape')onClose()};window.addEventListener('keydown',onKey);return()=>window.removeEventListener('keydown',onKey)},[src,onClose]);if(!src)return null;return <div className={styles.zoomModal} role="dialog" aria-modal="true" onClick={onClose}><button type="button" onClick={onClose}>×</button><img src={src} alt="Visualização ampliada" onClick={e=>e.stopPropagation()}/></div>}
 function Metric({label,value,good,title,icon,tone='blue',primary=false}){return <div className={`${styles.metric} ${primary?styles.metricPrimary:styles.metricSecondary}`} title={title||''}><span className={styles.metricIcon} data-tone={tone}><Icon name={icon}/></span><small>{label}</small><b className={good?styles.good:''}>{value}</b></div>}
 function Fact({label,value,icon,tone='blue'}){return <div className={styles.fact}><span className={styles.factIcon} data-tone={tone}><Icon name={icon}/></span><span className={styles.factText}><small>{label}</small><b>{value}</b></span></div>}
@@ -587,7 +590,7 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
       {deleteError&&<div className={styles.deleteError}>{deleteError}</div>}
 
       <section className={styles.detailProductCard}>
-        {imageOf(p)?<button type="button" className={styles.detailProductImage} onClick={()=>setZoomSrc(imageOf(p))} title="Ampliar imagem"><img src={imageOf(p)} alt=""/><span>⌕</span></button>:<div className={styles.detailProductImageFallback}><Icon name="image"/></div>}
+        {imageOf(p)?<button type="button" className={styles.detailProductImage} onClick={()=>setZoomSrc(imageOf(p))} title="Ampliar imagem"><Icon name="image" className={styles.imgPlaceholder}/><img src={imageOf(p)} alt="" onError={e=>{e.currentTarget.style.display='none'}}/><span>⌕</span></button>:<div className={styles.detailProductImageFallback}><Icon name="image"/></div>}
         <div className={styles.detailIdentity}>
           <small>Anúncio acompanhado</small>
           <h2>{p.title||p.item_name||`Produto ${item.itemId}`}</h2>
@@ -668,7 +671,7 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
         </details>
       </section>}
 
-      {detailTab!=='monitoring'&&<section className={styles.manageZone}><span>Gerenciar análise deste anúncio</span><button type="button" className={styles.deleteBtn} onClick={deleteAnalysis} disabled={deleting}><Icon name="trash"/>{deleting?'Excluindo…':'Excluir análises'}</button></section>}
+      {detailTab!=='monitoring'&&<section className={styles.manageZone}><span className={styles.manageLabel}>Gerenciar análise deste anúncio</span><button type="button" className={styles.deleteBtn} onClick={deleteAnalysis} disabled={deleting}><Icon name="trash"/>{deleting?'Excluindo…':'Excluir análises'}</button></section>}
     </main>
   </div>;
 }
