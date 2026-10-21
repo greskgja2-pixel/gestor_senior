@@ -420,15 +420,14 @@ test('Tabela de Produtos/Super Análise ordena pelos cabeçalhos em vez do selet
   assert.match(products,/const \[sortDir,setSortDir\]=useState\('asc'\)/);
   assert.match(products,/function toggleSort\(key\)\{/);
   assert.match(products,/function sortHeader\(key,label\)\{/);
-  assert.match(products,/sortHeader\('title','Produto'\)/);
-  assert.match(products,/sortHeader\('status','Status do anúncio'\)/);
+  // Mockup aprovado (2026-10-21): 5 colunas. Status do anúncio e Funil viraram selos/próximo passo;
+  // Custo e Margem ficam juntos (ordena pela margem).
+  assert.match(products,/sortHeader\('title','Produto e situação'\)/);
   assert.match(products,/sortHeader\('price','Preço \/ oferta'\)/);
-  assert.match(products,/sortHeader\('cost','Custo'\)/);
-  assert.match(products,/sortHeader\('margin','Margem'\)/);
+  assert.match(products,/sortHeader\('margin','Custo e margem'\)/);
   assert.match(products,/sortHeader\('stock','Estoque'\)/);
-  assert.match(products,/sortHeader\('funnel','Funil de vendas'\)/);
-  // Ações continua sem ordenação (cabeçalho simples, sem onClick).
-  assert.match(products,/<th>Ações<\/th>/);
+  assert.match(products,/sortHeader\('funnel','Próximo passo'\)/);
+  assert.doesNotMatch(products,/<th>Ações<\/th>/);
   // Filtros que devem continuar existindo depois de remover "Ordenar".
   assert.match(products,/Buscar produto/);
   assert.match(products,/Por página/);
@@ -457,9 +456,13 @@ test('Título do produto quebra em no máximo 2 linhas e a coluna não cresce in
   assert.match(css,/\.productInfo\{min-width:0;max-width:300px\}/);
 });
 
-test('Coluna Ações mostra Reanalisar para produto já analisado (disponível ou análise antiga) e só mostra Enviar para Super Análise quando nunca foi analisado',()=>{
+test('Próximo passo: Fazer Super Análise (pendente), Reanalisar (análise antiga) ou Abrir Funil (disponível), um por vez',()=>{
   const products=read('app/produtos/ProductsDashboard.js');
-  assert.match(products,/onClick=\{\(\)=>sendToAnalysis\(item\)\}>\{fStatus==='unavailable'\?'➤ Enviar para Super Análise':'↻ Reanalisar'\}/);
+  assert.match(products,/if\(status==='unavailable'\)return\{label:'Fazer Super Análise',run:\(\)=>sendToAnalysis\(item\)\}/);
+  assert.match(products,/if\(status==='stale'\)return\{label:'Reanalisar',run:\(\)=>sendToAnalysis\(item\)\}/);
+  assert.match(products,/return\{label:'Abrir Funil',run:\(\)=>funnelAction\(item\)\}/);
+  // Menu ⋯ só com ações reais.
+  for(const label of ['Cadastrar / editar custo','Ajustar estoque','Abrir na Shopee'])assert.ok(products.includes(label),'faltando: '+label);
 });
 
 test('Reanalisar cria uma nova rodada de Super Análise sem apagar o histórico anterior do produto',()=>{
@@ -576,4 +579,29 @@ test('Histórico Ads separa publicidade paga do funil geral e usa título do per
   assert.match(ads,/Ver análise/);
   assert.match(ads,/Abrir Funil por Produto/);
   assert.match(page,/<AdsHistory/);
+});
+
+
+test('Super Análise: filtros rápidos, status por linha e próxima ação usam só dados reais',()=>{
+  const products=read('app/produtos/ProductsDashboard.js');
+  const css=read('app/produtos/products.module.css');
+  assert.match(products,/const \[funnelFilter,setFunnelFilter\]=useState\('all'\)/);
+  assert.match(products,/function primaryAction\(item\)\{/);
+  assert.match(products,/function rowFlags\(item,margin,showAdStatus=true\)\{/);
+  assert.match(products,/Pendente de Super Análise/);
+  assert.match(products,/Pronto para Funil/);
+  assert.match(products,/Margem negativa/);
+  assert.match(products,/O que fazer agora/);
+  assert.match(products,/Próximo passo/);
+  assert.match(products,/Origem dos dados e limitações/);
+  assert.match(products,/Margem estimada com base no custo cadastrado e nas taxas configuradas/);
+  // Cartões do resumo filtram a lista; margem ausente nunca vira zero.
+  assert.match(products,/'aria-pressed':funnelFilter===key/);
+  assert.match(products,/Margem indisponível/);
+  assert.doesNotMatch(products,/marginPct:0/);
+  assert.match(css,/\.quickFilters/);
+  assert.match(css,/\.rowFlags/);
+  assert.match(css,/\.todo\{/);
+  assert.match(css,/\.rowMenuPop/);
+  assert.match(css,/@media\(max-width:760px\)\{\s*\.tableWrap\{overflow:visible\}/);
 });
