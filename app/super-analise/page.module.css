@@ -574,3 +574,10 @@
 .cpList li[data-selected="true"]{border-color:#24b56b;background:#e6f6ee}
 .cpList li>span{flex:1;min-width:0;font-size:13px;color:#1d3a5c;line-height:1.35}.cpList li>span small{display:block;font-size:12px;color:#6f7f95}
 .cpList li>button{flex:none;height:34px;padding:0 14px;border-radius:9px;border:1px solid #1769e8;background:#1769e8;color:#fff;font-size:13px;font-weight:800;cursor:pointer}.cpList li>button:disabled{background:#e6f6ee;border-color:#b7e2cc;color:#1b7a4b;cursor:default}
+
+/* GS_CATEGORIA_CAMPOS_OBRIGATORIOS_2026_10_21 */
+.cpRequired{display:grid;gap:8px;margin-top:12px;padding:12px;border:1px solid #f0c36b;border-radius:10px;background:#fff8e6;color:#4a3a10}
+.cpRequired>span{font-size:12px}
+.cpFields{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.cpFields label{display:grid;gap:4px;font-size:12px;font-weight:700}
+.cpFields input,.cpFields select{min-height:36px;padding:6px 8px;border:1px solid #cfd8e6;border-radius:8px;font:inherit;font-weight:400;background:#fff}

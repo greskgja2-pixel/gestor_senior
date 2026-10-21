@@ -26,7 +26,7 @@ test('escolher categoria só marca alteração pendente; salvar pede confirmaç�
 });
 
 test('a rota publica categoria somente se for categoria final da lista oficial e confere depois',()=>{
-  assert.match(route,/new Set\(\['title','description','categoryId'\]\)/);
+  assert.match(route,/new Set\(\['title','description','categoryId','attributeList','brand'\]\)/);
   assert.match(route,/getCategories\(shop\)/);
   assert.match(route,/Essa categoria não existe na lista oficial da Shopee/);
   assert.match(route,/found\.has_children/);
