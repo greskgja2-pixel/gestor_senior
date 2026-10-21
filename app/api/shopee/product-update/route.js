@@ -1,6 +1,7 @@
 import {NextResponse} from 'next/server';
 import {getActiveShop} from '../../../../lib/shop';
 import {getItemBaseInfo,updateItem} from '../../../../lib/shopee';
+import {getCategories} from '../../../../lib/shopee-catalog';
 
 export const dynamic='force-dynamic';
 export const runtime='nodejs';
@@ -18,11 +19,11 @@ export async function POST(request){
   if(!shop)return NextResponse.json({error:'Nenhuma loja Shopee conectada.'},{status:400});
 
   const requested=body?.changes&&typeof body.changes==='object'?body.changes:{};
-  const allowedKeys=new Set(['title','description']);
+  const allowedKeys=new Set(['title','description','categoryId']);
   const unknownKeys=Object.keys(requested).filter(key=>!allowedKeys.has(key));
   if(unknownKeys.length){
     return NextResponse.json({
-      error:'Nesta primeira fase, somente Título e Descrição podem ser publicados diretamente na Shopee.',
+      error:'Nesta fase, somente Título, Descrição e Categoria podem ser publicados diretamente na Shopee.',
       unsupported:unknownKeys
     },{status:409});
   }
@@ -38,8 +39,23 @@ export async function POST(request){
     if(!value)return NextResponse.json({error:'A descrição não pode ficar vazia.'},{status:400});
     itemFields.description=value;
   }
+  if(Object.prototype.hasOwnProperty.call(requested,'categoryId')){
+    const categoryId=positiveInt(requested.categoryId);
+    if(!categoryId)return NextResponse.json({error:'categoryId inválido.'},{status:400});
+    // Só categorias finais da lista oficial da Shopee podem ser usadas; nada é enviado sem essa conferência.
+    let found=null;
+    try{
+      const categories=await getCategories(shop);
+      found=(categories?.response?.category_list||[]).find(x=>Number(x?.category_id)===categoryId)||null;
+    }catch(error){
+      return NextResponse.json({error:'Não foi possível validar a categoria na Shopee agora: '+String(error?.message||error)},{status:502});
+    }
+    if(!found)return NextResponse.json({error:'Essa categoria não existe na lista oficial da Shopee.'},{status:400});
+    if(found.has_children)return NextResponse.json({error:'Escolha uma categoria final (sem subcategorias).'},{status:400});
+    itemFields.category_id=categoryId;
+  }
   if(!Object.keys(itemFields).length){
-    return NextResponse.json({error:'Nenhuma alteração real de Título ou Descrição para salvar.'},{status:400});
+    return NextResponse.json({error:'Nenhuma alteração real de Título, Descrição ou Categoria para salvar.'},{status:400});
   }
 
   try{
@@ -57,21 +73,24 @@ export async function POST(request){
       if(!item)continue;
       const titleOk=itemFields.item_name===undefined||String(item?.item_name??'').trim()===String(itemFields.item_name).trim();
       const descriptionOk=itemFields.description===undefined||String(item?.description??'').trim()===String(itemFields.description).trim();
-      verified={titleOk,descriptionOk};
-      if(titleOk&&descriptionOk)break;
+      const categoryOk=itemFields.category_id===undefined||Number(item?.category_id)===Number(itemFields.category_id);
+      verified={titleOk,descriptionOk,categoryOk};
+      if(titleOk&&descriptionOk&&categoryOk)break;
     }
 
-    if(!verified?.titleOk||!verified?.descriptionOk){
+    if(!verified?.titleOk||!verified?.descriptionOk||!verified?.categoryOk){
       return NextResponse.json({
         error:'A Shopee recebeu a alteração, mas a confirmação de persistência ainda não bateu com o valor enviado. Recarregue o anúncio antes de tentar novamente.',
-        verification:{title:verified?.titleOk??false,description:verified?.descriptionOk??false}
+        verification:{title:verified?.titleOk??false,description:verified?.descriptionOk??false,category:verified?.categoryOk??false}
       },{status:502});
     }
 
     const applied=[];
     if(itemFields.item_name!==undefined)applied.push('title');
     if(itemFields.description!==undefined)applied.push('description');
-    return NextResponse.json({ok:true,item_id:itemId,applied,verified:true});
+    if(itemFields.category_id!==undefined)applied.push('categoryId');
+    const warning=itemFields.category_id!==undefined?'Categoria alterada: confira os atributos e a marca do anúncio na Shopee, pois podem variar conforme a categoria.':undefined;
+    return NextResponse.json({ok:true,item_id:itemId,applied,verified:true,...(warning?{warning}:{})});
   }catch(error){
     return NextResponse.json({error:String(error?.message||error)},{status:502});
   }

@@ -7,6 +7,7 @@ import styles from './super-anuncio-mockup.module.css';
 import ReminderButton from '../components/ReminderButton';
 import SuperAnaliseInteligente from '../super-analise/SuperAnaliseInteligente';
 import {fetchJsonWithTimeout,classifyAsyncError} from '../lib/client-async';
+import {loadCategoryTree,categoryPath,sameCategory} from '../lib/shopee-categories';
 
 const n=v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v))?null:Number(v);
 const arr=v=>Array.isArray(v)?v:[];
@@ -958,7 +959,6 @@ function categoryOf(c){
   const m=String(c?.description||'').match(/CategoriaShopee(.+?)(?:Estoque|País de Origem|Envio de|Descrição do produto)/i);
   return m?.[1]?m[1].trim().slice(0,140):null;
 }
-const categoryLeaf=v=>String(v||'').split(/>|\/|→|›/).map(x=>x.trim()).filter(Boolean).pop()?.toLowerCase()||'';
 
 function LongText({text,limit=320}){
   const s=String(text||'').trim();
@@ -1041,11 +1041,21 @@ function MediaPanel({r,p,ai,editing,onEdit,validated,onValidate,onZoom}){
 }
 
 function CategoryPanel({r,p,ai,competitors,variations,editing,onEdit,validated,onValidate,onZoom}){
-  const mine=String(p.category||'').trim();
-  const rows=competitors.map((c,i)=>{const cat=categoryOf(c);return{i,title:c?.title||`Concorrente ${i+1}`,cat,same:cat&&mine?categoryLeaf(cat)===categoryLeaf(mine):null}});
+  // O nome oficial vem da lista de categorias da Shopee (pelo ID), porque o texto coletado nem sempre existe ou vem sem separadores.
+  const [tree,setTree]=useState(null);
+  useEffect(()=>{let alive=true;loadCategoryTree().then(t=>{if(alive)setTree(t)}).catch(()=>{});return()=>{alive=false}},[]);
+  const myId=p.categoryId??p.category_id??null;
+  const mine=String(p.category||'').trim()||(tree&&myId?categoryPath(tree,myId):'');
+  const rows=competitors.map((c,i)=>{
+    const cid=c?.categoryId??c?.category_id??null;
+    const cat=categoryOf(c)||(tree&&cid?categoryPath(tree,cid):null);
+    return{i,title:c?.title||`Concorrente ${i+1}`,cat,same:sameCategory({textA:mine,idA:myId,textB:cat,idB:cid})};
+  });
   const withCat=rows.filter(x=>x.cat),sameCount=withCat.filter(x=>x.same===true).length;
   const cat=ai?.category||null;
-  const aligned=typeof cat?.aligned==='boolean'?cat.aligned:null;
+  // Com a categoria do anúncio e a dos concorrentes conhecidas, a comparação calculada aqui prevalece sobre o selo da I.A.
+  const aiAligned=typeof cat?.aligned==='boolean'?cat.aligned:null;
+  const aligned=mine&&withCat.length?(sameCount===withCat.length?true:sameCount===0?false:aiAligned):aiAligned;
   const status=aligned===true?{tone:'green',icon:'check',text:'Mesma categoria'}:aligned===false?{tone:'amber',icon:'alert',text:'Categoria diferente'}:withCat.length?{tone:sameCount===withCat.length?'green':'amber',icon:sameCount===withCat.length?'check':'alert',text:`${sameCount} de ${withCat.length} iguais`}:{tone:'gray',text:'Sem dados'};
   const varsNow=variations.length;
   const va=ai?.variations||null;
@@ -1054,7 +1064,7 @@ function CategoryPanel({r,p,ai,competitors,variations,editing,onEdit,validated,o
       <div className={styles.anTableWrap}><table className={styles.anTable}>
         <thead><tr><th></th><th>Categoria capturada</th><th>Igual à sua?</th></tr></thead>
         <tbody>
-          <tr><td><b>Seu anúncio</b></td><td>{mine||'Sem dados'}</td><td>—</td></tr>
+          <tr><td><b>Seu anúncio</b></td><td>{mine||'Categoria não identificada'}</td><td>—</td></tr>
           {rows.map(x=><tr key={x.i}><td>{`Concorrente ${x.i+1}`}</td><td>{x.cat||'Sem dados'}</td><td>{x.same===null?<span className={styles.tabStatus} data-tone="gray">—</span>:<span className={styles.tabStatus} data-tone={x.same?'green':'amber'}>{x.same?'Sim':'Não'}</span>}</td></tr>)}
           {!rows.length&&<tr><td colSpan={3}>Nenhum concorrente foi coletado nesta análise.</td></tr>}
         </tbody>
