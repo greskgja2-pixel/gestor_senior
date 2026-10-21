@@ -277,7 +277,7 @@ function FlashPeriodPicker({value,onChange,onApply,onClose}) {
   </div>
 }
 
-export default function SuperAnaliseInteligente({report,products=[],initialTab='title',embedded=false}){
+export default function SuperAnaliseInteligente({report,products=[],initialTab='title',embedded=false,onStateChange}){
   const allowedTabs=useMemo(()=>new Set(TABS.map(([key])=>key)),[]);
   const [tab,setTab]=useState(allowedTabs.has(initialTab)?initialTab:'title');
   const [completedTabs,setCompletedTabs]=useState([]);
@@ -683,6 +683,11 @@ export default function SuperAnaliseInteligente({report,products=[],initialTab='
     loadFlashMeta(flashDays,next);
     setFlashMessage('O período foi ajustado para o melhor dia sugerido pelo histórico de vendas.');
   }
+
+  // Avisa a tela que hospeda o editor (Super Anúncio) quando não há nada a alterar na aba ativa, para ela simplificar a barra de ações.
+  // Somente informação de leitura: nenhum estado ou ação do editor é alterado.
+  const editorIdle=!hasActiveSuggestion&&dirtyForTab===0&&history.past.length===0&&history.future.length===0;
+  useEffect(()=>{if(typeof onStateChange==='function')onStateChange({tab,idle:editorIdle})},[tab,editorIdle]);
 
   if(!report)return <div className={styles.screen}><main className={styles.empty}><h1>✦ Super Análise Inteligente</h1><p>Nenhuma análise encontrada.</p></main></div>;
 
