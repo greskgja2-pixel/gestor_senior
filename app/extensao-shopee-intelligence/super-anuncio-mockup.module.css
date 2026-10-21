@@ -917,3 +917,9 @@
   .monitorTopActions{grid-template-columns:1fr}
   .monitorTop h2{font-size:16px}
 }
+
+/* GS_SUPER_ANUNCIO_AJUSTES_VISUAIS_2026_10_21 - so apresentacao: foto com fallback, medidor com 100 e rodape legivel */
+.detailProductImage>.imgPlaceholder{position:absolute;inset:0;margin:auto;width:28px;height:28px;color:#8796a8}
+.detailProductImage>img{position:relative;z-index:1;background:#f3f6fa}
+.detailProductImage>span{z-index:2}
+.manageZone>.manageLabel{font-size:11px;color:#8a6a6a}
