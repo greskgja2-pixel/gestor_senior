@@ -10,6 +10,20 @@ export function classifyAsyncError(error){
   return'error';
 }
 
+export const LOGIN_REQUIRED_RE=/fa[cç]a login/i;
+
+export function goToLogin(){
+  if(typeof window==='undefined')return;
+  const next=location.pathname+location.search;
+  location.href=next&&next!=='/'?`/login?next=${encodeURIComponent(next)}`:'/login';
+}
+
+// Confirma no servidor se a sessão da conta ainda vale: 'expired' (401), 'ok' ou 'unknown' (rede).
+export async function accountSessionStatus(){
+  try{const r=await fetch('/api/auth/me',{cache:'no-store'});return r.status===401?'expired':r.ok?'ok':'unknown'}
+  catch{return'unknown'}
+}
+
 export async function fetchJsonWithTimeout(url,options={},timeoutMs=20000){
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),timeoutMs);
