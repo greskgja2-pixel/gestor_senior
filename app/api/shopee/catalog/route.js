@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getActiveShop } from "../../../../lib/shop";
 import { getCategories, getAttributes, getBrands, getModelList } from "../../../../lib/shopee-catalog";
+import { getItemBaseInfo } from "../../../../lib/shopee";
 import { normalizeAttributeTree } from "../../../../lib/category-attributes";
 
 export const dynamic = "force-dynamic";
@@ -41,6 +42,12 @@ export async function GET(request) {
       if (!categoryId) return NextResponse.json({ error: "category_id inválido." }, { status: 400 });
       const offset = Math.max(0, Number(url.searchParams.get("offset") || 0) || 0);
       data = await getBrands(shop, categoryId, offset, 100);
+    } else if (resource === "item_category") {
+      const itemId = positiveInt(url.searchParams.get("item_id"));
+      if (!itemId) return NextResponse.json({ error: "item_id inválido." }, { status: 400 });
+      const base = await getItemBaseInfo({ shopId: shop.shop_id, accessToken: shop.access_token, itemIdList: [itemId] });
+      const item = base?.response?.item_list?.find((x) => Number(x?.item_id) === itemId);
+      data = { category_id: item?.category_id ?? null };
     } else if (resource === "models") {
       const itemId = positiveInt(url.searchParams.get("item_id"));
       if (!itemId) return NextResponse.json({ error: "item_id inválido." }, { status: 400 });

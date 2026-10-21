@@ -581,3 +581,7 @@
 .cpFields{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
 .cpFields label{display:grid;gap:4px;font-size:12px;font-weight:700}
 .cpFields input,.cpFields select{min-height:36px;padding:6px 8px;border:1px solid #cfd8e6;border-radius:8px;font:inherit;font-weight:400;background:#fff}
+/* GS_CATEGORIA_SIMPLES_2026_10_21 */
+.cpList li>button{width:100%;text-align:left;padding:8px 10px;border:0;background:transparent;font:inherit;font-size:13px;cursor:pointer}
+.cpList li>button:hover{background:#eef4ff}
+.cpList li[data-selected=true]>button{font-weight:800}
