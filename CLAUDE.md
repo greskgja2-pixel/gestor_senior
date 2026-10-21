@@ -819,3 +819,31 @@ A API de Ads não traz imagem; a aba Histórico Ads mostrava só o placeholder (
 **Motor v0.20.2 (fora do repo, ZIP entregue ao usuário):** `unwrapList` aceita array, `data[]`, `data.conversations[]`, `list`, `items`, `result`; confere `error_code` do envelope; tenta biz_id 0 + os pedidos (máx. 4) e junta sem duplicar; devolve `diagnostics` {attempts:[{biz_id,ok,shape,raw_count|error}]} sem dados pessoais. Só `node --check`; NÃO validado com sessão real.
 **Gestor:** com lista vazia mostra o diagnóstico do Motor (`diagnosticsText`); sem `diagnostics` pede Motor ≥0.20.2. Canal oficial `lib/motor-release.js` NÃO foi alterado (continua 0.20.1) até o usuário confirmar a v0.20.2.
 **Pendente:** usuário instala o ZIP, abre Messenger e informa o texto do diagnóstico; só então corrigir o formato real (ex.: se a Shopee só lista "Atendendo Hoje" sem pedir `biz_id`/filtro).
+
+
+### 2026-10-21 — Claude — Super Análise: central operacional (filtros rápidos, status por linha, próxima ação)
+**Arquivos:** `app/produtos/ProductsDashboard.js`, `app/produtos/products.module.css`, `tests/navigation-routes.test.mjs` (1 teste novo) e este arquivo.
+
+**O que mudou (layout geral e colunas aprovadas preservados):**
+1. Os 4 cartões do resumo viraram filtros clicáveis (analisados / disponíveis / pendentes / reanálise) com uma linha de ação sugerida; nova barra de filtros rápidos (inclui **Sem custo**) com contagem e "Limpar filtros".
+2. Banner do Funil ganhou "Entenda o fluxo" (recolhível); regra de 30 dias intacta.
+3. Cada linha mostra selos de status com ícone+texto (Pronto para Funil, Pendente de Super Análise, Precisa reanálise, Sem custo, Margem negativa, Com variações) e **Próxima ação** (botão real: Fazer Super Análise, Reanalisar, Cadastrar custo/custo das variações, Revisar margem no Funil, Abrir Funil). Prioridade: Super Análise > custo > margem negativa > Funil.
+4. Coluna Funil explica o motivo (nunca analisado / idade da análise e dias restantes); custo e estoque mostram origem/ausência; margem ausente mostra "Margem indisponível" (nunca zero); tooltips nos cabeçalhos.
+5. Estados vazios por filtro, nota recolhível "Origem dos dados e limitações" e layout em cartões no mobile (≤760px; no mobile os cabeçalhos ordenáveis ficam ocultos).
+
+**Não alterado:** cálculo de margem/taxas, ordenação, APIs, botão Ações, regra de elegibilidade do Funil, ofertas/Motor.
+**Validação:** nesta sessão não havia Node/npm/git, então `node --test` e `next build` NÃO foram executados e a tela não foi testada com login. Rodar `node --test tests/*.test.mjs` e conferir visualmente antes do merge.
+
+
+### 2026-10-21 — Claude — Super Análise: mockup aprovado implementado (5 colunas, "O que fazer agora", próximo passo + menu ⋯)
+**Arquivos:** `app/produtos/ProductsDashboard.js`, `app/produtos/products.module.css`, `tests/navigation-routes.test.mjs` e este arquivo. Substitui a descrição de layout da entrada anterior de hoje.
+
+**Layout aprovado pelo usuário (mockup `mockup-super-analise.html`):**
+1. Tabela com 5 colunas: **Produto e situação** (selos), **Preço / oferta**, **Custo e margem** (juntos), **Estoque**, **Próximo passo**. Status do anúncio só aparece como selo quando ≠ ativo; "Funil de vendas" e "Ações" viraram o Próximo passo.
+2. Próximo passo = um botão principal (Fazer Super Análise / Reanalisar / Abrir Funil) com o motivo acima + menu ⋯ (Cadastrar/editar custo, Ajustar estoque, Abrir Funil, Reanalisar, Abrir na Shopee). Menu é `position:fixed` e fecha ao clicar fora/rolar.
+3. Cartões com progresso (analisados de N), faixa "O que fazer agora" clicável, abas de filtro (Todos, Pendentes, Disponíveis, Reanálise, Sem custo, Margem negativa) e botões Taxas/Exibição no cabeçalho do painel.
+4. Banner do Funil ganhou os 4 passos do fluxo; nota "Origem dos dados e limitações" recolhida no rodapé; mobile (≤760px) em cartões.
+
+**Regras de honestidade mantidas:** margem ausente = "Margem indisponível" (nunca zero); produto com variações não tem margem agregada; "Custo parcial (X de Y)" do mockup NÃO foi implementado porque o total de variações não vem da lista (mostra só quantas têm custo). A contagem de **Margem negativa** considera apenas as ofertas já carregadas (linhas visíveis).
+**Testes:** os de cabeçalho/ações em `navigation-routes.test.mjs` foram atualizados ao novo layout.
+**Validação:** sem Node/npm/git nesta sessão — `node --test`, `next build` e verificação visual NÃO foram executados. Conferir antes do merge.
