@@ -849,6 +849,14 @@ A API de Ads não traz imagem; a aba Histórico Ads mostrava só o placeholder (
 **Validação:** sem Node/npm/git nesta sessão — `node --test`, `next build` e verificação visual NÃO foram executados. Conferir antes do merge.
 
 
+### 2026-10-21 — Claude — Super Análise passo 2: visual colorido com ícones vetoriais (branch `feature/super-analise-passo2-visual`)
+**Aprovado pelo usuário a partir de mockup.** Só apresentação do passo 2 de `WebAuditFlow.js` (+ `flow-icons.js` novo e bloco no fim de `web-audit.module.css`, marcado `GS_SUPER_ANALISE_PASSO2_VISUAL_2026_10_21`). Estados, handlers, coleta, cálculo de margem (`feeCalc`), APIs e Motor NÃO mudaram.
+1. Etapas com ícone; métricas do anúncio em pílulas coloridas (dado ausente aparece como "Sem dados", variações 0 como "Nenhuma"; valores numéricos reais, inclusive 0,0 ★, continuam como vêm).
+2. Seções com faixa/ícone por função (azul conferência, roxo objetivo, laranja Ads, verde-água custos); campos com ícone e placeholder "não coletado".
+3. Objetivo/Situação/Gargalo: os 3 `<select>` viraram botões de escolha (`role="radio"`) com as MESMAS opções e os mesmos setters.
+4. Margem: selo (vermelho <0, âmbar <10%, verde) + barra Custo / Shopee 20% / Taxa fixa (/ Lucro) calculada pelo `feeCalc` já existente; o texto antigo de margem foi mantido.
+**Validação:** `node --test` 209/212 (só as 3 antigas de Concorrentes, corrigidas no PR #111); `next build` OK; QA visual local com sessão forjada, Supabase fake e Motor simulado (desktop e 375px sem rolagem horizontal; clique nos botões de escolha confere). Não testado com o Motor/dados reais. Regra: não mexer no espaçamento da sidebar.
+
 ### 2026-10-21 — Claude — Erro "Faça login" com menu mostrando sessão ativa (branch `fix/sessao-expirada-super-analise`)
 **Sintoma:** Super Análise mostrava "Falha na coleta · Faça login para acessar o Gestor Sênior." enquanto o menu lateral exibia conta e loja conectadas. Essa mensagem é o 401 do `middleware.js` (cookie `gs_account_session` ausente/inválido); o menu só lê `/api/auth/me` uma vez ao abrir e o ping de `/api/auth/activity` (60 s) ignorava o 401.
 **Mudança:** `client-async.js` ganhou `goToLogin()`, `accountSessionStatus()` e `LOGIN_REQUIRED_RE`; `AppShell.js` redireciona ao login se o ping receber 401; `WebAuditFlow.js`, ao falhar com mensagem de login, confere a sessão: expirada → login; válida → mensagem explicando que o Motor não usou a sessão (recarregar, conferir extensão, Saúde do Sistema).
