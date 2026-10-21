@@ -29,6 +29,8 @@ async function validatePublicProduct(targetUrl,product){
 }
 
 function Help({children}){return <span className={styles.help} title={children}>?</span>}
+// Tempo total para escolher os concorrentes na busca da Shopee e o Motor coletá-los (antes 2 min, curto para comparar com calma).
+const PICKER_MAX_MS=10*60*1000;
 const STEP_ICONS={1:'clipboard',2:'sliders',3:'users',4:'sparkles'};
 function Step({n:step,current,label}){const done=current>step,active=current===step;return <div className={`${styles.step} ${done?styles.done:''} ${active?styles.active:''}`}><span><FlowIcon name={done?'check':STEP_ICONS[step]||'help'} size={14}/><i className={styles.srOnly}>{done?'Etapa concluída: ':`Etapa ${step}: `}</i></span><small>{label}</small></div>}
 function EditableField({id,label,value,onChange,type='number',step='0.01',help,icon,placeholder='não coletado'}){return <label className={styles.editable}><span>{icon&&<FlowIcon name={icon} size={13} className={styles.fieldIcon}/>}{label}{help&&<Help>{help}</Help>}</span><div><input id={id} type={type} step={step} value={safe(value)} placeholder={placeholder} onChange={e=>onChange(e.target.value)}/><button type="button" className={styles.pencil} title="Editar manualmente" aria-label={`Editar ${label}`} onClick={()=>document.getElementById(id)?.focus()}><FlowIcon name="pencil" size={14}/></button></div></label>}
@@ -150,7 +152,7 @@ export default function WebAuditFlow({initialUrl=''}){
   async function pollPickerResult(requestId){
     if(Date.now()>pickerDeadlineRef.current){
       clearTimeout(pollRef.current);setPicker(null);
-      setOperation({status:'timeout',message:'A seleção de concorrentes excedeu 2 minutos.'});
+      setOperation({status:'timeout',message:`A seleção de concorrentes excedeu ${Math.round(PICKER_MAX_MS/60000)} minutos.`});
       setMessage('A busca de concorrentes expirou. Você pode abrir a busca novamente.');
       return;
     }
@@ -175,9 +177,10 @@ export default function WebAuditFlow({initialUrl=''}){
     setOperation({status:'loading',message:'Abrindo busca de concorrentes…'});
     setMessage('Abrindo a busca da Shopee. Escolha de 1 a 3 concorrentes; ao voltar, o Motor Senior fará a coleta profunda antes de fechar a busca.');
     try{
-      const req=await motorData('openCompetitorPicker',{title:p.title,itemId:p.itemId},15000);
+      // preço e vendas do anúncio permitem ao seletor comparar os concorrentes (Motor ≥0.20.4; versões antigas ignoram).
+      const req=await motorData('openCompetitorPicker',{title:p.title,itemId:p.itemId,price:n(p.price),sold:n(p.sold)},15000);
       if(!req?.requestId)throw Object.assign(new Error('O seletor abriu sem um identificador de acompanhamento.'),{code:'empty'});
-      setPicker(req);pickerDeadlineRef.current=Date.now()+120000;
+      setPicker(req);pickerDeadlineRef.current=Date.now()+PICKER_MAX_MS;
       pollRef.current=setTimeout(()=>pollPickerResult(req.requestId),800);
     }catch(e){
       console.error('[Super Análise] openCompetitorPicker falhou',e);
