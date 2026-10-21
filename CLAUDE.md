@@ -901,3 +901,7 @@ Mockup aprovado (`mockup-super-anuncio-reorganizacao`). `SuperAnuncioMockup.js` 
 
 ### 2026-10-21 — Claude — Trocar categoria exige atributos/marca obrigatórios (branch `fix/categoria-atributos`)
 **Erro real da Shopee ao salvar:** `update_item: product.error_busi — Attribute "Item Code" is mandatory required`. Cada categoria tem atributos (e às vezes marca) obrigatórios. Agora, ao escolher a categoria, o editor lê `get_attribute_tree`/`get_brand_list` (`app/super-analise/CategoryRequirements.js`), mostra só os obrigatórios, bloqueia o Salvar enquanto faltar algum e envia `attributeList`/`brand`; a rota valida com `lib/category-attributes.js` (valor de lista precisa existir; texto livre vai com value_id 0) e manda `attribute_list`/`brand` junto de `category_id`. Não testado com a Shopee real: unidades de atributo e marcas além das 100 primeiras ainda não são tratadas; se a Shopee recusar de novo, a mensagem real aparece na barra.
+
+
+### 2026-10-21 — Claude — Aba Categoria do editor simplificada (branch `fix/categoria-simples`)
+A aba mostra só: categoria atual (lida da Shopee por `/api/shopee/catalog?resource=item_category`, pois a análise salva não guardava o ID), busca/lista das categorias oficiais finais, aviso da nova categoria e, só se a Shopee exigir, os campos obrigatórios. Saiu o bloco de comparação com concorrentes (continua na visão geral do Super Anúncio). Pedido do usuário: "só quero a cat atual, um menu para escolher e salvar".

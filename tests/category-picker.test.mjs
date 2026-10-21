@@ -13,10 +13,11 @@ test('Editar categoria abre a aba pedida e mostra o seletor de categorias oficia
   // Antes o editor embutido sempre voltava para a primeira aba pendente (Título), mostrando "Título aprovado" no lugar da categoria.
   assert.match(editor,/setTab\(embedded&&allowedTabs\.has\(initialTab\)\?initialTab:firstPending\)/);
   assert.match(editor,/function CategoryPicker/);
-  assert.match(editor,/Escolher a categoria oficial da Shopee/);
+  assert.match(editor,/Categoria atual: /);
+  assert.doesNotMatch(editor,/<CategoryComparison /);
   assert.match(editor,/<CategoryPicker /);
   assert.match(editor,/\/api\/shopee\/catalog|loadCategoryTree/);
-  assert.match(editor,/Selecionar/);
+  assert.match(editor,/resource=item_category/);
 });
 
 test('escolher categoria só marca alteração pendente; salvar pede confirmação e envia categoryId',()=>{
