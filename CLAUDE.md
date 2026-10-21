@@ -865,3 +865,7 @@ A API de Ads não traz imagem; a aba Histórico Ads mostrava só o placeholder (
 
 ### 2026-10-21 — Claude — 3 testes de Concorrentes desatualizados (branch `fix/testes-concorrentes`)
 A "Dev validation" falhava em todas as branches por 3 testes de `tests/competitor-radar-layout.test.mjs` que descreviam o layout anterior. O redesign compacto (`82b7ec9`) e a remoção de ações legadas (`ad15140`) trocaram `radarExactVisibility`/`radarExactActions` por `radarCompactMenu` + popover "Detalhes do concorrente", e `collectSearchVisibility`/`mega*` por `collectVisibilityGroup`/`visibilityViaMega`/`marketplaceSearch`. Só os testes foram atualizados; nenhum código de produção mudou. Lição: ao redesenhar uma tela, atualizar o teste de layout dela no mesmo commit. `node --test tests/*.test.mjs` → 212/212.
+
+
+### 2026-10-21 — Claude — Canal oficial do Motor atualizado para v0.20.3 (branch `chore/motor-release-v0203`)
+`lib/motor-release.js` e o teste "Manifesto e página do Motor compartilham a versão distribuída" passaram de 0.20.1 para 0.20.3 (`Motor-Senior-v0.20.3-Sessao-Gestor.zip`). A v0.20.3 envia o cookie de login nas chamadas da extensão ao Gestor e usa o domínio da aba do Gestor (padrão `shopeeos-real-greskgja.vercel.app`); inclui as v0.20.2 (diagnóstico do Messenger) e v0.20.1. O ZIP continua fora do repositório e a instalação é manual. Validado: `node --test` 212/212. Pendente: confirmar com a extensão instalada que "Verificar agora" mostra a versão correta.
