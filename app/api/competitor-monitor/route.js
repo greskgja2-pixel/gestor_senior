@@ -114,15 +114,22 @@ function snapshotChange(previous,latest){
     elapsed_days:days
   };
 }
+// Coleta sem nenhum dado (busca pública bloqueada, item não encontrado) não é leitura: não pode virar "última coleta",
+// preço anterior, variação de vendas nem ponto do gráfico.
+function isUsefulSnapshot(row){
+  const raw=row?.raw&&typeof row.raw==='object'?row.raw:{};
+  return finite(row?.price)!=null||finite(row?.sold)!=null||finite(row?.rating)!=null||Boolean(raw.location||raw.shopName||raw.shopUsername||raw.shopUrl)||finite(raw.monthlySold??raw.monthly_sold??raw.sold_30d)!=null||raw.preferred===true||raw.preferred===false;
+}
 async function snapshotBundles(db,watchIds){
   if(!watchIds.length)return new Map();
   const {data,error}=await db.from('gs_competitor_snapshots').select('*').in('watch_id',watchIds).order('collected_at',{ascending:false});
   if(error)throw new Error(error.message);
   const grouped=new Map();
   for(const row of data||[]){
+    if(!isUsefulSnapshot(row))continue;
     if(!grouped.has(row.watch_id))grouped.set(row.watch_id,[]);
     const rows=grouped.get(row.watch_id);
-    if(rows.length<8)rows.push(row);
+    if(rows.length<40)rows.push(row);
   }
   const map=new Map();
   for(const [watchId,history] of grouped){
@@ -324,7 +331,7 @@ export async function POST(request){
       snapshot.raw.preferred===false||
       finite(snapshot.raw.monthlySold??snapshot.raw.monthly_sold??snapshot.raw.sold_30d)!=null
     );
-    if(snapshot.price==null&&snapshot.sold==null&&!snapshot.image_url&&!hasMetadata)return NextResponse.json({error:'A coleta não trouxe preço, vendas, imagem nem metadados confiáveis.'},{status:422});
+    if(snapshot.price==null&&snapshot.sold==null&&snapshot.rating==null&&!hasMetadata)return NextResponse.json({error:'A coleta não trouxe preço, vendas, imagem nem metadados confiáveis.'},{status:422});
     const {data:previousRows,error:prevError}=await db.from('gs_competitor_snapshots').select('*').eq('watch_id',watch.id).order('collected_at',{ascending:false}).limit(2);
     if(prevError)throw new Error(prevError.message);
     const previous=previousRows?.[0]||null,older=previousRows?.[1]||null;
