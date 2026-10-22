@@ -612,9 +612,42 @@ function Competitors({items}){
     }catch(e){setMonitor(x=>({...x,phase:'error',error:String(e?.message||e)}))}
   }
 
+  // Lê preço, vendas, loja, localização e avaliação do anúncio concorrente pela extensão (collectCompetitorDetails),
+  // que usa a sessão normal do navegador (a busca pública feita pelo servidor é bloqueada). Só grava se vier dado de verdade.
+  async function collectViaMotor(row){
+    const watch=row.watch,itemId=String(watch.competitor_item_id||row.competitorItemId||'');
+    const shopId=String(watch.competitor_shop_id||'');
+    const url=row.link||watch.competitor_url||(shopId&&itemId?'https://shopee.com.br/product/'+shopId+'/'+itemId:'');
+    if(!url)throw new Error('Concorrente sem link para checagem.');
+    const d=await motorData('collectCompetitorDetails',{url,expectedItemId:itemId,keyword:String(watch.settings?.search_keyword||row.owner||'')},65000);
+    const price=n(d?.price),sold=n(d?.historicalSold??d?.sold),rating=n(d?.rating),monthly=n(d?.monthlySold);
+    const location=d?.shopLocation||d?.location||null;
+    const hasData=price!=null||sold!=null||rating!=null||monthly!=null||!!location||!!d?.shopName||!!d?.shopUsername;
+    if(!hasData)throw new Error('A extensão não devolveu dados deste anúncio.');
+    await fetchJsonWithTimeout('/api/competitor-monitor',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        watch_id:watch.id,collected_at:new Date().toISOString(),
+        title:competitorTitle(d?.title,row.title,watch.competitor_title),
+        price,sold,rating,image_url:row.image||null,
+        source:'motor-senior',confidence:'structured',
+        raw:{
+          originalPrice:n(d?.originalPrice??d?.priceBeforeDiscount),monthlySold:monthly,
+          preferred:d?.preferred===true?true:(d?.preferred===false?false:null),
+          location:location||null,shopName:d?.shopName||null,shopUsername:d?.shopUsername||null,shopUrl:d?.shopUrl||null,
+          ads:d?.ads??null,adsEvidence:d?.adsEvidence??null,foundBy:'collectCompetitorDetails'
+        }
+      })
+    },15000);
+  }
+
   async function collectVisibilityGroup(group,{silent=false}={}){
     const list=arr(group).filter(r=>r.watch?.id);
     if(!list.length)return{updated:0,failed:0};
+    const motorDone=new Set();let motorError='';
+    for(const row of list){
+      try{await collectViaMotor(row);motorDone.add(String(row.watch.id))}catch(e){motorError=String(e?.message||e)}
+    }
     const first=list[0],keyword=String(first.watch?.settings?.search_keyword||first.owner||'').trim();
     const maxPages=10;
     const phaseKey=String(first.ownerItemId);
@@ -650,7 +683,7 @@ function Competitors({items}){
           })
         },15000);
         const market=normalized.market||{};
-        const hasMarketData=n(market.price)!=null||n(market.sold)!=null||n(market.monthlySold)!=null||market.preferred!==null||!!market.location||!!market.shopName||!!market.shopUsername||!!market.shopUrl||!!market.title;
+        const hasMarketData=n(market.price)!=null||n(market.sold)!=null||n(market.monthlySold)!=null||(market.preferred===true||market.preferred===false)||!!market.location||!!market.shopName||!!market.shopUsername||!!market.shopUrl||!!market.title;
         if(hasMarketData){
           await fetchJsonWithTimeout('/api/competitor-monitor',{
             method:'POST',headers:{'Content-Type':'application/json'},
@@ -678,13 +711,14 @@ function Competitors({items}){
             })
           },15000);
         }
-        updated++;
+        if(motorDone.has(String(row.watch.id))||hasMarketData)updated++;else failed++;
       }
       if(!silent)setVisibilityPhase(x=>({...x,[phaseKey]:failed?'error':'success'}));
       return{updated,failed,total:list.length,found:n(data?.found)??0};
     }catch(error){
       if(!silent)setVisibilityPhase(x=>({...x,[phaseKey]:'error',error:String(error?.message||error)}));
-      return{updated:0,failed:list.length,error,total:list.length};
+      if(motorDone.size){if(!silent)setVisibilityPhase(x=>({...x,[phaseKey]:motorDone.size===list.length?'success':'error'}));return{updated:motorDone.size,failed:list.length-motorDone.size,total:list.length}}
+      return{updated:0,failed:list.length,error:motorError?new Error(motorError):error,total:list.length};
     }
   }
 
