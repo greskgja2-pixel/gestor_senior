@@ -1071,10 +1071,6 @@ function CategoryPanel({r,p,ai,competitors,variations,editing,onEdit,validated,o
       </table></div>
       <AnField label="Conclusão da I.A." tone={!cat?'muted':aligned===false?'ai':'ok'}>{!cat?'A I.A. ainda não comparou a categoria.':(String(cat.reason||'').trim()||(aligned===true?'A categoria está alinhada com a dos concorrentes.':'Sem conclusão registrada.'))}</AnField>
     </AnalysisBlock>
-    <AnalysisBlock icon="grid" tone="teal" title="Atributos e variações" subtitle="Opções do produto e ficha técnica" score={subScoreText(r,ai,'variations')} status={textStatus(ai,'variations')} editLabel="Editar atributos" editing={editing==='variations'} onEdit={()=>onEdit('variations')} validated={validated('variations')} onValidate={()=>onValidate('variations')}>
-      <AnField label="Situação atual">{varsNow?`O anúncio tem ${varsNow} ${varsNow===1?'variação':'variações'}.`:'Sem variações coletadas.'}</AnField>
-      <AnField label="Análise da I.A." tone={!va?'muted':String(va.suggestion||'').trim()?'ai':'ok'}>{!va?'A I.A. ainda não analisou atributos e variações.':(String(va.reason||'').trim()||String(va.suggestion||'').trim()||'A I.A. não encontrou mudança necessária.')}</AnField>
-    </AnalysisBlock>
     <details className={styles.anFold}><summary><Icon name="users"/>Concorrentes capturados ({competitors.length})</summary><CompetitorsPanel competitors={competitors} collectedAt={r.analyzed_at} onZoom={onZoom}/></details>
   </div>;
 }
