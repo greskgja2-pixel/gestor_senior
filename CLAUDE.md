@@ -905,3 +905,6 @@ Mockup aprovado (`mockup-super-anuncio-reorganizacao`). `SuperAnuncioMockup.js` 
 
 ### 2026-10-21 — Claude — Aba Categoria do editor simplificada (branch `fix/categoria-simples`)
 A aba mostra só: categoria atual (lida da Shopee por `/api/shopee/catalog?resource=item_category`, pois a análise salva não guardava o ID), busca/lista das categorias oficiais finais, aviso da nova categoria e, só se a Shopee exigir, os campos obrigatórios. Saiu o bloco de comparação com concorrentes (continua na visão geral do Super Anúncio). Pedido do usuário: "só quero a cat atual, um menu para escolher e salvar".
+
+
+### 2026-10-21 — Claude — Removido o card "Atributos e variações" da aba Categoria do Super Anúncio (pedido do usuário; só a exibição, nenhuma API alterada).
