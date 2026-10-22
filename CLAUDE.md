@@ -908,3 +908,7 @@ A aba mostra só: categoria atual (lida da Shopee por `/api/shopee/catalog?resou
 
 
 ### 2026-10-21 — Claude — Removido o card "Atributos e variações" da aba Categoria do Super Anúncio (pedido do usuário; só a exibição, nenhuma API alterada).
+
+
+### 2026-10-21 — Claude — Super Anúncio: aba Concorrentes e card de Oferta Relâmpago no Financeiro (branch `feat/aba-concorrentes-oferta`)
+Nova aba **Concorrentes** (entre Financeiro e Histórico) com o painel de concorrentes capturados; o bloco "N concorrentes selecionados" saiu do editor de preço e o fold de concorrentes saiu da aba Categoria. O Financeiro ganhou o card **Ofertas Relâmpago do produto** com veredito no topo (TEM ativa/agendada, NÃO tem, consultando ou não foi possível confirmar), usando a consulta já existente (`loadFlashSales`); nenhuma API nova. Só exibição; 7 colunas na barra de abas.

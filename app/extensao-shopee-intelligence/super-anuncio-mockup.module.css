@@ -1002,4 +1002,9 @@ a.futureItem:hover{text-decoration:underline}
 .futureItem[data-tone="teal"]{--t-bg:#def5f2;--t-fg:#0f6b62;--t-bd:#aadfd9}
 .anIcon[data-tone="gray"]{--t-bg:#eef2f7;--t-fg:#4d6178;--t-bd:#d5dde8}
 .futureItem[data-tone="gray"]{--t-bg:#eef2f7;--t-fg:#4d6178;--t-bd:#d5dde8}
-.detailTabs{grid-template-columns:repeat(6,minmax(0,1fr))}
+.detailTabs{grid-template-columns:repeat(7,minmax(0,1fr))}
+/* GS_ABA_CONCORRENTES_OFERTA_2026_10_21 */
+.flashVerdict{margin:0 0 12px;padding:12px 14px;border-radius:10px;font-size:15px;font-weight:800;border:1px solid #cfd8e6;background:#f3f6fb;color:#27415f}
+.flashVerdict[data-tone='ok']{background:#e7f6ec;border-color:#9bd3ae;color:#14633a}
+.flashVerdict[data-tone='none']{background:#fff4e0;border-color:#f0c36b;color:#7a4a05}
+.flashVerdict[data-tone='warn']{background:#fdecec;border-color:#f1a9a9;color:#8a1c1c}
