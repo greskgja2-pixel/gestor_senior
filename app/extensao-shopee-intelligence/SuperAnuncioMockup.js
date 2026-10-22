@@ -597,6 +597,7 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
     media:{label:'Mídia',icon:'image',description:'Imagens e vídeo do anúncio.',subs:[['images','Imagens'],['video','Vídeo']]},
     category:{label:'Categoria',icon:'tag',description:'Categoria, atributos e variações.',subs:[['category','Categoria do produto'],['variations','Atributos & variações']]},
     financial:{label:'Financeiro',icon:'coins',description:'Preço, margem, Ads e ofertas.',subs:[['price','Preço, margem e oferta']]},
+    competitors:{label:'Concorrentes',icon:'users',description:'Anúncios concorrentes capturados nesta análise.',subs:[]},
     history:{label:'Histórico',icon:'clock',description:'Evolução das análises e alterações.',subs:[]}
   };
   const activeArea=areaMeta[detailTab]||areaMeta.content;
@@ -609,6 +610,7 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
       const next=item.schedule?.next_run_at||r.next_reanalysis_at;
       return next?{tone:'blue',icon:'clock',text:'Agendado',title:`Próxima checagem: ${when(next)}`}:null;
     }
+    if(key==='competitors'){const count=competitors.length;return count?{tone:'gray',icon:null,text:`${count} ${count>1?'anúncios':'anúncio'}`,title:'Concorrentes capturados na última análise.'}:{tone:'gray',icon:null,text:'Sem dados',title:'Nenhum concorrente foi capturado.'}}
     if(key==='history'){const count=arr(item.history).length||1;return{tone:'gray',icon:null,text:plural(count,'análise'),title:'Rodadas de análise preservadas para comparação.'}}
     if(key==='financial'){
       if(margin==null)return cost==null?{tone:'amber',icon:'alert',text:'Sem custo',title:'Cadastre o custo para calcular a margem.'}:{tone:'gray',icon:null,text:'Sem dados',title:'Margem não calculada.'};
@@ -660,13 +662,14 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
       </div>
 
       <nav className={styles.detailTabs} aria-label="Áreas do Super Anúncio">
-        {Object.entries(areaMeta).map(([key,meta])=>{const st=areaStatus(key);return <button key={key} type="button" data-area={key} data-active={detailTab===key?'true':'false'} data-done={key==='monitoring'||key==='history'?'false':isOptimized(key)?'true':'false'} onClick={()=>{setDetailTab(key);setEditing('');if(key!=='monitoring'&&key!=='history')setEditorTab(defaultEditorForGroup(key))}}>
-          <span className={styles.tabMain}><Icon name={meta.icon}/><span>{meta.label}</span>{key!=='history'&&isOptimized(key)&&<b>✓</b>}</span>
+        {Object.entries(areaMeta).map(([key,meta])=>{const st=areaStatus(key);return <button key={key} type="button" data-area={key} data-active={detailTab===key?'true':'false'} data-done={key==='monitoring'||key==='history'||key==='competitors'?'false':isOptimized(key)?'true':'false'} onClick={()=>{setDetailTab(key);setEditing('');if(key!=='monitoring'&&key!=='history'&&key!=='competitors')setEditorTab(defaultEditorForGroup(key))}}>
+          <span className={styles.tabMain}><Icon name={meta.icon}/><span>{meta.label}</span>{key!=='history'&&key!=='competitors'&&isOptimized(key)&&<b>✓</b>}</span>
           {st&&<em className={styles.tabStatus} data-tone={st.tone} title={st.title}>{st.icon&&<Icon name={st.icon}/>}{st.text}</em>}
         </button>})}
       </nav>
 
       {detailTab==='monitoring'&&<MonitoringPanel itemId={item.itemId}/>}
+      {detailTab==='competitors'&&<CompetitorsPanel competitors={competitors} collectedAt={r.analyzed_at} onZoom={setZoomSrc}/>}
       {detailTab==='history'&&<HistoryPanel history={item.history||[r]}/>}
       {detailTab==='content'&&<ContentPanel r={r} p={p} ai={ai} editing={editing} onEdit={toggleEditing} validated={isValidated} onValidate={toggleValidated}/>}
       {detailTab==='media'&&<MediaPanel r={r} p={p} ai={ai} editing={editing} onEdit={toggleEditing} validated={isValidated} onValidate={toggleValidated} onZoom={setZoomSrc}/>}
@@ -686,6 +689,7 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
           </div>
           {(liveAds.phase==='error'||liveAds.phase==='timeout')&&<div className={styles.dataError}>{liveAds.error}<button type="button" onClick={()=>loadLiveAds(item.itemId)}>Tentar novamente</button></div>}
         </section>
+        <FlashSaleCard state={flashSales} itemId={item.itemId} onReload={()=>loadFlashSales(item.itemId)} onOpenPrice={()=>setEditorTab('price')}/>
         <section className={styles.financeOverview}>
           <div className={styles.financeHeading}><div><h2>Resumo e cadeia de decisão</h2><p>Custo, preço, margem, vendas e ROAS lidos em sequência.</p></div></div>
           <div className={styles.summaryGrid}>
@@ -815,7 +819,9 @@ function FlashSaleCard({state,itemId,onReload,onOpenPrice}){
     </article>;
   };
 
+  const verdict=failed?{tone:'warn',text:'Não foi possível confirmar se este produto tem Oferta Relâmpago.'}:loading||!state||state.phase==='idle'?{tone:'wait',text:'Consultando a Shopee para saber se este produto tem Oferta Relâmpago…'}:offers.length&&scheduled.length?{tone:'ok',text:'Este produto TEM Oferta Relâmpago ativa agora e outra agendada.'}:offers.length?{tone:'ok',text:'Este produto TEM Oferta Relâmpago ativa agora.'}:scheduled.length?{tone:'ok',text:`Este produto TEM Oferta Relâmpago agendada (${scheduled.length}).`}:{tone:'none',text:'Este produto NÃO tem Oferta Relâmpago configurada.'};
   return <section className={styles.flashActiveCard}>
+    <div className={styles.flashVerdict} data-tone={verdict.tone}>{verdict.text}</div>
     <div className={styles.flashActiveHead}>
       <div><span className={styles.flashBolt}>⚡</span><div><h2>Ofertas Relâmpago do produto</h2><p>Veja o que está ativo, o que já está agendado e quando será preciso se preocupar novamente.</p></div></div>
       <div className={styles.flashHeadActions}><span data-live={total?'true':'false'}>{offers.length} ativa{offers.length===1?'':'s'} · {scheduled.length} futura{scheduled.length===1?'':'s'}</span><button type="button" onClick={onReload} disabled={loading}>↻ {loading?'Atualizando…':'Atualizar'}</button></div>
@@ -1071,7 +1077,6 @@ function CategoryPanel({r,p,ai,competitors,variations,editing,onEdit,validated,o
       </table></div>
       <AnField label="Conclusão da I.A." tone={!cat?'muted':aligned===false?'ai':'ok'}>{!cat?'A I.A. ainda não comparou a categoria.':(String(cat.reason||'').trim()||(aligned===true?'A categoria está alinhada com a dos concorrentes.':'Sem conclusão registrada.'))}</AnField>
     </AnalysisBlock>
-    <details className={styles.anFold}><summary><Icon name="users"/>Concorrentes capturados ({competitors.length})</summary><CompetitorsPanel competitors={competitors} collectedAt={r.analyzed_at} onZoom={onZoom}/></details>
   </div>;
 }
 
