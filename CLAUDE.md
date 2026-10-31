@@ -923,3 +923,10 @@ Nova aba **Concorrentes** (entre Financeiro e Histórico) com o painel de concor
 - `lib/shopee.js`: `buildShopAuthUrl` usa `openplatform.shopee.com.br` no ambiente live, mantendo path, assinatura, callback/state e host sandbox. As chamadas de API/token não foram alteradas.
 - Teste existente de assinatura ampliado para conferir host BR, path, preservação do callback/state e assinatura; `node --test auth-check/tests/shopee.test.mjs` passou localmente.
 - Pendente nesta publicação: CI/build e confirmar no navegador o país selecionado após o redirecionamento real da Shopee. Não afirmar conexão final da loja sem conclusão do login pelo usuário.
+
+
+### 2026-10-31 — Codex — Resultado real da autorização BR (PRs #125 e #126)
+- CI e build da Vercel passaram. Produção testada no Chrome: trocar o host por openplatform.shopee.com.br muda o callback interno para open.shopee.com.br, mas a Shopee CONTINUA gerando region=SG no login de account.seller.shopee.com.
+- Enviar region=BR e language=pt-BR ao auth_partner também foi ignorado. Esses parâmetros sem efeito foram retirados. O host brasileiro foi mantido; sandbox, assinatura e APIs permanecem preservados.
+- O país automático NÃO foi corrigido. Não repetir essas duas tentativas como solução comprovada. É necessário investigar o mecanismo de escolha de região da página de autorização da Shopee ou adaptar o Motor com o código-fonte da versão instalada.
+- Loja Onça Pintada Artes apareceu conectada no Gestor após o usuário concluir o código. Não foi feito logout nem alterada a autorização existente. Super Análise e Shopee Ads renderizaram conteúdo no smoke test; demais rotas não tiveram verificação conclusiva nesta sessão.
