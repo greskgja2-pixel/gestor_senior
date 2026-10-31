@@ -40,13 +40,13 @@ object Api {
   }
   return p(ctx).getString("access","") ?: throw IllegalStateException("Sessão inválida")
  }
- data class Product(val id:String,val title:String,val active:Boolean)
+ data class Product(val id:String,val title:String,val active:Boolean,val image:String)
  fun products(ctx:Context):List<Product>{
   val t=token(ctx)
   val out=mutableListOf<Product>();var offset=0
   while(true){
-   val arr=JSONArray(call("/rest/v1/produtos_monitorados?select=id,nome,ativo&order=criado_em.desc&limit=500&offset=$offset",jwt=t))
-   for(i in 0 until arr.length()){val o=arr.getJSONObject(i);out.add(Product(o.getString("id"),o.optString("nome","Produto sem nome"),o.optBoolean("ativo",false)))}
+   val arr=JSONArray(call("/rest/v1/produtos_monitorados?select=id,nome,ativo,imagem&order=criado_em.desc&limit=500&offset=$offset",jwt=t))
+   for(i in 0 until arr.length()){val o=arr.getJSONObject(i);out.add(Product(o.getString("id"),o.optString("nome","Produto sem nome"),o.optBoolean("ativo",false),o.optString("imagem","")))}
    offset+=arr.length();if(arr.length()<500)break
   }
   return out
