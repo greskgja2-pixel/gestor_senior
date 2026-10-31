@@ -56,7 +56,7 @@ object Api {
   call("/rest/v1/produtos_monitorados?id=eq.$safe","PATCH",token(ctx),JSONObject().put("ativo",active))
  }
  fun lastSync(ctx:Context)=ctx.getSharedPreferences("gp_sync",Context.MODE_PRIVATE).getLong("last_sync",0)
- fun readTotals(ctx:Context):Pair<Int,Int> {
+ fun readTotals(ctx:Context,onProgress:(Int)->Unit = {}):Pair<Int,Int> {
   val t=token(ctx)
   fun count(table:String):Int {
    var total=0;var offset=0
@@ -66,7 +66,8 @@ object Api {
    }
    return total
   }
-  val product=count("produtos_monitorados");val search=count("buscas_monitoradas")
+  val product=count("produtos_monitorados");onProgress(1)
+  val search=count("buscas_monitoradas");onProgress(2)
   ctx.getSharedPreferences("gp_sync",Context.MODE_PRIVATE).edit()
    .putInt("products",product).putInt("searches",search).putLong("last_sync",System.currentTimeMillis()).apply()
   return Pair(product,search)
