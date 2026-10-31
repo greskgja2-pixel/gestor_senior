@@ -88,7 +88,24 @@ class MainActivity:Activity() {
   box("● STATUS","CONECTADO",green,"Sincronização ativa • coleta Shopee ainda não implementada")
   box("PRODUTOS MONITORADOS",prefs.getInt("products",0).toString(),cyan,"Produtos ativos cadastrados")
   box("PESQUISAS CADASTRADAS",prefs.getInt("searches",0).toString(),pink,"Pesquisas ativas")
-  box("AGENDAMENTO","6 HORAS",green,"O Android pode atrasar a execução com tela bloqueada")
+  box("HORÁRIOS PROGRAMADOS","00:00 • 06:00",green,"12:00 • 18:00 (horário local do celular)")
+  val next=SimpleDateFormat("dd/MM HH:mm",Locale("pt","BR")).format(Date(MonitorWorker.nextTime()))
+  box("PRÓXIMA TENTATIVA",next,cyan,"Horário planejado; Android pode atrasar")
+  val state=prefs.getString("run_state","idle") ?: "idle"
+  val done=prefs.getInt("run_done",0)
+  val total=prefs.getInt("run_total",2).coerceAtLeast(1)
+  val finished=prefs.getLong("run_finished",0L)
+  val started=prefs.getLong("run_started",0L)
+  val stale=state=="running" && started>0 && System.currentTimeMillis()-started>15*60*1000
+  val stateLabel=when {stale->"SEM ATUALIZAÇÃO";state=="running"->"SINCRONIZANDO";state=="success"->"CONCLUÍDA";state=="failed"->"FALHOU";else->"AGUARDANDO"}
+  box("EXECUÇÃO SUPABASE",stateLabel,if(stale || state=="failed")pink else green,
+   "$done / $total etapas • "+(100*done/total)+"% • Consulta da lista, NÃO coleta Shopee")
+  if(state=="running" && !stale){
+   val bar=ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal).apply {max=total;progress=done;progressTintList=android.content.res.ColorStateList.valueOf(cyan)}
+   body.addView(bar)
+  }
+  if(finished>0)box("ÚLTIMA EXECUÇÃO",SimpleDateFormat("dd/MM HH:mm",Locale("pt","BR")).format(Date(finished)),cyan,"Finalização registrada pelo Android")
+  if(stale)box("ALERTA","Possível interrupção",pink,"O Android não atualizou o estado há mais de 15 minutos")
   val last=prefs.getLong("last_sync",0L)
   val date=if(last==0L)"Não realizada" else SimpleDateFormat("dd/MM HH:mm",Locale("pt","BR")).format(Date(last))
   box("ÚLTIMA SINCRONIZAÇÃO",date,cyan,"Consulta de lista • não é coleta de anúncios")
