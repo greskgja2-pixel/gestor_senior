@@ -3,6 +3,9 @@ package br.com.gestorpro.monitor
 import android.app.Activity
 import android.app.AlertDialog
 import android.graphics.Color
+import android.graphics.BitmapFactory
+import android.widget.ImageView
+import java.net.URL
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -24,6 +27,8 @@ class MainActivity:Activity() {
  private lateinit var status:TextView
  private var page="home"
  private var items:List<Api.Product> = emptyList()
+ private var showPaused=false
+ private var visibleLimit=30
  private fun text(s:String,size:Int=14,color:Int=Color.WHITE,bold:Boolean=false)=TextView(this).apply {
   text=s;textSize=size.toFloat();setTextColor(color);setPadding(12,12,12,12)
   if(bold)setTypeface(null,Typeface.BOLD)
@@ -103,12 +108,24 @@ class MainActivity:Activity() {
   box("PRODUTOS CADASTRADOS",items.size.toString(),cyan,
    items.count{it.active}.toString()+" ativos • "+items.count{!it.active}.toString()+" pausados")
   action("↻ ATUALIZAR PRODUTOS",cyan){loadProducts()}
-  for(item in items){
+  action(if(showPaused)"OCULTAR REMOVIDOS" else "VER PRODUTOS REMOVIDOS",pink){showPaused=!showPaused;visibleLimit=30;render()}
+  val filtered=items.filter{showPaused || it.active}
+  for(item in filtered.take(visibleLimit)){
    val container=LinearLayout(this).apply {orientation=LinearLayout.VERTICAL;setPadding(12,8,12,8);background=panel(if(item.active)cyan else muted)}
+   if(item.image.startsWith("https://")){
+    val photo=ImageView(this).apply {layoutParams=LinearLayout.LayoutParams(220,220);scaleType=ImageView.ScaleType.CENTER_CROP;contentDescription="Foto do produto"}
+    container.addView(photo)
+    val imageUrl=item.image
+    thread {try {val host=URL(imageUrl).host; if(host.endsWith("susercontent.com")){
+     val conn=URL(imageUrl).openConnection();conn.connectTimeout=8000;conn.readTimeout=8000
+     val bmp=conn.getInputStream().use{BitmapFactory.decodeStream(it)}
+     if(bmp!=null)runOnUiThread{photo.setImageBitmap(bmp)}
+    }}catch(_:Exception){}}
+   }
    container.addView(text(item.title.take(110),15,Color.WHITE,true))
    container.addView(text(if(item.active)"● ATIVO" else "○ PAUSADO",12,if(item.active)green else muted))
-   container.addView(button(if(item.active)"PAUSAR MONITORAMENTO" else "REATIVAR MONITORAMENTO",if(item.active)pink else green){
-    AlertDialog.Builder(this).setTitle(if(item.active)"Pausar este produto?" else "Reativar produto?")
+   container.addView(button(if(item.active)"REMOVER DO MONITORAMENTO" else "REATIVAR MONITORAMENTO",if(item.active)pink else green){
+    AlertDialog.Builder(this).setTitle(if(item.active)"Remover da lista ativa?" else "Reativar produto?")
      .setMessage(item.title.take(150)+"\n\nO histórico existente será preservado.")
      .setNegativeButton("Cancelar",null)
      .setPositiveButton("Confirmar"){_,_->task("Atualizando produto..."){
@@ -118,6 +135,7 @@ class MainActivity:Activity() {
    })
    val lp=LinearLayout.LayoutParams(-1,-2);lp.setMargins(0,5,0,9);body.addView(container,lp)
   }
+  if(filtered.size>visibleLimit)action("CARREGAR MAIS 30",cyan){visibleLimit+=30;render()}
  }
  private fun refreshCounts(){task("Sincronizando..."){val pair=Api.readTotals(this);"Sincronizado: "+pair.first+" produtos, "+pair.second+" pesquisas"}}
  private fun loadProducts(){task("Carregando lista..."){items=Api.products(this);"Lista carregada: "+items.size+" produtos"}}
