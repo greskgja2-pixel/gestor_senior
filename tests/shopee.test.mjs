@@ -16,6 +16,13 @@ test('authorization, token exchange, refresh and shop signing', async (t) => {
   assert.equal(auth.origin, 'https://openplatform.sandbox.test-stable.shopee.sg');
   assert.equal(auth.searchParams.get('partner_id'), '1243923');
   assert.equal(auth.searchParams.get('sign'), hmac('1243923/api/v2/shop/auth_partner1700000000'));
+  process.env.SHOPEE_ENV = 'live';
+  const liveAuth = new URL(api.buildShopAuthUrl('https://example.com/api/shopee/callback?gs_state=preserved'));
+  assert.equal(liveAuth.origin, 'https://openplatform.shopee.com.br');
+  assert.equal(liveAuth.pathname, '/api/v2/shop/auth_partner');
+  assert.equal(liveAuth.searchParams.get('redirect'), 'https://example.com/api/shopee/callback?gs_state=preserved');
+  assert.equal(liveAuth.searchParams.get('sign'), auth.searchParams.get('sign'));
+  process.env.SHOPEE_ENV = 'test';
   let calls = [];
   t.mock.method(globalThis, 'fetch', async (url, options) => {
     calls.push({ url: new URL(url), options });
