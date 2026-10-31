@@ -4,6 +4,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLEncoder
 
 object Api {
  private const val ROOT="https://raxhdrlnqkbqjpsbtgwf.supabase.co"
@@ -39,6 +40,22 @@ object Api {
   }
   return p(ctx).getString("access","") ?: throw IllegalStateException("Sessão inválida")
  }
+ data class Product(val id:String,val title:String,val active:Boolean)
+ fun products(ctx:Context):List<Product>{
+  val t=token(ctx)
+  val out=mutableListOf<Product>();var offset=0
+  while(true){
+   val arr=JSONArray(call("/rest/v1/produtos_monitorados?select=id,nome,ativo&order=criado_em.desc&limit=500&offset=$offset",jwt=t))
+   for(i in 0 until arr.length()){val o=arr.getJSONObject(i);out.add(Product(o.getString("id"),o.optString("nome","Produto sem nome"),o.optBoolean("ativo",false)))}
+   offset+=arr.length();if(arr.length()<500)break
+  }
+  return out
+ }
+ fun setProductActive(ctx:Context,id:String,active:Boolean){
+  val safe=URLEncoder.encode(id,"UTF-8")
+  call("/rest/v1/produtos_monitorados?id=eq.$safe","PATCH",token(ctx),JSONObject().put("ativo",active))
+ }
+ fun lastSync(ctx:Context)=ctx.getSharedPreferences("gp_sync",Context.MODE_PRIVATE).getLong("last_sync",0)
  fun readTotals(ctx:Context):Pair<Int,Int> {
   val t=token(ctx)
   fun count(table:String):Int {
