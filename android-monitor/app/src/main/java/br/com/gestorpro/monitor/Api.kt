@@ -1,0 +1,57 @@
+package br.com.gestorpro.monitor
+import android.content.Context
+import org.json.JSONArray
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+
+object Api {
+ private const val ROOT="https://raxhdrlnqkbqjpsbtgwf.supabase.co"
+ private const val KEY="sb_publishable_Cdpn9B0B-bfj21koW2N9hA_33hOUOWs"
+ private fun p(c:Context)=c.getSharedPreferences("gp_auth",Context.MODE_PRIVATE)
+ private fun call(path:String,method:String="GET",jwt:String?=null,body:JSONObject?=null):String {
+  val c=URL(ROOT+path).openConnection() as HttpURLConnection
+  try {
+   c.requestMethod=method;c.connectTimeout=15000;c.readTimeout=20000
+   c.setRequestProperty("apikey",KEY);c.setRequestProperty("Content-Type","application/json")
+   if(jwt!=null)c.setRequestProperty("Authorization","Bearer $jwt")
+   if(body!=null){c.doOutput=true;c.outputStream.use{it.write(body.toString().toByteArray())}}
+   val code=c.responseCode
+   val response=(if(code in 200..299)c.inputStream else c.errorStream)?.bufferedReader()?.use{it.readText()} ?: ""
+   if(code !in 200..299)throw IllegalStateException("HTTP $code: "+response.take(200))
+   return response
+  }finally{c.disconnect()}
+ }
+ fun signed(ctx:Context)=!p(ctx).getString("refresh",null).isNullOrBlank()
+ fun signOut(ctx:Context){p(ctx).edit().clear().apply()}
+ private fun save(ctx:Context,j:JSONObject){
+  p(ctx).edit().putString("access",j.getString("access_token")).putString("refresh",j.getString("refresh_token"))
+   .putLong("expiry",System.currentTimeMillis()+j.optLong("expires_in",3600)*1000-120000).apply()
+ }
+ fun signIn(ctx:Context,email:String,password:String){
+  save(ctx,JSONObject(call("/auth/v1/token?grant_type=password","POST",body=JSONObject().put("email",email).put("password",password))))
+ }
+ @Synchronized private fun token(ctx:Context):String {
+  if(!signed(ctx))throw IllegalStateException("Login necessário")
+  if(System.currentTimeMillis()>=p(ctx).getLong("expiry",0)){
+   val refresh=p(ctx).getString("refresh","") ?: ""
+   save(ctx,JSONObject(call("/auth/v1/token?grant_type=refresh_token","POST",body=JSONObject().put("refresh_token",refresh))))
+  }
+  return p(ctx).getString("access","") ?: throw IllegalStateException("Sessão inválida")
+ }
+ fun readTotals(ctx:Context):Pair<Int,Int> {
+  val t=token(ctx)
+  fun count(table:String):Int {
+   var total=0;var offset=0
+   while(true){
+    val arr=JSONArray(call("/rest/v1/$table?select=id&ativo=eq.true&limit=500&offset=$offset",jwt=t))
+    total+=arr.length();offset+=arr.length();if(arr.length()<500)break
+   }
+   return total
+  }
+  val product=count("produtos_monitorados");val search=count("buscas_monitoradas")
+  ctx.getSharedPreferences("gp_sync",Context.MODE_PRIVATE).edit()
+   .putInt("products",product).putInt("searches",search).putLong("last_sync",System.currentTimeMillis()).apply()
+  return Pair(product,search)
+ }
+}
