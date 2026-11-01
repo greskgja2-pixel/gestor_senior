@@ -58,6 +58,7 @@ class MainActivity:Activity() {
   val tabs=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
   tabs.addView(button("PAINEL",cyan){page="home";render()},LinearLayout.LayoutParams(0,-2,1f))
   tabs.addView(button("PRODUTOS",pink){page="products";loadProducts()},LinearLayout.LayoutParams(0,-2,1f))
+  tabs.addView(button("AJUSTES",green){page="settings";render()},LinearLayout.LayoutParams(0,-2,1f))
   root.addView(tabs)
   body=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL}
   root.addView(ScrollView(this).apply{addView(body)},LinearLayout.LayoutParams(-1,0,1f))
@@ -68,7 +69,7 @@ class MainActivity:Activity() {
  private fun render(){
   body.removeAllViews()
   if(!Api.signed(this)){loginScreen();return}
-  if(page=="products")productScreen() else homeScreen()
+  when(page) {"products"->productScreen();"settings"->settingsScreen();else->homeScreen()}
  }
  private fun loginScreen(){
   box("SUPABASE","Entrar",cyan,"Use o usuário do Supabase Authentication")
@@ -88,9 +89,9 @@ class MainActivity:Activity() {
   box("● STATUS","CONECTADO",green,"Sincronização ativa • coleta Shopee ainda não implementada")
   box("PRODUTOS MONITORADOS",prefs.getInt("products",0).toString(),cyan,"Produtos ativos cadastrados")
   box("PESQUISAS CADASTRADAS",prefs.getInt("searches",0).toString(),pink,"Pesquisas ativas")
-  box("HORÁRIOS PROGRAMADOS","00:00 • 06:00",green,"12:00 • 18:00 (horário local do celular)")
-  val next=SimpleDateFormat("dd/MM HH:mm",Locale("pt","BR")).format(Date(MonitorWorker.nextTime()))
-  box("PRÓXIMA TENTATIVA",next,cyan,"Horário planejado; Android pode atrasar")
+  box("HORÁRIOS PROGRAMADOS",MonitorWorker.hours(this).joinToString(" • "),green,if(MonitorWorker.enabled(this))"Agendamento ativo" else "Agendamento pausado")
+  val next=SimpleDateFormat("dd/MM HH:mm",Locale("pt","BR")).format(Date(MonitorWorker.nextTime(this)))
+  box("PRÓXIMA TENTATIVA",if(MonitorWorker.enabled(this))next else "Pausada",cyan,"Horário planejado; Android pode atrasar")
   val state=prefs.getString("run_state","idle") ?: "idle"
   val done=prefs.getInt("run_done",0)
   val total=prefs.getInt("run_total",2).coerceAtLeast(1)
@@ -120,6 +121,41 @@ class MainActivity:Activity() {
     .setPositiveButton("Sair"){_,_->MonitorWorker.stop(this);Api.signOut(this);render()}.show()
   }
   body.addView(text("Uso do Supabase: métricas do plano ainda não disponíveis. Nenhum percentual estimado será mostrado.",12,muted))
+ }
+ private fun settingsScreen(){
+  val times=MonitorWorker.hours(this).toMutableList()
+  var isOn=MonitorWorker.enabled(this)
+  box("CONFIGURAÇÕES","Horários personalizados",cyan,"Agendamento local; a coleta Shopee ainda não está implementada")
+  val toggle=Switch(this).apply{
+   text="Ativar sincronização automática";setTextColor(Color.WHITE);isChecked=isOn
+   setOnCheckedChangeListener{_,checked->isOn=checked}
+  }
+  body.addView(toggle)
+  val container=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL}
+  body.addView(container)
+  fun draw(){
+   container.removeAllViews()
+   for(t in times.sorted()){
+    val line=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
+    line.addView(text(t,20,cyan,true),LinearLayout.LayoutParams(0,-2,1f))
+    line.addView(button("REMOVER",pink){times.remove(t);draw()})
+    container.addView(line)
+   }
+  }
+  draw()
+  action("+ ADICIONAR HORÁRIO",cyan){
+   val cal=java.util.Calendar.getInstance()
+   android.app.TimePickerDialog(this,{_,h,m->
+    val value=String.format(Locale.US,"%02d:%02d",h,m)
+    if(!times.contains(value)){times.add(value);draw()}
+   },cal.get(java.util.Calendar.HOUR_OF_DAY),cal.get(java.util.Calendar.MINUTE),true).show()
+  }
+  action("SALVAR HORÁRIOS",green){
+   if(times.isEmpty()){status.text="Adicione pelo menos um horário";return@action}
+   try{MonitorWorker.save(this,times,isOn);status.text="Horários salvos e agendamento atualizado";render()}
+   catch(e:Exception){status.text="Falha: "+e.message}
+  }
+  body.addView(text("A próxima tentativa é aproximada. O Android pode atrasar tarefas quando a tela estiver bloqueada.",12,muted))
  }
  private fun productScreen(){
   box("PRODUTOS CADASTRADOS",items.size.toString(),cyan,
