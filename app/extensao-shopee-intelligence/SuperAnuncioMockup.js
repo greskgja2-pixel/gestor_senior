@@ -543,7 +543,11 @@ export default function SuperAnuncioMockup({items=[],shopName='',initialItemId='
 
   const r=item.latest||{},prev=item.previous||{},p=r.product_snapshot||{},f=r.finance_snapshot||{},ai=r.report?.ai_analysis||{};
   const price=n(metric(r,'price')??p.price??p.currentPrice);
-  const cost=n(f.productCost??p.referenceCost);
+  // Com variações, o custo vem de cada variação (product_costs via API). Mostra o menor só quando TODAS têm custo.
+  const variationsForCost=arr(p.variations||p.models);
+  const variationCostValues=variationsForCost.map(v=>n(v?.cost)).filter(x=>x!=null);
+  const allVariationsCosted=variationsForCost.length>0&&variationCostValues.length===variationsForCost.length;
+  const cost=variationsForCost.length?(allVariationsCosted?Math.min(...variationCostValues):null):n(f.productCost??p.referenceCost);
   const margin=n(f.marginPct);
   const sold=n(metric(r,'sold')??p.sold);
   const rating=n(p.rating??metric(r,'rating'));
