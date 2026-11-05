@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getActiveShop } from "../../../../lib/shop";
 import { supabaseAdmin } from "../../../../lib/supabase";
+import { applySavedCosts } from "../../../lib/product-costs-merge";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -21,7 +22,16 @@ export async function GET(request) {
   const [{ data: reports, error }, { data: schedules, error: scheduleError }] = await Promise.all([query, db.from("extension_analysis_schedules").select("id,item_id,title,product_url,enabled,frequency_days,mode,next_run_at,last_run_at,last_report_id,settings,created_at,updated_at").eq("shop_id", shop.shop_id).order("updated_at", { ascending: false })]);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (scheduleError) return NextResponse.json({ error: scheduleError.message }, { status: 500 });
-  return NextResponse.json({ reports: reports || [], schedules: schedules || [], shop: { shopId: shop.shop_id, shopName: shop.shop_name || null } });
+  // Custos cadastrados (product_costs) têm prioridade sobre o snapshot salvo na análise,
+  // para o Financeiro mostrar o mesmo custo da etapa Contexto, Ads e custos.
+  const itemIds = [...new Set((reports || []).map((r) => r.item_id).filter(Boolean))];
+  let mergedReports = reports || [], costWarning = null;
+  if (itemIds.length) {
+    const { data: costRows, error: costError } = await db.from("product_costs").select("item_id,model_id,cost,packaging_cost").eq("shop_id", shop.shop_id).in("item_id", itemIds).limit(5000);
+    if (costError) costWarning = "Não foi possível ler os custos cadastrados; exibindo os custos salvos na análise.";
+    else mergedReports = mergedReports.map((r) => applySavedCosts(r, costRows || []));
+  }
+  return NextResponse.json({ reports: mergedReports, schedules: schedules || [], shop: { shopId: shop.shop_id, shopName: shop.shop_name || null }, ...(costWarning ? { costWarning } : {}) });
 }
 
 export async function POST(request) {
