@@ -16,7 +16,7 @@ function Summary({s,filter,onFilter}){
   const parts=[
     {id:'all',n:s.total,label:'disponíveis',icon:'package'},
     {id:'ready',n:s.ready,label:'com dados suficientes',icon:'check',level:'good'},
-    {id:'insufficient',n:s.small+s.partial,label:'com amostra pequena ou dados parciais',icon:'info',level:'warn'},
+    {id:'insufficient',n:s.small+s.partial+s.inactive,label:'com amostra pequena, dados parciais ou sem atividade',icon:'info',level:'warn'},
     {id:'recollect',n:s.missing+s.failed,label:'sem métricas coletadas',icon:'help',level:'data'},
     {id:'diagnosis',n:s.bottleneck,label:'com gargalo relevante',icon:'target',level:'bad'}
   ];
@@ -59,6 +59,7 @@ function diagnosisText(row){
   if(state.id==='updating')return'Atualizando métricas deste anúncio…';
   if(state.id==='failed')return'A última recoleta falhou; os dados anteriores foram preservados.';
   if(state.id==='missing')return'Métricas do funil não coletadas neste período.';
+  if(state.id==='inactive')return'A Shopee não listou este anúncio entre os com atividade no período.';
   if(state.id==='partial')return'Faltam impressões ou visitas para montar o funil.';
   if(state.id==='small')return'Conclusão limitada: volume ainda pequeno.';
   if(hasBottleneck(state,plan))return plan.title;

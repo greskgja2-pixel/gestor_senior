@@ -120,3 +120,31 @@ test('não mantém taxas de um snapshot anterior durante a recoleta',()=>{
   assert.equal(result.seller.products[0].ctr,null);
   assert.equal(result.seller.products[0].uv_to_add_to_cart_rate,null);
 });
+
+// Ranking completo da Shopee: anúncio ausente não é falha de coleta.
+import {isRankingComplete as _isRankingComplete,diagnoseFunnelProducts as _diagnose} from '../app/lib/funnel-product-diagnostics.js';
+import {classifyProduct as _classify,needsRecollect as _needs,STATES as _STATES} from '../app/lib/funnel-product-state.js';
+
+test('ranking completo: total informado igual aos produtos recebidos e sem página com erro',()=>{
+  const prod=id=>({id,product_card_impressions:10,uv:2});
+  assert.equal(_isRankingComplete({totalProducts:2,products:[prod('1'),prod('2')],errors:[]}),true);
+  assert.equal(_isRankingComplete({totalProducts:5,products:[prod('1')],errors:[]}),false);
+  assert.equal(_isRankingComplete({products:[prod('1')],errors:[]}),false);
+  assert.equal(_isRankingComplete({totalProducts:1,products:[prod('1')],errors:[{source:'product-rankings-page-2',error:'timeout'}]}),false);
+  assert.equal(_isRankingComplete(null),false);
+});
+
+test('anúncio analisado fora do ranking completo vira not_in_ranking; com ranking incompleto continua not_returned',()=>{
+  const ctx={a:{itemId:'9',analyzedAt:new Date().toISOString()}};
+  const complete={totalProducts:1,products:[{id:'1',product_card_impressions:5,uv:1}],errors:[]};
+  const incomplete={totalProducts:3,products:[{id:'1',product_card_impressions:5,uv:1}],errors:[]};
+  const d1=_diagnose(complete,ctx),d2=_diagnose(incomplete,ctx);
+  assert.equal(d1.products[0].status,'not_in_ranking');assert.equal(d1.notInRankingCount,1);assert.equal(d1.rankingComplete,true);
+  assert.equal(d2.products[0].status,'not_returned');assert.equal(d2.notInRankingCount,0);
+});
+
+test('estado inactive não pede recoleta e não vira diagnóstico de desempenho',()=>{
+  const s=_classify({priority:'missing',label:'SEM ATIVIDADE NO RANKING',notInRanking:true});
+  assert.equal(s,_STATES.inactive);
+  assert.equal(_needs(s),false);
+});

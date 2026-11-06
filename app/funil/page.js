@@ -7,7 +7,7 @@ import {deriveStoreFunnel} from '../lib/funnel-health';
 import {transitionById,stageByKey,rankProductsForStage} from '../lib/funnel-store-diagnosis';
 import {classifyProduct} from '../lib/funnel-product-state';
 import ProductList from './ProductList';
-import {PRODUCT_FUNNEL_FIELDS,chooseBestFunnelResponse,needsFunnelRetry,diagnoseFunnelProducts,mergeRecollectedFunnelProduct} from '../lib/funnel-product-diagnostics';
+import {PRODUCT_FUNNEL_FIELDS,chooseBestFunnelResponse,needsFunnelRetry,diagnoseFunnelProducts,mergeRecollectedFunnelProduct,isRankingComplete} from '../lib/funnel-product-diagnostics';
 import TrafficSources from './TrafficSources';
 import AdsHistory from './AdsHistory';
 import StoreOverview,{Icon,GuidanceSwitch,imageFallback,IMAGE_PLACEHOLDER} from './StoreOverview';
@@ -66,6 +66,17 @@ function productPlan(p,med){
   const paidRate=num(p.uv_to_paid_buyers_rate)??(uv>0&&paid!=null?paid/uv:null);
   const cartPlaced=carts>0&&placed!=null?placed/carts:null,placedPaid=placed>0&&paid!=null?paid/placed:null,paidConfirmed=paid>0&&confirmed!=null?confirmed/paid:null;
   const low=(value,medianValue,minBase)=>value!=null&&medianValue!=null&&minBase&&value<medianValue*.6;
+  // A Shopee devolveu a lista COMPLETA de anúncios com atividade no período e este não está nela: não é falha de coleta.
+  // Não vira "pouco tráfego" nem diagnóstico de gargalo (não há números); apenas explica a ausência.
+  if(p.notInRanking&&impressions==null&&uv==null)return{
+    priority:'missing',rank:5,notInRanking:true,
+    label:'SEM ATIVIDADE NO RANKING',
+    title:'Sem atividade registrada pela Shopee no período',
+    why:'A Shopee devolveu a lista completa dos anúncios com atividade neste período e este anúncio não está nela. Provavelmente não teve visitas ou vendas, mas a Shopee não envia números para ele, então não há taxas para analisar. Recoletar não resolve.',
+    evidence:'Anúncio fora do ranking de produtos da Shopee (lista completa, sem página com erro).',
+    actions:['Confira no Seller Center se o anúncio está ativo, com estoque e sem restrição.','Se ele é novo ou foi alterado há pouco, aguarde acumular visitas ou veja um período maior (30 dias).','Revise título, capa e preço na Super Análise deste anúncio para ele passar a aparecer na busca.'],
+    href:'/super-analise',action:'Abrir Super Análise'
+  };
   if(impressions==null||uv==null)return{
     priority:'missing',rank:5,
     label:impressions==null&&uv==null?'DADOS NÃO COLETADOS':'COLETA PARCIAL',
@@ -523,7 +534,8 @@ function ProductFunnelCard({p,med,mode,context,onRecollect,recollecting,recollec
   const plan=mode==='specific'?specificPlan(p,med,context):productPlan(p,med);
   const bottleneck=productBottleneck(plan);
   const stateId=state?.id||'ready';
-  const noData=stateId==='missing'||stateId==='failed';
+  const inactive=stateId==='inactive';
+  const noData=stateId==='missing'||stateId==='failed'||inactive;
   const small=stateId==='small';
   // Selo do detalhe: desempenho só quando há dados suficientes; nos demais casos mostra o estado da coleta (nunca um "CRÍTICO" sem dados).
   const status=stateId==='ready'?(plan.priority==='bad'?'CRÍTICO':plan.priority==='warn'?'ATENÇÃO':plan.priority==='good'?'SAUDÁVEL':plan.label):state.label;
@@ -536,8 +548,8 @@ function ProductFunnelCard({p,med,mode,context,onRecollect,recollecting,recollec
   const titleActionIndex=plan.actions.findIndex(action=>/t[ií]tulo|palavra.?chave|keyword/i.test(String(action)));
   const priceActionIndex=plan.actions.findIndex((action,index)=>index!==titleActionIndex&&/pre[cç]o|oferta/i.test(String(action)));
   const actions=specific?plan.actions.slice(0,3):plan.actions.slice(0,1);
-  const diagTitle=noData?'Dados do funil indisponíveis':small?'Amostra pequena — conclusão limitada':bottleneck.title;
-  const diagDetail=noData?'O Motor Sênior ainda não forneceu as métricas deste anúncio para o período selecionado.':small?'Os números disponíveis ainda não permitem identificar com segurança o principal gargalo. Os dados existentes continuam visíveis, mas sem recomendação categórica.':bottleneck.detail;
+  const diagTitle=inactive?plan.title:noData?'Dados do funil indisponíveis':small?'Amostra pequena — conclusão limitada':bottleneck.title;
+  const diagDetail=inactive?plan.why:noData?'O Motor Sênior ainda não forneceu as métricas deste anúncio para o período selecionado.':small?'Os números disponíveis ainda não permitem identificar com segurança o principal gargalo. Os dados existentes continuam visíveis, mas sem recomendação categórica.':bottleneck.detail;
   return <article className={styles.productFunnelCard} data-priority={plan.priority} data-state={stateId} data-focused={focused?'true':'false'}>
     <header className={styles.productFunnelHeader}>
       <div className={styles.productIdentity}><div><h3>Análise do anúncio</h3><small>{p.name||'Produto'} · ID {p.id||'—'}</small></div></div>
@@ -595,7 +607,8 @@ function ProductFunnelCard({p,med,mode,context,onRecollect,recollecting,recollec
 
         <div className={styles.productFunnelFooter}>
           {!noData&&<Link href={plan.href}>{plan.action} →</Link>}
-          {noData&&<Link href="/?section=config">Ver Saúde do Sistema →</Link>}
+          {noData&&!inactive&&<Link href="/?section=config">Ver Saúde do Sistema →</Link>}
+          {inactive&&<Link href={plan.href}>{plan.action} →</Link>}
           {productContext&&<Link className={styles.productSecondaryLink} href={`/super-analise?item_id=${encodeURIComponent(p.id)}${productContext.reportId?`&report_id=${encodeURIComponent(productContext.reportId)}`:''}`}>Abrir Super Análise deste anúncio</Link>}
         </div>
       </div>
@@ -818,6 +831,7 @@ export default function FunilPage(){
     }
   };
 
+  const rankingComplete=isRankingComplete(state.seller);
   const productsById=new Map(model.products.map(p=>[String(p.id),p]));
   const analyzedProducts=Object.values(context||{}).map(ctx=>{
     const id=String(ctx?.itemId||'').trim();
@@ -831,7 +845,8 @@ export default function FunilPage(){
       id,
       name:ctx?.title||('Produto '+id),
       image:ctx?.image||state.images?.[id]||null,
-      funnelMetricsUnavailable:true
+      funnelMetricsUnavailable:true,
+      notInRanking:rankingComplete
     };
   }).filter(Boolean);
   // Com uma etapa em foco (vinda do diagnóstico), os anúncios com maior oportunidade nela vêm primeiro.
@@ -851,7 +866,9 @@ export default function FunilPage(){
     return{p,plan,state,ctx:context?.[String(p.id)]||null};
   });
   const unavailableForFunnel=Math.max(0,model.products.filter(p=>!context?.[String(p.id)]?.analyzedAt).length);
-  const analyzedWithoutMetrics=analyzedProducts.filter(p=>p.funnelMetricsUnavailable||productPlan(p,model.med).priority==='missing').length;
+  const analyzedNotInRanking=analyzedProducts.filter(p=>p.notInRanking).length;
+  // Só conta como falha/lacuna de coleta o que NÃO é ausência confirmada no ranking completo da Shopee.
+  const analyzedWithoutMetrics=analyzedProducts.filter(p=>!p.notInRanking&&(p.funnelMetricsUnavailable||productPlan(p,model.med).priority==='missing')).length;
 
   const full=!!state.seller;
   const reported=state.seller?.period?.type;
@@ -906,7 +923,16 @@ export default function FunilPage(){
     {!state.loading&&tab==='produto'&&<section className={styles.panel} id="funil-produtos">
       <div className={styles.sectionHead}><div><h2>Funil por Produto</h2><p>Escolha um anúncio para ver o funil, o diagnóstico e o plano de ação. Anúncios com Super Análise recente aparecem mesmo sem métricas do funil.</p></div><span>{analyzedProducts.length} disponíveis</span></div>
       {focusTransition&&<div className={styles.stageFocusBanner} role="status"><Icon name="target" size={16}/><span>Anúncios ordenados pela maior oportunidade em <b>{stageByKey(focusTransition.from)?.label} → {stageByKey(focusTransition.to)?.label}</b> (distância para a mediana dos seus anúncios × volume). Nenhum anúncio foi ocultado.</span><button type="button" onClick={()=>setStageFocus('')}>Limpar ordenação</button></div>}
-      <div className={styles.funnelEligibilityNotice}><b>Super Análise obrigatória</b><span>{analyzedWithoutMetrics>0?`${analyzedWithoutMetrics} produto(s) analisado(s) estão sem métricas completas do Funil.`:unavailableForFunnel>0?`${unavailableForFunnel} produto(s) da coleta ainda precisam de Super Análise.`:'Todos os produtos analisados estão com métricas disponíveis.'} Preço e concorrentes vêm da Super Análise; as métricas do funil vêm do Motor Sênior.</span><Link href="/super-analise">Gerenciar na Super Análise →</Link></div>
+      <div className={styles.funnelEligibilityNotice}><b>Super Análise obrigatória</b><span>{analyzedWithoutMetrics>0?`${analyzedWithoutMetrics} produto(s) analisado(s) estão sem métricas completas do Funil.`:analyzedNotInRanking>0?`${analyzedNotInRanking} produto(s) analisado(s) não estão no ranking da Shopee neste período (sem números para mostrar).`:unavailableForFunnel>0?`${unavailableForFunnel} produto(s) da coleta ainda precisam de Super Análise.`:'Todos os produtos analisados estão com métricas disponíveis.'} Preço e concorrentes vêm da Super Análise; as métricas do funil vêm do Motor Sênior.</span><Link href="/super-analise">Gerenciar na Super Análise →</Link></div>
+      {analyzedNotInRanking>0&&<aside className={styles.collectionNotice} role="status" data-kind="not-in-ranking">
+        <div><strong>{analyzedNotInRanking} de {analyzedProducts.length} anúncios não aparecem no ranking da Shopee em {actualPeriodMeta.label}</strong>
+          <p>A Shopee devolveu a lista completa de {funnelProductDiagnosis.returnedProductCount} anúncio(s) com atividade no período, e estes não estão nela. Não é falha de coleta, então “Tentar novamente” não muda o resultado. Provavelmente ficaram sem visitas ou vendas, mas a Shopee não informa números para eles. Teste outro período para conferir.</p>
+        </div>
+        <div className={styles.collectionActions}>
+          {period!=='real_time'&&<button type="button" onClick={()=>changePeriod('real_time')}>Ver Hoje</button>}
+          {period!=='past30days'&&<button type="button" onClick={()=>changePeriod('past30days')}>Ver 30 dias</button>}
+        </div>
+      </aside>}
       {analyzedWithoutMetrics>0&&<aside className={styles.collectionNotice} role="status">
         <div><strong>Métricas não coletadas ou incompletas em {analyzedWithoutMetrics} de {analyzedProducts.length} anúncios</strong>
           <p>O Motor não entregou todos os números do funil de {actualPeriodMeta.label}. Isso não comprova baixo tráfego.</p>
