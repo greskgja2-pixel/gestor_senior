@@ -13,6 +13,8 @@ export const STATES=Object.freeze({
   small:{id:'small',label:'Amostra pequena',icon:'info',level:'warn'},
   partial:{id:'partial',label:'Dados parciais',icon:'alert',level:'warn'},
   missing:{id:'missing',label:'Não coletado',icon:'help',level:'data'},
+  // Anúncio fora do ranking COMPLETO da Shopee: não é falha de coleta (recoletar não resolve), mas também não há números.
+  inactive:{id:'inactive',label:'Sem atividade no ranking',icon:'info',level:'data'},
   failed:{id:'failed',label:'Falha de coleta',icon:'alert',level:'bad'},
   updating:{id:'updating',label:'Atualizando',icon:'refresh',level:'info'}
 });
@@ -22,6 +24,7 @@ export function classifyProduct(plan,flags={}){
   if(flags.updating)return STATES.updating;
   if(flags.failed)return STATES.failed;
   if(!plan)return STATES.missing;
+  if(plan.notInRanking)return STATES.inactive;
   if(plan.priority==='missing')return plan.label==='COLETA PARCIAL'?STATES.partial:STATES.missing;
   if(plan.priority==='data')return STATES.small;
   return STATES.ready;
@@ -32,7 +35,7 @@ export const needsRecollect=state=>state.id==='missing'||state.id==='partial'||s
 export const hasBottleneck=(state,plan)=>state.id==='ready'&&(plan?.priority==='bad'||plan?.priority==='warn');
 
 export function summarizeProducts(rows){
-  const out={total:rows.length,ready:0,small:0,partial:0,missing:0,failed:0,updating:0,bottleneck:0,recollect:0};
+  const out={total:rows.length,ready:0,small:0,partial:0,missing:0,inactive:0,failed:0,updating:0,bottleneck:0,recollect:0};
   for(const r of rows){
     out[r.state.id]++;
     if(hasBottleneck(r.state,r.plan))out.bottleneck++;
@@ -50,7 +53,7 @@ export const FILTERS=Object.freeze([
 ]);
 export function matchesFilter(row,filter){
   if(filter==='recollect')return needsRecollect(row.state);
-  if(filter==='insufficient')return row.state.id==='small'||row.state.id==='partial';
+  if(filter==='insufficient')return row.state.id==='small'||row.state.id==='partial'||row.state.id==='inactive';
   if(filter==='diagnosis')return hasBottleneck(row.state,row.plan);
   // Ação comercial só existe com dados suficientes; recoleta aparece em "Precisam de recoleta".
   if(filter==='action')return row.state.id==='ready'&&row.plan?.priority!=='good';
@@ -68,7 +71,7 @@ const metric=(p,key)=>{const v=p?.[key];return v===null||v===undefined||v===''||
 // Valores ausentes sempre vão para o fim, em qualquer ordenação (ausente ≠ zero).
 const byMetricDesc=key=>(a,b)=>{const x=metric(a.p,key),y=metric(b.p,key);if(x==null&&y==null)return 0;if(x==null)return 1;if(y==null)return -1;return y-x};
 const COMMERCIAL_RANK={bad:0,warn:1,small:2,good:3,missing:4};
-const COLLECTION_RANK={failed:0,missing:1,partial:2,small:3,ready:4,updating:5};
+const COLLECTION_RANK={failed:0,missing:1,partial:2,small:3,inactive:4,ready:5,updating:6};
 export function sortRows(rows,sort){
   const list=[...rows];
   if(sort==='impressions')return list.sort(byMetricDesc('product_card_impressions'));

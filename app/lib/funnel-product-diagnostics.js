@@ -19,6 +19,18 @@ export function productMetricCoverage(seller){
   return {productCount:products.length,present,total:products.length*PRODUCT_FUNNEL_FIELDS.length};
 }
 
+// O ranking de produtos da Shopee só lista anúncios com atividade no período. Quando o total informado pela Shopee
+// (`totalProducts`) é igual ao número de produtos recebidos e nenhuma página do ranking falhou, a lista está COMPLETA:
+// um anúncio que não aparece nela não teve falha de coleta — a Shopee simplesmente não registrou atividade para ele.
+// Sem o total informado, ou com divergência/página com erro, continua valendo "não coletado" (ausência ≠ zero).
+export function isRankingComplete(seller){
+  const total=num(seller?.totalProducts);
+  if(total==null)return false;
+  const products=arr(seller?.products);
+  if(products.length!==total)return false;
+  return !arr(seller?.errors).some(e=>/^product-rankings/.test(String(e?.source||'')));
+}
+
 export function needsFunnelRetry(seller){
   // Campos do panorama geral não provam que o Motor conseguiu ler os anúncios.
   // Um zero retornado é um valor real e não deve disparar uma nova leitura.
@@ -40,6 +52,7 @@ export function diagnoseFunnelProducts(seller,context,now=Date.now()){
     const id=idOf(p?.id??p?.item_id??p?.itemId);
     if(id&&!index.has(id))index.set(id,p);
   }
+  const rankingComplete=isRankingComplete(seller);
   const rows=[];
   for(const ctx of Object.values(context||{})){
     const id=idOf(ctx?.itemId);
@@ -52,7 +65,7 @@ export function diagnoseFunnelProducts(seller,context,now=Date.now()){
     const primaryReady=fields.product_card_impressions&&fields.uv;
     rows.push({
       id,
-      status:!p?'not_returned':present===0?'no_metrics':!primaryReady||present<PRODUCT_FUNNEL_FIELDS.length?'partial':'complete',
+      status:!p?(rankingComplete?'not_in_ranking':'not_returned'):present===0?'no_metrics':!primaryReady||present<PRODUCT_FUNNEL_FIELDS.length?'partial':'complete',
       returned:!!p,
       present,
       total:PRODUCT_FUNNEL_FIELDS.length,
@@ -62,6 +75,8 @@ export function diagnoseFunnelProducts(seller,context,now=Date.now()){
   return {
     periodReported:idOf(seller?.period?.type)||null,
     returnedProductCount:allProducts.length,
+    rankingComplete,
+    notInRankingCount:rows.filter(p=>p.status==='not_in_ranking').length,
     analyzedProductCount:rows.length,
     matchedCount:rows.filter(p=>p.returned).length,
     completeCount:rows.filter(p=>p.status==='complete').length,
