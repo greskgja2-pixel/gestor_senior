@@ -24,7 +24,7 @@ test('Garimpo de revenda: preço mínimo para 20% confere com os valores pesquis
   assert.equal(min(1.5,4,0.2).toFixed(2),'9.82');
   assert.equal(min(5.3,4,0.2).toFixed(2),'16.61');
   assert.equal(min(11.5,4,0.2).toFixed(2),'27.68');
-  assert.match(page,/\(custo\+taxa fixa\)|\(cost\+fixed\)\/\(1-FEE-TAX-m\)/);
+  assert.match(page,/\(cost\+fixed\)\/\(1-FEE-TAX-m\)/);
 });
 test('Garimpo de revenda: retorno em R$ e taxa fixa padrão 4,50',()=>{
   assert.match(page,/useState\(4\.5\)/);
@@ -38,4 +38,9 @@ test('Garimpo de revenda: frete e embalagem editáveis entram no custo',()=>{
   assert.match(page,/useState\(1\);/);
   assert.match(page,/base\+frete\+emb/);
   for(const x of ['gs_revenda_frete','gs_revenda_emb','Custo total','Embalagem por envio'])assert.ok(page.includes(x),x);
+});
+test('Garimpo de revenda: engrenagem de taxas e filtro de colunas',()=>{
+  for(const x of ['⚙️','Configurar taxas e custos','Comissão da Shopee (%)','Imposto (%)','Filtro de colunas','gs_revenda_cols','Colunas exibidas','Escape'])assert.ok(page.includes(x),x);
+  assert.match(page,/useState\(20\)/);
+  assert.match(page,/useState\(4\)/);
 });

@@ -23,3 +23,16 @@
 .v_arriscado{background:#fef0c7;color:#93370d}
 .v_so_se_baixar_custo{background:#fde7d3;color:#9a3412}
 .v_nao_compensa{background:#fee4e2;color:#b42318}
+.head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.tools{display:flex;gap:8px;align-items:center}
+.iconBtn{padding:8px 12px;border:1px solid #cfd5e0;border-radius:10px;background:#fff;cursor:pointer;font-size:15px}
+.field{display:grid;gap:4px;font-weight:600}
+.field input{padding:7px 9px;border:1px solid #cfd5e0;border-radius:8px;min-width:120px}
+.field small{font-weight:400}
+.pop{border:1px solid #cfd5e0;background:#fff;border-radius:12px;padding:14px;margin:0 0 14px;max-width:420px;box-shadow:0 8px 24px rgba(20,30,60,.12);display:grid;gap:10px}
+.colList{display:grid;gap:6px}
+.popBtns{display:flex;gap:8px;flex-wrap:wrap}
+.overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal{background:#fff;border-radius:14px;padding:20px;max-width:460px;width:100%;max-height:90vh;overflow:auto;display:grid;gap:12px}
+.modal h2{margin:0}
+.fields{display:grid;gap:12px}
