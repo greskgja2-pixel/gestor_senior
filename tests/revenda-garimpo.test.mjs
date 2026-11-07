@@ -33,3 +33,9 @@ test('Garimpo de revenda: retorno em R$ e taxa fixa padrão 4,50',()=>{
   assert.equal(profit(10.55,3.5,4.5).toFixed(2),'0.02'.replace('0.02',profit(10.55,3.5,4.5).toFixed(2)));
   assert.ok(profit(26.87,11.5,4.5)>4);
 });
+test('Garimpo de revenda: frete e embalagem editáveis entram no custo',()=>{
+  assert.match(page,/useState\(1\.5\)/);
+  assert.match(page,/useState\(1\);/);
+  assert.match(page,/base\+frete\+emb/);
+  for(const x of ['gs_revenda_frete','gs_revenda_emb','Custo total','Embalagem por envio'])assert.ok(page.includes(x),x);
+});
