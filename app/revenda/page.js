@@ -21,7 +21,7 @@ const COLS=[
   {key:'lucro_un',label:'Lucro por venda (R$)'},
   {key:'lucro_mes',label:'Retorno/mês (R$)'},
   {key:'menor_preco',label:'Menor preço que ainda vende'},
-  {key:'viavel_preco',label:'Anúncio que paga 20%'},
+  {key:'viavel_preco',label:'Anúncio de preço mais alto que vende'},
   {key:'veredito',label:'Veredito'},
   {key:'observacao',label:'Observação'}
 ];
