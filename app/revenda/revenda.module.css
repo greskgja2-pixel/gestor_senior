@@ -7,7 +7,7 @@
 .chip,.chipOn{padding:7px 12px;border-radius:999px;border:1px solid #cfd5e0;background:#fff;cursor:pointer}
 .chipOn{background:#1f2a44;color:#fff;border-color:#1f2a44}
 .wrap{overflow-x:auto;border:1px solid #e1e5ee;border-radius:12px}
-.table{border-collapse:collapse;width:100%;min-width:1200px}
+.table{border-collapse:collapse;width:100%;min-width:1400px}
 .table th,.table td{padding:10px;border-bottom:1px solid #eef0f5;text-align:left;vertical-align:top}
 .table th{background:#f6f8fc;white-space:nowrap}
 .sortable{cursor:pointer;user-select:none}

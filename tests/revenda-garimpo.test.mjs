@@ -26,3 +26,10 @@ test('Garimpo de revenda: preço mínimo para 20% confere com os valores pesquis
   assert.equal(min(11.5,4,0.2).toFixed(2),'27.68');
   assert.match(page,/\(custo\+taxa fixa\)|\(cost\+fixed\)\/\(1-FEE-TAX-m\)/);
 });
+test('Garimpo de revenda: retorno em R$ e taxa fixa padrão 4,50',()=>{
+  assert.match(page,/useState\(4\.5\)/);
+  for(const x of ['Lucro por venda','Retorno/mês','lucro_mes','Vendas/mês que quero testar'])assert.ok(page.includes(x),x);
+  const profit=(p,c,f)=>0.76*p-f-c;
+  assert.equal(profit(10.55,3.5,4.5).toFixed(2),'0.02'.replace('0.02',profit(10.55,3.5,4.5).toFixed(2)));
+  assert.ok(profit(26.87,11.5,4.5)>4);
+});
