@@ -14,6 +14,7 @@ const MENU=[
   {type:'item',label:'Messenger',icon:'✉',tone:'green',href:'/messenger'},
   {type:'item',label:'Super Análise',icon:'▤',tone:'indigo',href:'/super-analise'},
   {type:'item',label:'Pesquisa de Produtos',icon:'⌕',tone:'green',href:'/pesquisa-produtos'},
+  {type:'item',label:'Garimpo de Revenda',icon:'⛏',tone:'amber',href:'/revenda'},
   {type:'item',label:'Favoritos',icon:'★',tone:'amber',href:'/favoritos'},
   {type:'item',label:'Super Anúncio',icon:'▣',tone:'cyan',href:'/extensao-shopee-intelligence?section=super-anuncio'},
   {type:'item',label:'Concorrentes',icon:'⌘',tone:'blue',href:'/extensao-shopee-intelligence?section=concorrentes'},
@@ -60,6 +61,7 @@ function routeState(pathname,section){
   if(pathname.startsWith('/messenger'))return{label:'Messenger'};
   if(pathname.startsWith('/produtos'))return{label:'Super Análise',group:'products'};
   if(pathname.startsWith('/pesquisa-produtos'))return{label:'Pesquisa de Produtos'};
+  if(pathname.startsWith('/revenda'))return{label:'Garimpo de Revenda'};
   if(pathname.startsWith('/favoritos'))return{label:'Favoritos'};
   if(pathname.startsWith('/pedidos'))return{label:'Pedidos'};
   if(pathname.startsWith('/super-analise'))return{label:'Super Análise',group:'products'};

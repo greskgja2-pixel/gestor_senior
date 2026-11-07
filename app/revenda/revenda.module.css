@@ -1,0 +1,25 @@
+.page{padding:20px;max-width:1500px;margin:0 auto}
+.sub{color:#5b6475;margin:6px 0 14px;max-width:900px}
+.controls{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px}
+.controls label{display:grid;gap:4px;font-weight:600}
+.controls input{padding:7px 9px;border:1px solid #cfd5e0;border-radius:8px;min-width:120px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.chip,.chipOn{padding:7px 12px;border-radius:999px;border:1px solid #cfd5e0;background:#fff;cursor:pointer}
+.chipOn{background:#1f2a44;color:#fff;border-color:#1f2a44}
+.wrap{overflow-x:auto;border:1px solid #e1e5ee;border-radius:12px}
+.table{border-collapse:collapse;width:100%;min-width:1200px}
+.table th,.table td{padding:10px;border-bottom:1px solid #eef0f5;text-align:left;vertical-align:top}
+.table th{background:#f6f8fc;white-space:nowrap}
+.sortable{cursor:pointer;user-select:none}
+.link{color:#1a5fd0;font-weight:600}
+.muted{color:#7a8294}
+.err{color:#b42318;font-weight:600}
+.ok{color:#067647;font-weight:700}
+.bad{color:#b42318;font-weight:700}
+.tag{margin-left:6px;padding:2px 6px;border-radius:6px;background:#fff4d6;color:#7a5200;font-size:11px}
+.v_vale_testar,.v_teste_pequeno,.v_arriscado,.v_so_se_baixar_custo,.v_nao_compensa{padding:3px 8px;border-radius:8px;font-weight:700;white-space:nowrap}
+.v_vale_testar{background:#d1fadf;color:#067647}
+.v_teste_pequeno{background:#e0f2fe;color:#075985}
+.v_arriscado{background:#fef0c7;color:#93370d}
+.v_so_se_baixar_custo{background:#fde7d3;color:#9a3412}
+.v_nao_compensa{background:#fee4e2;color:#b42318}
