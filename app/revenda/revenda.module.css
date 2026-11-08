@@ -36,3 +36,6 @@
 .modal{background:#fff;border-radius:14px;padding:20px;max-width:460px;width:100%;max-height:90vh;overflow:auto;display:grid;gap:12px}
 .modal h2{margin:0}
 .fields{display:grid;gap:12px}
+
+.obsBtn{margin-left:6px;border:0;background:transparent;cursor:pointer;font-size:14px;line-height:1;padding:2px 4px;border-radius:6px}.obsBtn:hover,.obsBtn[aria-expanded=true]{background:#eef3ff}
+.obsRow td{background:#fafbff;color:#3a4256;font-size:13px;white-space:normal;max-width:900px}
