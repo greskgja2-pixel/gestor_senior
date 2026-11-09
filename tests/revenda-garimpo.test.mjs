@@ -51,3 +51,27 @@ test('Garimpo de revenda: anúncios conferidos por produto (tabela com RLS e set
   assert.match(api,/gs_revenda_anuncios/);
   for(const t of ['adsBtn','É o mesmo produto?','Vendas 30 dias','Nenhum anúncio conferido'])assert.ok(page.includes(t),t);
 });
+
+import {analyzeSelected} from '../app/lib/revenda-analysis.js';
+test('Garimpo de revenda: parciais entram na conta e o usuário marca/desmarca anúncios',()=>{
+  assert.match(page,/type="checkbox" checked=\{!off\.has\(a\.id\)\}/);
+  assert.match(page,/<th>Diferenças<\/th>/);
+  assert.match(page,/a\.equivalencia==='parcial'\?\(a\.diferencas/);
+  const ads=[
+    {id:1,equivalencia:'identico',preco:15.35,vendas_30d:2037},
+    {id:2,equivalencia:'parcial',preco:22.25,vendas_30d:316},
+    {id:3,equivalencia:'diferente',preco:50,vendas_30d:900},
+    {id:4,equivalencia:'parcial',preco:16.76,vendas_30d:2953}
+  ];
+  const p={min20:21.41,custo:9.99,fixed:4.5,fee:0.2,tax:0.04};
+  const all=analyzeSelected(ads,new Set(),p);
+  assert.equal(all.count,3);                 // diferente nunca entra
+  assert.equal(all.leader.id,4);
+  assert.equal(all.viavel.id,2);
+  assert.equal(all.veredito,'arriscado');    // viável com <20% das vendas
+  const semParcial=analyzeSelected(ads,new Set([2,4]),p);
+  assert.equal(semParcial.leader.id,1);
+  assert.equal(semParcial.viavel,null);
+  assert.equal(semParcial.veredito,'nao_compensa');
+  assert.equal(analyzeSelected(ads,new Set([1,2,4]),p),null);
+});
