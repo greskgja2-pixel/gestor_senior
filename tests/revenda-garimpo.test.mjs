@@ -75,3 +75,11 @@ test('Garimpo de revenda: parciais entram na conta e o usuário marca/desmarca a
   assert.equal(semParcial.veredito,'nao_compensa');
   assert.equal(analyzeSelected(ads,new Set([1,2,4]),p),null);
 });
+
+test('Garimpo de revenda: botão Reanalisar abre conversa no Claude com a skill e o produto',()=>{
+  assert.match(page,/Reanalisar no Claude/);
+  assert.match(page,/claude\.ai\/new\?q=/);
+  assert.match(page,/pesquisa-mercado-shopee/);
+  assert.match(page,/r\.link_fornecedor/);
+  assert.match(page,/PRODUTO NÃO ENCONTRADO/);
+});

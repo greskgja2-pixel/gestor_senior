@@ -38,6 +38,25 @@ function Field({label,value,onChange,step,min,hint}){
 }
 
 
+// Pedido pronto para refazer a análise de um produto com a skill de pesquisa de mercado.
+function reanalysisPrompt(r){
+  const money=v=>v===null||v===undefined?'não informado':'R$ '+Number(v).toFixed(2).replace('.',',');
+  return ['Refaça a análise de revenda do produto abaixo seguindo TODAS as regras da skill pesquisa-mercado-shopee (análise de revenda de fornecedor).',
+    '',
+    'Produto: '+r.produto+' (id '+r.id+' na tabela gs_revenda_garimpo)',
+    'Fornecedor: '+(r.fornecedor||'—'),
+    'Link do fornecedor (abrir SÓ este link, nunca pesquisar no site): '+(r.link_fornecedor||'sem link: registrar PRODUTO NÃO ENCONTRADO'),
+    'Custo do fornecedor: '+money(r.custo_base)+' · preço mínimo para 20% hoje na tela: '+money(r.min20),
+    '',
+    'Como fazer: ler o produto no link do fornecedor; buscar na Shopee só por nome e modelo, 1ª página inteira (rolar até o fim), no Chrome em aba separada, usando os dados do Gestor Pro (Últimos 30 dias); ignorar internacionais; abrir um a um todos os anúncios nacionais com 40 ou mais vendas/30d e título relacionado; classificar em identico, muito_parecido, parcial (preencher diferencas), diferente ou nao_confirmado; só a cor diferente conta como comparável.',
+    'Gravar no Supabase (projeto raxhdrlnqkbqjpsbtgwf): trocar os anúncios antigos deste garimpo_id em gs_revenda_anuncios pelos novos e atualizar gs_revenda_garimpo (busca_total, busca_nacionais, busca_internacionais, líder, menor, viável, veredito e observacao dizendo quantos anúncios foram realmente abertos). Veredito definitivo só com 5 ou mais anúncios idênticos ou muito parecidos; senão PRELIMINAR.'
+  ].join('\n');
+}
+function reanalyze(r){
+  const text=reanalysisPrompt(r);
+  try{navigator.clipboard&&navigator.clipboard.writeText(text)}catch(e){}
+  window.open('https://claude.ai/new?q='+encodeURIComponent(text),'_blank','noopener');
+}
 function searchSummary(r){
   const list=r.anuncios||[];
   const same=list.filter(a=>a.equivalencia==='identico'||a.equivalencia==='muito_parecido').length;
@@ -177,7 +196,7 @@ export default function RevendaPage(){
     {!!shown.length&&<div className={s.wrap}><table className={s.table}>
       <thead><tr>{th('produto','Produto')}{COLS.filter(c=>on(c.key)).map(c=>th(c.key,c.label))}</tr></thead>
       <tbody>{shown.map(r=><Fragment key={r.id}><tr>
-        <td><b>{r.produto}</b>{r.preco_caixa&&<span className={s.tag}>preço de caixa</span>}{r.observacao&&<button type="button" className={s.obsBtn} aria-expanded={obsId===r.id} aria-label={'Observação de '+r.produto} title="Ver observação" onClick={()=>setObsId(obsId===r.id?null:r.id)}>ℹ️</button>}<br/><small className={s.muted}>pesquisado em {r.pesquisado_em?String(r.pesquisado_em).split('-').reverse().join('/'):'—'}</small><br/><button type="button" className={s.adsBtn} aria-expanded={adsId===r.id} aria-label={'Anúncios conferidos de '+r.produto} onClick={()=>setAdsId(adsId===r.id?null:r.id)}><span className={adsId===r.id?s.arrowUp:s.arrow}>▼</span> {r.anuncios&&r.anuncios.length?r.anuncios.length+' anúncio'+(r.anuncios.length>1?'s':'')+' conferido'+(r.anuncios.length>1?'s':''):'Nenhum anúncio conferido'}</button></td>
+        <td><b>{r.produto}</b>{r.preco_caixa&&<span className={s.tag}>preço de caixa</span>}{r.observacao&&<button type="button" className={s.obsBtn} aria-expanded={obsId===r.id} aria-label={'Observação de '+r.produto} title="Ver observação" onClick={()=>setObsId(obsId===r.id?null:r.id)}>ℹ️</button>}<br/><small className={s.muted}>pesquisado em {r.pesquisado_em?String(r.pesquisado_em).split('-').reverse().join('/'):'—'}</small><br/><button type="button" className={s.adsBtn} aria-expanded={adsId===r.id} aria-label={'Anúncios conferidos de '+r.produto} onClick={()=>setAdsId(adsId===r.id?null:r.id)}><span className={adsId===r.id?s.arrowUp:s.arrow}>▼</span> {r.anuncios&&r.anuncios.length?r.anuncios.length+' anúncio'+(r.anuncios.length>1?'s':'')+' conferido'+(r.anuncios.length>1?'s':''):'Nenhum anúncio conferido'}</button><br/><button type="button" className={s.reanBtn} title="Abre uma conversa nova no Claude com o pedido pronto (também copia o texto)" aria-label={'Reanalisar '+r.produto+' no Claude'} onClick={()=>reanalyze(r)}>🔄 Reanalisar no Claude</button></td>
         {on('fornecedor')&&<td>{r.fornecedor||'—'}<br/>{r.link_fornecedor&&<a href={r.link_fornecedor} target="_blank" rel="noopener noreferrer" className={s.link}>Ver no fornecedor ↗</a>}</td>}
         {on('custo')&&<td><b>{brl(r.custo)}</b><br/><small className={s.muted}>produto {brl(r.custo_base)} + frete {brl(frete)} + emb. {brl(emb)}</small></td>}
         {on('min20')&&<td>{brl(r.min20)}</td>}
