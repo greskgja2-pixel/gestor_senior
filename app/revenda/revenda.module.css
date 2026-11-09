@@ -39,3 +39,9 @@
 
 .obsBtn{margin-left:6px;border:0;background:transparent;cursor:pointer;font-size:14px;line-height:1;padding:2px 4px;border-radius:6px}.obsBtn:hover,.obsBtn[aria-expanded=true]{background:#eef3ff}
 .obsRow td{background:#fafbff;color:#3a4256;font-size:13px;white-space:normal;max-width:900px}
+
+.adsBtn{margin-top:4px;border:0;background:transparent;cursor:pointer;font-size:12px;color:#3a4a9a;padding:2px 0;font-weight:600}.adsBtn:hover{text-decoration:underline}
+.arrow,.arrowUp{display:inline-block;font-size:10px;transition:transform .15s}.arrowUp{transform:rotate(180deg)}
+.adsRow td{background:#f6f8ff;white-space:normal;padding:10px 14px}
+.adsTable{width:100%;border-collapse:collapse;font-size:12px}.adsTable th{text-align:left;color:#5a6378;font-weight:600;padding:4px 8px;border-bottom:1px solid #dde3f5}.adsTable td{padding:6px 8px;border-bottom:1px solid #eceffa;vertical-align:top;max-width:380px}
+.eq_identico,.eq_muito_parecido{color:#0a7a3a;font-weight:700}.eq_parcial{color:#9a6a00;font-weight:700}.eq_diferente{color:#b3261e;font-weight:700}.eq_nao_confirmado{color:#5a6378;font-weight:700}
