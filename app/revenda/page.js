@@ -35,6 +35,24 @@ function Field({label,value,onChange,step,min,hint}){
   return <label className={s.field}><span>{label}</span><input type="number" step={step} min={min} value={value} onChange={e=>onChange(e.target.value)}/>{hint&&<small className={s.muted}>{hint}</small>}</label>;
 }
 
+
+function searchSummary(r){
+  const list=r.anuncios||[];
+  const same=list.filter(a=>a.equivalencia==='identico'||a.equivalencia==='muito_parecido').length;
+  const partial=list.filter(a=>a.equivalencia==='parcial').length;
+  const diff=list.filter(a=>a.equivalencia==='diferente').length;
+  const known=r.busca_total!==null&&r.busca_total!==undefined;
+  return <div className={s.searchSummary}>
+    <span><b>{known?r.busca_total:'—'}</b> anúncios na 1ª página</span>
+    <span><b>{known&&r.busca_nacionais!==null?r.busca_nacionais:'—'}</b> nacionais</span>
+    <span><b>{known&&r.busca_internacionais!==null?r.busca_internacionais:'—'}</b> internacionais</span>
+    <span><b>{list.length}</b> conferidos</span>
+    <span className={s.eq_identico}><b>{same}</b> iguais (comparados)</span>
+    <span className={s.eq_parcial}><b>{partial}</b> parecidos em parte</span>
+    <span className={s.eq_diferente}><b>{diff}</b> diferentes</span>
+  </div>;
+}
+
 export default function RevendaPage(){
   const [items,setItems]=useState(null);
   const [error,setError]=useState('');
@@ -152,6 +170,6 @@ export default function RevendaPage(){
         {on('menor_preco')&&<td>{brl(r.menor_preco)} · {sales(r.menor_vendas)}/mês{r.menor_preco!==null&&<><br/><Link url={r.menor_url}>Ver anúncio ↗</Link></>}</td>}
         {on('viavel_preco')&&<td>{brl(r.viavel_preco)} · {sales(r.viavel_vendas)}/mês{r.viavel_preco!==null&&<><br/><Link url={r.viavel_url}>Ver anúncio ↗</Link></>}</td>}
         {on('veredito')&&<td><span className={s['v_'+r.veredito]}>{VER[r.veredito]}</span></td>}
-      </tr>{adsId===r.id&&<tr className={s.adsRow}><td colSpan={1+COLS.filter(c=>on(c.key)).length}>{r.anuncios&&r.anuncios.length?<table className={s.adsTable}><thead><tr><th>Anúncio</th><th>Preço</th><th>Vendas 30 dias</th><th>Vendas totais</th><th>Idade</th><th>Anunciante</th><th>É o mesmo produto?</th></tr></thead><tbody>{r.anuncios.map(a=><tr key={a.id}><td><a href={a.url} target="_blank" rel="noopener noreferrer" className={s.link}>{a.titulo} ↗</a>{a.motivo&&<><br/><small className={s.muted}>{a.motivo}</small></>}</td><td>{brl(num(a.preco))}</td><td>{sales(num(a.vendas_30d))}</td><td>{sales(num(a.vendas_total))}</td><td>{a.idade_dias===null||a.idade_dias===undefined?'—':a.idade_dias+' dias'}</td><td>{a.anunciante||'—'}{a.marca?<><br/><small className={s.muted}>{a.marca}</small></>:null}</td><td><span className={s['eq_'+a.equivalencia]}>{EQ[a.equivalencia]||a.equivalencia}</span></td></tr>)}</tbody></table>:<span className={s.muted}>Ainda não há anúncios da Shopee abertos e conferidos para este produto.</span>}</td></tr>}{obsId===r.id&&r.observacao&&<tr className={s.obsRow}><td colSpan={1+COLS.filter(c=>on(c.key)).length}><b>Observação:</b> {r.observacao}</td></tr>}</Fragment>)}</tbody></table></div>}
+      </tr>{adsId===r.id&&<tr className={s.adsRow}><td colSpan={1+COLS.filter(c=>on(c.key)).length}>{searchSummary(r)}{r.anuncios&&r.anuncios.length?<table className={s.adsTable}><thead><tr><th>Anúncio</th><th>Preço</th><th>Vendas 30 dias</th><th>Vendas totais</th><th>Idade</th><th>Anunciante</th><th>É o mesmo produto?</th></tr></thead><tbody>{r.anuncios.map(a=><tr key={a.id}><td><a href={a.url} target="_blank" rel="noopener noreferrer" className={s.link}>{a.titulo} ↗</a>{a.motivo&&<><br/><small className={s.muted}>{a.motivo}</small></>}</td><td>{brl(num(a.preco))}</td><td>{sales(num(a.vendas_30d))}</td><td>{sales(num(a.vendas_total))}</td><td>{a.idade_dias===null||a.idade_dias===undefined?'—':a.idade_dias+' dias'}</td><td>{a.anunciante||'—'}{a.marca?<><br/><small className={s.muted}>{a.marca}</small></>:null}</td><td><span className={s['eq_'+a.equivalencia]}>{EQ[a.equivalencia]||a.equivalencia}</span></td></tr>)}</tbody></table>:<span className={s.muted}>Ainda não há anúncios da Shopee abertos e conferidos para este produto.</span>}</td></tr>}{obsId===r.id&&r.observacao&&<tr className={s.obsRow}><td colSpan={1+COLS.filter(c=>on(c.key)).length}><b>Observação:</b> {r.observacao}</td></tr>}</Fragment>)}</tbody></table></div>}
   </main>;
 }

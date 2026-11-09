@@ -45,3 +45,5 @@
 .adsRow td{background:#f6f8ff;white-space:normal;padding:10px 14px}
 .adsTable{width:100%;border-collapse:collapse;font-size:12px}.adsTable th{text-align:left;color:#5a6378;font-weight:600;padding:4px 8px;border-bottom:1px solid #dde3f5}.adsTable td{padding:6px 8px;border-bottom:1px solid #eceffa;vertical-align:top;max-width:380px}
 .eq_identico,.eq_muito_parecido{color:#0a7a3a;font-weight:700}.eq_parcial{color:#9a6a00;font-weight:700}.eq_diferente{color:#b3261e;font-weight:700}.eq_nao_confirmado{color:#5a6378;font-weight:700}
+
+.searchSummary{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;margin-bottom:8px;color:#3b4258}.searchSummary span{background:#fff;border:1px solid #dde3f5;border-radius:999px;padding:3px 10px}
