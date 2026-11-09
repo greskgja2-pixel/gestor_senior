@@ -44,3 +44,10 @@ test('Garimpo de revenda: engrenagem de taxas e filtro de colunas',()=>{
   assert.match(page,/useState\(20\)/);
   assert.match(page,/useState\(4\)/);
 });
+test('Garimpo de revenda: anúncios conferidos por produto (tabela com RLS e seta que expande)',()=>{
+  const m=fs.readdirSync('supabase/migrations').filter(f=>f.includes('gs_revenda_anuncios')).map(f=>fs.readFileSync('supabase/migrations/'+f,'utf8')).join('');
+  assert.match(m,/enable row level security/);
+  assert.match(m,/revoke all on public\.gs_revenda_anuncios from anon, authenticated/);
+  assert.match(api,/gs_revenda_anuncios/);
+  for(const t of ['adsBtn','É o mesmo produto?','Vendas 30 dias','Nenhum anúncio conferido'])assert.ok(page.includes(t),t);
+});
