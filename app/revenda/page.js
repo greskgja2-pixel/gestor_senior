@@ -1,5 +1,5 @@
 'use client';
-import {useEffect,useMemo,useState} from 'react';
+import {Fragment,useEffect,useMemo,useState} from 'react';
 import s from './revenda.module.css';
 
 const VER={vale_testar:'Vale testar',teste_pequeno:'Teste pequeno',arriscado:'Arriscado',so_se_baixar_custo:'Só se baixar o custo',nao_compensa:'Não compensa'};
@@ -22,8 +22,7 @@ const COLS=[
   {key:'lucro_mes',label:'Retorno/mês (R$)'},
   {key:'menor_preco',label:'Menor preço que ainda vende'},
   {key:'viavel_preco',label:'Anúncio de preço mais alto que vende'},
-  {key:'veredito',label:'Veredito'},
-  {key:'observacao',label:'Observação'}
+  {key:'veredito',label:'Veredito'}
 ];
 const ALL_KEYS=COLS.map(c=>c.key);
 const LS={fixed:'gs_revenda_fixed',frete:'gs_revenda_frete',emb:'gs_revenda_emb',fee:'gs_revenda_fee',tax:'gs_revenda_tax',qtd:'gs_revenda_qtd',cols:'gs_revenda_cols'};
@@ -46,6 +45,7 @@ export default function RevendaPage(){
   const [qtd,setQtd]=useState(30);
   const [visible,setVisible]=useState(ALL_KEYS);
   const [open,setOpen]=useState('');
+  const [obsId,setObsId]=useState(null);
   const [ver,setVer]=useState('todos');
   const [q,setQ]=useState('');
   const [sort,setSort]=useState({key:'produto',dir:1});
@@ -137,9 +137,9 @@ export default function RevendaPage(){
     {items===null&&<p>Carregando…</p>}
     {items!==null&&!shown.length&&!error&&<p className={s.muted}>Nenhum produto neste filtro.</p>}
     {!!shown.length&&<div className={s.wrap}><table className={s.table}>
-      <thead><tr>{th('produto','Produto')}{COLS.filter(c=>on(c.key)).map(c=>c.key==='observacao'?<th key={c.key}>{c.label}</th>:th(c.key,c.label))}</tr></thead>
-      <tbody>{shown.map(r=><tr key={r.id}>
-        <td><b>{r.produto}</b>{r.preco_caixa&&<span className={s.tag}>preço de caixa</span>}<br/><small className={s.muted}>pesquisado em {r.pesquisado_em?String(r.pesquisado_em).split('-').reverse().join('/'):'—'}</small></td>
+      <thead><tr>{th('produto','Produto')}{COLS.filter(c=>on(c.key)).map(c=>th(c.key,c.label))}</tr></thead>
+      <tbody>{shown.map(r=><Fragment key={r.id}><tr>
+        <td><b>{r.produto}</b>{r.preco_caixa&&<span className={s.tag}>preço de caixa</span>}{r.observacao&&<button type="button" className={s.obsBtn} aria-expanded={obsId===r.id} aria-label={'Observação de '+r.produto} title="Ver observação" onClick={()=>setObsId(obsId===r.id?null:r.id)}>ℹ️</button>}<br/><small className={s.muted}>pesquisado em {r.pesquisado_em?String(r.pesquisado_em).split('-').reverse().join('/'):'—'}</small></td>
         {on('fornecedor')&&<td>{r.fornecedor||'—'}<br/>{r.link_fornecedor&&<a href={r.link_fornecedor} target="_blank" rel="noopener noreferrer" className={s.link}>Ver no fornecedor ↗</a>}</td>}
         {on('custo')&&<td><b>{brl(r.custo)}</b><br/><small className={s.muted}>produto {brl(r.custo_base)} + frete {brl(frete)} + emb. {brl(emb)}</small></td>}
         {on('min20')&&<td>{brl(r.min20)}</td>}
@@ -150,7 +150,6 @@ export default function RevendaPage(){
         {on('menor_preco')&&<td>{brl(r.menor_preco)} · {sales(r.menor_vendas)}/mês{r.menor_preco!==null&&<><br/><Link url={r.menor_url}>Ver anúncio ↗</Link></>}</td>}
         {on('viavel_preco')&&<td>{brl(r.viavel_preco)} · {sales(r.viavel_vendas)}/mês{r.viavel_preco!==null&&<><br/><Link url={r.viavel_url}>Ver anúncio ↗</Link></>}</td>}
         {on('veredito')&&<td><span className={s['v_'+r.veredito]}>{VER[r.veredito]}</span></td>}
-        {on('observacao')&&<td>{r.observacao||'—'}</td>}
-      </tr>)}</tbody></table></div>}
+      </tr>{obsId===r.id&&r.observacao&&<tr className={s.obsRow}><td colSpan={1+COLS.filter(c=>on(c.key)).length}><b>Observação:</b> {r.observacao}</td></tr>}</Fragment>)}</tbody></table></div>}
   </main>;
 }
