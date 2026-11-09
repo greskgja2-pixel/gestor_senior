@@ -47,3 +47,5 @@
 .eq_identico,.eq_muito_parecido{color:#0a7a3a;font-weight:700}.eq_parcial{color:#9a6a00;font-weight:700}.eq_diferente{color:#b3261e;font-weight:700}.eq_nao_confirmado{color:#5a6378;font-weight:700}
 
 .searchSummary{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;margin-bottom:8px;color:#3b4258}.searchSummary span{background:#fff;border:1px solid #dde3f5;border-radius:999px;padding:3px 10px}
+.v_sem_selecao{padding:3px 8px;border-radius:8px;font-weight:700;white-space:nowrap;background:#eef0f5;color:#5a6378}
+.adsTable input[type=checkbox]{width:16px;height:16px;cursor:pointer}

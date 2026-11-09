@@ -1,8 +1,10 @@
 'use client';
 import {Fragment,useEffect,useMemo,useState} from 'react';
 import s from './revenda.module.css';
+import {analyzeSelected,isComparable} from '../lib/revenda-analysis';
 
 const VER={vale_testar:'Vale testar',teste_pequeno:'Teste pequeno',arriscado:'Arriscado',so_se_baixar_custo:'Só se baixar o custo',nao_compensa:'Não compensa'};
+const VER_LABEL={...VER,sem_selecao:'Sem anúncios marcados'};
 const num=v=>v===null||v===undefined||v===''?null:Number(v);
 const brl=v=>v===null?'—':'R$ '+Number(v).toFixed(2).replace('.',',');
 const sales=v=>v===null?'—':Number(v).toLocaleString('pt-BR');
@@ -66,6 +68,7 @@ export default function RevendaPage(){
   const [open,setOpen]=useState('');
   const [obsId,setObsId]=useState(null);
   const [adsId,setAdsId]=useState(null);
+  const [off,setOff]=useState(()=>new Set());
   const [ver,setVer]=useState('todos');
   const [q,setQ]=useState('');
   const [sort,setSort]=useState({key:'produto',dir:1});
@@ -95,14 +98,29 @@ export default function RevendaPage(){
   const setNum=(set,key,min=0)=>v=>{const x=Math.max(min,Number(v)||0);set(x);save(key,String(x))};
   const FEE=Math.min(feePct,90)/100,TAX=Math.min(taxPct,90)/100;
   const rows=useMemo(()=>(items||[]).map(it=>{
-    const base=num(it.custo),lp=num(it.lider_preco);
+    const base=num(it.custo);
     const custo=base===null?null:base+frete+emb;
-    return{...it,custo_base:base,custo,min20:custo===null?null:minPrice(custo,fixed,0.2,FEE,TAX),lider_preco:lp,
+    const min20=custo===null?null:minPrice(custo,fixed,0.2,FEE,TAX);
+    const an=analyzeSelected(it.anuncios,off,{min20,custo,fixed,fee:FEE,tax:TAX});
+    const hasEligible=(it.anuncios||[]).some(isComparable);
+    // Com anúncios comparáveis: tudo vem dos anúncios marcados. Sem eles: valores salvos.
+    const dyn=hasEligible;
+    const lp=dyn?(an?num(an.leader.preco):null):num(it.lider_preco);
+    return{...it,custo_base:base,custo,min20,lider_preco:lp,
+      lider_vendas:dyn?(an?num(an.leader.vendas_30d):null):it.lider_vendas,
+      lider_url:dyn?(an?an.leader.url:null):it.lider_url,
       lider_margem:lp!==null&&custo!==null?margin(lp,custo,fixed,FEE,TAX):null,
       lucro_un:lp!==null&&custo!==null?profit(lp,custo,fixed,FEE,TAX):null,
       lucro_mes:lp!==null&&custo!==null?profit(lp,custo,fixed,FEE,TAX)*qtd:null,
-      menor_preco:num(it.menor_preco),viavel_preco:num(it.viavel_preco)};
-  }),[items,fixed,qtd,frete,emb,FEE,TAX]);
+      menor_preco:dyn?(an&&an.menor?num(an.menor.preco):null):num(it.menor_preco),
+      menor_vendas:dyn?(an&&an.menor?num(an.menor.vendas_30d):null):it.menor_vendas,
+      menor_url:dyn?(an&&an.menor?an.menor.url:null):it.menor_url,
+      viavel_preco:dyn?(an&&an.viavel?num(an.viavel.preco):null):num(it.viavel_preco),
+      viavel_vendas:dyn?(an&&an.viavel?num(an.viavel.vendas_30d):null):it.viavel_vendas,
+      viavel_url:dyn?(an&&an.viavel?an.viavel.url:null):it.viavel_url,
+      veredito:dyn?(an?an.veredito:'sem_selecao'):it.veredito,
+      selecionados:dyn&&an?an.count:null};
+  }),[items,fixed,qtd,frete,emb,FEE,TAX,off]);
   const shown=useMemo(()=>{
     const t=q.trim().toLowerCase();
     const f=rows.filter(r=>(ver==='todos'||r.veredito===ver)&&(!t||(r.produto+' '+r.fornecedor).toLowerCase().includes(t)));
@@ -169,7 +187,7 @@ export default function RevendaPage(){
         {on('lucro_mes')&&<td className={r.lucro_mes!==null&&r.lucro_mes<0?s.bad:s.ok}><b>{brlS(r.lucro_mes)}</b><br/><small className={s.muted}>{qtd} vendas</small></td>}
         {on('menor_preco')&&<td>{brl(r.menor_preco)} · {sales(r.menor_vendas)}/mês{r.menor_preco!==null&&<><br/><Link url={r.menor_url}>Ver anúncio ↗</Link></>}</td>}
         {on('viavel_preco')&&<td>{brl(r.viavel_preco)} · {sales(r.viavel_vendas)}/mês{r.viavel_preco!==null&&<><br/><Link url={r.viavel_url}>Ver anúncio ↗</Link></>}</td>}
-        {on('veredito')&&<td><span className={s['v_'+r.veredito]}>{VER[r.veredito]}</span></td>}
-      </tr>{adsId===r.id&&<tr className={s.adsRow}><td colSpan={1+COLS.filter(c=>on(c.key)).length}>{searchSummary(r)}{r.anuncios&&r.anuncios.length?<table className={s.adsTable}><thead><tr><th>Anúncio</th><th>Preço</th><th>Vendas 30 dias</th><th>Vendas totais</th><th>Idade</th><th>Anunciante</th><th>É o mesmo produto?</th></tr></thead><tbody>{r.anuncios.map(a=><tr key={a.id}><td><a href={a.url} target="_blank" rel="noopener noreferrer" className={s.link}>{a.titulo} ↗</a>{a.motivo&&<><br/><small className={s.muted}>{a.motivo}</small></>}</td><td>{brl(num(a.preco))}</td><td>{sales(num(a.vendas_30d))}</td><td>{sales(num(a.vendas_total))}</td><td>{a.idade_dias===null||a.idade_dias===undefined?'—':a.idade_dias+' dias'}</td><td>{a.anunciante||'—'}{a.marca?<><br/><small className={s.muted}>{a.marca}</small></>:null}</td><td><span className={s['eq_'+a.equivalencia]}>{EQ[a.equivalencia]||a.equivalencia}</span></td></tr>)}</tbody></table>:<span className={s.muted}>Ainda não há anúncios da Shopee abertos e conferidos para este produto.</span>}</td></tr>}{obsId===r.id&&r.observacao&&<tr className={s.obsRow}><td colSpan={1+COLS.filter(c=>on(c.key)).length}><b>Observação:</b> {r.observacao}</td></tr>}</Fragment>)}</tbody></table></div>}
+        {on('veredito')&&<td><span className={s['v_'+r.veredito]}>{VER_LABEL[r.veredito]||r.veredito}</span>{r.selecionados!==null&&<><br/><small className={s.muted}>{r.selecionados} anúncio{r.selecionados>1?'s':''} marcado{r.selecionados>1?'s':''}</small></>}</td>}
+      </tr>{adsId===r.id&&<tr className={s.adsRow}><td colSpan={1+COLS.filter(c=>on(c.key)).length}>{searchSummary(r)}<p className={s.muted} style={{margin:'0 0 8px',fontSize:12}}>Os anúncios marcados em “Usar” entram na conta. Ao marcar ou desmarcar, o preço mínimo de comparação, o líder, a margem, o lucro e o veredito mudam na hora.</p>{r.anuncios&&r.anuncios.length?<table className={s.adsTable}><thead><tr><th title="Marque ou desmarque para recalcular">Usar</th><th>Anúncio</th><th>Preço</th><th>Vendas 30 dias</th><th>Vendas totais</th><th>Idade</th><th>Anunciante</th><th>É o mesmo produto?</th><th>Diferenças</th></tr></thead><tbody>{r.anuncios.map(a=><tr key={a.id}><td>{isComparable(a)?<input type="checkbox" checked={!off.has(a.id)} aria-label={'Usar na análise: '+a.titulo} onChange={()=>setOff(p=>{const n=new Set(p);n.has(a.id)?n.delete(a.id):n.add(a.id);return n})}/>:<span className={s.muted} title="Anúncio diferente: não entra na análise">—</span>}</td><td><a href={a.url} target="_blank" rel="noopener noreferrer" className={s.link}>{a.titulo} ↗</a>{a.motivo&&<><br/><small className={s.muted}>{a.motivo}</small></>}</td><td>{brl(num(a.preco))}</td><td>{sales(num(a.vendas_30d))}</td><td>{sales(num(a.vendas_total))}</td><td>{a.idade_dias===null||a.idade_dias===undefined?'—':a.idade_dias+' dias'}</td><td>{a.anunciante||'—'}{a.marca?<><br/><small className={s.muted}>{a.marca}</small></>:null}</td><td><span className={s['eq_'+a.equivalencia]}>{EQ[a.equivalencia]||a.equivalencia}</span></td><td>{a.equivalencia==='parcial'?(a.diferencas||'—'):'—'}</td></tr>)}</tbody></table>:<span className={s.muted}>Ainda não há anúncios da Shopee abertos e conferidos para este produto.</span>}</td></tr>}{obsId===r.id&&r.observacao&&<tr className={s.obsRow}><td colSpan={1+COLS.filter(c=>on(c.key)).length}><b>Observação:</b> {r.observacao}</td></tr>}</Fragment>)}</tbody></table></div>}
   </main>;
 }
