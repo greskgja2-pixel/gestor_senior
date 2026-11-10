@@ -17,7 +17,7 @@
 .ok{color:#067647;font-weight:700}
 .bad{color:#b42318;font-weight:700}
 .tag{margin-left:6px;padding:2px 6px;border-radius:6px;background:#fff4d6;color:#7a5200;font-size:11px}
-.v_vale_testar,.v_teste_pequeno,.v_arriscado,.v_so_se_baixar_custo,.v_nao_compensa{padding:3px 8px;border-radius:8px;font-weight:700;white-space:nowrap}
+.v_vale_testar,.v_teste_pequeno,.v_arriscado,.v_so_se_baixar_custo,.v_nao_compensa,.v_aguardando{padding:3px 8px;border-radius:8px;font-weight:700;white-space:nowrap}
 .v_vale_testar{background:#d1fadf;color:#067647}
 .v_teste_pequeno{background:#e0f2fe;color:#075985}
 .v_arriscado{background:#fef0c7;color:#93370d}
@@ -51,3 +51,6 @@
 .adsTable input[type=checkbox]{width:16px;height:16px;cursor:pointer}
 
 .reanBtn{margin-top:4px;border:1px solid #c9cff0;background:#f3f5ff;cursor:pointer;font-size:12px;color:#3a4a9a;padding:3px 8px;border-radius:6px;font-weight:600}.reanBtn:hover{background:#e6eaff}
+
+.v_aguardando{background:#eef2f6;color:#475467}
+a.iconBtn{text-decoration:none;display:inline-flex;align-items:center}

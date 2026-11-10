@@ -83,3 +83,13 @@ test('Garimpo de revenda: botão Reanalisar abre conversa no Claude com a skill 
   assert.match(page,/r\.link_fornecedor/);
   assert.match(page,/PRODUTO NÃO ENCONTRADO/);
 });
+
+test('Garimpo de revenda: backup completo por loja e status aguardando análise',()=>{
+  const bk=fs.readFileSync('app/api/revenda-garimpo/backup/route.js','utf8');
+  assert.match(bk,/getActiveShop\(\)/);
+  assert.match(bk,/\.eq\('shop_id',shop\.shop_id\)/);
+  assert.match(bk,/gs_revenda_anuncios/);
+  assert.match(bk,/Content-Disposition/);
+  assert.ok(page.includes('/api/revenda-garimpo/backup'));
+  assert.ok(page.includes("aguardando:'Aguardando análise'"));
+});

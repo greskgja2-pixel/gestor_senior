@@ -3,7 +3,7 @@ import {Fragment,useEffect,useMemo,useState} from 'react';
 import s from './revenda.module.css';
 import {analyzeSelected,isComparable} from '../lib/revenda-analysis';
 
-const VER={vale_testar:'Vale testar',teste_pequeno:'Teste pequeno',arriscado:'Arriscado',so_se_baixar_custo:'Só se baixar o custo',nao_compensa:'Não compensa'};
+const VER={vale_testar:'Vale testar',teste_pequeno:'Teste pequeno',arriscado:'Arriscado',so_se_baixar_custo:'Só se baixar o custo',nao_compensa:'Não compensa',aguardando:'Aguardando análise'};
 const VER_LABEL={...VER,sem_selecao:'Sem anúncios marcados'};
 const num=v=>v===null||v===undefined||v===''?null:Number(v);
 const brl=v=>v===null?'—':'R$ '+Number(v).toFixed(2).replace('.',',');
@@ -160,6 +160,7 @@ export default function RevendaPage(){
     <div className={s.head}>
       <h1>Garimpo de revenda</h1>
       <div className={s.tools}>
+        <a className={s.iconBtn} href="/api/revenda-garimpo/backup" download title="Baixa um arquivo com todos os produtos e anúncios analisados">💾 Backup</a>
         <button type="button" className={s.iconBtn} onClick={()=>setOpen(open==='cols'?'':'cols')} aria-haspopup="dialog" aria-expanded={open==='cols'}>Filtro de colunas{hidden>0?` (${hidden} ocultas)`:''}</button>
         <button type="button" className={s.iconBtn} onClick={()=>setOpen('cfg')} aria-label="Configurar taxas e custos" title="Configurar taxas e custos" aria-haspopup="dialog">⚙️</button>
       </div>
@@ -196,7 +197,7 @@ export default function RevendaPage(){
     {!!shown.length&&<div className={s.wrap}><table className={s.table}>
       <thead><tr>{th('produto','Produto')}{COLS.filter(c=>on(c.key)).map(c=>th(c.key,c.label))}</tr></thead>
       <tbody>{shown.map(r=><Fragment key={r.id}><tr>
-        <td><b>{r.produto}</b>{r.preco_caixa&&<span className={s.tag}>preço de caixa</span>}{r.observacao&&<button type="button" className={s.obsBtn} aria-expanded={obsId===r.id} aria-label={'Observação de '+r.produto} title="Ver observação" onClick={()=>setObsId(obsId===r.id?null:r.id)}>ℹ️</button>}<br/><small className={s.muted}>pesquisado em {r.pesquisado_em?String(r.pesquisado_em).split('-').reverse().join('/'):'—'}</small><br/><button type="button" className={s.adsBtn} aria-expanded={adsId===r.id} aria-label={'Anúncios conferidos de '+r.produto} onClick={()=>setAdsId(adsId===r.id?null:r.id)}><span className={adsId===r.id?s.arrowUp:s.arrow}>▼</span> {r.anuncios&&r.anuncios.length?r.anuncios.length+' anúncio'+(r.anuncios.length>1?'s':'')+' conferido'+(r.anuncios.length>1?'s':''):'Nenhum anúncio conferido'}</button><br/><button type="button" className={s.reanBtn} title="Abre uma conversa nova no Claude com o pedido pronto (também copia o texto)" aria-label={'Reanalisar '+r.produto+' no Claude'} onClick={()=>reanalyze(r)}>🔄 Reanalisar no Claude</button></td>
+        <td><b>{r.produto}</b>{r.preco_caixa&&<span className={s.tag}>preço de caixa</span>}{r.observacao&&<button type="button" className={s.obsBtn} aria-expanded={obsId===r.id} aria-label={'Observação de '+r.produto} title="Ver observação" onClick={()=>setObsId(obsId===r.id?null:r.id)}>ℹ️</button>}<br/><small className={s.muted}>{r.pesquisado_em?'pesquisado em '+String(r.pesquisado_em).split('-').reverse().join('/'):'aguardando análise'}</small><br/><button type="button" className={s.adsBtn} aria-expanded={adsId===r.id} aria-label={'Anúncios conferidos de '+r.produto} onClick={()=>setAdsId(adsId===r.id?null:r.id)}><span className={adsId===r.id?s.arrowUp:s.arrow}>▼</span> {r.anuncios&&r.anuncios.length?r.anuncios.length+' anúncio'+(r.anuncios.length>1?'s':'')+' conferido'+(r.anuncios.length>1?'s':''):'Nenhum anúncio conferido'}</button><br/><button type="button" className={s.reanBtn} title="Abre uma conversa nova no Claude com o pedido pronto (também copia o texto)" aria-label={'Reanalisar '+r.produto+' no Claude'} onClick={()=>reanalyze(r)}>🔄 Reanalisar no Claude</button></td>
         {on('fornecedor')&&<td>{r.fornecedor||'—'}<br/>{r.link_fornecedor&&<a href={r.link_fornecedor} target="_blank" rel="noopener noreferrer" className={s.link}>Ver no fornecedor ↗</a>}</td>}
         {on('custo')&&<td><b>{brl(r.custo)}</b><br/><small className={s.muted}>produto {brl(r.custo_base)} + frete {brl(frete)} + emb. {brl(emb)}</small></td>}
         {on('min20')&&<td>{brl(r.min20)}</td>}
