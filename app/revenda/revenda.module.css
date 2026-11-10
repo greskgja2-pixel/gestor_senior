@@ -54,3 +54,5 @@
 
 .v_aguardando{background:#eef2f6;color:#475467}
 a.iconBtn{text-decoration:none;display:inline-flex;align-items:center}
+.pager{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0}
+.pager button:disabled{opacity:.45;cursor:default}

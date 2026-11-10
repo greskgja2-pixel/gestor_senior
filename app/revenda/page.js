@@ -91,6 +91,8 @@ export default function RevendaPage(){
   const [ver,setVer]=useState('todos');
   const [q,setQ]=useState('');
   const [sort,setSort]=useState({key:'produto',dir:1});
+  const [page,setPage]=useState(1);
+  const [pageSize,setPageSize]=useState(25);
   useEffect(()=>{
     try{
       const g=k=>localStorage.getItem(k);
@@ -151,6 +153,19 @@ export default function RevendaPage(){
       return (typeof x==='string'?x.localeCompare(y,'pt-BR'):x-y)*sort.dir;
     });
   },[rows,ver,q,sort]);
+  useEffect(()=>{setPage(1)},[ver,q,sort,pageSize]);
+  const totalPages=Math.max(1,Math.ceil(shown.length/pageSize));
+  const curPage=Math.min(page,totalPages);
+  const paged=useMemo(()=>shown.slice((curPage-1)*pageSize,curPage*pageSize),[shown,curPage,pageSize]);
+  const pager=!!shown.length&&<nav className={s.pager} aria-label="Paginação">
+    <span className={s.muted}>{(curPage-1)*pageSize+1}–{Math.min(curPage*pageSize,shown.length)} de {shown.length} produtos</span>
+    <button type="button" className={s.chip} disabled={curPage<=1} onClick={()=>setPage(1)} aria-label="Primeira página">«</button>
+    <button type="button" className={s.chip} disabled={curPage<=1} onClick={()=>setPage(curPage-1)}>‹ Anterior</button>
+    <span>Página {curPage} de {totalPages}</span>
+    <button type="button" className={s.chip} disabled={curPage>=totalPages} onClick={()=>setPage(curPage+1)}>Próxima ›</button>
+    <button type="button" className={s.chip} disabled={curPage>=totalPages} onClick={()=>setPage(totalPages)} aria-label="Última página">»</button>
+    <label className={s.muted}>Por página <select value={pageSize} onChange={e=>setPageSize(Number(e.target.value))}>{[10,25,50,100].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
+  </nav>;
   const on=k=>visible.includes(k);
   const th=(key,label)=><th key={key} onClick={()=>setSort(p=>({key,dir:p.key===key?-p.dir:1}))} className={s.sortable} aria-sort={sort.key===key?(sort.dir===1?'ascending':'descending'):'none'}>{label}{sort.key===key?(sort.dir===1?' ▲':' ▼'):' ↕'}</th>;
   const counts=useMemo(()=>{const c={todos:rows.length};rows.forEach(r=>{c[r.veredito]=(c[r.veredito]||0)+1});return c},[rows]);
@@ -194,9 +209,10 @@ export default function RevendaPage(){
     {error&&<p className={s.err}>Não foi possível carregar: {error}</p>}
     {items===null&&<p>Carregando…</p>}
     {items!==null&&!shown.length&&!error&&<p className={s.muted}>Nenhum produto neste filtro.</p>}
+    {pager}
     {!!shown.length&&<div className={s.wrap}><table className={s.table}>
       <thead><tr>{th('produto','Produto')}{COLS.filter(c=>on(c.key)).map(c=>th(c.key,c.label))}</tr></thead>
-      <tbody>{shown.map(r=><Fragment key={r.id}><tr>
+      <tbody>{paged.map(r=><Fragment key={r.id}><tr>
         <td><b>{r.produto}</b>{r.preco_caixa&&<span className={s.tag}>preço de caixa</span>}{r.observacao&&<button type="button" className={s.obsBtn} aria-expanded={obsId===r.id} aria-label={'Observação de '+r.produto} title="Ver observação" onClick={()=>setObsId(obsId===r.id?null:r.id)}>ℹ️</button>}<br/><small className={s.muted}>{r.pesquisado_em?'pesquisado em '+String(r.pesquisado_em).split('-').reverse().join('/'):'aguardando análise'}</small><br/><button type="button" className={s.adsBtn} aria-expanded={adsId===r.id} aria-label={'Anúncios conferidos de '+r.produto} onClick={()=>setAdsId(adsId===r.id?null:r.id)}><span className={adsId===r.id?s.arrowUp:s.arrow}>▼</span> {r.anuncios&&r.anuncios.length?r.anuncios.length+' anúncio'+(r.anuncios.length>1?'s':'')+' conferido'+(r.anuncios.length>1?'s':''):'Nenhum anúncio conferido'}</button><br/><button type="button" className={s.reanBtn} title="Abre uma conversa nova no Claude com o pedido pronto (também copia o texto)" aria-label={'Reanalisar '+r.produto+' no Claude'} onClick={()=>reanalyze(r)}>🔄 Reanalisar no Claude</button></td>
         {on('fornecedor')&&<td>{r.fornecedor||'—'}<br/>{r.link_fornecedor&&<a href={r.link_fornecedor} target="_blank" rel="noopener noreferrer" className={s.link}>Ver no fornecedor ↗</a>}</td>}
         {on('custo')&&<td><b>{brl(r.custo)}</b><br/><small className={s.muted}>produto {brl(r.custo_base)} + frete {brl(frete)} + emb. {brl(emb)}</small></td>}
@@ -209,5 +225,6 @@ export default function RevendaPage(){
         {on('viavel_preco')&&<td>{brl(r.viavel_preco)} · {sales(r.viavel_vendas)}/mês{r.viavel_preco!==null&&<><br/><Link url={r.viavel_url}>Ver anúncio ↗</Link></>}</td>}
         {on('veredito')&&<td><span className={s['v_'+r.veredito]}>{VER_LABEL[r.veredito]||r.veredito}</span>{r.selecionados!==null&&<><br/><small className={s.muted}>{r.selecionados} anúncio{r.selecionados>1?'s':''} marcado{r.selecionados>1?'s':''}</small></>}</td>}
       </tr>{adsId===r.id&&<tr className={s.adsRow}><td colSpan={1+COLS.filter(c=>on(c.key)).length}>{searchSummary(r)}<p className={s.muted} style={{margin:'0 0 8px',fontSize:12}}>Os anúncios marcados em “Usar” entram na conta. Ao marcar ou desmarcar, o preço mínimo de comparação, o líder, a margem, o lucro e o veredito mudam na hora.</p>{r.anuncios&&r.anuncios.length?<table className={s.adsTable}><thead><tr><th title="Marque ou desmarque para recalcular">Usar</th><th>Anúncio</th><th>Preço</th><th>Vendas 30 dias</th><th>Vendas totais</th><th>Idade</th><th>Anunciante</th><th>É o mesmo produto?</th><th>Diferenças</th></tr></thead><tbody>{r.anuncios.map(a=><tr key={a.id}><td>{isComparable(a)?<input type="checkbox" checked={!off.has(a.id)} aria-label={'Usar na análise: '+a.titulo} onChange={()=>setOff(p=>{const n=new Set(p);n.has(a.id)?n.delete(a.id):n.add(a.id);return n})}/>:<span className={s.muted} title="Anúncio diferente: não entra na análise">—</span>}</td><td><a href={a.url} target="_blank" rel="noopener noreferrer" className={s.link}>{a.titulo} ↗</a>{a.motivo&&<><br/><small className={s.muted}>{a.motivo}</small></>}</td><td>{brl(num(a.preco))}</td><td>{sales(num(a.vendas_30d))}</td><td>{sales(num(a.vendas_total))}</td><td>{a.idade_dias===null||a.idade_dias===undefined?'—':a.idade_dias+' dias'}</td><td>{a.anunciante||'—'}{a.marca?<><br/><small className={s.muted}>{a.marca}</small></>:null}</td><td><span className={s['eq_'+a.equivalencia]}>{EQ[a.equivalencia]||a.equivalencia}</span></td><td>{a.equivalencia==='parcial'?(a.diferencas||'—'):'—'}</td></tr>)}</tbody></table>:<span className={s.muted}>Ainda não há anúncios da Shopee abertos e conferidos para este produto.</span>}</td></tr>}{obsId===r.id&&r.observacao&&<tr className={s.obsRow}><td colSpan={1+COLS.filter(c=>on(c.key)).length}><b>Observação:</b> {r.observacao}</td></tr>}</Fragment>)}</tbody></table></div>}
+    {pager}
   </main>;
 }
