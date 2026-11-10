@@ -93,3 +93,9 @@ test('Garimpo de revenda: backup completo por loja e status aguardando análise'
   assert.ok(page.includes('/api/revenda-garimpo/backup'));
   assert.ok(page.includes("aguardando:'Aguardando análise'"));
 });
+
+test('Garimpo de revenda: paginação da tabela',()=>{
+  assert.ok(page.includes('paged.map'));
+  assert.ok(page.includes('Página {curPage} de {totalPages}'));
+  assert.ok(page.includes('Por página'));
+});
