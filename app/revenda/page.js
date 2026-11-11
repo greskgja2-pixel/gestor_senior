@@ -32,7 +32,7 @@ const DEFAULT_KEYS=ALL_KEYS.filter(k=>!['fornecedor','menor_preco','viavel_preco
 const LS={fixed:'gs_revenda_fixed',frete:'gs_revenda_frete',emb:'gs_revenda_emb',fee:'gs_revenda_fee',tax:'gs_revenda_tax',qtd:'gs_revenda_qtd',cols:'gs_revenda_cols'};
 const save=(k,v)=>{try{localStorage.setItem(k,typeof v==='string'?v:JSON.stringify(v))}catch{}};
 
-function Link({url,children}){return url?<a href={url} target="_blank" rel="noopener noreferrer" className={s.link}>{children}</a>:<span className={s.muted}>{children} <small>(link não capturado)</small></span>}
+function Link({url,children}){return url?<a href={url} target="_blank" rel="noopener noreferrer" className={s.link}>{children}</a>:<span className={s.unavailableLink}>{children} <small>(link não capturado)</small></span>}
 
 function Field({label,value,onChange,step,min,hint}){
   return <label className={s.field}><span>{label}</span><input type="number" step={step} min={min} value={value} onChange={e=>onChange(e.target.value)}/>{hint&&<small className={s.muted}>{hint}</small>}</label>;
