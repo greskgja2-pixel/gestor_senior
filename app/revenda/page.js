@@ -1,5 +1,5 @@
 'use client';
-import {Fragment,useEffect,useMemo,useState} from 'react';
+import {Fragment,useEffect,useMemo,useRef,useState} from 'react';
 import s from './revenda.module.css';
 import {analyzeSelected,isComparable} from '../lib/revenda-analysis';
 
@@ -18,16 +18,17 @@ const COLS=[
   {key:'fornecedor',label:'Fornecedor'},
   {key:'custo',label:'Custo total'},
   {key:'min20',label:'Preço mín. p/ 20%'},
-  {key:'lider_preco',label:'Anúncio que mais vende'},
-  {key:'lider_margem',label:'Margem se igualar'},
-  {key:'lucro_un',label:'Lucro por venda (R$)'},
-  {key:'lucro_mes',label:'Retorno/mês (R$)'},
+  {key:'lider_preco',label:'Líder de vendas'},
+  {key:'lider_margem',label:'Margem no líder'},
+  {key:'lucro_un',label:'Lucro por venda'},
+  {key:'lucro_mes',label:'Potencial / mês'},
   {key:'menor_preco',label:'Menor preço que ainda vende'},
   {key:'viavel_preco',label:'Anúncio de preço mais alto que vende'},
   {key:'veredito',label:'Veredito'}
 ];
 const EQ={identico:'Idêntico',muito_parecido:'Muito parecido',parcial:'Parcial',diferente:'Diferente',nao_confirmado:'Não confirmado'};
 const ALL_KEYS=COLS.map(c=>c.key);
+const DEFAULT_KEYS=ALL_KEYS.filter(k=>!['fornecedor','menor_preco','viavel_preco'].includes(k));
 const LS={fixed:'gs_revenda_fixed',frete:'gs_revenda_frete',emb:'gs_revenda_emb',fee:'gs_revenda_fee',tax:'gs_revenda_tax',qtd:'gs_revenda_qtd',cols:'gs_revenda_cols'};
 const save=(k,v)=>{try{localStorage.setItem(k,typeof v==='string'?v:JSON.stringify(v))}catch{}};
 
@@ -83,8 +84,15 @@ export default function RevendaPage(){
   const [feePct,setFeePct]=useState(20);
   const [taxPct,setTaxPct]=useState(4);
   const [qtd,setQtd]=useState(30);
-  const [visible,setVisible]=useState(ALL_KEYS);
+  const [visible,setVisible]=useState(DEFAULT_KEYS);
   const [open,setOpen]=useState('');
+  const [actionId,setActionId]=useState(null);
+  const actionDialog=useRef(null);
+  useEffect(()=>{
+    const dialog=actionDialog.current;
+    if(actionId!==null&&dialog&&!dialog.open)dialog.showModal();
+    if(actionId===null&&dialog?.open)dialog.close();
+  },[actionId]);
   const [obsId,setObsId]=useState(null);
   const [adsId,setAdsId]=useState(null);
   const [off,setOff]=useState(()=>new Set());
@@ -167,20 +175,23 @@ export default function RevendaPage(){
     <label className={s.muted}>Por página <select value={pageSize} onChange={e=>setPageSize(Number(e.target.value))}>{[10,25,50,100].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
   </nav>;
   const on=k=>visible.includes(k);
-  const th=(key,label)=><th key={key} onClick={()=>setSort(p=>({key,dir:p.key===key?-p.dir:1}))} className={s.sortable} aria-sort={sort.key===key?(sort.dir===1?'ascending':'descending'):'none'}>{label}{sort.key===key?(sort.dir===1?' ▲':' ▼'):' ↕'}</th>;
+  const th=(key,label)=><th key={key} onClick={()=>setSort(p=>({key,dir:p.key===key?-p.dir:1}))} className={[s.sortable,key==='produto'?s.productCol:key==='fornecedor'?s.supplierCol:key==='veredito'?s.verdictCol:s.numberCol].join(' ')} aria-sort={sort.key===key?(sort.dir===1?'ascending':'descending'):'none'}><button type="button" className={s.sortButton} onClick={e=>{e.stopPropagation();setSort(p=>({key,dir:p.key===key?-p.dir:1}))}}>{label}<span aria-hidden="true">{sort.key===key?(sort.dir===1?' ↑':' ↓'):' ↕'}</span></button></th>;
   const counts=useMemo(()=>{const c={todos:rows.length};rows.forEach(r=>{c[r.veredito]=(c[r.veredito]||0)+1});return c},[rows]);
   const toggleCol=k=>{const next=on(k)?visible.filter(x=>x!==k):[...visible,k];setVisible(next);save(LS.cols,next)};
   const hidden=ALL_KEYS.length-visible.length;
-  return <main className={s.page}>
+  const actionRow=rows.find(r=>r.id===actionId);
+  return <section className={s.page} aria-labelledby="revenda-title">
     <div className={s.head}>
-      <h1>Garimpo de revenda</h1>
+      <div><h1 id="revenda-title">Garimpo de revenda</h1><p className={s.sub}>Compare custos, concorrência e potencial de lucro.</p></div>
       <div className={s.tools}>
-        <a className={s.iconBtn} href="/api/revenda-garimpo/backup" download title="Baixa um arquivo com todos os produtos e anúncios analisados">💾 Backup</a>
-        <button type="button" className={s.iconBtn} onClick={()=>setOpen(open==='cols'?'':'cols')} aria-haspopup="dialog" aria-expanded={open==='cols'}>Filtro de colunas{hidden>0?` (${hidden} ocultas)`:''}</button>
+        <a className={s.iconBtn} href="/api/revenda-garimpo/backup" download title="Baixa um arquivo com todos os produtos e anúncios analisados">↓ Backup</a>
+        <button type="button" className={s.iconBtn} onClick={()=>setOpen(open==='cols'?'':'cols')} aria-label="Filtro de colunas" aria-haspopup="dialog" aria-expanded={open==='cols'}>▥ Colunas{hidden>0?` (${hidden} ocultas)`:''}</button>
         <button type="button" className={s.iconBtn} onClick={()=>setOpen('cfg')} aria-label="Configurar taxas e custos" title="Configurar taxas e custos" aria-haspopup="dialog">⚙️</button>
       </div>
     </div>
-    <p className={s.sub}>Produtos de fornecedores comparados com o que realmente vende na Shopee. Preço mínimo = (custo + frete + embalagem + taxa fixa) ÷ (1 − comissão {feePct}% − imposto {taxPct}% − margem). Lucro por venda = preço do anúncio líder − comissão e imposto − taxa fixa ({brl(fixed)}) − custo total (produto + frete {brl(frete)} + embalagem {brl(emb)}). Retorno/mês = lucro por venda × {qtd} vendas (não é previsão de vendas). Não inclui Ads, cupons nem devoluções.</p>
+    <div className={s.summary} aria-label="Resumo do garimpo">
+      {[{key:'todos',icon:'▣',label:'Produtos no garimpo',tone:'blue'},{key:'vale_testar',icon:'✓',label:'Vale testar',tone:'green'},{key:'teste_pequeno',icon:'⚗',label:'Teste pequeno',tone:'blue'},{key:'aguardando',icon:'◷',label:'Aguardando análise',tone:'amber'}].map(card=><button key={card.key} type="button" className={s.summaryCard} aria-pressed={ver===card.key} onClick={()=>setVer(card.key)}><span className={s.summaryIcon} data-tone={card.tone} aria-hidden="true">{card.icon}</span><span><strong>{items===null||error?'—':sales(counts[card.key]||0)}</strong><span>{card.label}</span></span></button>)}
+    </div>
     {open==='cols'&&<div className={s.pop} role="dialog" aria-label="Escolher colunas">
       <b>Colunas exibidas</b>
       <div className={s.colList}>{COLS.map(c=><label key={c.key}><input type="checkbox" checked={on(c.key)} onChange={()=>toggleCol(c.key)}/> {c.label}</label>)}</div>
@@ -201,30 +212,47 @@ export default function RevendaPage(){
       <small className={s.muted}>Salvo neste navegador. As contas da tabela se atualizam na hora.</small>
     </div></div>}
     <div className={s.controls}>
-      <label className={s.field}><span>Buscar</span><input value={q} onChange={e=>setQ(e.target.value)} placeholder="produto ou fornecedor"/></label>
+      <label className={s.search}><span aria-hidden="true">⌕</span><input aria-label="Buscar produto ou fornecedor" value={q} onChange={e=>setQ(e.target.value)} placeholder="Buscar produto ou fornecedor"/>{q&&<button type="button" aria-label="Limpar busca" onClick={()=>setQ('')}>×</button>}</label>
+      <button type="button" className={s.iconBtn} onClick={()=>setOpen('cfg')}>⚙️ Taxas e custos</button>
+      <details className={s.calculation}><summary>ⓘ Como calculamos</summary><div><p>Produtos de fornecedores comparados com o que realmente vende na Shopee. Preço mínimo = (custo + frete + embalagem + taxa fixa) ÷ (1 − comissão {feePct}% − imposto {taxPct}% − margem). Lucro por venda = preço do anúncio líder − comissão e imposto − taxa fixa ({brl(fixed)}) − custo total (produto + frete {brl(frete)} + embalagem {brl(emb)}). Retorno/mês = lucro por venda × {qtd} vendas (não é previsão de vendas). Não inclui Ads, cupons nem devoluções.</p></div></details>
     </div>
     <div className={s.chips} role="group" aria-label="Filtrar por veredito">
-      {['todos',...Object.keys(VER)].map(k=><button key={k} type="button" className={ver===k?s.chipOn:s.chip} onClick={()=>setVer(k)}>{k==='todos'?'Todos':VER[k]} ({counts[k]||0})</button>)}
+      {['todos',...Object.keys(VER)].map(k=><button key={k} type="button" className={ver===k?s.chipOn:s.chip} aria-pressed={ver===k} onClick={()=>setVer(k)}>{k==='todos'?'Todos':VER[k]} ({items===null||error?'—':counts[k]||0})</button>)}
     </div>
     {error&&<p className={s.err}>Não foi possível carregar: {error}</p>}
     {items===null&&<p>Carregando…</p>}
     {items!==null&&!shown.length&&!error&&<p className={s.muted}>Nenhum produto neste filtro.</p>}
-    {pager}
-    {!!shown.length&&<div className={s.wrap}><table className={s.table}>
-      <thead><tr>{th('produto','Produto')}{COLS.filter(c=>on(c.key)).map(c=>th(c.key,c.label))}</tr></thead>
+    {!!shown.length&&<div className={s.wrap} role="region" aria-label="Comparação de produtos para revenda" tabIndex={0}><table className={s.table} aria-label="Produtos para revenda">
+      <thead><tr>{th('produto','Produto')}{COLS.filter(c=>on(c.key)).map(c=>th(c.key,c.label))}<th className={s.actionsCol}><span className={s.srOnly}>Ações</span></th></tr></thead>
       <tbody>{paged.map(r=><Fragment key={r.id}><tr>
-        <td><b>{r.produto}</b>{r.preco_caixa&&<span className={s.tag}>preço de caixa</span>}{r.observacao&&<button type="button" className={s.obsBtn} aria-expanded={obsId===r.id} aria-label={'Observação de '+r.produto} title="Ver observação" onClick={()=>setObsId(obsId===r.id?null:r.id)}>ℹ️</button>}<br/><small className={s.muted}>{r.pesquisado_em?'pesquisado em '+String(r.pesquisado_em).split('-').reverse().join('/'):'aguardando análise'}</small><br/><button type="button" className={s.adsBtn} aria-expanded={adsId===r.id} aria-label={'Anúncios conferidos de '+r.produto} onClick={()=>setAdsId(adsId===r.id?null:r.id)}><span className={adsId===r.id?s.arrowUp:s.arrow}>▼</span> {r.anuncios&&r.anuncios.length?r.anuncios.length+' anúncio'+(r.anuncios.length>1?'s':'')+' conferido'+(r.anuncios.length>1?'s':''):'Nenhum anúncio conferido'}</button><br/><button type="button" className={s.reanBtn} title="Abre uma conversa nova no Claude com o pedido pronto (também copia o texto)" aria-label={'Reanalisar '+r.produto+' no Claude'} onClick={()=>reanalyze(r)}>🔄 Reanalisar no Claude</button></td>
-        {on('fornecedor')&&<td>{r.fornecedor||'—'}<br/>{r.link_fornecedor&&<a href={r.link_fornecedor} target="_blank" rel="noopener noreferrer" className={s.link}>Ver no fornecedor ↗</a>}</td>}
-        {on('custo')&&<td><b>{brl(r.custo)}</b><br/><small className={s.muted}>produto {brl(r.custo_base)} + frete {brl(frete)} + emb. {brl(emb)}</small></td>}
+        <td className={s.productCol}>
+          <div className={s.productName}><b title={r.produto}>{r.produto}</b>{r.preco_caixa&&<span className={s.tag}>preço de caixa</span>}</div>
+          {!on('fornecedor')&&<div className={s.supplier}>{r.fornecedor||'Fornecedor não informado'}{r.link_fornecedor&&<> · <a href={r.link_fornecedor} target="_blank" rel="noopener noreferrer" className={s.link}>Ver no fornecedor ↗</a></>}</div>}
+          <small className={s.muted}>{r.pesquisado_em?'Pesquisado em '+String(r.pesquisado_em).split('-').reverse().join('/'):'Aguardando análise'}</small>
+          <button type="button" className={s.adsBtn} aria-expanded={adsId===r.id} aria-label={'Anúncios conferidos de '+r.produto} onClick={()=>setAdsId(adsId===r.id?null:r.id)}><span className={adsId===r.id?s.arrowUp:s.arrow}>▼</span> {r.anuncios&&r.anuncios.length?r.anuncios.length+' anúncio'+(r.anuncios.length>1?'s':'')+' conferido'+(r.anuncios.length>1?'s':''):'Nenhum anúncio conferido'}</button>
+        </td>
+        {on('fornecedor')&&<td className={s.supplierCol}>{r.fornecedor||'—'}<br/>{r.link_fornecedor&&<a href={r.link_fornecedor} target="_blank" rel="noopener noreferrer" className={s.link}>Ver no fornecedor ↗</a>}</td>}
+        {on('custo')&&<td><b>{brl(r.custo)}</b><br/><small className={s.costBreakdown} title={'Produto '+brl(r.custo_base)+' + frete '+brl(frete)+' + embalagem '+brl(emb)}>Produto {brl(r.custo_base)}<br/>Frete + emb. {brl(frete+emb)}</small></td>}
         {on('min20')&&<td>{brl(r.min20)}</td>}
-        {on('lider_preco')&&<td>{brl(r.lider_preco)} · {sales(r.lider_vendas)}/mês<br/>{r.lider_preco!==null&&<Link url={r.lider_url}>Ver anúncio ↗</Link>}</td>}
+        {on('lider_preco')&&<td><b>{brl(r.lider_preco)}</b><small className={s.sales}>{sales(r.lider_vendas)} vendas/mês</small>{r.lider_preco!==null&&<Link url={r.lider_url}>Ver anúncio ↗</Link>}</td>}
         {on('lider_margem')&&<td className={r.lider_margem!==null&&r.lider_margem<0.1?s.bad:s.ok}>{pct(r.lider_margem)}</td>}
         {on('lucro_un')&&<td className={r.lucro_un!==null&&r.lucro_un<0?s.bad:s.ok}>{brlS(r.lucro_un)}</td>}
         {on('lucro_mes')&&<td className={r.lucro_mes!==null&&r.lucro_mes<0?s.bad:s.ok}><b>{brlS(r.lucro_mes)}</b><br/><small className={s.muted}>{qtd} vendas</small></td>}
         {on('menor_preco')&&<td>{brl(r.menor_preco)} · {sales(r.menor_vendas)}/mês{r.menor_preco!==null&&<><br/><Link url={r.menor_url}>Ver anúncio ↗</Link></>}</td>}
         {on('viavel_preco')&&<td>{brl(r.viavel_preco)} · {sales(r.viavel_vendas)}/mês{r.viavel_preco!==null&&<><br/><Link url={r.viavel_url}>Ver anúncio ↗</Link></>}</td>}
-        {on('veredito')&&<td><span className={s['v_'+r.veredito]}>{VER_LABEL[r.veredito]||r.veredito}</span>{r.selecionados!==null&&<><br/><small className={s.muted}>{r.selecionados} anúncio{r.selecionados>1?'s':''} marcado{r.selecionados>1?'s':''}</small></>}</td>}
-      </tr>{adsId===r.id&&<tr className={s.adsRow}><td colSpan={1+COLS.filter(c=>on(c.key)).length}>{searchSummary(r)}<p className={s.muted} style={{margin:'0 0 8px',fontSize:12}}>Os anúncios marcados em “Usar” entram na conta. Ao marcar ou desmarcar, o preço mínimo de comparação, o líder, a margem, o lucro e o veredito mudam na hora.</p>{r.anuncios&&r.anuncios.length?<table className={s.adsTable}><thead><tr><th title="Marque ou desmarque para recalcular">Usar</th><th>Anúncio</th><th>Preço</th><th>Vendas 30 dias</th><th>Vendas totais</th><th>Idade</th><th>Anunciante</th><th>É o mesmo produto?</th><th>Diferenças</th></tr></thead><tbody>{r.anuncios.map(a=><tr key={a.id}><td>{isComparable(a)?<input type="checkbox" checked={!off.has(a.id)} aria-label={'Usar na análise: '+a.titulo} onChange={()=>setOff(p=>{const n=new Set(p);n.has(a.id)?n.delete(a.id):n.add(a.id);return n})}/>:<span className={s.muted} title="Anúncio diferente: não entra na análise">—</span>}</td><td><a href={a.url} target="_blank" rel="noopener noreferrer" className={s.link}>{a.titulo} ↗</a>{a.motivo&&<><br/><small className={s.muted}>{a.motivo}</small></>}</td><td>{brl(num(a.preco))}</td><td>{sales(num(a.vendas_30d))}</td><td>{sales(num(a.vendas_total))}</td><td>{a.idade_dias===null||a.idade_dias===undefined?'—':a.idade_dias+' dias'}</td><td>{a.anunciante||'—'}{a.marca?<><br/><small className={s.muted}>{a.marca}</small></>:null}</td><td><span className={s['eq_'+a.equivalencia]}>{EQ[a.equivalencia]||a.equivalencia}</span></td><td>{a.equivalencia==='parcial'?(a.diferencas||'—'):'—'}</td></tr>)}</tbody></table>:<span className={s.muted}>Ainda não há anúncios da Shopee abertos e conferidos para este produto.</span>}</td></tr>}{obsId===r.id&&r.observacao&&<tr className={s.obsRow}><td colSpan={1+COLS.filter(c=>on(c.key)).length}><b>Observação:</b> {r.observacao}</td></tr>}</Fragment>)}</tbody></table></div>}
+        {on('veredito')&&<td className={s.verdictCol}><span className={s['v_'+r.veredito]}>{VER_LABEL[r.veredito]||r.veredito}</span>{r.selecionados!==null&&<><br/><small className={s.muted}>{r.selecionados} anúncio{r.selecionados>1?'s':''} marcado{r.selecionados>1?'s':''}</small></>}</td>}
+        <td className={s.actionsCol}><button type="button" className={s.moreBtn} aria-haspopup="dialog" aria-label={'Ações de '+r.produto} title="Ações do produto" onClick={()=>setActionId(r.id)}>⋮</button></td>
+      </tr>{adsId===r.id&&<tr className={s.adsRow}><td colSpan={2+COLS.filter(c=>on(c.key)).length}>{searchSummary(r)}<p className={s.muted} style={{margin:'0 0 8px',fontSize:12}}>Os anúncios marcados em “Usar” entram na conta. Ao marcar ou desmarcar, o preço mínimo de comparação, o líder, a margem, o lucro e o veredito mudam na hora.</p>{r.anuncios&&r.anuncios.length?<table className={s.adsTable}><thead><tr><th title="Marque ou desmarque para recalcular">Usar</th><th>Anúncio</th><th>Preço</th><th>Vendas 30 dias</th><th>Vendas totais</th><th>Idade</th><th>Anunciante</th><th>É o mesmo produto?</th><th>Diferenças</th></tr></thead><tbody>{r.anuncios.map(a=><tr key={a.id}><td>{isComparable(a)?<input type="checkbox" checked={!off.has(a.id)} aria-label={'Usar na análise: '+a.titulo} onChange={()=>setOff(p=>{const n=new Set(p);n.has(a.id)?n.delete(a.id):n.add(a.id);return n})}/>:<span className={s.muted} title="Anúncio diferente: não entra na análise">—</span>}</td><td><a href={a.url} target="_blank" rel="noopener noreferrer" className={s.link}>{a.titulo} ↗</a>{a.motivo&&<><br/><small className={s.muted}>{a.motivo}</small></>}</td><td>{brl(num(a.preco))}</td><td>{sales(num(a.vendas_30d))}</td><td>{sales(num(a.vendas_total))}</td><td>{a.idade_dias===null||a.idade_dias===undefined?'—':a.idade_dias+' dias'}</td><td>{a.anunciante||'—'}{a.marca?<><br/><small className={s.muted}>{a.marca}</small></>:null}</td><td><span className={s['eq_'+a.equivalencia]}>{EQ[a.equivalencia]||a.equivalencia}</span></td><td>{a.equivalencia==='parcial'?(a.diferencas||'—'):'—'}</td></tr>)}</tbody></table>:<span className={s.muted}>Ainda não há anúncios da Shopee abertos e conferidos para este produto.</span>}</td></tr>}{obsId===r.id&&r.observacao&&<tr className={s.obsRow}><td colSpan={2+COLS.filter(c=>on(c.key)).length}><b>Observação:</b> {r.observacao}</td></tr>}</Fragment>)}</tbody></table></div>}
     {pager}
-  </main>;
+    <p className={s.footerNote}>ⓘ Potencial mensal: lucro por venda × {qtd} unidades. Não é previsão de vendas. Não inclui Ads, cupons nem devoluções.</p>
+    <dialog ref={actionDialog} className={s.actionDialog} onClose={()=>setActionId(null)} onClick={e=>{if(e.target===e.currentTarget)setActionId(null)}} aria-labelledby="revenda-actions-title">
+      <div className={s.dialogHead}><h2 id="revenda-actions-title">Ações do produto</h2><button type="button" className={s.moreBtn} aria-label="Fechar ações" onClick={()=>setActionId(null)}>×</button></div>
+      {actionRow&&<><p>{actionRow.produto}</p><div className={s.actionList}>
+        <button type="button" onClick={()=>{setAdsId(actionRow.id);setActionId(null)}}>Ver anúncios conferidos</button>
+        {actionRow.observacao&&<button type="button" onClick={()=>{setObsId(obsId===actionRow.id?null:actionRow.id);setActionId(null)}}>Ver observação da análise</button>}
+        {actionRow.link_fornecedor&&<a href={actionRow.link_fornecedor} target="_blank" rel="noopener noreferrer">Ver no fornecedor ↗</a>}
+        <button type="button" className={s.reanBtn} title="Abre uma conversa nova no Claude com o pedido pronto (também copia o texto)" onClick={()=>{reanalyze(actionRow);setActionId(null)}}>Reanalisar no Claude ↗</button>
+      </div></>}
+    </dialog>
+  </section>;
 }

@@ -328,7 +328,7 @@ function ProtectedAppShell({children,pathname}){
   const route=useMemo(()=>routeState(pathname,section),[pathname,section]);
   const close=()=>setDrawer(false);
 
-  return <div className="gs-app-shell" data-drawer={drawer?'open':'closed'}>
+  return <div className="gs-app-shell" data-layout={pathname.startsWith('/revenda')?'wide':undefined} data-drawer={drawer?'open':'closed'}>
     <AppSidebar active={route.label} onNavigate={close} onCloseMobile={close} account={account}/>
     <MotorActivityCard/>
     <div className="gs-mobile-bar">
