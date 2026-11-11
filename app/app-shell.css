@@ -93,3 +93,6 @@ body{background:var(--gs-shell-frame)!important;background-image:none!important;
   .gs-app-main button,.gs-app-main a{font-size:13px}
   .gs-app-main input,.gs-app-main select,.gs-app-main textarea{font-size:14px!important}
 }
+
+/* Garimpo: usa a largura disponível sem alterar as outras rotas ou a sidebar. */
+.gs-app-shell[data-layout="wide"]{width:100%;max-width:none;box-shadow:none}
