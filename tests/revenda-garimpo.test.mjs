@@ -99,3 +99,39 @@ test('Garimpo de revenda: paginação da tabela',()=>{
   assert.ok(page.includes('Página {curPage} de {totalPages}'));
   assert.ok(page.includes('Por página'));
 });
+
+import {readAllRevendaRows} from '../app/lib/revenda-read-all.js';
+test('Garimpo: catálogo maior que 1000 é lido inteiro, sem lacunas nem repetição',async()=>{
+  const source=Array.from({length:2341},(_,id)=>({id}));
+  const ranges=[];
+  const result=await readAllRevendaRows(()=>({range:async(from,to)=>{ranges.push([from,to]);return {data:source.slice(from,to+1),error:null}}}));
+  assert.deepEqual(result.data,source);
+  assert.equal(result.error,null);
+  assert.deepEqual(ranges,[[0,499],[500,999],[1000,1499],[1500,1999],[2000,2499]]);
+});
+test('Garimpo: lista vazia e múltiplo exato da página terminam sem loop',async()=>{
+  for(const length of [0,500,1000]){
+    let calls=0;
+    const result=await readAllRevendaRows(()=>({range:async(from,to)=>{calls++;return {data:Array.from({length},(_,id)=>({id})).slice(from,to+1),error:null}}}));
+    assert.equal(result.data.length,length);
+    assert.equal(calls,Math.floor(length/500)+1);
+  }
+});
+test('Garimpo: erro em página posterior não devolve catálogo parcial',async()=>{
+  const failure={message:'Falha na segunda página'};
+  const result=await readAllRevendaRows(()=>({range:async(from)=>from===0?{data:Array.from({length:500},(_,id)=>({id})),error:null}:{data:null,error:failure}}));
+  assert.equal(result.data,null);
+  assert.equal(result.error,failure);
+});
+test('Garimpo: resposta sem lista não vira catálogo vazio',async()=>{
+  const result=await readAllRevendaRows(()=>({range:async()=>({data:null,error:null})}));
+  assert.equal(result.data,null);
+  assert.match(result.error.message,/Resposta inválida/);
+});
+test('Garimpo: API e backup paginam produtos e anúncios com filtro de loja e ordem estável',()=>{
+  for(const source of [api,fs.readFileSync('app/api/revenda-garimpo/backup/route.js','utf8')]){
+    assert.equal((source.match(/readAllRevendaRows\(\(\)=>db\.from/g)||[]).length,2);
+    assert.equal((source.match(/\.eq\('shop_id',shop\.shop_id\)\.order\('id',\{ascending:true\}\)/g)||[]).length,2);
+    assert.doesNotMatch(source,/\.limit\(/);
+  }
+});
