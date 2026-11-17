@@ -130,3 +130,8 @@
 .page .table>thead>tr>th,.page .table>tbody>tr>td{padding-left:10px;padding-right:10px}
 .unavailableLink{display:block;max-width:145px;margin-left:auto;white-space:normal;color:var(--rv-muted);font-size:12px;line-height:1.45}
 .unavailableLink small{display:block}
+
+.supplierPick{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;border:1px solid var(--rv-border);border-radius:10px;background:var(--rv-card);color:var(--rv-muted);font-weight:600;font-size:14px}
+.supplierPick select{min-width:0;max-width:260px;padding:8px 4px;border:0;background:transparent;color:var(--rv-text);font:inherit;font-weight:600;cursor:pointer;outline:none}
+.supplierPick:focus-within{outline:2px solid var(--rv-accent);outline-offset:2px}
+@media(max-width:700px){.supplierPick{flex-basis:100%}.supplierPick select{flex:1;max-width:none}}
