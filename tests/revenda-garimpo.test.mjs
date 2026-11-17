@@ -135,3 +135,10 @@ test('Garimpo: API e backup paginam produtos e anúncios com filtro de loja e or
     assert.doesNotMatch(source,/\.limit\(/);
   }
 });
+test('Garimpo de revenda: seletor de fornecedor filtra a tabela, os cards e as contagens',()=>{
+  for(const x of ['Escolher fornecedor exibido','Todos os fornecedores','gs_revenda_fornecedor','Sem fornecedor informado'])assert.ok(page.includes(x),x);
+  assert.match(page,/const scoped=useMemo\(/);
+  assert.match(page,/const f=scoped\.filter\(/);
+  assert.match(page,/const c=\{todos:scoped\.length\};scoped\.forEach/);
+  assert.match(page,/\},\[ver,q,sort,pageSize,fornAtivo\]\)/);
+});
