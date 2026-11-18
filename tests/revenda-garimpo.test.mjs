@@ -140,5 +140,11 @@ test('Garimpo de revenda: seletor de fornecedor filtra a tabela, os cards e as c
   assert.match(page,/const scoped=useMemo\(/);
   assert.match(page,/const f=scoped\.filter\(/);
   assert.match(page,/const c=\{todos:scoped\.length\};scoped\.forEach/);
-  assert.match(page,/\},\[ver,q,sort,pageSize,fornAtivo\]\)/);
+  assert.match(page,/\},\[ver,q,sort,pageSize,fornAtivo,catAtiva]\)/);
+});
+test('Garimpo de revenda: seletor de categoria filtra dentro do fornecedor escolhido, sem inventar categoria',()=>{
+  for(const x of ['Escolher categoria do produto exibida','Todas as categorias','gs_revenda_categoria','Sem categoria','r.categoria'])assert.ok(page.includes(x),x);
+  assert.match(page,/const scoped=useMemo\(\(\)=>catAtiva==='todas'\?supScoped:/);
+  assert.match(page,/const supScoped=useMemo\(/);
+  assert.match(page,/const c=\{todos:scoped\.length\}/);
 });

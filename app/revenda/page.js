@@ -29,7 +29,7 @@ const COLS=[
 const EQ={identico:'Idêntico',muito_parecido:'Muito parecido',parcial:'Parcial',diferente:'Diferente',nao_confirmado:'Não confirmado'};
 const ALL_KEYS=COLS.map(c=>c.key);
 const DEFAULT_KEYS=ALL_KEYS.filter(k=>!['fornecedor','menor_preco','viavel_preco'].includes(k));
-const LS={fixed:'gs_revenda_fixed',frete:'gs_revenda_frete',emb:'gs_revenda_emb',fee:'gs_revenda_fee',tax:'gs_revenda_tax',qtd:'gs_revenda_qtd',cols:'gs_revenda_cols',forn:'gs_revenda_fornecedor'};
+const LS={fixed:'gs_revenda_fixed',frete:'gs_revenda_frete',emb:'gs_revenda_emb',fee:'gs_revenda_fee',tax:'gs_revenda_tax',qtd:'gs_revenda_qtd',cols:'gs_revenda_cols',forn:'gs_revenda_fornecedor',cat:'gs_revenda_categoria'};
 const save=(k,v)=>{try{localStorage.setItem(k,typeof v==='string'?v:JSON.stringify(v))}catch{}};
 
 function Link({url,children}){return url?<a href={url} target="_blank" rel="noopener noreferrer" className={s.link}>{children}</a>:<span className={s.unavailableLink}>{children} <small>(link não capturado)</small></span>}
@@ -98,6 +98,7 @@ export default function RevendaPage(){
   const [off,setOff]=useState(()=>new Set());
   const [ver,setVer]=useState('todos');
   const [forn,setForn]=useState('todos');
+  const [cat,setCat]=useState('todas');
   const [q,setQ]=useState('');
   const [sort,setSort]=useState({key:'produto',dir:1});
   const [page,setPage]=useState(1);
@@ -108,6 +109,7 @@ export default function RevendaPage(){
       const n=(k,set,min)=>{const v=g(k);if(v!==null&&v!==''&&Number(v)>=min)set(Number(v))};
       n(LS.fixed,setFixed,0);n(LS.frete,setFrete,0);n(LS.emb,setEmb,0);n(LS.fee,setFeePct,0);n(LS.tax,setTaxPct,0);n(LS.qtd,setQtd,1);
       const fv=g(LS.forn);if(fv)setForn(fv);
+      const cv=g(LS.cat);if(cv)setCat(cv);
       const c=JSON.parse(g(LS.cols)||'null');
       if(Array.isArray(c))setVisible(c.filter(k=>ALL_KEYS.includes(k)));
     }catch{}
@@ -157,11 +159,19 @@ export default function RevendaPage(){
   const suppliers=useMemo(()=>{const m=new Map();rows.forEach(r=>{const k=supKey(r);m.set(k,(m.get(k)||0)+1)});return[...m.entries()].sort((a,b)=>a[0]===NOSUP?1:b[0]===NOSUP?-1:a[0].localeCompare(b[0],'pt-BR'))},[rows]);
   // Se o fornecedor salvo não existe mais, volta para "todos" sem mexer no que foi salvo.
   const fornAtivo=forn==='todos'||suppliers.some(x=>x[0]===forn)?forn:'todos';
-  const scoped=useMemo(()=>fornAtivo==='todos'?rows:rows.filter(r=>supKey(r)===fornAtivo),[rows,fornAtivo]);
+  const supScoped=useMemo(()=>fornAtivo==='todos'?rows:rows.filter(r=>supKey(r)===fornAtivo),[rows,fornAtivo]);
+  // Categoria do produto (vinda do catálogo do fornecedor). Sem categoria gravada = "Sem categoria", nunca inventada.
+  const NOCAT='__sem_cat__';
+  const catKey=r=>(r.categoria||'').trim()||NOCAT;
+  const categories=useMemo(()=>{const m=new Map();supScoped.forEach(r=>{const k=catKey(r);m.set(k,(m.get(k)||0)+1)});return[...m.entries()].sort((a,b)=>a[0]===NOCAT?1:b[0]===NOCAT?-1:a[0].localeCompare(b[0],'pt-BR'))},[supScoped]);
+  // Se a categoria salva não existe no fornecedor escolhido, volta para "todas" sem mexer no que foi salvo.
+  const catAtiva=cat==='todas'||categories.some(x=>x[0]===cat)?cat:'todas';
+  const scoped=useMemo(()=>catAtiva==='todas'?supScoped:supScoped.filter(r=>catKey(r)===catAtiva),[supScoped,catAtiva]);
   const chooseForn=v=>{setForn(v);save(LS.forn,v);setPage(1)};
+  const chooseCat=v=>{setCat(v);save(LS.cat,v);setPage(1)};
   const shown=useMemo(()=>{
     const t=q.trim().toLowerCase();
-    const f=scoped.filter(r=>(ver==='todos'||r.veredito===ver)&&(!t||(r.produto+' '+r.fornecedor).toLowerCase().includes(t)));
+    const f=scoped.filter(r=>(ver==='todos'||r.veredito===ver)&&(!t||(r.produto+' '+r.fornecedor+' '+(r.categoria||'')).toLowerCase().includes(t)));
     const k=sort.key;
     return[...f].sort((a,b)=>{
       const x=a[k],y=b[k];
@@ -170,7 +180,7 @@ export default function RevendaPage(){
       return (typeof x==='string'?x.localeCompare(y,'pt-BR'):x-y)*sort.dir;
     });
   },[scoped,ver,q,sort]);
-  useEffect(()=>{setPage(1)},[ver,q,sort,pageSize,fornAtivo]);
+  useEffect(()=>{setPage(1)},[ver,q,sort,pageSize,fornAtivo,catAtiva]);
   const totalPages=Math.max(1,Math.ceil(shown.length/pageSize));
   const curPage=Math.min(page,totalPages);
   const paged=useMemo(()=>shown.slice((curPage-1)*pageSize,curPage*pageSize),[shown,curPage,pageSize]);
@@ -222,6 +232,7 @@ export default function RevendaPage(){
     </div></div>}
     <div className={s.controls}>
       <label className={s.supplierPick}><span>Fornecedor</span><select aria-label="Escolher fornecedor exibido" value={fornAtivo} onChange={e=>chooseForn(e.target.value)}><option value="todos">Todos os fornecedores ({items===null||error?'—':rows.length})</option>{suppliers.map(([k,n])=><option key={k} value={k}>{k===NOSUP?'Sem fornecedor informado':k} ({n})</option>)}</select></label>
+      <label className={s.supplierPick}><span>Categoria</span><select aria-label="Escolher categoria do produto exibida" value={catAtiva} onChange={e=>chooseCat(e.target.value)}><option value="todas">Todas as categorias ({items===null||error?'—':supScoped.length})</option>{categories.map(([k,n])=><option key={k} value={k}>{k===NOCAT?'Sem categoria':k} ({n})</option>)}</select></label>
       <label className={s.search}><span aria-hidden="true">⌕</span><input aria-label="Buscar produto ou fornecedor" value={q} onChange={e=>setQ(e.target.value)} placeholder="Buscar produto ou fornecedor"/>{q&&<button type="button" aria-label="Limpar busca" onClick={()=>setQ('')}>×</button>}</label>
       <button type="button" className={s.iconBtn} onClick={()=>setOpen('cfg')}>⚙️ Taxas e custos</button>
       <details className={s.calculation}><summary>ⓘ Como calculamos</summary><div><p>Produtos de fornecedores comparados com o que realmente vende na Shopee. Preço mínimo = (custo + frete + embalagem + taxa fixa) ÷ (1 − comissão {feePct}% − imposto {taxPct}% − margem). Lucro por venda = preço do anúncio líder − comissão e imposto − taxa fixa ({brl(fixed)}) − custo total (produto + frete {brl(frete)} + embalagem {brl(emb)}). Retorno/mês = lucro por venda × {qtd} vendas (não é previsão de vendas). Não inclui Ads, cupons nem devoluções.</p></div></details>
