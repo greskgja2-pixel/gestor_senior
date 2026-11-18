@@ -165,6 +165,8 @@ export default function RevendaPage(){
   const catKey=r=>(r.categoria||'').trim()||NOCAT;
   const categories=useMemo(()=>{const m=new Map();supScoped.forEach(r=>{const k=catKey(r);m.set(k,(m.get(k)||0)+1)});return[...m.entries()].sort((a,b)=>a[0]===NOCAT?1:b[0]===NOCAT?-1:a[0].localeCompare(b[0],'pt-BR'))},[supScoped]);
   // Se a categoria salva não existe no fornecedor escolhido, volta para "todas" sem mexer no que foi salvo.
+  // O número ao lado de "Todas as categorias" é a quantidade de categorias distintas (sem contar o grupo "Sem categoria"), não de produtos.
+  const nCategorias=categories.filter(x=>x[0]!==NOCAT).length;
   const catAtiva=cat==='todas'||categories.some(x=>x[0]===cat)?cat:'todas';
   const scoped=useMemo(()=>catAtiva==='todas'?supScoped:supScoped.filter(r=>catKey(r)===catAtiva),[supScoped,catAtiva]);
   const chooseForn=v=>{setForn(v);save(LS.forn,v);setPage(1)};
@@ -232,7 +234,7 @@ export default function RevendaPage(){
     </div></div>}
     <div className={s.controls}>
       <label className={s.supplierPick}><span>Fornecedor</span><select aria-label="Escolher fornecedor exibido" value={fornAtivo} onChange={e=>chooseForn(e.target.value)}><option value="todos">Todos os fornecedores ({items===null||error?'—':rows.length})</option>{suppliers.map(([k,n])=><option key={k} value={k}>{k===NOSUP?'Sem fornecedor informado':k} ({n})</option>)}</select></label>
-      <label className={s.supplierPick}><span>Categoria</span><select aria-label="Escolher categoria do produto exibida" value={catAtiva} onChange={e=>chooseCat(e.target.value)}><option value="todas">Todas as categorias ({items===null||error?'—':supScoped.length})</option>{categories.map(([k,n])=><option key={k} value={k}>{k===NOCAT?'Sem categoria':k} ({n})</option>)}</select></label>
+      <label className={s.supplierPick}><span>Categoria</span><select aria-label="Escolher categoria do produto exibida" value={catAtiva} onChange={e=>chooseCat(e.target.value)}><option value="todas">Todas as categorias ({items===null||error?'—':nCategorias})</option>{categories.map(([k,n])=><option key={k} value={k}>{k===NOCAT?'Sem categoria':k} ({n})</option>)}</select></label>
       <label className={s.search}><span aria-hidden="true">⌕</span><input aria-label="Buscar produto ou fornecedor" value={q} onChange={e=>setQ(e.target.value)} placeholder="Buscar produto ou fornecedor"/>{q&&<button type="button" aria-label="Limpar busca" onClick={()=>setQ('')}>×</button>}</label>
       <button type="button" className={s.iconBtn} onClick={()=>setOpen('cfg')}>⚙️ Taxas e custos</button>
       <details className={s.calculation}><summary>ⓘ Como calculamos</summary><div><p>Produtos de fornecedores comparados com o que realmente vende na Shopee. Preço mínimo = (custo + frete + embalagem + taxa fixa) ÷ (1 − comissão {feePct}% − imposto {taxPct}% − margem). Lucro por venda = preço do anúncio líder − comissão e imposto − taxa fixa ({brl(fixed)}) − custo total (produto + frete {brl(frete)} + embalagem {brl(emb)}). Retorno/mês = lucro por venda × {qtd} vendas (não é previsão de vendas). Não inclui Ads, cupons nem devoluções.</p></div></details>

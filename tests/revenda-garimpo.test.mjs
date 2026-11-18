@@ -148,3 +148,8 @@ test('Garimpo de revenda: seletor de categoria filtra dentro do fornecedor escol
   assert.match(page,/const supScoped=useMemo\(/);
   assert.match(page,/const c=\{todos:scoped\.length\}/);
 });
+test('Garimpo de revenda: "Todas as categorias (N)" conta categorias distintas, não produtos',()=>{
+  assert.ok(page.includes("const nCategorias=categories.filter(x=>x[0]!==NOCAT).length"));
+  assert.ok(page.includes("Todas as categorias ({items===null||error?'—':nCategorias})"));
+  assert.ok(!page.includes("Todas as categorias ({items===null||error?'—':supScoped.length})"));
+});
