@@ -956,3 +956,19 @@ Nova aba **Concorrentes** (entre Financeiro e Histórico) com o painel de concor
 - A importação revelou limite explícito de 1000 produtos na API de revenda. API e backup passam a paginar produtos e anúncios em lotes de 500, com filtro de loja em todas as requisições e ordem estável por id. Só retornam resultado completo; erro posterior não vira catálogo parcial ou lista de anúncios vazia. Ordem dos anúncios por vendas preservada após leitura.
 - Helper isolado app/lib/revenda-read-all.js, sem mudança de schema, chaves, RLS, fórmulas, interface ou menu. Não aumentar max_rows global: .limit maior não contorna o teto padrão do PostgREST.
 - Validação local: 17/17 testes de revenda passaram, incluindo 2341 registros, página vazia, múltiplo exato, falha posterior e resposta inválida. Build completo deve ser confirmado no CI/Vercel antes do merge; navegador autenticado não está disponível nesta sessão, portanto não afirmar QA visual da atualização. Totais do banco verificados separadamente.
+
+
+### 2026-11-16 — Claude — Garimpo de revenda: MS Atacados (faixa R$ 20–50) e filtro por fornecedor
+- `/revenda` ganhou seletor de fornecedor (PR #142). Dados em `gs_revenda_garimpo` / `gs_revenda_anuncios` (Supabase, sem deploy).
+- Análise pela skill pesquisa-mercado-shopee (Chrome + Gestor Pro, só nacionais ≥40 vendas/30d). Salvos como nao_compensa PRELIMINAR (mercado a R$ 13–50 contra preço mínimo ≈ R$ 91–98): ids 520, 522, 586, 593, 611, 620, 622, 832, 652 (1 anúncio parcial salvo) e 874 (refeito). 618 e 637/834 com link morto ("PRODUTO NÃO ENCONTRADO"). 625 ainda aguardando.
+- Preço mínimo: acima de R$ 79,99 usar a faixa R$ 80–99,99 = (custo+18,5)/0,62 (não o 80,36 da faixa anterior, que é inválido fora dela). Corrigido no 520.
+- Erro encontrado: vereditos de primeira passada sem nenhum anúncio salvo (ex.: 874 aparecia com lucro R$ 40,62). Refazer com a skill os não-"nao_compensa" sem anúncios (MS Atacados 21; L. Eletronicos 33).
+- Colunas reais: `lider_vendas` (não `lider_vendas_30d`); `gs_revenda_anuncios.url` e `anunciante` são NOT NULL (usar '').
+- Pendente: ~13 itens MS Atacados R$ 20–50 (começando em 625), Laser Tech (918), L. Eletronicos, Inova; 698 precisa de link correto.
+
+
+### 2026-11-20 — Claude — Garimpo de revenda: meta de lucro em R$ por venda (branch `feature/revenda-lucro-em-reais`, base `main` = cb148a8)
+- Pedido do usuário: com o critério de 20% de margem quase nada passava (L. Eletronicos e Celia e Junior deram quase só "não compensa"). Em ⚙️ da `/revenda` há agora a escolha **Margem em %** (padrão 20%, editável) ou **Lucro fixo em R$ por venda** (padrão 6). Salvo no navegador (`gs_revenda_goal_*`).
+- Preço mínimo em R$: (custo + frete + embalagem + taxa fixa + lucro) ÷ (1 − comissão − imposto). O limite de custo de "Só se baixar o custo" usa a mesma meta (`profitTarget` em `app/lib/revenda-analysis.js`).
+- Produtos SEM anúncios conferidos têm o veredito salvo no banco (calculado a 20%). Com meta nova, se o líder salvo passa do novo mínimo com 100+ vendas/30d, aparece "Vale testar" com a nota "preliminar"; nunca piora o veredito salvo. Esses líderes não foram conferidos (muitos eram outro produto): confirmar antes de comprar.
+- Os vereditos gravados no banco continuam sendo os de 20%; a nova meta só muda o que aparece na tela. `node --test tests/*.test.mjs`: 245/245. Build/visual não testados neste ambiente.

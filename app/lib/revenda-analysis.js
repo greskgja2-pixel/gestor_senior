@@ -7,7 +7,8 @@ const n=v=>v===null||v===undefined||v===''?null:Number(v);
 export const isComparable=a=>COMPARABLE.includes(a.equivalencia)&&n(a.preco)!==null&&n(a.vendas_30d)!==null;
 
 // ads: lista completa do produto; off: Set com ids desmarcados.
-export function analyzeSelected(ads,off,{min20,custo,fixed,fee,tax}){
+// profitTarget (R$ por venda) é opcional: quando informado, o limite de custo do veredito usa essa meta em vez de 20% de margem.
+export function analyzeSelected(ads,off,{min20,custo,fixed,fee,tax,profitTarget=null,margin=0.2}){
   const sel=(ads||[]).filter(a=>isComparable(a)&&!(off&&off.has(a.id)));
   if(!sel.length)return null;
   const price=a=>n(a.preco),sold=a=>n(a.vendas_30d);
@@ -24,7 +25,7 @@ export function analyzeSelected(ads,off,{min20,custo,fixed,fee,tax}){
     if(lp>=min20&&sold(leader)>=LEADER_MIN)veredito='vale_testar';
     else if(viable.length)veredito=share>=0.2?'teste_pequeno':'arriscado';
     else if(lp>=0.85*min20&&custo>0){
-      const maxCost=(1-fee-tax-0.2)*lp-fixed;
+      const maxCost=profitTarget!==null?(1-fee-tax)*lp-fixed-profitTarget:(1-fee-tax-margin)*lp-fixed;
       const cut=(custo-maxCost)/custo;
       if(cut<=0.2)veredito='so_se_baixar_custo';
     }

@@ -10,14 +10,24 @@ const brl=v=>v===null?'—':'R$ '+Number(v).toFixed(2).replace('.',',');
 const sales=v=>v===null?'—':Number(v).toLocaleString('pt-BR');
 // preço mínimo para margem alvo m: (custo total + taxa fixa) / (1 - comissão - imposto - m)
 const minPrice=(cost,fixed,m,FEE,TAX)=>(cost+fixed)/(1-FEE-TAX-m);
+// preço mínimo para ganhar um lucro fixo em reais por venda: (custo total + taxa fixa + lucro) / (1 - comissão - imposto)
+const minPriceBrl=(cost,fixed,L,FEE,TAX)=>(cost+fixed+L)/(1-FEE-TAX);
 const profit=(p,cost,fixed,FEE,TAX)=>(1-FEE-TAX)*p-fixed-cost;
 const margin=(p,cost,fixed,FEE,TAX)=>p>0?profit(p,cost,fixed,FEE,TAX)/p:null;
 const brlS=v=>v===null?'—':(v<0?'−':'')+'R$ '+Math.abs(v).toFixed(2).replace('.',',');
 const pct=v=>v===null?'—':(v*100).toFixed(0)+'%';
+// Sem anúncios conferidos, o veredito vem salvo no banco (calculado com 20% de margem). Se a meta mudou e o líder salvo
+// já passa do novo preço mínimo com 100+ vendas/30d, mostra "Vale testar" como PRELIMINAR; nunca piora o veredito salvo.
+const savedVerdict=(it,min,lp)=>{
+  const v=it.veredito;
+  if(v==='aguardando'||v==='vale_testar'||min===null||lp===null)return v;
+  const sold=num(it.lider_vendas);
+  return sold!==null&&sold>=100&&lp>=min?'vale_testar':v;
+};
 const COLS=[
   {key:'fornecedor',label:'Fornecedor'},
   {key:'custo',label:'Custo total'},
-  {key:'min20',label:'Preço mín. p/ 20%'},
+  {key:'min20',label:'Preço mínimo (meta de lucro)'},
   {key:'lider_preco',label:'Líder de vendas'},
   {key:'lider_margem',label:'Margem no líder'},
   {key:'lucro_un',label:'Lucro por venda'},
@@ -29,7 +39,7 @@ const COLS=[
 const EQ={identico:'Idêntico',muito_parecido:'Muito parecido',parcial:'Parcial',diferente:'Diferente',nao_confirmado:'Não confirmado'};
 const ALL_KEYS=COLS.map(c=>c.key);
 const DEFAULT_KEYS=ALL_KEYS.filter(k=>!['fornecedor','menor_preco','viavel_preco'].includes(k));
-const LS={fixed:'gs_revenda_fixed',frete:'gs_revenda_frete',emb:'gs_revenda_emb',fee:'gs_revenda_fee',tax:'gs_revenda_tax',qtd:'gs_revenda_qtd',cols:'gs_revenda_cols',forn:'gs_revenda_fornecedor',cat:'gs_revenda_categoria'};
+const LS={fixed:'gs_revenda_fixed',frete:'gs_revenda_frete',emb:'gs_revenda_emb',fee:'gs_revenda_fee',tax:'gs_revenda_tax',qtd:'gs_revenda_qtd',cols:'gs_revenda_cols',goalMode:'gs_revenda_goal_mode',goalPct:'gs_revenda_goal_pct',goalBrl:'gs_revenda_goal_brl',forn:'gs_revenda_fornecedor',cat:'gs_revenda_categoria'};
 const save=(k,v)=>{try{localStorage.setItem(k,typeof v==='string'?v:JSON.stringify(v))}catch{}};
 
 function Link({url,children}){return url?<a href={url} target="_blank" rel="noopener noreferrer" className={s.link}>{children}</a>:<span className={s.unavailableLink}>{children} <small>(link não capturado)</small></span>}
@@ -47,7 +57,7 @@ function reanalysisPrompt(r){
     'Produto: '+r.produto+' (id '+r.id+' na tabela gs_revenda_garimpo)',
     'Fornecedor: '+(r.fornecedor||'—'),
     'Link do fornecedor (abrir SÓ este link, nunca pesquisar no site): '+(r.link_fornecedor||'sem link: registrar PRODUTO NÃO ENCONTRADO'),
-    'Custo do fornecedor: '+money(r.custo_base)+' · preço mínimo para 20% hoje na tela: '+money(r.min20),
+    'Custo do fornecedor: '+money(r.custo_base)+' · preço mínimo hoje na tela: '+money(r.min20),
     '',
     'Como fazer: ler o produto no link do fornecedor; buscar na Shopee só por nome e modelo, 1ª página inteira (rolar até o fim), no Chrome em aba separada, usando os dados do Gestor Pro (Últimos 30 dias); ignorar internacionais; abrir um a um todos os anúncios nacionais com 40 ou mais vendas/30d e título relacionado; classificar em identico, muito_parecido, parcial (preencher diferencas), diferente ou nao_confirmado; só a cor diferente conta como comparável.',
     'Gravar no Supabase (projeto raxhdrlnqkbqjpsbtgwf): trocar os anúncios antigos deste garimpo_id em gs_revenda_anuncios pelos novos e atualizar gs_revenda_garimpo (busca_total, busca_nacionais, busca_internacionais, líder, menor, viável, veredito e observacao dizendo quantos anúncios foram realmente abertos). Veredito definitivo só com 5 ou mais anúncios idênticos ou muito parecidos; senão PRELIMINAR.'
@@ -84,6 +94,9 @@ export default function RevendaPage(){
   const [feePct,setFeePct]=useState(20);
   const [taxPct,setTaxPct]=useState(4);
   const [qtd,setQtd]=useState(30);
+  const [goalMode,setGoalMode]=useState('pct');
+  const [goalPct,setGoalPct]=useState(20);
+  const [goalBrl,setGoalBrl]=useState(6);
   const [visible,setVisible]=useState(DEFAULT_KEYS);
   const [open,setOpen]=useState('');
   const [actionId,setActionId]=useState(null);
@@ -107,7 +120,8 @@ export default function RevendaPage(){
     try{
       const g=k=>localStorage.getItem(k);
       const n=(k,set,min)=>{const v=g(k);if(v!==null&&v!==''&&Number(v)>=min)set(Number(v))};
-      n(LS.fixed,setFixed,0);n(LS.frete,setFrete,0);n(LS.emb,setEmb,0);n(LS.fee,setFeePct,0);n(LS.tax,setTaxPct,0);n(LS.qtd,setQtd,1);
+      n(LS.fixed,setFixed,0);n(LS.frete,setFrete,0);n(LS.emb,setEmb,0);n(LS.fee,setFeePct,0);n(LS.tax,setTaxPct,0);n(LS.qtd,setQtd,1);n(LS.goalPct,setGoalPct,0);n(LS.goalBrl,setGoalBrl,0);
+      if(g(LS.goalMode)==='brl')setGoalMode('brl');
       const fv=g(LS.forn);if(fv)setForn(fv);
       const cv=g(LS.cat);if(cv)setCat(cv);
       const c=JSON.parse(g(LS.cols)||'null');
@@ -133,8 +147,10 @@ export default function RevendaPage(){
   const rows=useMemo(()=>(items||[]).map(it=>{
     const base=num(it.custo);
     const custo=base===null?null:base+frete+emb;
-    const min20=custo===null?null:minPrice(custo,fixed,0.2,FEE,TAX);
-    const an=analyzeSelected(it.anuncios,off,{min20,custo,fixed,fee:FEE,tax:TAX});
+    const byBrl=goalMode==='brl';
+    const goalM=Math.min(goalPct,60)/100;
+    const min20=custo===null?null:(byBrl?minPriceBrl(custo,fixed,goalBrl,FEE,TAX):minPrice(custo,fixed,goalM,FEE,TAX));
+    const an=analyzeSelected(it.anuncios,off,{min20,custo,fixed,fee:FEE,tax:TAX,profitTarget:byBrl?goalBrl:null,margin:byBrl?null:goalM});
     const hasEligible=(it.anuncios||[]).some(isComparable);
     // Com anúncios comparáveis: tudo vem dos anúncios marcados. Sem eles: valores salvos.
     const dyn=hasEligible;
@@ -151,9 +167,10 @@ export default function RevendaPage(){
       viavel_preco:dyn?(an&&an.viavel?num(an.viavel.preco):null):num(it.viavel_preco),
       viavel_vendas:dyn?(an&&an.viavel?num(an.viavel.vendas_30d):null):it.viavel_vendas,
       viavel_url:dyn?(an&&an.viavel?an.viavel.url:null):it.viavel_url,
-      veredito:dyn?(an?an.veredito:'sem_selecao'):it.veredito,
+      veredito:dyn?(an?an.veredito:'sem_selecao'):savedVerdict(it,min20,lp),
+      preliminar:!dyn&&savedVerdict(it,min20,lp)!==it.veredito,
       selecionados:dyn&&an?an.count:null};
-  }),[items,fixed,qtd,frete,emb,FEE,TAX,off]);
+  }),[items,fixed,qtd,frete,emb,FEE,TAX,off,goalMode,goalPct,goalBrl]);
   const NOSUP='__sem__';
   const supKey=r=>(r.fornecedor||'').trim()||NOSUP;
   const suppliers=useMemo(()=>{const m=new Map();rows.forEach(r=>{const k=supKey(r);m.set(k,(m.get(k)||0)+1)});return[...m.entries()].sort((a,b)=>a[0]===NOSUP?1:b[0]===NOSUP?-1:a[0].localeCompare(b[0],'pt-BR'))},[rows]);
@@ -227,6 +244,14 @@ export default function RevendaPage(){
         <Field label="Taxa fixa por item (R$)" value={fixed} onChange={setNum(setFixed,LS.fixed)} step="0.5" min="0" hint="Padrão R$ 4,50 (itens de R$ 8 a R$ 79,99). Abaixo de R$ 8 a regra é outra."/>
         <Field label="Frete do fornecedor por unidade (R$)" value={frete} onChange={setNum(setFrete,LS.frete)} step="0.1" min="0"/>
         <Field label="Embalagem por envio (R$)" value={emb} onChange={setNum(setEmb,LS.emb)} step="0.1" min="0"/>
+        <div className={s.field} role="group" aria-label="Meta de lucro">
+          <span>Meta de lucro por venda</span>
+          <label><input type="radio" name="goal" checked={goalMode==='pct'} onChange={()=>{setGoalMode('pct');save(LS.goalMode,'pct')}}/> Margem em % do preço</label>
+          <label><input type="radio" name="goal" checked={goalMode==='brl'} onChange={()=>{setGoalMode('brl');save(LS.goalMode,'brl')}}/> Lucro fixo em R$ por venda</label>
+          {goalMode==='pct'
+            ?<Field label="Margem alvo (%)" value={goalPct} onChange={setNum(setGoalPct,LS.goalPct)} step="1" min="0" hint="Padrão 20%. Usada no preço mínimo e no veredito."/>
+            :<Field label="Lucro que quero por venda (R$)" value={goalBrl} onChange={setNum(setGoalBrl,LS.goalBrl)} step="0.5" min="0" hint="Ex.: R$ 6. O preço mínimo passa a ser o que deixa esse valor líquido, depois de comissão, imposto, taxa fixa e custo. Não inclui Ads."/>}
+        </div>
         <Field label="Vendas/mês que quero testar" value={qtd} onChange={setNum(setQtd,LS.qtd,1)} step="5" min="1" hint="Usado só no Retorno/mês. Não é previsão."/>
       </div>
       <div className={s.popBtns}><button type="button" className={s.chipOn} onClick={()=>setOpen('')}>Pronto</button></div>
@@ -237,7 +262,7 @@ export default function RevendaPage(){
       <label className={s.supplierPick}><span>Categoria</span><select aria-label="Escolher categoria do produto exibida" value={catAtiva} onChange={e=>chooseCat(e.target.value)}><option value="todas">Todas as categorias ({items===null||error?'—':nCategorias})</option>{categories.map(([k,n])=><option key={k} value={k}>{k===NOCAT?'Sem categoria':k} ({n})</option>)}</select></label>
       <label className={s.search}><span aria-hidden="true">⌕</span><input aria-label="Buscar produto ou fornecedor" value={q} onChange={e=>setQ(e.target.value)} placeholder="Buscar produto ou fornecedor"/>{q&&<button type="button" aria-label="Limpar busca" onClick={()=>setQ('')}>×</button>}</label>
       <button type="button" className={s.iconBtn} onClick={()=>setOpen('cfg')}>⚙️ Taxas e custos</button>
-      <details className={s.calculation}><summary>ⓘ Como calculamos</summary><div><p>Produtos de fornecedores comparados com o que realmente vende na Shopee. Preço mínimo = (custo + frete + embalagem + taxa fixa) ÷ (1 − comissão {feePct}% − imposto {taxPct}% − margem). Lucro por venda = preço do anúncio líder − comissão e imposto − taxa fixa ({brl(fixed)}) − custo total (produto + frete {brl(frete)} + embalagem {brl(emb)}). Retorno/mês = lucro por venda × {qtd} vendas (não é previsão de vendas). Não inclui Ads, cupons nem devoluções.</p></div></details>
+      <details className={s.calculation}><summary>ⓘ Como calculamos</summary><div><p>Produtos de fornecedores comparados com o que realmente vende na Shopee. {goalMode==='brl'?<>Preço mínimo = (custo + frete + embalagem + taxa fixa + lucro desejado de {brl(goalBrl)}) ÷ (1 − comissão {feePct}% − imposto {taxPct}%).</>:<>Preço mínimo = (custo + frete + embalagem + taxa fixa) ÷ (1 − comissão {feePct}% − imposto {taxPct}% − margem de {goalPct}%).</>} Lucro por venda = preço do anúncio líder − comissão e imposto − taxa fixa ({brl(fixed)}) − custo total (produto + frete {brl(frete)} + embalagem {brl(emb)}). Retorno/mês = lucro por venda × {qtd} vendas (não é previsão de vendas). Não inclui Ads, cupons nem devoluções.</p></div></details>
     </div>
     <div className={s.chips} role="group" aria-label="Filtrar por veredito">
       {['todos',...Object.keys(VER)].map(k=><button key={k} type="button" className={ver===k?s.chipOn:s.chip} aria-pressed={ver===k} onClick={()=>setVer(k)}>{k==='todos'?'Todos':VER[k]} ({items===null||error?'—':counts[k]||0})</button>)}
@@ -246,7 +271,7 @@ export default function RevendaPage(){
     {items===null&&<p>Carregando…</p>}
     {items!==null&&!shown.length&&!error&&<p className={s.muted}>Nenhum produto neste filtro.</p>}
     {!!shown.length&&<div className={s.wrap} role="region" aria-label="Comparação de produtos para revenda" tabIndex={0}><table className={s.table} aria-label="Produtos para revenda">
-      <thead><tr>{th('produto','Produto')}{COLS.filter(c=>on(c.key)).map(c=>th(c.key,c.label))}<th className={s.actionsCol}><span className={s.srOnly}>Ações</span></th></tr></thead>
+      <thead><tr>{th('produto','Produto')}{COLS.filter(c=>on(c.key)).map(c=>th(c.key,c.key==='min20'?(goalMode==='brl'?'Preço mín. p/ '+brl(goalBrl)+' de lucro':'Preço mín. p/ '+goalPct+'%'):c.label))}<th className={s.actionsCol}><span className={s.srOnly}>Ações</span></th></tr></thead>
       <tbody>{paged.map(r=><Fragment key={r.id}><tr>
         <td className={s.productCol}>
           <div className={s.productName}><b title={r.produto}>{r.produto}</b>{r.preco_caixa&&<span className={s.tag}>preço de caixa</span>}</div>
@@ -263,7 +288,7 @@ export default function RevendaPage(){
         {on('lucro_mes')&&<td className={r.lucro_mes!==null&&r.lucro_mes<0?s.bad:s.ok}><b>{brlS(r.lucro_mes)}</b><br/><small className={s.muted}>{qtd} vendas</small></td>}
         {on('menor_preco')&&<td>{brl(r.menor_preco)} · {sales(r.menor_vendas)}/mês{r.menor_preco!==null&&<><br/><Link url={r.menor_url}>Ver anúncio ↗</Link></>}</td>}
         {on('viavel_preco')&&<td>{brl(r.viavel_preco)} · {sales(r.viavel_vendas)}/mês{r.viavel_preco!==null&&<><br/><Link url={r.viavel_url}>Ver anúncio ↗</Link></>}</td>}
-        {on('veredito')&&<td className={s.verdictCol}><span className={s['v_'+r.veredito]}>{VER_LABEL[r.veredito]||r.veredito}</span>{r.selecionados!==null&&<><br/><small className={s.muted}>{r.selecionados} anúncio{r.selecionados>1?'s':''} marcado{r.selecionados>1?'s':''}</small></>}</td>}
+        {on('veredito')&&<td className={s.verdictCol}><span className={s['v_'+r.veredito]}>{VER_LABEL[r.veredito]||r.veredito}</span>{r.preliminar&&<><br/><small className={s.muted}>preliminar: líder salvo passa da meta nova</small></>}{r.selecionados!==null&&<><br/><small className={s.muted}>{r.selecionados} anúncio{r.selecionados>1?'s':''} marcado{r.selecionados>1?'s':''}</small></>}</td>}
         <td className={s.actionsCol}><button type="button" className={s.moreBtn} aria-haspopup="dialog" aria-label={'Ações de '+r.produto} title="Ações do produto" onClick={()=>setActionId(r.id)}>⋮</button></td>
       </tr>{adsId===r.id&&<tr className={s.adsRow}><td colSpan={2+COLS.filter(c=>on(c.key)).length}>{searchSummary(r)}<p className={s.muted} style={{margin:'0 0 8px',fontSize:12}}>Os anúncios marcados em “Usar” entram na conta. Ao marcar ou desmarcar, o preço mínimo de comparação, o líder, a margem, o lucro e o veredito mudam na hora.</p>{r.anuncios&&r.anuncios.length?<table className={s.adsTable}><thead><tr><th title="Marque ou desmarque para recalcular">Usar</th><th>Anúncio</th><th>Preço</th><th>Vendas 30 dias</th><th>Vendas totais</th><th>Idade</th><th>Anunciante</th><th>É o mesmo produto?</th><th>Diferenças</th></tr></thead><tbody>{r.anuncios.map(a=><tr key={a.id}><td>{isComparable(a)?<input type="checkbox" checked={!off.has(a.id)} aria-label={'Usar na análise: '+a.titulo} onChange={()=>setOff(p=>{const n=new Set(p);n.has(a.id)?n.delete(a.id):n.add(a.id);return n})}/>:<span className={s.muted} title="Anúncio diferente: não entra na análise">—</span>}</td><td><a href={a.url} target="_blank" rel="noopener noreferrer" className={s.link}>{a.titulo} ↗</a>{a.motivo&&<><br/><small className={s.muted}>{a.motivo}</small></>}</td><td>{brl(num(a.preco))}</td><td>{sales(num(a.vendas_30d))}</td><td>{sales(num(a.vendas_total))}</td><td>{a.idade_dias===null||a.idade_dias===undefined?'—':a.idade_dias+' dias'}</td><td>{a.anunciante||'—'}{a.marca?<><br/><small className={s.muted}>{a.marca}</small></>:null}</td><td><span className={s['eq_'+a.equivalencia]}>{EQ[a.equivalencia]||a.equivalencia}</span></td><td>{a.equivalencia==='parcial'?(a.diferencas||'—'):'—'}</td></tr>)}</tbody></table>:<span className={s.muted}>Ainda não há anúncios da Shopee abertos e conferidos para este produto.</span>}</td></tr>}{obsId===r.id&&r.observacao&&<tr className={s.obsRow}><td colSpan={2+COLS.filter(c=>on(c.key)).length}><b>Observação:</b> {r.observacao}</td></tr>}</Fragment>)}</tbody></table></div>}
     {pager}
