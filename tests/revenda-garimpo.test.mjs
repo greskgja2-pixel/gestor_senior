@@ -173,3 +173,13 @@ test('Garimpo: meta de lucro em reais troca o preço mínimo e o limite de custo
   const aOk=analyzeSelected([{id:1,equivalencia:'identico',preco:22,vendas_30d:200}],null,{min20:16.29/0.76,custo:5.79,fixed:4.5,fee:0.2,tax:0.04,profitTarget:6});
   assert.equal(aOk.veredito,'vale_testar');
 });
+
+test('tabela de anúncios mostra % de similaridade de título, descrição e fotos',()=>{
+  const page=fs.readFileSync(new URL('../app/revenda/page.js',import.meta.url),'utf8');
+  for(const k of ['sim_titulo','sim_descricao','sim_fotos'])assert.match(page,new RegExp('simPct\\(a\\.'+k+'\\)'));
+  assert.match(page,/Título %/);assert.match(page,/Descrição %/);assert.match(page,/Fotos %/);
+  // nulo aparece como "—", nunca como 0%
+  assert.match(page,/v===null\|\|v===undefined\?<span/);
+  const mig=fs.readFileSync(new URL('../supabase/migrations/20261121210000_gs_revenda_anuncios_similaridade.sql',import.meta.url),'utf8');
+  for(const k of ['sim_titulo','sim_descricao','sim_fotos'])assert.match(mig,new RegExp(k));
+});
