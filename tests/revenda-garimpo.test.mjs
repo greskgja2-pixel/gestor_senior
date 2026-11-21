@@ -153,3 +153,23 @@ test('Garimpo de revenda: "Todas as categorias (N)" conta categorias distintas, 
   assert.ok(page.includes("Todas as categorias ({items===null||error?'—':nCategorias})"));
   assert.ok(!page.includes("Todas as categorias ({items===null||error?'—':supScoped.length})"));
 });
+
+test('Garimpo: meta de lucro em reais troca o preço mínimo e o limite de custo',async()=>{
+  const src=await (await import('node:fs/promises')).readFile(new URL('../app/revenda/page.js',import.meta.url),'utf8');
+  const lib=await (await import('node:fs/promises')).readFile(new URL('../app/lib/revenda-analysis.js',import.meta.url),'utf8');
+  assert.match(src,/minPriceBrl=\(cost,fixed,L,FEE,TAX\)=>\(cost\+fixed\+L\)\/\(1-FEE-TAX\)/);
+  assert.match(src,/goalMode==='brl'/);
+  assert.match(src,/Lucro fixo em R\$ por venda/);
+  assert.match(lib,/profitTarget/);
+  // custo R$ 3,29 + frete/embalagem 2,50 + taxa 4,50 + lucro 6 => preço mínimo = 16,29/0,76
+  const min=(c,f,L)=>(c+f+L)/(1-0.2-0.04);
+  assert.equal(min(5.79,4.5,6).toFixed(2),(16.29/0.76).toFixed(2));
+  const {analyzeSelected}=await import('../app/lib/revenda-analysis.js');
+  const ads=[{id:1,equivalencia:'identico',preco:15,vendas_30d:200}];
+  const a20=analyzeSelected(ads,null,{min20:(5.79+4.5)/0.56,custo:5.79,fixed:4.5,fee:0.2,tax:0.04});
+  const aBrl=analyzeSelected(ads,null,{min20:16.29/0.76,custo:5.79,fixed:4.5,fee:0.2,tax:0.04,profitTarget:6});
+  assert.equal(a20.veredito,'nao_compensa');
+  assert.equal(aBrl.veredito,'nao_compensa'); // 15 < 21,43
+  const aOk=analyzeSelected([{id:1,equivalencia:'identico',preco:22,vendas_30d:200}],null,{min20:16.29/0.76,custo:5.79,fixed:4.5,fee:0.2,tax:0.04,profitTarget:6});
+  assert.equal(aOk.veredito,'vale_testar');
+});
