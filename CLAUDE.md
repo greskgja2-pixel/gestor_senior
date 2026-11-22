@@ -981,3 +981,6 @@ Nova aba **Concorrentes** (entre Financeiro e Histórico) com o painel de concor
 - Atenções: 2610, 743 e 846 ficaram "arriscado" PRELIMINAR (mercado paga acima do mínimo, mas o fornecedor não informa nº de peças/voz e mouse); confirmar com o fornecedor antes de testar. 204 é vale_testar só com o anúncio idêntico, que está abaixo do mínimo. Grupo 9: se os anúncios Melu (outra linha Ruby Rose) forem desmarcados, arriscado vira vale_testar.
 - Erros desta sessão: observação do 2873 gravada com mínimo errado (R$ 119,5; correto R$ 148,2) e corrigida; vereditos de "primeira passada" sem anúncios salvos eram enganosos — refazer os não "nao_compensa" sem anúncios (MS Atacados ~21, L. Eletronicos ~33).
 - Pendente: Body Splash/Iluminador Femme Fatale (3093–3097, 3104), Celia e Junior 137 aguardando, MS Atacados a partir do 625, Laser Tech (918), Inova. Não validado visualmente com login.
+
+### 2026-11-22 — Claude — /revenda: filtro por selo (branch `claude/revenda-filtro-selos`)
+Novo seletor "Selo" ao lado de Fornecedor/Categoria: Todos, ✔ V2 (`analise_v2_em`), ⚠ Sem comparável (`sem_comparavel_em` sem V2) e Sem selo, com contagens. Só filtro de tela em `app/revenda/page.js`; sem mudança de dados. `node --test tests/*.test.mjs` 250/250; visual não testado com login.

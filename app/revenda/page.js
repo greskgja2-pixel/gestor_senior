@@ -106,6 +106,7 @@ export default function RevendaPage(){
   const [adsId,setAdsId]=useState(null);
   const [off,setOff]=useState(()=>new Set());
   const [ver,setVer]=useState('todos');
+  const [selo,setSelo]=useState('todos');
   const [forn,setForn]=useState('todos');
   const [cat,setCat]=useState('todas');
   const [q,setQ]=useState('');
@@ -186,7 +187,7 @@ export default function RevendaPage(){
   const chooseCat=v=>{setCat(v);save(LS.cat,v);setPage(1)};
   const shown=useMemo(()=>{
     const t=q.trim().toLowerCase();
-    const f=scoped.filter(r=>(ver==='todos'||r.veredito===ver)&&(!t||(r.produto+' '+r.fornecedor+' '+(r.categoria||'')).toLowerCase().includes(t)));
+    const f=scoped.filter(r=>(ver==='todos'||r.veredito===ver)&&(selo==='todos'||(selo==='v2'?!!r.analise_v2_em:selo==='semcomp'?(!!r.sem_comparavel_em&&!r.analise_v2_em):(!r.analise_v2_em&&!r.sem_comparavel_em)))&&(!t||(r.produto+' '+r.fornecedor+' '+(r.categoria||'')).toLowerCase().includes(t)));
     const k=sort.key;
     return[...f].sort((a,b)=>{
       const x=a[k],y=b[k];
@@ -195,7 +196,7 @@ export default function RevendaPage(){
       return (typeof x==='string'?x.localeCompare(y,'pt-BR'):x-y)*sort.dir;
     });
   },[scoped,ver,q,sort]);
-  useEffect(()=>{setPage(1)},[ver,q,sort,pageSize,fornAtivo,catAtiva]);
+  useEffect(()=>{setPage(1)},[ver,selo,q,sort,pageSize,fornAtivo,catAtiva]);
   const totalPages=Math.max(1,Math.ceil(shown.length/pageSize));
   const curPage=Math.min(page,totalPages);
   const paged=useMemo(()=>shown.slice((curPage-1)*pageSize,curPage*pageSize),[shown,curPage,pageSize]);
@@ -256,6 +257,7 @@ export default function RevendaPage(){
     <div className={s.controls}>
       <label className={s.supplierPick}><span>Fornecedor</span><select aria-label="Escolher fornecedor exibido" value={fornAtivo} onChange={e=>chooseForn(e.target.value)}><option value="todos">Todos os fornecedores ({items===null||error?'—':rows.length})</option>{suppliers.map(([k,n])=><option key={k} value={k}>{k===NOSUP?'Sem fornecedor informado':k} ({n})</option>)}</select></label>
       <label className={s.supplierPick}><span>Categoria</span><select aria-label="Escolher categoria do produto exibida" value={catAtiva} onChange={e=>chooseCat(e.target.value)}><option value="todas">Todas as categorias ({items===null||error?'—':nCategorias})</option>{categories.map(([k,n])=><option key={k} value={k}>{k===NOCAT?'Sem categoria':k} ({n})</option>)}</select></label>
+      <label className={s.supplierPick}><span>Selo</span><select aria-label="Filtrar por selo de análise" value={selo} onChange={e=>setSelo(e.target.value)}><option value="todos">Todos os selos ({items===null||error?'—':rows.length})</option><option value="v2">✔ V2 ({items===null||error?'—':rows.filter(r=>r.analise_v2_em).length})</option><option value="semcomp">⚠ Sem comparável ({items===null||error?'—':rows.filter(r=>r.sem_comparavel_em&&!r.analise_v2_em).length})</option><option value="nenhum">Sem selo ({items===null||error?'—':rows.filter(r=>!r.analise_v2_em&&!r.sem_comparavel_em).length})</option></select></label>
       <label className={s.search}><span aria-hidden="true">⌕</span><input aria-label="Buscar produto ou fornecedor" value={q} onChange={e=>setQ(e.target.value)} placeholder="Buscar produto ou fornecedor"/>{q&&<button type="button" aria-label="Limpar busca" onClick={()=>setQ('')}>×</button>}</label>
       <button type="button" className={s.iconBtn} onClick={()=>setOpen('cfg')}>⚙️ Taxas e custos</button>
       <details className={s.calculation}><summary>ⓘ Como calculamos</summary><div><p>Produtos de fornecedores comparados com o que realmente vende na Shopee. {goalMode==='brl'?<>Preço mínimo = (custo + frete + embalagem + taxa fixa + lucro desejado de {brl(goalBrl)}) ÷ (1 − comissão {feePct}% − imposto {taxPct}%).</>:<>Preço mínimo = (custo + frete + embalagem + taxa fixa) ÷ (1 − comissão {feePct}% − imposto {taxPct}% − margem de {goalPct}%).</>} Lucro por venda = preço do anúncio líder − comissão e imposto − taxa fixa ({brl(fixed)}) − custo total (produto + frete {brl(frete)} + embalagem {brl(emb)}). Retorno/mês = lucro por venda × {qtd} vendas (não é previsão de vendas). Não inclui Ads, cupons nem devoluções.</p></div></details>

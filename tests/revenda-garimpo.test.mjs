@@ -140,7 +140,7 @@ test('Garimpo de revenda: seletor de fornecedor filtra a tabela, os cards e as c
   assert.match(page,/const scoped=useMemo\(/);
   assert.match(page,/const f=scoped\.filter\(/);
   assert.match(page,/const c=\{todos:scoped\.length\};scoped\.forEach/);
-  assert.match(page,/\},\[ver,q,sort,pageSize,fornAtivo,catAtiva]\)/);
+  assert.match(page,/\},\[ver,selo,q,sort,pageSize,fornAtivo,catAtiva]\)/);
 });
 test('Garimpo de revenda: seletor de categoria filtra dentro do fornecedor escolhido, sem inventar categoria',()=>{
   for(const x of ['Escolher categoria do produto exibida','Todas as categorias','gs_revenda_categoria','Sem categoria','r.categoria'])assert.ok(page.includes(x),x);
@@ -198,4 +198,11 @@ test('sem anuncios conferidos nao promove para Vale testar',()=>{
 test('selo Sem comparavel para produtos sem 7 anuncios parecidos',()=>{
   const page=fs.readFileSync('app/revenda/page.js','utf8');
   assert.ok(page.includes('sem_comparavel_em')&&page.includes('s.noCompSeal')&&page.includes('Sem comparável'));
+});
+
+test('Garimpo de revenda: filtro por selo (V2, sem comparável, sem selo)',()=>{
+  const page=fs.readFileSync(new URL('../app/revenda/page.js',import.meta.url),'utf8');
+  assert.match(page,/aria-label="Filtrar por selo de análise"/);
+  assert.match(page,/selo==='v2'\?!!r\.analise_v2_em/);
+  assert.match(page,/!!r\.sem_comparavel_em&&!r\.analise_v2_em/);
 });
