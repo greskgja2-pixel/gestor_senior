@@ -194,3 +194,8 @@ test('sem anuncios conferidos nao promove para Vale testar',()=>{
   assert.ok(page.includes('const savedVerdict=(it)=>it.veredito;'));
   assert.ok(!page.includes("sold>=100&&lp>=min?'vale_testar'"));
 });
+
+test('selo Sem comparavel para produtos sem 7 anuncios parecidos',()=>{
+  const page=fs.readFileSync('app/revenda/page.js','utf8');
+  assert.ok(page.includes('sem_comparavel_em')&&page.includes('s.noCompSeal')&&page.includes('Sem comparável'));
+});

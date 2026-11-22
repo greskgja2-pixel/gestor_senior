@@ -60,6 +60,7 @@
 .page .table>tbody>tr>td.ok{color:#067647;font-weight:700;font-size:15px!important}
 .page .table>tbody>tr>td.bad{color:#bf2438;font-weight:700;font-size:15px!important}
 .err{color:#bf2438;font-weight:600}
+.noCompSeal{padding:2px 7px;border-radius:6px;background:#fff1e0;color:#9a3412;font-size:11px;font-weight:700;white-space:nowrap;border:1px solid #fdba74}
 .v2Seal{padding:2px 7px;border-radius:6px;background:#dcfce7;color:#166534;font-size:11px;font-weight:700;white-space:nowrap;border:1px solid #86efac}
 .tag{padding:2px 6px;border-radius:6px;background:#fff4d6;color:#7a5200;font-size:11px;white-space:nowrap}
 .v_vale_testar,.v_teste_pequeno,.v_arriscado,.v_so_se_baixar_custo,.v_nao_compensa,.v_aguardando,.v_sem_selecao{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;font-weight:650;font-size:12px;white-space:nowrap}
