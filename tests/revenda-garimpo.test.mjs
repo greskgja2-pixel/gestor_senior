@@ -183,3 +183,8 @@ test('tabela de anúncios mostra % de similaridade de título, descrição e fot
   const mig=fs.readFileSync(new URL('../supabase/migrations/20261121210000_gs_revenda_anuncios_similaridade.sql',import.meta.url),'utf8');
   for(const k of ['sim_titulo','sim_descricao','sim_fotos'])assert.match(mig,new RegExp(k));
 });
+
+test('selo V2 aparece no produto analisado pelo metodo V2',()=>{
+  const page=fs.readFileSync('app/revenda/page.js','utf8');
+  assert.ok(page.includes('analise_v2_em')&&page.includes('s.v2Seal')&&page.includes('✔ V2'));
+});
