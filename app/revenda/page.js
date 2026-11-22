@@ -16,14 +16,9 @@ const profit=(p,cost,fixed,FEE,TAX)=>(1-FEE-TAX)*p-fixed-cost;
 const margin=(p,cost,fixed,FEE,TAX)=>p>0?profit(p,cost,fixed,FEE,TAX)/p:null;
 const brlS=v=>v===null?'—':(v<0?'−':'')+'R$ '+Math.abs(v).toFixed(2).replace('.',',');
 const pct=v=>v===null?'—':(v*100).toFixed(0)+'%';
-// Sem anúncios conferidos, o veredito vem salvo no banco (calculado com 20% de margem). Se a meta mudou e o líder salvo
-// já passa do novo preço mínimo com 100+ vendas/30d, mostra "Vale testar" como PRELIMINAR; nunca piora o veredito salvo.
-const savedVerdict=(it,min,lp)=>{
-  const v=it.veredito;
-  if(v==='aguardando'||v==='vale_testar'||min===null||lp===null)return v;
-  const sold=num(it.lider_vendas);
-  return sold!==null&&sold>=100&&lp>=min?'vale_testar':v;
-};
+// Sem anúncios conferidos, mostra SOMENTE o veredito salvo no banco. A promoção automática para "Vale testar" foi removida
+// (21/11/2026): ela usava um líder não verificado, muitas vezes de outro produto, e gerava falsos positivos.
+const savedVerdict=(it)=>it.veredito;
 const COLS=[
   {key:'fornecedor',label:'Fornecedor'},
   {key:'custo',label:'Custo total'},
