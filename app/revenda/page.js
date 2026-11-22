@@ -195,7 +195,7 @@ export default function RevendaPage(){
       if(y===null||y===undefined)return -1;
       return (typeof x==='string'?x.localeCompare(y,'pt-BR'):x-y)*sort.dir;
     });
-  },[scoped,ver,q,sort]);
+  },[scoped,ver,selo,q,sort]);
   useEffect(()=>{setPage(1)},[ver,selo,q,sort,pageSize,fornAtivo,catAtiva]);
   const totalPages=Math.max(1,Math.ceil(shown.length/pageSize));
   const curPage=Math.min(page,totalPages);
