@@ -984,3 +984,6 @@ Nova aba **Concorrentes** (entre Financeiro e Histórico) com o painel de concor
 
 ### 2026-11-22 — Claude — /revenda: filtro por selo (branch `claude/revenda-filtro-selos`)
 Novo seletor "Selo" ao lado de Fornecedor/Categoria: Todos, ✔ V2 (`analise_v2_em`), ⚠ Sem comparável (`sem_comparavel_em` sem V2) e Sem selo, com contagens. Só filtro de tela em `app/revenda/page.js`; sem mudança de dados. `node --test tests/*.test.mjs` 250/250; visual não testado com login.
+
+### 2026-11-22 — Claude — Correção: filtro de selo não mudava a tabela (branch `claude/fix-filtro-selo`)
+O `useMemo` de `shown` em `app/revenda/page.js` usava `selo` no filtro mas não o listava nas dependências (`[scoped,ver,q,sort]`), então a lista não recalculava ao trocar o selo. Agora `[scoped,ver,selo,q,sort]`, com teste. Lição: ao adicionar um estado a um filtro dentro de `useMemo`, incluí-lo nas dependências e testar a lista, não só a existência do seletor.

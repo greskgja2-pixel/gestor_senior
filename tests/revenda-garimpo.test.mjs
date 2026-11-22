@@ -206,3 +206,8 @@ test('Garimpo de revenda: filtro por selo (V2, sem comparável, sem selo)',()=>{
   assert.match(page,/selo==='v2'\?!!r\.analise_v2_em/);
   assert.match(page,/!!r\.sem_comparavel_em&&!r\.analise_v2_em/);
 });
+
+test('Garimpo de revenda: lista recalcula ao trocar o filtro de selo',()=>{
+  const src=fs.readFileSync(new URL('../app/revenda/page.js',import.meta.url),'utf8');
+  assert.match(src,/\},\[scoped,ver,selo,q,sort\]\);/);
+});
