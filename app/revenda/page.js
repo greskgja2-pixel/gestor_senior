@@ -275,7 +275,7 @@ export default function RevendaPage(){
       <thead><tr>{th('produto','Produto')}{COLS.filter(c=>on(c.key)).map(c=>th(c.key,c.key==='min20'?(goalMode==='brl'?'Preço mín. p/ '+brl(goalBrl)+' de lucro':'Preço mín. p/ '+goalPct+'%'):c.label))}<th className={s.actionsCol}><span className={s.srOnly}>Ações</span></th></tr></thead>
       <tbody>{paged.map(r=><Fragment key={r.id}><tr>
         <td className={s.productCol}>
-          <div className={s.productName}><b title={r.produto}>{r.produto}</b>{r.preco_caixa&&<span className={s.tag}>preço de caixa</span>}</div>
+          <div className={s.productName}><b title={r.produto}>{r.produto}</b>{r.preco_caixa&&<span className={s.tag}>preço de caixa</span>}{r.analise_v2_em&&<span className={s.v2Seal} title={'Analisado pelo método V2 em '+String(r.analise_v2_em).slice(0,10).split('-').reverse().join('/')}>✔ V2</span>}</div>
           {!on('fornecedor')&&<div className={s.supplier}>{r.fornecedor||'Fornecedor não informado'}{r.link_fornecedor&&<> · <a href={r.link_fornecedor} target="_blank" rel="noopener noreferrer" className={s.link}>Ver no fornecedor ↗</a></>}</div>}
           <small className={s.muted}>{r.pesquisado_em?'Pesquisado em '+String(r.pesquisado_em).split('-').reverse().join('/'):'Aguardando análise'}</small>
           <button type="button" className={s.adsBtn} aria-expanded={adsId===r.id} aria-label={'Anúncios conferidos de '+r.produto} onClick={()=>setAdsId(adsId===r.id?null:r.id)}><span className={adsId===r.id?s.arrowUp:s.arrow}>▼</span> {r.anuncios&&r.anuncios.length?r.anuncios.length+' anúncio'+(r.anuncios.length>1?'s':'')+' conferido'+(r.anuncios.length>1?'s':''):'Nenhum anúncio conferido'}</button>
