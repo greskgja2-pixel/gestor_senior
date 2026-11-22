@@ -188,3 +188,9 @@ test('selo V2 aparece no produto analisado pelo metodo V2',()=>{
   const page=fs.readFileSync('app/revenda/page.js','utf8');
   assert.ok(page.includes('analise_v2_em')&&page.includes('s.v2Seal')&&page.includes('✔ V2'));
 });
+
+test('sem anuncios conferidos nao promove para Vale testar',()=>{
+  const page=fs.readFileSync('app/revenda/page.js','utf8');
+  assert.ok(page.includes('const savedVerdict=(it)=>it.veredito;'));
+  assert.ok(!page.includes("sold>=100&&lp>=min?'vale_testar'"));
+});
