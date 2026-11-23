@@ -2,6 +2,7 @@
 import {Fragment,useEffect,useMemo,useRef,useState} from 'react';
 import s from './revenda.module.css';
 import {analyzeSelected,isComparable} from '../lib/revenda-analysis';
+import {PRESET_MARCADORES,MAX_MARCADORES,MAX_MARCADOR_LEN,marcadorTone} from '../lib/revenda-marcadores';
 
 const VER={vale_testar:'Vale testar',teste_pequeno:'Teste pequeno',arriscado:'Arriscado',so_se_baixar_custo:'Só se baixar o custo',nao_compensa:'Não compensa',aguardando:'Aguardando análise'};
 const VER_LABEL={...VER,sem_selecao:'Sem anúncios marcados'};
@@ -110,6 +111,9 @@ export default function RevendaPage(){
   const [forn,setForn]=useState('todos');
   const [cat,setCat]=useState('todas');
   const [q,setQ]=useState('');
+  const [marc,setMarc]=useState('todos');
+  const [newTag,setNewTag]=useState('');
+  const [tagErr,setTagErr]=useState('');
   const [sort,setSort]=useState({key:'produto',dir:1});
   const [page,setPage]=useState(1);
   const [pageSize,setPageSize]=useState(25);
@@ -168,6 +172,25 @@ export default function RevendaPage(){
       preliminar:!dyn&&savedVerdict(it,min20,lp)!==it.veredito,
       selecionados:dyn&&an?an.count:null};
   }),[items,fixed,qtd,frete,emb,FEE,TAX,off,goalMode,goalPct,goalBrl]);
+  const NOMARC='__sem_marc__';
+  const tagsOf=r=>Array.isArray(r.marcadores)?r.marcadores:[];
+  // Salva os marcadores do produto: mostra na hora e volta ao valor anterior se o servidor recusar.
+  const saveTags=async(row,next)=>{
+    const before=tagsOf(row);
+    setTagErr('');
+    setItems(p=>p.map(x=>x.id===row.id?{...x,marcadores:next}:x));
+    try{
+      const r=await fetch('/api/revenda-garimpo',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:row.id,marcadores:next})});
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok)throw new Error(j.error||'Não foi possível salvar');
+      setItems(p=>p.map(x=>x.id===row.id?{...x,marcadores:j.marcadores||next}:x));
+    }catch(e){
+      setItems(p=>p.map(x=>x.id===row.id?{...x,marcadores:before}:x));
+      setTagErr(String(e.message||e));
+    }
+  };
+  const toggleTag=(row,tag)=>{const cur=tagsOf(row);const has=cur.some(x=>x.toLowerCase()===tag.toLowerCase());saveTags(row,has?cur.filter(x=>x.toLowerCase()!==tag.toLowerCase()):[...cur,tag])};
+  const addTag=row=>{const t=newTag.replace(/\s+/g,' ').trim();if(!t)return;if(t.length>MAX_MARCADOR_LEN){setTagErr('Use até '+MAX_MARCADOR_LEN+' letras no marcador.');return}const cur=tagsOf(row);if(cur.some(x=>x.toLowerCase()===t.toLowerCase())){setNewTag('');return}if(cur.length>=MAX_MARCADORES){setTagErr('Máximo de '+MAX_MARCADORES+' marcadores por produto.');return}setNewTag('');saveTags(row,[...cur,t])};
   const NOSUP='__sem__';
   const supKey=r=>(r.fornecedor||'').trim()||NOSUP;
   const suppliers=useMemo(()=>{const m=new Map();rows.forEach(r=>{const k=supKey(r);m.set(k,(m.get(k)||0)+1)});return[...m.entries()].sort((a,b)=>a[0]===NOSUP?1:b[0]===NOSUP?-1:a[0].localeCompare(b[0],'pt-BR'))},[rows]);
@@ -183,11 +206,12 @@ export default function RevendaPage(){
   const nCategorias=categories.filter(x=>x[0]!==NOCAT).length;
   const catAtiva=cat==='todas'||categories.some(x=>x[0]===cat)?cat:'todas';
   const scoped=useMemo(()=>catAtiva==='todas'?supScoped:supScoped.filter(r=>catKey(r)===catAtiva),[supScoped,catAtiva]);
+  const markerOptions=useMemo(()=>{const m=new Map(PRESET_MARCADORES.map(x=>[x,0]));let none=0;scoped.forEach(r=>{const tg=tagsOf(r);if(!tg.length)none++;tg.forEach(x=>{const k=[...m.keys()].find(y=>y.toLowerCase()===x.toLowerCase())||x;m.set(k,(m.get(k)||0)+1)})});return{list:[...m.entries()],none}},[scoped]);
   const chooseForn=v=>{setForn(v);save(LS.forn,v);setPage(1)};
   const chooseCat=v=>{setCat(v);save(LS.cat,v);setPage(1)};
   const shown=useMemo(()=>{
     const t=q.trim().toLowerCase();
-    const f=scoped.filter(r=>(ver==='todos'||r.veredito===ver)&&(selo==='todos'||(selo==='v2'?!!r.analise_v2_em:selo==='semcomp'?(!!r.sem_comparavel_em&&!r.analise_v2_em):(!r.analise_v2_em&&!r.sem_comparavel_em)))&&(!t||(r.produto+' '+r.fornecedor+' '+(r.categoria||'')).toLowerCase().includes(t)));
+    const f=scoped.filter(r=>(ver==='todos'||r.veredito===ver)&&(selo==='todos'||(selo==='v2'?!!r.analise_v2_em:selo==='semcomp'?(!!r.sem_comparavel_em&&!r.analise_v2_em):(!r.analise_v2_em&&!r.sem_comparavel_em)))&&(marc==='todos'||(marc===NOMARC?!tagsOf(r).length:tagsOf(r).some(x=>x.toLowerCase()===marc.toLowerCase())))&&(!t||(r.produto+' '+r.fornecedor+' '+(r.categoria||'')).toLowerCase().includes(t)));
     const k=sort.key;
     return[...f].sort((a,b)=>{
       const x=a[k],y=b[k];
@@ -195,8 +219,8 @@ export default function RevendaPage(){
       if(y===null||y===undefined)return -1;
       return (typeof x==='string'?x.localeCompare(y,'pt-BR'):x-y)*sort.dir;
     });
-  },[scoped,ver,selo,q,sort]);
-  useEffect(()=>{setPage(1)},[ver,selo,q,sort,pageSize,fornAtivo,catAtiva]);
+  },[scoped,ver,selo,marc,q,sort]);
+  useEffect(()=>{setPage(1)},[ver,selo,marc,q,sort,pageSize,fornAtivo,catAtiva]);
   const totalPages=Math.max(1,Math.ceil(shown.length/pageSize));
   const curPage=Math.min(page,totalPages);
   const paged=useMemo(()=>shown.slice((curPage-1)*pageSize,curPage*pageSize),[shown,curPage,pageSize]);
@@ -258,6 +282,7 @@ export default function RevendaPage(){
       <label className={s.supplierPick}><span>Fornecedor</span><select aria-label="Escolher fornecedor exibido" value={fornAtivo} onChange={e=>chooseForn(e.target.value)}><option value="todos">Todos os fornecedores ({items===null||error?'—':rows.length})</option>{suppliers.map(([k,n])=><option key={k} value={k}>{k===NOSUP?'Sem fornecedor informado':k} ({n})</option>)}</select></label>
       <label className={s.supplierPick}><span>Categoria</span><select aria-label="Escolher categoria do produto exibida" value={catAtiva} onChange={e=>chooseCat(e.target.value)}><option value="todas">Todas as categorias ({items===null||error?'—':nCategorias})</option>{categories.map(([k,n])=><option key={k} value={k}>{k===NOCAT?'Sem categoria':k} ({n})</option>)}</select></label>
       <label className={s.supplierPick}><span>Selo</span><select aria-label="Filtrar por selo de análise" value={selo} onChange={e=>setSelo(e.target.value)}><option value="todos">Todos os selos ({items===null||error?'—':rows.length})</option><option value="v2">✔ V2 ({items===null||error?'—':rows.filter(r=>r.analise_v2_em).length})</option><option value="semcomp">⚠ Sem comparável ({items===null||error?'—':rows.filter(r=>r.sem_comparavel_em&&!r.analise_v2_em).length})</option><option value="nenhum">Sem selo ({items===null||error?'—':rows.filter(r=>!r.analise_v2_em&&!r.sem_comparavel_em).length})</option></select></label>
+      <label className={s.supplierPick}><span>Marcador</span><select aria-label="Filtrar por marcador" value={marc} onChange={e=>setMarc(e.target.value)}><option value="todos">Todos os marcadores</option><option value={NOMARC}>Sem marcador ({items===null||error?'—':markerOptions.none})</option>{markerOptions.list.map(([k,n])=><option key={k} value={k}>{k} ({n})</option>)}</select></label>
       <label className={s.search}><span aria-hidden="true">⌕</span><input aria-label="Buscar produto ou fornecedor" value={q} onChange={e=>setQ(e.target.value)} placeholder="Buscar produto ou fornecedor"/>{q&&<button type="button" aria-label="Limpar busca" onClick={()=>setQ('')}>×</button>}</label>
       <button type="button" className={s.iconBtn} onClick={()=>setOpen('cfg')}>⚙️ Taxas e custos</button>
       <details className={s.calculation}><summary>ⓘ Como calculamos</summary><div><p>Produtos de fornecedores comparados com o que realmente vende na Shopee. {goalMode==='brl'?<>Preço mínimo = (custo + frete + embalagem + taxa fixa + lucro desejado de {brl(goalBrl)}) ÷ (1 − comissão {feePct}% − imposto {taxPct}%).</>:<>Preço mínimo = (custo + frete + embalagem + taxa fixa) ÷ (1 − comissão {feePct}% − imposto {taxPct}% − margem de {goalPct}%).</>} Lucro por venda = preço do anúncio líder − comissão e imposto − taxa fixa ({brl(fixed)}) − custo total (produto + frete {brl(frete)} + embalagem {brl(emb)}). Retorno/mês = lucro por venda × {qtd} vendas (não é previsão de vendas). Não inclui Ads, cupons nem devoluções.</p></div></details>
@@ -273,6 +298,7 @@ export default function RevendaPage(){
       <tbody>{paged.map(r=><Fragment key={r.id}><tr>
         <td className={s.productCol}>
           <div className={s.productName}><b title={r.produto}>{r.produto}</b>{r.preco_caixa&&<span className={s.tag}>preço de caixa</span>}{r.sem_comparavel_em&&!r.analise_v2_em&&<span className={s.noCompSeal} title={'Pesquisado em '+String(r.sem_comparavel_em).slice(0,10).split('-').reverse().join('/')+': não há na Shopee 7 anúncios iguais ou parecidos para comparar. O veredito é só uma estimativa.'}>⚠ Sem comparável</span>}{r.analise_v2_em&&<span className={s.v2Seal} title={'Analisado pelo método V2 em '+String(r.analise_v2_em).slice(0,10).split('-').reverse().join('/')}>✔ V2</span>}</div>
+          {tagsOf(r).length>0&&<div className={s.marks}>{tagsOf(r).map(m=><span key={m} className={s['mk_'+marcadorTone(m)]}>{m}</span>)}</div>}
           {!on('fornecedor')&&<div className={s.supplier}>{r.fornecedor||'Fornecedor não informado'}{r.link_fornecedor&&<> · <a href={r.link_fornecedor} target="_blank" rel="noopener noreferrer" className={s.link}>Ver no fornecedor ↗</a></>}</div>}
           <small className={s.muted}>{r.pesquisado_em?'Pesquisado em '+String(r.pesquisado_em).split('-').reverse().join('/'):'Aguardando análise'}</small>
           <button type="button" className={s.adsBtn} aria-expanded={adsId===r.id} aria-label={'Anúncios conferidos de '+r.produto} onClick={()=>setAdsId(adsId===r.id?null:r.id)}><span className={adsId===r.id?s.arrowUp:s.arrow}>▼</span> {r.anuncios&&r.anuncios.length?r.anuncios.length+' anúncio'+(r.anuncios.length>1?'s':'')+' conferido'+(r.anuncios.length>1?'s':''):'Nenhum anúncio conferido'}</button>
@@ -294,6 +320,11 @@ export default function RevendaPage(){
     <dialog ref={actionDialog} className={s.actionDialog} onClose={()=>setActionId(null)} onClick={e=>{if(e.target===e.currentTarget)setActionId(null)}} aria-labelledby="revenda-actions-title">
       <div className={s.dialogHead}><h2 id="revenda-actions-title">Ações do produto</h2><button type="button" className={s.moreBtn} aria-label="Fechar ações" onClick={()=>setActionId(null)}>×</button></div>
       {actionRow&&<><p>{actionRow.produto}</p><div className={s.actionList}>
+        <div className={s.markBox}><b>Marcadores</b>
+          <div className={s.markChoices} role="group" aria-label="Marcadores do produto">{[...PRESET_MARCADORES,...tagsOf(actionRow).filter(x=>!PRESET_MARCADORES.some(p=>p.toLowerCase()===x.toLowerCase()))].map(m=>{const on_=tagsOf(actionRow).some(x=>x.toLowerCase()===m.toLowerCase());return <button key={m} type="button" className={on_?s['mkOn_'+marcadorTone(m)]:s.mkOff} aria-pressed={on_} onClick={()=>toggleTag(actionRow,m)}>{on_?'✓ ':''}{m}</button>})}</div>
+          <div className={s.markAdd}><input value={newTag} maxLength={MAX_MARCADOR_LEN} placeholder="Criar outro marcador" aria-label="Nome do novo marcador" onChange={e=>setNewTag(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();addTag(actionRow)}}}/><button type="button" onClick={()=>addTag(actionRow)} disabled={!newTag.trim()}>Adicionar</button></div>
+          {tagErr&&<small className={s.err} role="alert">{tagErr}</small>}
+        </div>
         <button type="button" onClick={()=>{setAdsId(actionRow.id);setActionId(null)}}>Ver anúncios conferidos</button>
         {actionRow.observacao&&<button type="button" onClick={()=>{setObsId(obsId===actionRow.id?null:actionRow.id);setActionId(null)}}>Ver observação da análise</button>}
         {actionRow.link_fornecedor&&<a href={actionRow.link_fornecedor} target="_blank" rel="noopener noreferrer">Ver no fornecedor ↗</a>}

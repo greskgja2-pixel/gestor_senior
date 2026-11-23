@@ -140,7 +140,7 @@ test('Garimpo de revenda: seletor de fornecedor filtra a tabela, os cards e as c
   assert.match(page,/const scoped=useMemo\(/);
   assert.match(page,/const f=scoped\.filter\(/);
   assert.match(page,/const c=\{todos:scoped\.length\};scoped\.forEach/);
-  assert.match(page,/\},\[ver,selo,q,sort,pageSize,fornAtivo,catAtiva]\)/);
+  assert.match(page,/\},\[ver,selo,marc,q,sort,pageSize,fornAtivo,catAtiva]\)/);
 });
 test('Garimpo de revenda: seletor de categoria filtra dentro do fornecedor escolhido, sem inventar categoria',()=>{
   for(const x of ['Escolher categoria do produto exibida','Todas as categorias','gs_revenda_categoria','Sem categoria','r.categoria'])assert.ok(page.includes(x),x);
@@ -209,11 +209,34 @@ test('Garimpo de revenda: filtro por selo (V2, sem comparável, sem selo)',()=>{
 
 test('Garimpo de revenda: lista recalcula ao trocar o filtro de selo',()=>{
   const src=fs.readFileSync(new URL('../app/revenda/page.js',import.meta.url),'utf8');
-  assert.match(src,/\},\[scoped,ver,selo,q,sort\]\);/);
+  assert.match(src,/\},\[scoped,ver,selo,marc,q,sort\]\);/);
 });
 
 test('anúncios conferidos mostram o lucro por venda no preço de cada anúncio', () => {
   assert.match(page, /Lucro por venda neste preço/);
   assert.match(page, /profit\(ap,r\.custo,fixed,FEE,TAX\)/);
   assert.match(page, /ap===null\|\|ap<=0\|\|r\.custo===null/);
+});
+
+test('marcadores: limpeza, limites e rota que só altera a coluna marcadores da própria loja', async()=>{
+  const {cleanMarcadores,PRESET_MARCADORES,MAX_MARCADORES}=await import('../app/lib/revenda-marcadores.js');
+  assert.deepEqual(PRESET_MARCADORES,['Sem estoque','Vou testar','Análise equivocada']);
+  assert.deepEqual(cleanMarcadores(['  Sem   estoque ','sem estoque','','Vou testar']),['Sem estoque','Vou testar']);
+  assert.equal(cleanMarcadores('x'),null);
+  assert.equal(cleanMarcadores([1]),null);
+  assert.equal(cleanMarcadores(['a'.repeat(31)]),null);
+  assert.equal(cleanMarcadores(Array.from({length:MAX_MARCADORES+1},(_,i)=>'m'+i)),null);
+  const route=fs.readFileSync('app/api/revenda-garimpo/route.js','utf8');
+  assert.match(route,/export async function PATCH/);
+  assert.match(route,/\.update\(\{marcadores\}\)\.eq\('id',id\)\.eq\('shop_id',shop\.shop_id\)/);
+  assert.doesNotMatch(route,/export (const|function) (cleanMarcadores|MAX_)/,'rota do Next não pode exportar helpers');
+});
+
+test('marcadores: menu ⋮ tem os marcadores, chips na linha e filtro que recalcula a lista', ()=>{
+  const page=fs.readFileSync('app/revenda/page.js','utf8');
+  assert.match(page,/aria-label="Marcadores do produto"/);
+  assert.match(page,/method:'PATCH'/);
+  assert.match(page,/aria-label="Filtrar por marcador"/);
+  assert.match(page,/\},\[scoped,ver,selo,marc,q,sort\]\)/,'filtro de marcador precisa estar nas dependências do useMemo');
+  assert.match(page,/setItems\(p=>p\.map\(x=>x\.id===row\.id\?\{\.\.\.x,marcadores:before\}/,'volta ao valor anterior se o servidor recusar');
 });

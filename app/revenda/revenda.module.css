@@ -144,3 +144,22 @@
 .adsTable td span.ok small,.adsTable td span.bad small{font-weight:500;opacity:.85}
 :global(html[data-gs-theme=dark]) .adsTable td span.ok{color:#67e8a5}
 :global(html[data-gs-theme=dark]) .adsTable td span.bad{color:#ff8b9b}
+
+/* Marcadores do usuário por produto (23/11/2026) */
+.marks{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0}
+.mk_estoque,.mk_testar,.mk_erro,.mk_outro{padding:2px 7px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;border:1px solid}
+.mk_estoque{background:#fee2e2;color:#991b1b;border-color:#fca5a5}
+.mk_testar{background:#dbeafe;color:#1e40af;border-color:#93c5fd}
+.mk_erro{background:#ffedd5;color:#9a3412;border-color:#fdba74}
+.mk_outro{background:#e2e8f0;color:#334155;border-color:#cbd5e1}
+.markBox{display:grid;gap:8px;padding:12px;border:1px solid var(--rv-border);border-radius:9px;background:var(--rv-soft);margin-bottom:8px}
+.markChoices{display:flex;flex-wrap:wrap;gap:6px}
+.markChoices button{padding:6px 10px;border-radius:999px;font:inherit;font-size:13px;cursor:pointer;border:1px solid var(--rv-border);background:var(--rv-card);color:var(--rv-text)}
+.markChoices .mkOn_estoque{background:#fee2e2;color:#991b1b;border-color:#f87171;font-weight:700}
+.markChoices .mkOn_testar{background:#dbeafe;color:#1e40af;border-color:#60a5fa;font-weight:700}
+.markChoices .mkOn_erro{background:#ffedd5;color:#9a3412;border-color:#fb923c;font-weight:700}
+.markChoices .mkOn_outro{background:#e2e8f0;color:#334155;border-color:#94a3b8;font-weight:700}
+.markAdd{display:flex;gap:6px}
+.markAdd input{flex:1;min-width:0;padding:7px 10px;border:1px solid var(--rv-border);border-radius:8px;font:inherit;background:var(--rv-card);color:var(--rv-text)}
+.markAdd button{padding:7px 12px;border:1px solid var(--rv-border);border-radius:8px;background:var(--rv-card);color:var(--rv-accent);font:inherit;cursor:pointer}
+.markAdd button:disabled{opacity:.5;cursor:default}
