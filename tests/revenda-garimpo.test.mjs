@@ -211,3 +211,9 @@ test('Garimpo de revenda: lista recalcula ao trocar o filtro de selo',()=>{
   const src=fs.readFileSync(new URL('../app/revenda/page.js',import.meta.url),'utf8');
   assert.match(src,/\},\[scoped,ver,selo,q,sort\]\);/);
 });
+
+test('anúncios conferidos mostram o lucro por venda no preço de cada anúncio', () => {
+  assert.match(page, /Lucro por venda neste preço/);
+  assert.match(page, /profit\(ap,r\.custo,fixed,FEE,TAX\)/);
+  assert.match(page, /ap===null\|\|ap<=0\|\|r\.custo===null/);
+});

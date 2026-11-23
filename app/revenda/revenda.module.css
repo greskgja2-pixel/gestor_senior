@@ -137,3 +137,10 @@
 .supplierPick select{min-width:0;max-width:260px;padding:8px 4px;border:0;background:transparent;color:var(--rv-text);font:inherit;font-weight:600;cursor:pointer;outline:none}
 .supplierPick:focus-within{outline:2px solid var(--rv-accent);outline-offset:2px}
 @media(max-width:700px){.supplierPick{flex-basis:100%}.supplierPick select{flex:1;max-width:none}}
+
+/* Lucro por venda no preço de cada anúncio conferido (23/11/2026) */
+.adsTable td span.ok{color:#067647;font-weight:700}
+.adsTable td span.bad{color:#bf2438;font-weight:700}
+.adsTable td span.ok small,.adsTable td span.bad small{font-weight:500;opacity:.85}
+:global(html[data-gs-theme=dark]) .adsTable td span.ok{color:#67e8a5}
+:global(html[data-gs-theme=dark]) .adsTable td span.bad{color:#ff8b9b}
