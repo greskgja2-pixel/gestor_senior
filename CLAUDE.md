@@ -994,3 +994,10 @@ O `useMemo` de `shown` em `app/revenda/page.js` usava `selo` no filtro mas não 
 - **Dados (sem deploy):** os 37 produtos "teste pequeno" sem selo (L. Eletronicos 23, MS Atacados 14) passaram pela análise V2. Resultado: 5 com ✔ V2 (14, 13, 354, 68, 758), o restante com ⚠ Sem comparável (link morto, sem equivalente na Shopee ou comparáveis só classificados pelo título) e 198/187 preliminares sem selo. Quase todos viraram nao_compensa ou arriscado; só o 855 (LG Magic) ficou "vale testar" PRELIMINAR (confirmar voz+ponteiro e pedido mínimo com o fornecedor).
 - **Limitações:** colunas de similaridade (título/descrição/fotos) NÃO foram preenchidas; fotos não foram comparadas (o usuário disse que não precisa). Comparáveis marcados "não aberto, classificado pelo título" não dão ✔ V2. Pedido mínimo do L. Eletronicos (R$ 500 + frete) não entra na conta. 702 ficou "aguardando" (sem cabo macho-macho na Shopee).
 - **Pendente:** 16 Laser Tech "arriscado" sem selo, e 502, 815, 262 (suspeita de AirPods falso) e 341.
+
+
+### 2026-11-23 — Claude — /revenda: marcadores por produto no menu ⋮ (branch `claude/revenda-marcadores`)
+- Coluna nova `marcadores text[]` em `gs_revenda_garimpo` (migração `20261123200000_gs_revenda_marcadores.sql`, já aplicada no Supabase). Menu ⋮ ganhou "Marcadores": Sem estoque, Vou testar, Análise equivocada + marcador livre (até 8 por produto, 30 letras). Chips coloridos (cor + texto) abaixo do nome do produto e filtro "Marcador" na barra (inclui "Sem marcador").
+- Rota `PATCH /api/revenda-garimpo` só altera `marcadores` do produto da própria loja; helpers em `app/lib/revenda-marcadores.js` (rota do Next não pode exportar helpers). A tela mostra na hora e volta ao valor anterior com mensagem se o servidor recusar.
+- Lição repetida: filtro novo dentro de `useMemo` entra nas dependências e no reset de página (testes antigos que travavam a lista de dependências foram atualizados).
+- Análise V2 concluída nesta data: os 16 Laser Tech "arriscado", 502, 815, 262 e 341 foram feitos (a entrada anterior ainda os lista como pendentes). `node --test` 254/254. Visual com login NÃO testado.
