@@ -23,3 +23,16 @@ export function marcadorTone(t){
   if(k==='análise equivocada'||k==='analise equivocada')return 'erro';
   return 'outro';
 }
+// Filtro por marcadores: sel = { "<marcador em minúsculas>": 'show' | 'hide' }, chave NOMARC_KEY = "sem marcador".
+// Se houver "mostrar", o produto precisa ter pelo menos um deles; qualquer "esconder" que ele tenha o tira da lista.
+export const NOMARC_KEY='__sem_marcador__';
+export function marcadorPassa(tags,sel){
+  const list=(Array.isArray(tags)?tags:[]).map(x=>String(x).toLowerCase());
+  const mine=list.length?list:[NOMARC_KEY];
+  const entries=Object.entries(sel||{});
+  const show=entries.filter(e=>e[1]==='show').map(e=>e[0]);
+  const hide=entries.filter(e=>e[1]==='hide').map(e=>e[0]);
+  if(hide.some(h=>mine.includes(h)))return false;
+  if(show.length&&!show.some(w=>mine.includes(w)))return false;
+  return true;
+}

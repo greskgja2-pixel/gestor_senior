@@ -1001,3 +1001,6 @@ O `useMemo` de `shown` em `app/revenda/page.js` usava `selo` no filtro mas não 
 - Rota `PATCH /api/revenda-garimpo` só altera `marcadores` do produto da própria loja; helpers em `app/lib/revenda-marcadores.js` (rota do Next não pode exportar helpers). A tela mostra na hora e volta ao valor anterior com mensagem se o servidor recusar.
 - Lição repetida: filtro novo dentro de `useMemo` entra nas dependências e no reset de página (testes antigos que travavam a lista de dependências foram atualizados).
 - Análise V2 concluída nesta data: os 16 Laser Tech "arriscado", 502, 815, 262 e 341 foram feitos (a entrada anterior ainda os lista como pendentes). `node --test` 254/254. Visual com login NÃO testado.
+
+### 2026-11-23 (noite) — Claude — /revenda: filtro de marcadores com vários (mostrar/esconder) (branch `claude/revenda-marcadores-multi`)
+- O seletor único "Marcador" virou um painel: cada marcador (e "Sem marcador") alterna ○ neutro → ✓ mostrar → ✕ esconder. Com vários ✓ aparecem os produtos que tenham pelo menos um; qualquer ✕ tira o produto da lista (ex.: esconder "Sem estoque"). Lógica em `marcadorPassa` (`app/lib/revenda-marcadores.js`), escolha salva no navegador (`gs_revenda_marcadores_filtro`). Só tela; sem mudança no banco. `node --test` 255/255; visual com login NÃO testado.

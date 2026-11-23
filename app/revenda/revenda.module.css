@@ -163,3 +163,17 @@
 .markAdd input{flex:1;min-width:0;padding:7px 10px;border:1px solid var(--rv-border);border-radius:8px;font:inherit;background:var(--rv-card);color:var(--rv-text)}
 .markAdd button{padding:7px 12px;border:1px solid var(--rv-border);border-radius:8px;background:var(--rv-card);color:var(--rv-accent);font:inherit;cursor:pointer}
 .markAdd button:disabled{opacity:.5;cursor:default}
+
+/* Filtro de marcadores com vários selecionados: mostrar (✓) e esconder (✕) */
+.markFilter{position:relative;min-height:44px;border:1px solid var(--rv-border);border-radius:10px;background:var(--rv-card);color:var(--rv-text);font-weight:600;font-size:14px}
+.markFilter>summary{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;cursor:pointer;list-style:none}
+.markFilter>summary::-webkit-details-marker{display:none}
+.markFilterCount{min-width:20px;padding:1px 6px;border-radius:999px;background:var(--rv-accent);color:#fff;font-size:12px;text-align:center}
+.markFilterPanel{position:absolute;z-index:30;top:calc(100% + 6px);left:0;display:grid;gap:6px;width:min(320px,calc(100vw - 32px));padding:12px;border:1px solid var(--rv-border);border-radius:12px;background:var(--rv-card);box-shadow:0 12px 40px #0f172a30}
+.markFilterPanel small{color:var(--rv-muted);font-weight:400;line-height:1.4}
+.markFilterPanel button{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--rv-border);border-radius:8px;background:var(--rv-soft);color:var(--rv-text);font:inherit;font-size:13px;text-align:left;cursor:pointer}
+.markFilterPanel button em{margin-left:auto;font-style:normal;color:var(--rv-muted)}
+.markFilterPanel button span{width:16px;text-align:center;font-weight:700}
+.markFilterPanel .mfShow{background:#dcfce7;border-color:#86efac;color:#166534;font-weight:700}
+.markFilterPanel .mfHide{background:#fee2e2;border-color:#fca5a5;color:#991b1b;font-weight:700}
+.markFilterPanel .mfClear{justify-content:center;color:var(--rv-accent)}
