@@ -2,7 +2,7 @@
 import {Fragment,useEffect,useMemo,useRef,useState} from 'react';
 import s from './revenda.module.css';
 import {analyzeSelected,isComparable} from '../lib/revenda-analysis';
-import {PRESET_MARCADORES,MAX_MARCADORES,MAX_MARCADOR_LEN,marcadorTone} from '../lib/revenda-marcadores';
+import {PRESET_MARCADORES,MAX_MARCADORES,MAX_MARCADOR_LEN,marcadorTone,marcadorPassa,NOMARC_KEY} from '../lib/revenda-marcadores';
 
 const VER={vale_testar:'Vale testar',teste_pequeno:'Teste pequeno',arriscado:'Arriscado',so_se_baixar_custo:'Só se baixar o custo',nao_compensa:'Não compensa',aguardando:'Aguardando análise'};
 const VER_LABEL={...VER,sem_selecao:'Sem anúncios marcados'};
@@ -36,7 +36,7 @@ const simPct=v=>v===null||v===undefined?<span className={s.muted} title="Não me
 const EQ={identico:'Idêntico',muito_parecido:'Muito parecido',parcial:'Parcial',diferente:'Diferente',nao_confirmado:'Não confirmado'};
 const ALL_KEYS=COLS.map(c=>c.key);
 const DEFAULT_KEYS=ALL_KEYS.filter(k=>!['fornecedor','menor_preco','viavel_preco'].includes(k));
-const LS={fixed:'gs_revenda_fixed',frete:'gs_revenda_frete',emb:'gs_revenda_emb',fee:'gs_revenda_fee',tax:'gs_revenda_tax',qtd:'gs_revenda_qtd',cols:'gs_revenda_cols',goalMode:'gs_revenda_goal_mode',goalPct:'gs_revenda_goal_pct',goalBrl:'gs_revenda_goal_brl',forn:'gs_revenda_fornecedor',cat:'gs_revenda_categoria'};
+const LS={fixed:'gs_revenda_fixed',frete:'gs_revenda_frete',emb:'gs_revenda_emb',fee:'gs_revenda_fee',tax:'gs_revenda_tax',qtd:'gs_revenda_qtd',cols:'gs_revenda_cols',goalMode:'gs_revenda_goal_mode',goalPct:'gs_revenda_goal_pct',goalBrl:'gs_revenda_goal_brl',forn:'gs_revenda_fornecedor',cat:'gs_revenda_categoria',marc:'gs_revenda_marcadores_filtro'};
 const save=(k,v)=>{try{localStorage.setItem(k,typeof v==='string'?v:JSON.stringify(v))}catch{}};
 
 function Link({url,children}){return url?<a href={url} target="_blank" rel="noopener noreferrer" className={s.link}>{children}</a>:<span className={s.unavailableLink}>{children} <small>(link não capturado)</small></span>}
@@ -111,7 +111,7 @@ export default function RevendaPage(){
   const [forn,setForn]=useState('todos');
   const [cat,setCat]=useState('todas');
   const [q,setQ]=useState('');
-  const [marc,setMarc]=useState('todos');
+  const [marc,setMarc]=useState({});
   const [newTag,setNewTag]=useState('');
   const [tagErr,setTagErr]=useState('');
   const [sort,setSort]=useState({key:'produto',dir:1});
@@ -124,6 +124,7 @@ export default function RevendaPage(){
       n(LS.fixed,setFixed,0);n(LS.frete,setFrete,0);n(LS.emb,setEmb,0);n(LS.fee,setFeePct,0);n(LS.tax,setTaxPct,0);n(LS.qtd,setQtd,1);n(LS.goalPct,setGoalPct,0);n(LS.goalBrl,setGoalBrl,0);
       if(g(LS.goalMode)==='brl')setGoalMode('brl');
       const fv=g(LS.forn);if(fv)setForn(fv);
+      try{const mv=JSON.parse(g(LS.marc)||'{}');if(mv&&typeof mv==='object'&&!Array.isArray(mv))setMarc(Object.fromEntries(Object.entries(mv).filter(e=>e[1]==='show'||e[1]==='hide')))}catch{}
       const cv=g(LS.cat);if(cv)setCat(cv);
       const c=JSON.parse(g(LS.cols)||'null');
       if(Array.isArray(c))setVisible(c.filter(k=>ALL_KEYS.includes(k)));
@@ -207,11 +208,14 @@ export default function RevendaPage(){
   const catAtiva=cat==='todas'||categories.some(x=>x[0]===cat)?cat:'todas';
   const scoped=useMemo(()=>catAtiva==='todas'?supScoped:supScoped.filter(r=>catKey(r)===catAtiva),[supScoped,catAtiva]);
   const markerOptions=useMemo(()=>{const m=new Map(PRESET_MARCADORES.map(x=>[x,0]));let none=0;scoped.forEach(r=>{const tg=tagsOf(r);if(!tg.length)none++;tg.forEach(x=>{const k=[...m.keys()].find(y=>y.toLowerCase()===x.toLowerCase())||x;m.set(k,(m.get(k)||0)+1)})});return{list:[...m.entries()],none}},[scoped]);
+  const cycleMarc=key=>{setMarc(p=>{const n={...p};if(!n[key])n[key]='show';else if(n[key]==='show')n[key]='hide';else delete n[key];save(LS.marc,n);return n});setPage(1)};
+  const clearMarc=()=>{setMarc({});save(LS.marc,{});setPage(1)};
+  const marcCount=Object.keys(marc).length;
   const chooseForn=v=>{setForn(v);save(LS.forn,v);setPage(1)};
   const chooseCat=v=>{setCat(v);save(LS.cat,v);setPage(1)};
   const shown=useMemo(()=>{
     const t=q.trim().toLowerCase();
-    const f=scoped.filter(r=>(ver==='todos'||r.veredito===ver)&&(selo==='todos'||(selo==='v2'?!!r.analise_v2_em:selo==='semcomp'?(!!r.sem_comparavel_em&&!r.analise_v2_em):(!r.analise_v2_em&&!r.sem_comparavel_em)))&&(marc==='todos'||(marc===NOMARC?!tagsOf(r).length:tagsOf(r).some(x=>x.toLowerCase()===marc.toLowerCase())))&&(!t||(r.produto+' '+r.fornecedor+' '+(r.categoria||'')).toLowerCase().includes(t)));
+    const f=scoped.filter(r=>(ver==='todos'||r.veredito===ver)&&(selo==='todos'||(selo==='v2'?!!r.analise_v2_em:selo==='semcomp'?(!!r.sem_comparavel_em&&!r.analise_v2_em):(!r.analise_v2_em&&!r.sem_comparavel_em)))&&marcadorPassa(tagsOf(r),marc)&&(!t||(r.produto+' '+r.fornecedor+' '+(r.categoria||'')).toLowerCase().includes(t)));
     const k=sort.key;
     return[...f].sort((a,b)=>{
       const x=a[k],y=b[k];
@@ -282,7 +286,13 @@ export default function RevendaPage(){
       <label className={s.supplierPick}><span>Fornecedor</span><select aria-label="Escolher fornecedor exibido" value={fornAtivo} onChange={e=>chooseForn(e.target.value)}><option value="todos">Todos os fornecedores ({items===null||error?'—':rows.length})</option>{suppliers.map(([k,n])=><option key={k} value={k}>{k===NOSUP?'Sem fornecedor informado':k} ({n})</option>)}</select></label>
       <label className={s.supplierPick}><span>Categoria</span><select aria-label="Escolher categoria do produto exibida" value={catAtiva} onChange={e=>chooseCat(e.target.value)}><option value="todas">Todas as categorias ({items===null||error?'—':nCategorias})</option>{categories.map(([k,n])=><option key={k} value={k}>{k===NOCAT?'Sem categoria':k} ({n})</option>)}</select></label>
       <label className={s.supplierPick}><span>Selo</span><select aria-label="Filtrar por selo de análise" value={selo} onChange={e=>setSelo(e.target.value)}><option value="todos">Todos os selos ({items===null||error?'—':rows.length})</option><option value="v2">✔ V2 ({items===null||error?'—':rows.filter(r=>r.analise_v2_em).length})</option><option value="semcomp">⚠ Sem comparável ({items===null||error?'—':rows.filter(r=>r.sem_comparavel_em&&!r.analise_v2_em).length})</option><option value="nenhum">Sem selo ({items===null||error?'—':rows.filter(r=>!r.analise_v2_em&&!r.sem_comparavel_em).length})</option></select></label>
-      <label className={s.supplierPick}><span>Marcador</span><select aria-label="Filtrar por marcador" value={marc} onChange={e=>setMarc(e.target.value)}><option value="todos">Todos os marcadores</option><option value={NOMARC}>Sem marcador ({items===null||error?'—':markerOptions.none})</option>{markerOptions.list.map(([k,n])=><option key={k} value={k}>{k} ({n})</option>)}</select></label>
+      <details className={s.markFilter}><summary aria-label="Filtrar por marcadores">Marcadores{marcCount>0?<b className={s.markFilterCount}>{marcCount}</b>:null}</summary>
+        <div className={s.markFilterPanel}>
+          <small>Clique para alternar: <b>✓ mostrar</b> → <b>✕ esconder</b> → neutro. Com vários ✓, aparecem os produtos que tenham pelo menos um deles.</small>
+          {[[NOMARC_KEY,'Sem marcador',items===null||error?'—':markerOptions.none],...markerOptions.list.map(([k,n])=>[k.toLowerCase(),k,n])].map(([key,label,n])=>{const st=marc[key];return <button key={key} type="button" aria-pressed={!!st} className={st==='show'?s.mfShow:st==='hide'?s.mfHide:s.mfOff} onClick={()=>cycleMarc(key)}><span>{st==='show'?'✓':st==='hide'?'✕':'○'}</span>{label}<em>{n}</em></button>})}
+          {marcCount>0&&<button type="button" className={s.mfClear} onClick={clearMarc}>Limpar marcadores</button>}
+        </div>
+      </details>
       <label className={s.search}><span aria-hidden="true">⌕</span><input aria-label="Buscar produto ou fornecedor" value={q} onChange={e=>setQ(e.target.value)} placeholder="Buscar produto ou fornecedor"/>{q&&<button type="button" aria-label="Limpar busca" onClick={()=>setQ('')}>×</button>}</label>
       <button type="button" className={s.iconBtn} onClick={()=>setOpen('cfg')}>⚙️ Taxas e custos</button>
       <details className={s.calculation}><summary>ⓘ Como calculamos</summary><div><p>Produtos de fornecedores comparados com o que realmente vende na Shopee. {goalMode==='brl'?<>Preço mínimo = (custo + frete + embalagem + taxa fixa + lucro desejado de {brl(goalBrl)}) ÷ (1 − comissão {feePct}% − imposto {taxPct}%).</>:<>Preço mínimo = (custo + frete + embalagem + taxa fixa) ÷ (1 − comissão {feePct}% − imposto {taxPct}% − margem de {goalPct}%).</>} Lucro por venda = preço do anúncio líder − comissão e imposto − taxa fixa ({brl(fixed)}) − custo total (produto + frete {brl(frete)} + embalagem {brl(emb)}). Retorno/mês = lucro por venda × {qtd} vendas (não é previsão de vendas). Não inclui Ads, cupons nem devoluções.</p></div></details>

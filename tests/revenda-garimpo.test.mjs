@@ -236,7 +236,23 @@ test('marcadores: menu ⋮ tem os marcadores, chips na linha e filtro que recalc
   const page=fs.readFileSync('app/revenda/page.js','utf8');
   assert.match(page,/aria-label="Marcadores do produto"/);
   assert.match(page,/method:'PATCH'/);
-  assert.match(page,/aria-label="Filtrar por marcador"/);
+  assert.match(page,/aria-label="Filtrar por marcadores"/);
   assert.match(page,/\},\[scoped,ver,selo,marc,q,sort\]\)/,'filtro de marcador precisa estar nas dependências do useMemo');
   assert.match(page,/setItems\(p=>p\.map\(x=>x\.id===row\.id\?\{\.\.\.x,marcadores:before\}/,'volta ao valor anterior se o servidor recusar');
+});
+
+test('marcadores: filtro com vários marcadores (mostrar e esconder)', async()=>{
+  const {marcadorPassa,NOMARC_KEY}=await import('../app/lib/revenda-marcadores.js');
+  assert.equal(marcadorPassa(['Sem estoque'],{}),true);
+  assert.equal(marcadorPassa(['Sem estoque'],{'sem estoque':'hide'}),false);
+  assert.equal(marcadorPassa(['Vou testar'],{'sem estoque':'hide'}),true);
+  assert.equal(marcadorPassa([],{'sem estoque':'hide'}),true);
+  assert.equal(marcadorPassa(['Vou testar'],{'vou testar':'show','análise equivocada':'show'}),true);
+  assert.equal(marcadorPassa(['Outro'],{'vou testar':'show'}),false);
+  assert.equal(marcadorPassa(['Vou testar','Sem estoque'],{'vou testar':'show','sem estoque':'hide'}),false);
+  assert.equal(marcadorPassa([],{[NOMARC_KEY]:'show'}),true);
+  assert.equal(marcadorPassa(['A'],{[NOMARC_KEY]:'hide'}),true);
+  assert.equal(marcadorPassa([],{[NOMARC_KEY]:'hide'}),false);
+  assert.match(page,/marcadorPassa\(tagsOf\(r\),marc\)/);
+  assert.match(page,/cycleMarc/);
 });
