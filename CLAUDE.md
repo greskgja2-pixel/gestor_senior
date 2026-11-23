@@ -987,3 +987,10 @@ Novo seletor "Selo" ao lado de Fornecedor/Categoria: Todos, ✔ V2 (`analise_v2_
 
 ### 2026-11-22 — Claude — Correção: filtro de selo não mudava a tabela (branch `claude/fix-filtro-selo`)
 O `useMemo` de `shown` em `app/revenda/page.js` usava `selo` no filtro mas não o listava nas dependências (`[scoped,ver,q,sort]`), então a lista não recalculava ao trocar o selo. Agora `[scoped,ver,selo,q,sort]`, com teste. Lição: ao adicionar um estado a um filtro dentro de `useMemo`, incluí-lo nas dependências e testar a lista, não só a existência do seletor.
+
+
+### 2026-11-23 — Claude — /revenda: lucro por venda nos anúncios + análise V2 dos "teste pequeno" (PR #153 + dados no Supabase)
+- **Código (PR #153):** a tabela de anúncios conferidos ganhou a coluna "Lucro por venda neste preço" (usa `profit()` com o preço do anúncio e o custo do produto; "—" se faltar um dos dois). `node --test` 252/252.
+- **Dados (sem deploy):** os 37 produtos "teste pequeno" sem selo (L. Eletronicos 23, MS Atacados 14) passaram pela análise V2. Resultado: 5 com ✔ V2 (14, 13, 354, 68, 758), o restante com ⚠ Sem comparável (link morto, sem equivalente na Shopee ou comparáveis só classificados pelo título) e 198/187 preliminares sem selo. Quase todos viraram nao_compensa ou arriscado; só o 855 (LG Magic) ficou "vale testar" PRELIMINAR (confirmar voz+ponteiro e pedido mínimo com o fornecedor).
+- **Limitações:** colunas de similaridade (título/descrição/fotos) NÃO foram preenchidas; fotos não foram comparadas (o usuário disse que não precisa). Comparáveis marcados "não aberto, classificado pelo título" não dão ✔ V2. Pedido mínimo do L. Eletronicos (R$ 500 + frete) não entra na conta. 702 ficou "aguardando" (sem cabo macho-macho na Shopee).
+- **Pendente:** 16 Laser Tech "arriscado" sem selo, e 502, 815, 262 (suspeita de AirPods falso) e 341.
