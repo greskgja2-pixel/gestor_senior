@@ -220,7 +220,7 @@ test('anúncios conferidos mostram o lucro por venda no preço de cada anúncio'
 
 test('marcadores: limpeza, limites e rota que só altera a coluna marcadores da própria loja', async()=>{
   const {cleanMarcadores,PRESET_MARCADORES,MAX_MARCADORES}=await import('../app/lib/revenda-marcadores.js');
-  assert.deepEqual(PRESET_MARCADORES,['Sem estoque','Vou testar','Análise equivocada']);
+  assert.deepEqual(PRESET_MARCADORES,['Sem estoque','Vou testar','Análise equivocada','Preliminar']);
   assert.deepEqual(cleanMarcadores(['  Sem   estoque ','sem estoque','','Vou testar']),['Sem estoque','Vou testar']);
   assert.equal(cleanMarcadores('x'),null);
   assert.equal(cleanMarcadores([1]),null);
@@ -255,4 +255,11 @@ test('marcadores: filtro com vários marcadores (mostrar e esconder)', async()=>
   assert.equal(marcadorPassa([],{[NOMARC_KEY]:'hide'}),false);
   assert.match(page,/marcadorPassa\(tagsOf\(r\),marc\)/);
   assert.match(page,/cycleMarc/);
+});
+
+test('selo Preliminar: derivado da observação, com filtro e marcador',()=>{
+  const page=fs.readFileSync('app/revenda/page.js','utf8');
+  assert.match(page,/isPreliminar\(r\)&&!r\.analise_v2_em&&<span className=\{s\.prelimSeal\}/);
+  assert.match(page,/<option value="prelim">/);
+  assert.match(page,/selo==='prelim'\?\(isPreliminar\(r\)&&!r\.analise_v2_em\)/);
 });
