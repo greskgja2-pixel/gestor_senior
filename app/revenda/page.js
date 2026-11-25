@@ -2,7 +2,7 @@
 import {Fragment,useEffect,useMemo,useRef,useState} from 'react';
 import s from './revenda.module.css';
 import {analyzeSelected,isComparable} from '../lib/revenda-analysis';
-import {PRESET_MARCADORES,MAX_MARCADORES,MAX_MARCADOR_LEN,marcadorTone,marcadorPassa,NOMARC_KEY} from '../lib/revenda-marcadores';
+import {PRESET_MARCADORES,MAX_MARCADORES,MAX_MARCADOR_LEN,marcadorTone,marcadorPassa,NOMARC_KEY,isPreliminar} from '../lib/revenda-marcadores';
 
 const VER={vale_testar:'Vale testar',teste_pequeno:'Teste pequeno',arriscado:'Arriscado',so_se_baixar_custo:'Só se baixar o custo',nao_compensa:'Não compensa',aguardando:'Aguardando análise'};
 const VER_LABEL={...VER,sem_selecao:'Sem anúncios marcados'};
@@ -215,7 +215,7 @@ export default function RevendaPage(){
   const chooseCat=v=>{setCat(v);save(LS.cat,v);setPage(1)};
   const shown=useMemo(()=>{
     const t=q.trim().toLowerCase();
-    const f=scoped.filter(r=>(ver==='todos'||r.veredito===ver)&&(selo==='todos'||(selo==='v2'?!!r.analise_v2_em:selo==='semcomp'?(!!r.sem_comparavel_em&&!r.analise_v2_em):(!r.analise_v2_em&&!r.sem_comparavel_em)))&&marcadorPassa(tagsOf(r),marc)&&(!t||(r.produto+' '+r.fornecedor+' '+(r.categoria||'')).toLowerCase().includes(t)));
+    const f=scoped.filter(r=>(ver==='todos'||r.veredito===ver)&&(selo==='todos'||(selo==='v2'?!!r.analise_v2_em:selo==='semcomp'?(!!r.sem_comparavel_em&&!r.analise_v2_em):selo==='prelim'?(isPreliminar(r)&&!r.analise_v2_em):(!r.analise_v2_em&&!r.sem_comparavel_em&&!isPreliminar(r))))&&marcadorPassa(tagsOf(r),marc)&&(!t||(r.produto+' '+r.fornecedor+' '+(r.categoria||'')).toLowerCase().includes(t)));
     const k=sort.key;
     return[...f].sort((a,b)=>{
       const x=a[k],y=b[k];
@@ -285,7 +285,7 @@ export default function RevendaPage(){
     <div className={s.controls}>
       <label className={s.supplierPick}><span>Fornecedor</span><select aria-label="Escolher fornecedor exibido" value={fornAtivo} onChange={e=>chooseForn(e.target.value)}><option value="todos">Todos os fornecedores ({items===null||error?'—':rows.length})</option>{suppliers.map(([k,n])=><option key={k} value={k}>{k===NOSUP?'Sem fornecedor informado':k} ({n})</option>)}</select></label>
       <label className={s.supplierPick}><span>Categoria</span><select aria-label="Escolher categoria do produto exibida" value={catAtiva} onChange={e=>chooseCat(e.target.value)}><option value="todas">Todas as categorias ({items===null||error?'—':nCategorias})</option>{categories.map(([k,n])=><option key={k} value={k}>{k===NOCAT?'Sem categoria':k} ({n})</option>)}</select></label>
-      <label className={s.supplierPick}><span>Selo</span><select aria-label="Filtrar por selo de análise" value={selo} onChange={e=>setSelo(e.target.value)}><option value="todos">Todos os selos ({items===null||error?'—':rows.length})</option><option value="v2">✔ V2 ({items===null||error?'—':rows.filter(r=>r.analise_v2_em).length})</option><option value="semcomp">⚠ Sem comparável ({items===null||error?'—':rows.filter(r=>r.sem_comparavel_em&&!r.analise_v2_em).length})</option><option value="nenhum">Sem selo ({items===null||error?'—':rows.filter(r=>!r.analise_v2_em&&!r.sem_comparavel_em).length})</option></select></label>
+      <label className={s.supplierPick}><span>Selo</span><select aria-label="Filtrar por selo de análise" value={selo} onChange={e=>setSelo(e.target.value)}><option value="todos">Todos os selos ({items===null||error?'—':rows.length})</option><option value="v2">✔ V2 ({items===null||error?'—':rows.filter(r=>r.analise_v2_em).length})</option><option value="semcomp">⚠ Sem comparável ({items===null||error?'—':rows.filter(r=>r.sem_comparavel_em&&!r.analise_v2_em).length})</option><option value="prelim">⏳ Preliminar ({items===null||error?'—':rows.filter(r=>isPreliminar(r)&&!r.analise_v2_em).length})</option><option value="nenhum">Sem selo ({items===null||error?'—':rows.filter(r=>!r.analise_v2_em&&!r.sem_comparavel_em&&!isPreliminar(r)).length})</option></select></label>
       <details className={s.markFilter}><summary aria-label="Filtrar por marcadores">Marcadores{marcCount>0?<b className={s.markFilterCount}>{marcCount}</b>:null}</summary>
         <div className={s.markFilterPanel}>
           <small>Clique para alternar: <b>✓ mostrar</b> → <b>✕ esconder</b> → neutro. Com vários ✓, aparecem os produtos que tenham pelo menos um deles.</small>
@@ -307,7 +307,7 @@ export default function RevendaPage(){
       <thead><tr>{th('produto','Produto')}{COLS.filter(c=>on(c.key)).map(c=>th(c.key,c.key==='min20'?(goalMode==='brl'?'Preço mín. p/ '+brl(goalBrl)+' de lucro':'Preço mín. p/ '+goalPct+'%'):c.label))}<th className={s.actionsCol}><span className={s.srOnly}>Ações</span></th></tr></thead>
       <tbody>{paged.map(r=><Fragment key={r.id}><tr>
         <td className={s.productCol}>
-          <div className={s.productName}><b title={r.produto}>{r.produto}</b>{r.preco_caixa&&<span className={s.tag}>preço de caixa</span>}{r.sem_comparavel_em&&!r.analise_v2_em&&<span className={s.noCompSeal} title={'Pesquisado em '+String(r.sem_comparavel_em).slice(0,10).split('-').reverse().join('/')+': não há na Shopee 7 anúncios iguais ou parecidos para comparar. O veredito é só uma estimativa.'}>⚠ Sem comparável</span>}{r.analise_v2_em&&<span className={s.v2Seal} title={'Analisado pelo método V2 em '+String(r.analise_v2_em).slice(0,10).split('-').reverse().join('/')}>✔ V2</span>}</div>
+          <div className={s.productName}><b title={r.produto}>{r.produto}</b>{r.preco_caixa&&<span className={s.tag}>preço de caixa</span>}{r.sem_comparavel_em&&!r.analise_v2_em&&<span className={s.noCompSeal} title={'Pesquisado em '+String(r.sem_comparavel_em).slice(0,10).split('-').reverse().join('/')+': não há na Shopee 7 anúncios iguais ou parecidos para comparar. O veredito é só uma estimativa.'}>⚠ Sem comparável</span>}{isPreliminar(r)&&!r.analise_v2_em&&<span className={s.prelimSeal} title="Análise rápida: só a primeira página da busca foi olhada, sem abrir 7 anúncios comparáveis. O veredito é só uma estimativa.">⏳ Preliminar</span>}{r.analise_v2_em&&<span className={s.v2Seal} title={'Analisado pelo método V2 em '+String(r.analise_v2_em).slice(0,10).split('-').reverse().join('/')}>✔ V2</span>}</div>
           {tagsOf(r).length>0&&<div className={s.marks}>{tagsOf(r).map(m=><span key={m} className={s['mk_'+marcadorTone(m)]}>{m}</span>)}</div>}
           {!on('fornecedor')&&<div className={s.supplier}>{r.fornecedor||'Fornecedor não informado'}{r.link_fornecedor&&<> · <a href={r.link_fornecedor} target="_blank" rel="noopener noreferrer" className={s.link}>Ver no fornecedor ↗</a></>}</div>}
           <small className={s.muted}>{r.pesquisado_em?'Pesquisado em '+String(r.pesquisado_em).split('-').reverse().join('/'):'Aguardando análise'}</small>

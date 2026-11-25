@@ -1,7 +1,9 @@
 // Marcadores que o usuário coloca em cada produto do Garimpo de revenda.
 export const MAX_MARCADORES=8;
 export const MAX_MARCADOR_LEN=30;
-export const PRESET_MARCADORES=['Sem estoque','Vou testar','Análise equivocada'];
+export const PRESET_MARCADORES=['Sem estoque','Vou testar','Análise equivocada','Preliminar'];
+// Selo "Preliminar": a observação do produto começa com PRELIMINAR (análise rápida, sem os 7 comparáveis abertos).
+export function isPreliminar(r){return /^\s*PRELIMINAR/i.test(String((r&&r.observacao)||''));}
 // Limpa a lista: tira espaços repetidos, vazios e repetidos (sem diferenciar maiúsculas). Devolve null se for inválida.
 export function cleanMarcadores(input){
   if(!Array.isArray(input))return null;
@@ -20,6 +22,7 @@ export function marcadorTone(t){
   const k=String(t||'').toLowerCase();
   if(k==='sem estoque')return 'estoque';
   if(k==='vou testar')return 'testar';
+  if(k==='preliminar')return 'prelim';
   if(k==='análise equivocada'||k==='analise equivocada')return 'erro';
   return 'outro';
 }
